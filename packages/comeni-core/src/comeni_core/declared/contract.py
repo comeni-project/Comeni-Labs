@@ -99,6 +99,9 @@ class InputPort(BaseModel):
     """
     cardinality: Cardinality = Cardinality.ONE
     """How many channel items each process invocation receives."""
+    required: bool = True
+    """Whether the process can run without this input (#460). An optional input is left out
+    unless switched on, and its `nf_inputs` entry says what to pass instead (`absent`)."""
 
     @model_validator(mode="before")
     @classmethod
@@ -121,6 +124,14 @@ class InputPort(BaseModel):
         if self.state_preferred and not self.prefer:
             object.__setattr__(self, "prefer", self.state_preferred)
         return self
+
+    @model_serializer(mode="wrap")
+    def _no_default_required(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Left out when required, so a contract that says nothing keeps its digest."""
+        data = handler(self)
+        if self.required:
+            data.pop("required", None)
+        return data
 
     def alternatives(self) -> list[Alternative]:
         """The conventional form first, the structural form as the fallback.
@@ -158,6 +169,9 @@ class OutputPort(BaseModel):
     """The file formats it writes, as `main.nf` says (`tsv`; `folder` for a directory). Shown
     to people and checked against the module; it takes no part in matching, so tools writing
     the same content in different layouts stay interchangeable."""
+    produced_when: dict[str, Any] | None = None
+    """When the process writes this output (#460): `None` is always, otherwise a `when` over
+    `given.<input>` and `param.<name>` facts. QUAST's misassemblies exist only with a reference."""
 
     @model_validator(mode="before")
     @classmethod
@@ -174,6 +188,8 @@ class OutputPort(BaseModel):
         dumped = handler(self)
         if not dumped.get("format"):
             dumped.pop("format", None)
+        if self.produced_when is None:
+            dumped.pop("produced_when", None)
         return dumped
 
 
@@ -334,6 +350,18 @@ class NfInput(BaseModel):
     join: Join | None = None
     """How multiple ports are matched; required because no join policy is universally safe."""
 
+    absent: int = 0
+    """Width of the empty tuple passed when this entry's ports are all left out (#460). The arity
+    rule is `empty`'s. Required on an entry whose ports are optional, forbidden otherwise."""
+
+    @model_serializer(mode="wrap")
+    def _no_default_absent(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Left out when 0, so a contract that says nothing keeps its digest."""
+        data = handler(self)
+        if not self.absent:
+            data.pop("absent", None)
+        return data
+
     @model_validator(mode="after")
     def _join_declared_when_it_matters(self) -> "NfInput":
         """Require an explicit join policy when one input combines multiple ports."""
@@ -345,6 +373,59 @@ class NfInput(BaseModel):
                 f"is no default: guessing wrong produces a green run with wrong results."
             )
         return self
+
+
+class ConstraintRow(BaseModel):
+    """What a tool allows (#460): when `when` holds, these ports or params must or must not be
+    given. A fact about the tool, never a choice; choosing is a rule's (#461)."""
+
+    model_config = _NO_EXTRAS
+
+    when: dict[str, Any] = Field(default_factory=dict)
+    """A condition over `given.<port>` and `param.<name>` facts, in rules' `when` syntax."""
+    requires: list[str] = Field(default_factory=list)
+    forbids: list[str] = Field(default_factory=list)
+    because: str = Field(min_length=1)
+    cite: str = ""
+
+    @model_validator(mode="after")
+    def _says_something(self) -> "ConstraintRow":
+        if not self.requires and not self.forbids:
+            raise ValueError("a constraint row requires or forbids something")
+        return self
+
+
+class GroupKind(StrEnum):
+    """Boutiques' groups: shorthand that expands into constraint rows."""
+
+    ONE_OF = "one_of"
+    """Exactly one member is given."""
+    ANY_OF = "any_of"
+    """At least one member is given."""
+    ALL_OR_NONE = "all_or_none"
+    """All members are given, or none."""
+
+
+class Group(BaseModel):
+    model_config = _NO_EXTRAS
+
+    kind: GroupKind
+    members: list[str] = Field(min_length=2)
+    when: dict[str, Any] = Field(default_factory=dict)
+    because: str = Field(min_length=1)
+
+
+def _when_keys(when: dict[str, Any], ports: set[str], params: set[str]) -> list[str]:
+    """The keys of a contract's `when` that name nothing in it. Phase 1 reads `given.<port>`
+    and `param.<name>` only; a measurement waits for per-sample facts (#466)."""
+    wrong = []
+    for key, value in when.items():
+        space, _, name = key.partition(".")
+        if space == "given" and name in ports and value not in ("present", "absent"):
+            wrong.append(f"{key}: {value!r} (an input is `present` or `absent`)")
+        elif not ((space == "given" and name in ports) or (space == "param" and name in params)):
+            wrong.append(key)
+    return wrong
 
 
 class Provenance(BaseModel):
@@ -388,7 +469,70 @@ class ModuleContract(BaseModel):
     ext_args: "str | ContractExtArgs" = ""
     """Baseline argument text, optionally paired with the premise that requires it."""
 
+    constraints: list[ConstraintRow] = Field(default_factory=list)
+    """What this tool allows between its inputs and params (#460)."""
+    groups: list[Group] = Field(default_factory=list)
+
     provenance: Provenance
+
+    @model_serializer(mode="wrap")
+    def _no_default_constraints(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Left out when empty, so a contract that says nothing keeps its digest."""
+        data = handler(self)
+        for field in ("constraints", "groups"):
+            if not data.get(field):
+                data.pop(field, None)
+        return data
+
+    @model_validator(mode="after")
+    def _constraints_name_real_things(self) -> "ModuleContract":
+        """MD0602 for a name the contract does not declare; MD0601 for an input slot that
+        cannot be emitted when its optional ports are left out."""
+        ports = {p.name for p in self.consumes}
+        params = {p.name for p in self.params}
+        clauses = [("a constraint row", r.when, [*r.requires, *r.forbids])
+                   for r in self.constraints]
+        clauses += [(f"a {g.kind} group", g.when, g.members) for g in self.groups]
+        clauses += [(f"output {o.name!r}", o.produced_when or {}, []) for o in self.produces]
+        for where, when, names in clauses:
+            unknown = _when_keys(when, ports, params)
+            unknown += [n for n in names if n not in ports | params]
+            if unknown:
+                raise ValueError(coded(
+                    "MD0602", f"{self.id}: {where} names {', '.join(unknown)}, which is not an "
+                    "input or param of this contract. Conditions test `given.<input>` or "
+                    "`param.<name>`; a measurement waits for per-sample facts (#466)"))
+        self._optional_slots_can_be_emitted(ports)
+        return self
+
+    def _optional_slots_can_be_emitted(self, ports: set[str]) -> None:
+        required = {p.name: p.required for p in self.consumes}
+        if not self.nf_inputs and not all(required.values()):
+            raise ValueError(coded(
+                "MD0601", f"{self.id} has optional inputs but no nf_inputs: declare each "
+                "optional input's slot with `absent`, the empty tuple's width"))
+        together = [set(g.members) for g in self.groups if g.kind is GroupKind.ALL_OR_NONE]
+        for entry in self.nf_inputs:
+            optional = [p for p in entry.ports if not required.get(p, True)]
+            if not optional:
+                if entry.absent:
+                    raise ValueError(coded(
+                        "MD0601", f"{self.id}: nf_inputs {entry.ports} declares absent, but "
+                        "its inputs are required, so it is never left out"))
+                continue
+            problem = ""
+            if len(optional) != len(entry.ports):
+                problem = "mixes required and optional inputs"
+            elif not entry.absent:
+                problem = "has only optional inputs and no `absent` width"
+            elif len(entry.ports) > 1 and set(entry.ports) not in together:
+                problem = "has several optional inputs that are not one all_or_none group"
+            if problem:
+                raise ValueError(coded("MD0601", f"{self.id}: nf_inputs {entry.ports} {problem}"))
+
+    def optional_ports(self) -> list[str]:
+        """The inputs the process can run without, in declaration order."""
+        return [p.name for p in self.consumes if not p.required]
 
     @model_validator(mode="after")
     def _one_binding_per_param(self) -> "ModuleContract":
@@ -430,6 +574,12 @@ class ModuleContract(BaseModel):
                 raise missing_via from exc
             raise
         contract.check_against(vocab)
+        # Late import: constraints evaluates contracts, so it imports this module.
+        from comeni_core.declared.constraints import check_constraints
+
+        findings = check_constraints(contract)
+        if findings:
+            raise ValueError(f"{path}: " + "\n".join(findings))
         return contract
 
     @staticmethod

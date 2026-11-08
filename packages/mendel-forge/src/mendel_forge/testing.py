@@ -13,8 +13,10 @@ from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.module import key_of
 from comeni_core.declared.tooltest import ToolTest
 from comeni_core.diagnostics import coded
-from comeni_core.goal.asked import Goal, GoalInput
+from comeni_core.goal.asked import Goal, GoalInput, InputState
 from comeni_core.plan.ir import (
+    InputDecider,
+    InputRecord,
     IRChannel,
     IREdge,
     IRNode,
@@ -64,17 +66,27 @@ def build_test_pipeline(test: ToolTest, stack: Layers) -> Pipeline:
     tool = stack.registry.get(test.contract)
     edges = _edges(test, steps, tool)
     fed = {(e.to_node, e.to_port) for e in edges}
+    off = left_out(test, tool, fed)
+    fed |= {(TOOL, port) for port in off}
     channels = [
         IRChannel(name=f"{node}_{port.name}", type_id=port.type_id, ports=[f"{node}.{port.name}"])
         for node, contract, _ in steps for port in contract.consumes
         if (node, port.name) not in fed
     ]
-    ir = PipelineIR(nodes=[_node(node, contract, given) for node, contract, given in steps],
-                    edges=edges, channels=channels, registry_layers=[])
+    nodes = [_node(node, contract, given) for node, contract, given in steps]
+    nodes[-1].inputs = [InputRecord(port=port, state=InputState.OFF, by=InputDecider.PERSON,
+                                    reason="off: this test gives it no data") for port in off]
+    ir = PipelineIR(nodes=nodes, edges=edges, channels=channels, registry_layers=[])
     goal = Goal(have=[GoalInput(type_id=c.type_id, name=c.name) for c in channels],
                 want=sorted({p.type_id for p in tool.produces}))
     return Pipeline.of(ir, stack.registry, stack.vocabulary, stack.measurements, stack.paths,
                        goal=goal, locators=locate.locators(stack.paths))
+
+
+def left_out(test: ToolTest, tool: ModuleContract, fed: set) -> list[str]:
+    """The tool's optional inputs this test gives no data, so runs without (#470)."""
+    return sorted(port for port in tool.optional_ports()
+                  if not test.inputs.get(port) and (TOOL, port) not in fed)
 
 
 def _edges(test: ToolTest, steps: list, tool: ModuleContract) -> list[IREdge]:

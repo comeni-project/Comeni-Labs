@@ -8,13 +8,15 @@ Values and selections retain the tier, source, reason, and premise evidence that
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from comeni_core.declared.contract import InputPort, Param
+from comeni_core.declared.constraints import Setup, Verdict, evaluate
+from comeni_core.declared.contract import InputPort, ModuleContract, OutputPort, Param
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import UnknownTypeError, Vocabulary
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import (
     Constraints,
+    InputState,
     ProducerExclusion,
     ProducerPin,
     RoleAbsence,
@@ -34,7 +36,13 @@ from comeni_core.plan.tiers import ValueSource
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 from mendel_resolver.premises import Premise, build_premises
-from mendel_resolver.router import IntentConflict, UnroutableError, route
+from mendel_resolver.router import (
+    ConstraintViolation,
+    IntentConflict,
+    UnroutableError,
+    _have_satisfies,
+    route,
+)
 from mendel_resolver.router import _layer_name as _layer_of
 from mendel_resolver.rules import RuleTable
 
@@ -52,6 +60,40 @@ class ParamContext:
     premises: Mapping[str, Premise]
     resolver: AmbiguityResolver
     backed: Mapping[str, object]
+
+
+def _constraints_hold(contract: ModuleContract, node: IRNode) -> Verdict:
+    """The step's constraints once its parameters are resolved (#460). A connection a row
+    forbids, or an input a row requires and cannot have, is refused at build time; a row that
+    depends on an input each run may leave empty is left to the run."""
+    states = {r.port: r.state for r in node.inputs}
+    given = {p.name for p in contract.consumes if p.required}
+    given |= {p for p, s in states.items() if s is InputState.REQUIRED}
+    unknown = frozenset(p for p, s in states.items() if s is InputState.OPTIONAL)
+    params = {p.name: (node.param(p.name).value if node.param(p.name) else None)
+              for p in contract.params}
+    verdict = evaluate(contract, Setup(given=frozenset(given), params=params, unknown=unknown))
+    why = "; ".join(verdict.sentences) or "its constraints"
+    if verdict.missing:
+        raise ConstraintViolation(coded(
+            "MD0609", f"{contract.id} needs {', '.join(verdict.missing)}, which is not "
+            f"connected: {why} — `mendel explain MD0609`."))
+    if verdict.forbidden:
+        raise ConstraintViolation(coded(
+            "MD0610", f"{contract.id} cannot have {', '.join(verdict.forbidden)} with these "
+            f"settings: {why} — `mendel explain MD0610`."))
+    return verdict
+
+
+def _not_withheld(withheld: list, port: InputPort, consumer: str) -> None:
+    """MD0608 when the only output that could feed `port` is one its step does not write."""
+    for _node, output, producer in withheld:
+        for alternative in port.alternatives():
+            if output.type_id == alternative.type_id and alternative.states <= output.state:
+                raise ConstraintViolation(coded(
+                    "MD0608", f"{consumer}'s {port.name} needs {producer}'s {output.name}, "
+                    f"which is written only when {output.produced_when}, and this pipeline's "
+                    "settings do not meet that — `mendel explain MD0608`."))
 
 
 def resolve(
@@ -159,6 +201,8 @@ def resolve(
     # valid Nextflow, no flag, and `-stub-run` cannot catch it because nf-core stubs never
     # read their inputs. A consumer must be fed a source that satisfies its required states.
     produced: list[tuple[str, str, str, frozenset[str]]] = []
+    # Outputs a step writes only under a condition this pipeline does not meet (#460).
+    withheld: list[tuple[str, OutputPort, str]] = []
 
     for step in plan.steps:
         contract = registry.get(step.contract_id)
@@ -184,6 +228,7 @@ def resolve(
                 tier=step.presence_tier,
                 reason=step.presence_reason or "required by the pipeline",
             ),
+            inputs=step.inputs,
         )
 
         # The contract's layer is distinct from the layer whose rule selected the step.
@@ -221,10 +266,17 @@ def resolve(
                 )
             )
 
+        verdict = _constraints_hold(contract, node)
+        off = {r.port for r in node.inputs if r.state is InputState.OFF}
         for port in contract.consumes:
+            if port.name in off:
+                continue
             pinned = goal.constraints.source_at(contract.id, port.name)
             source = _source_for(produced, port, node.id, ir.decisions, resolver,
                                  pinned=_node_of(ir, pinned.producer) if pinned else None)
+            if source is None and not any(_have_satisfies(goal, a.type_id, a.states)
+                                          for a in port.alternatives()):
+                _not_withheld(withheld, port, contract.id)
             if source is not None:
                 from_node, from_port, type_id, states = source
                 ir.edges.append(
@@ -242,7 +294,10 @@ def resolve(
                 )
 
         for port in contract.produces:
-            produced.append((node.id, port.name, port.type_id, port.state))
+            if port.name in verdict.produced:
+                produced.append((node.id, port.name, port.type_id, port.state))
+            else:
+                withheld.append((node.id, port, contract.id))
 
         ir.nodes.append(node)
 

@@ -87,6 +87,12 @@ def module_path(contract: ModuleContract, modules: Mapping[str, Module]) -> Path
     return found.source / f"{ENTRY}.nf"
 
 
+def blocking(found: list[Diagnostic]) -> list[Diagnostic]:
+    """The diagnostics that stop a build: those `diagnostics.yml` declares as refusing.
+    `MD0100` (no source to check) and `MD0611` (an optional emit said always) are reported."""
+    return [d for d in found if diagnostics.spec_for(d.code).refuses]
+
+
 def check(
     registry: Registry,
     modules: Mapping[str, Module],
@@ -218,6 +224,18 @@ def against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Diag
 
     emitted = set(spec.emits)
     for port in contract.produces:
+        if port.name in spec.optional_emits and port.produced_when is None:
+            found.append(
+                Diagnostic(
+                    code="MD0611",
+                    where=contract.id,
+                    summary=f"output {port.name!r} is optional in the module and always "
+                            "written in the contract",
+                    detail=f"    {path}   emit: {port.name} … optional: true",
+                    fix="give it `produced_when`, the condition under which the module "
+                        "writes it, e.g. {given.<input>: present}",
+                )
+            )
         if port.name not in emitted:
             found.append(
                 Diagnostic(

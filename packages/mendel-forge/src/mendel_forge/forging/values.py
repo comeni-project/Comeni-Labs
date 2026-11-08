@@ -3,14 +3,19 @@
 registry's own messages, and an assembled contract is a `ModuleContract` like any other.
 
 Item keys: `contract:process`, `contract:input:<port>`, `contract:output:<port>`,
-`contract:nf_inputs`, `parameters:param:<name>`, `parameters:ext_args`,
+`contract:nf_inputs`, `contract:constraint:row<n>`, `contract:group:group<n>`,
+`parameters:param:<name>`, `parameters:ext_args`,
 `vocabulary:type:<id>`, `vocabulary:measurement:<id>`, `vocabulary:role:<name>`,
 `vocabulary:family:<id>`, `rules:rule:<role>`, `tests:test:<name>`, `<piece>:none`,
 `questions:<subject>`.
 """
 
+import re
+
 from comeni_core.declared.contract import (
+    ConstraintRow,
     ContractExtArgs,
+    Group,
     InputPort,
     ModuleContract,
     NfInput,
@@ -112,6 +117,8 @@ _FAMILIES: dict[str, type] = {
     "contract:input": InputItem,
     "contract:output": OutputItem,
     "contract:nf_inputs": list[NfInput],
+    "contract:constraint": ConstraintRow,
+    "contract:group": Group,
     "parameters:param": ParamItem,
     "parameters:ext_args": ContractExtArgs,
     "vocabulary:type": TypeDeclaration | TypeExtension,
@@ -164,6 +171,10 @@ def items_of(contract: ModuleContract) -> dict[str, JsonValue]:
         items[f"contract:output:{port.name}"] = {"position": n, **port.model_dump(mode="json")}
     if contract.nf_inputs:
         items["contract:nf_inputs"] = [i.model_dump(mode="json") for i in contract.nf_inputs]
+    for n, row in enumerate(contract.constraints, start=1):
+        items[f"contract:constraint:row{n}"] = row.model_dump(mode="json")
+    for n, group in enumerate(contract.groups, start=1):
+        items[f"contract:group:group{n}"] = group.model_dump(mode="json")
     for n, param in enumerate(contract.params):
         items[f"parameters:param:{param.name}"] = {"position": n, **param.model_dump(mode="json")}
     ext = contract.ext_args
@@ -199,9 +210,22 @@ def contract_of(
         produces=family("contract:output:", OutputPort),
         params=family("parameters:param:", Param),
         nf_inputs=validate_value("contract:nf_inputs", values.get("contract:nf_inputs", [])),
+        constraints=_numbered(values, "contract:constraint:"),
+        groups=_numbered(values, "contract:group:"),
         ext_args=ext,
         provenance=provenance,
     )
+
+
+def _numbered(values: dict[str, JsonValue], prefix: str) -> list:
+    """Items keyed `<prefix><word><n>` (an item name starts with a letter), validated, in the
+    order of their trailing number, then by name."""
+    def order(key: str) -> tuple[int, str]:
+        digits = re.search(r"(\d+)$", key)
+        return (int(digits.group(1)) if digits else 0, key)
+
+    keys = sorted((k for k in values if k.startswith(prefix)), key=order)
+    return [validate_value(k, values[k]) for k in keys]
 
 
 def _strip(item: BaseModel, model: type[BaseModel]) -> BaseModel:

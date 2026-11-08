@@ -137,11 +137,25 @@ def _shared(source: Path, target: Path, relative: Path) -> list[Path]:
     if target.exists():
         if filecmp.cmp(source, target, shallow=False):
             return []
+        missing = _states_missing(source, target)
+        if missing == []:
+            return []  # an extension the registry already has (#473)
+        wanted = f"add the states {', '.join(missing)}" if missing else "change that file"
         raise ValueError(coded("MF0517", f"the draft would change a shared file, {relative}: "
-                               "change that file by hand in comeni-registry"))
+                               f"{wanted} by hand in comeni-registry"))
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(source, target)
     return [target]
+
+
+def _states_missing(source: Path, target: Path) -> list[str] | None:
+    """For a type extension (`add_states`), the states the registry's type still lacks; `None`
+    when the draft file is not an extension of that type."""
+    draft, shared = yaml.safe_load(source.read_text()), yaml.safe_load(target.read_text())
+    if (not isinstance(draft, dict) or "add_states" not in draft
+            or draft.get("id") != shared.get("id")):
+        return None
+    return sorted(set(draft["add_states"]) - set(shared.get("states") or []))
 
 
 def _roles(path: Path, checkout: Path) -> list[Path]:
@@ -180,8 +194,8 @@ def check(checkout: Path) -> list[str]:
     except ValueError as error:
         return [str(error)]
     found = [f"{d.code} {d.where}: {d.summary}"
-             for d in conformance.check(stack.registry, stack.modules, stack.measurements)
-             if d.code != "MD0100"]
+             for d in conformance.blocking(
+                 conformance.check(stack.registry, stack.modules, stack.measurements))]
     with contextlib.redirect_stdout(io.StringIO()) as printed:
         if layer_verbs._docs_verb([checkout], None, False, in_place=True) != 0:
             found.append(f"the tool pages could not be written: {printed.getvalue()}")

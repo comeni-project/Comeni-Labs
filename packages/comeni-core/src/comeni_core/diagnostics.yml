@@ -1230,7 +1230,7 @@ MD0304:
     file can see.
 
 MD0305:
-  emitted_by: resolver
+  emitted_by: core
   concern: routing
   says: "a `when` clause uses a mapping predicate nothing implements"
   fires_on: [build, upgrade, profile]
@@ -1257,7 +1257,7 @@ MD0305:
     Spec §4.5.
 
 MD0312:
-  emitted_by: resolver
+  emitted_by: core
   concern: routing
   says: "a scalar comparison is applied to a per-sample measurement"
   fires_on: [build, upgrade, profile]
@@ -2203,6 +2203,141 @@ MD0228:
     legal Groovy and appears throughout these expressions — `.map { gtf -> … }` — so
     everything else is left exactly as written. There is no template language here, for the
     same reason Plan 1.15's `transform` is not one: no parser, no precedence, no second name.
+MD0601:
+  emitted_by: core
+  concern: loading
+  says: "an nf_inputs entry cannot be emitted when its optional inputs are left out"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Give the entry that holds an optional input `absent: <width>`, the width of the empty tuple
+    the process expects (`2` for `tuple val(meta), path(x)`). Put each optional input in its own
+    entry, or put several together only when they form one `all_or_none` group. Remove `absent`
+    from an entry whose inputs are required.
+  explanation: |
+    When an optional input is left out, the compiler still has to fill its slot in the process
+    call, and Nextflow matches tuple arity: `[[:], []]` for a two-element tuple. The width is
+    declared, not guessed, because a tuple's arity is not always one plus its ports (#460).
+
+MD0602:
+  emitted_by: core
+  concern: loading
+  says: "a contract's constraint names an input or param it does not declare"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Spell the name as the contract declares it, case included. A condition tests
+    `given.<input>` (the input is connected) or `param.<name>` (a declared param's value).
+  explanation: |
+    A misspelt name in a constraint would never hold, so the constraint would silently do
+    nothing. Measurements such as `paired` are not yet legal in a contract's condition: they can
+    differ per sample, which is #466.
+
+MD0603:
+  emitted_by: core
+  concern: loading
+  says: "no combination of inputs and params satisfies a contract's constraints"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Read the rows together: one of them forbids what another, or a required input, needs. Remove or narrow the row that contradicts the tool's own main.nf.
+  explanation: |
+    Every combination of the contract's optional inputs and of the values its conditions test was tried, and each broke a row. The tool could never run, so the contract is refused (#460).
+
+MD0604:
+  emitted_by: core
+  concern: loading
+  says: "an optional input is connected in no combination the constraints allow"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    A row forbids the input whenever it could be given. Narrow that row, or remove the input if the tool really never uses it.
+  explanation: |
+    A dead input is an option the builder would offer and the engine would always refuse.
+
+MD0605:
+  emitted_by: core
+  concern: loading
+  says: "an optional input is connected in every combination the constraints allow"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Mark it `required: true`, or relax the row that requires it unconditionally.
+  explanation: |
+    An input every valid setup connects is required in fact; calling it optional would offer a switch that can only be refused.
+
+MD0606:
+  emitted_by: core
+  concern: loading
+  says: "an output's `produced_when` holds in no combination the constraints allow"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Check the output's condition against the rows: it tests an input or a value the rows never allow.
+  explanation: |
+    An output that is never written would be offered to later steps that would then wait for nothing.
+
+MD0607:
+  emitted_by: core
+  concern: loading
+  says: "a contract has too many combinations to check"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Reduce the optional inputs or the params its conditions test, or split the contract by mode (#464).
+  explanation: |
+    The checks try every combination, bounded at 4096. Above the bound the contract is refused rather than checked partly, so a clean result always means every case was tried.
+
+MD0608:
+  emitted_by: resolver
+  concern: routing
+  says: "an output a later step needs is not written with this step's settings"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Set the parameter its condition tests (the message names it), or route the later step to an output that is always written.
+  explanation: |
+    A tool writes some outputs only under a parameter's value. Choosing that value is a decision (#461); until one is made, the build refuses rather than wiring a step to a file that will not exist.
+
+MD0609:
+  emitted_by: resolver
+  concern: routing
+  says: "a tool's input is needed, but it was switched off or cannot be connected"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Switch the input on, or remove the step that needs it. The message says what needs it and why.
+  explanation: |
+    An optional input can be needed for two reasons: a later step needs an output that is written only with it, or one of the tool's constraint rows requires it given what else is connected (#460).
+
+MD0610:
+  emitted_by: resolver
+  concern: routing
+  says: "a connection or setting is forbidden by the tool's constraints"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Switch off the input, or change the setting, that the constraint names.
+  explanation: |
+    Constraints say what a tool allows. A forbidden value is refused at build time, never silently dropped from the pipeline (#460).
+
+MD0611:
+  emitted_by: compiler
+  concern: conformance
+  says: "an output the module marks `optional: true` is always written, by the contract"
+  fires_on: [build]
+  refuses: false
+  fix: |
+    Give the output `produced_when`: the condition under which the module writes it, such as
+    `{given.fasta: present}` for QUAST's reference-only reports.
+  explanation: |
+    A later step wired to an output the module may not write waits for a file that never
+    comes. The module's own `optional: true` is the evidence; the contract says when (#460).
+    It is reported, not refused: a module marks an output optional when *some* call omits it,
+    and a contract that never omits it is right to say it is always written. STAR's `bam`:
+    the module adds `--outSAMtype BAM Unsorted` unless `ext.args` sets another `--outSAMtype`,
+    and the curated contract sets none.
+
 MF0500:
   emitted_by: forge
   concern: catalogue
@@ -2447,6 +2582,42 @@ MF0519:
   explanation: |
     A release is what installations following `latest` move to, so it is cut only from a green main,
     and tags exactly the commit whose checks were read.
+MF0520:
+  emitted_by: forge
+  concern: catalogue
+  says: "an input arrives at a different scope than its type"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Pick a type whose scope matches how the input arrives, or propose one. nf-core names the
+    per-sample map `meta` and a reference's map `meta2`, `meta3` and so on.
+  explanation: |
+    A type says whether it arrives once per run (a reference) or once per sample. An input whose
+    module tuple suggests the other scope is probably the wrong type. Advisory: the person decides.
+MF0521:
+  emitted_by: forge
+  concern: catalogue
+  says: "two inputs of one tool have the same type"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Check that both inputs really hold the same kind of file. A tool rarely reads one kind twice;
+    usually one of them is a reference or a different kind of result.
+  explanation: |
+    The engine connects inputs by type, so two inputs with one type are filled from the same
+    source unless something else separates them. Advisory: the person decides.
+MF0522:
+  emitted_by: forge
+  concern: catalogue
+  says: "an input's file format differs from its type's format"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Pick a type of the format the module reads, or propose one. The format comes from the
+    module's meta.yml pattern, or from the input's name when that is a format's name.
+  explanation: |
+    A type ID names its format (`annotation.gtf` is GTF). A module documented to read GFF is not
+    connected safely to a GTF source. Advisory: the person decides.
 MV0001:
   emitted_by: vendor
   concern: vendoring
@@ -2832,6 +3003,39 @@ MD0509:
 
     It is `illegal` rather than `unmet` because nothing about the node can be checked — every
     later check reads a contract this one could not load.
+
+MF0530:
+  emitted_by: forge
+  concern: catalogue
+  says: "an output main.nf marks optional has no `produced_when`"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Give the output `produced_when`, the condition under which the module writes it, such as {given.fasta: present}. If the contract never omits it (as STAR's default --outSAMtype BAM does), leave it and say why in the item's reason.
+  explanation: |
+    The module's own `optional: true` is the evidence that some calls do not write it (#460).
+
+MF0531:
+  emitted_by: forge
+  concern: catalogue
+  says: "an input the script reads only under `?:` is marked required"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Mark the input `required: false`, and give its nf_inputs entry `absent`.
+  explanation: |
+    `def x = input ? "--flag $input" : ''` means the process runs without the input, so it is optional (#460).
+
+MF0532:
+  emitted_by: forge
+  concern: catalogue
+  says: "an nf_inputs entry whose inputs are all optional has no `absent`"
+  fires_on: [forging]
+  refuses: false
+  fix: |
+    Give the entry `absent`: the width of the empty tuple the process expects (2 for `tuple val(meta), path(x)`).
+  explanation: |
+    Without it the compiler cannot fill the slot when the inputs are left out; assembly would refuse it as MD0601 (#460).
 
 MI0001:
   emitted_by: api

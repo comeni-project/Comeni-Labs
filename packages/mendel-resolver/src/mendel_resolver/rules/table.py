@@ -33,9 +33,9 @@ from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
 from comeni_core.goal.premise import PremiseRecord
+from comeni_core.logic.when import matches, tier_of_row
 from pydantic import BaseModel, ConfigDict, Field
 
-from mendel_resolver.predicates import matches, tier_of_row
 from mendel_resolver.rules.format import (
     _GOAL_FACTS,
     Decision,

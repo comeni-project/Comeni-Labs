@@ -2282,6 +2282,8 @@ export interface components {
             exclusions?: components["schemas"]["ProducerExclusion-Input"][];
             /** Sources */
             sources?: components["schemas"]["SourcePin"][];
+            /** Inputs */
+            inputs?: components["schemas"]["InputChoice"][];
         };
         /**
          * Constraints
@@ -2300,6 +2302,8 @@ export interface components {
             exclusions?: components["schemas"]["ProducerExclusion-Output"][];
             /** Sources */
             sources?: components["schemas"]["SourcePin"][];
+            /** Inputs */
+            inputs?: components["schemas"]["InputChoice"][];
         };
         /** Constructor */
         Constructor: {
@@ -2452,7 +2456,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source";
+            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source" | "optional_input";
             /** Subject */
             subject: string;
             /** Value */
@@ -3209,6 +3213,18 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * InputChoice
+         * @description A person's choice for one optional input of one tool. Like `SourcePin`, it is the
+         *     person's by being in the goal's constraints, so it carries no `by`.
+         */
+        InputChoice: {
+            /** Contract */
+            contract: string;
+            /** Port */
+            port: string;
+            state: components["schemas"]["InputState"];
+        };
         /** InputDecision */
         InputDecision: {
             /** Key */
@@ -3227,6 +3243,15 @@ export interface components {
             /** @default person_said */
             origin: components["schemas"]["FactOrigin"];
         };
+        /**
+         * InputState
+         * @description Whether a tool's optional input is part of the pipeline (#460).
+         *
+         *     `off` leaves it out. `optional` makes it a pipeline input each run may supply or leave
+         *     empty. `required` makes every run supply it, or wires it from another step.
+         * @enum {string}
+         */
+        InputState: "off" | "optional" | "required";
         /** InspectedFactView */
         InspectedFactView: {
             /** Measurement */
@@ -3260,6 +3285,13 @@ export interface components {
             current_n: number;
             /** Revisions */
             revisions: components["schemas"]["RevisionView"][];
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["QuestionFinding"][];
+            /** Sentence */
+            sentence?: string | null;
         };
         JsonValue: unknown;
         /** Kept */
@@ -3990,6 +4022,22 @@ export interface components {
             type_id: string;
             /** Side */
             side: string;
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
+            /** State */
+            state?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Adds
+             * @default []
+             */
+            adds: string[];
+            /** Only */
+            only?: string | null;
             /** Met */
             met: boolean;
             /**
@@ -4191,6 +4239,24 @@ export interface components {
              * @default false
              */
             optional: boolean;
+            /** Arrival */
+            arrival?: string | null;
+            /** Channel */
+            channel?: string | null;
+            /**
+             * Findings
+             * @default []
+             */
+            findings: components["schemas"]["QuestionFinding"][];
+        };
+        /** QuestionFinding */
+        QuestionFinding: {
+            /** Code */
+            code: string;
+            /** Says */
+            says: string;
+            /** Option */
+            option?: string | null;
         };
         /**
          * ReadOnlyHere

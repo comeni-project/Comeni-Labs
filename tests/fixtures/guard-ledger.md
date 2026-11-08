@@ -5463,3 +5463,63 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `depends_on` assertion (`/tmp/forge441-dependency-red.log`). Both mutations were restored.
   The Family constructor creation/edit guards failed before its schema fixture exposed the
   kind (`/tmp/forge441-ui-red.log`); the complete frontend suite then passed (996 tests).
+
+- 2026-11-04, #451 option `new` from the registry:
+  `test_the_engine_not_the_model_says_which_options_are_new` failed with "the draft was refused:
+  the model's `new` flag decided, not the registry" once `mark_new` was removed from
+  `draft_piece`, and passed once it was restored.
+- 2026-11-04, #452 engine checks: disabling the scope comparison in `checks.findings` made
+  `test_quasts_walk_suggestions_are_each_flagged` fail at its code map, because consensus lost
+  MF0520. Restored.
+- 2026-11-04, #453 reviewer may say nothing: restoring v1's exact-key rule in `review_piece` made
+  `test_a_reviewer_with_no_concern_says_nothing_and_is_not_asked_again` fail with "The reviewer
+  commented on items it was not given, or twice on one." Restored.
+- 2026-11-04, #454 flagged suggestion not pre-selected: forcing `flagged = false` in
+  `QuestionCards.tsx` made "an engine finding shows on the collapsed row…" fail at the missing
+  `Answer:` button assertion. Restored; the complete frontend suite passed.
+- 2026-11-04, #453 reviewer key label: with the label stripping removed from `review_piece`,
+  `test_a_reviewer_key_with_the_prompts_status_label_is_read_as_the_key` failed with "The
+  reviewer commented on items it was not given". That is the refusal a live gemma3:12b reply
+  hit. Restored.
+- 2026-11-05, #457 per-purpose call settings: written before the change,
+  `test_a_model_choice_can_tune_the_call` failed because the model setting accepted only
+  `connection` and `model`, and `test_a_purpose_tunes_its_own_call` failed because
+  `ModelAccess` had no `reasoning_effort` and the choice's temperature was ignored. On the
+  live stack, a forge call to `chatgpt/gpt-6.1-sol` at the installation's temperature 0 was
+  refused ("doesn't support temperature=0.0 while reasoning is active"); with Settings →
+  Models → Adapting tools at temperature 1, it answered.
+- 2026-11-05, #457 redraft context: `test_a_redraft_sees_only_what_the_person_settled` failed
+  with "the earlier open proposal anchored the redraft" on the v5 code, which listed every item
+  as "so far". That is how GPT left gemma's open quast questions alone. With `_DRAFTED_WITH`
+  set back to v5, `test_the_questions_prompt_says_the_versions_topic_is_not_a_port` failed.
+  Both pass on v6. Restored.
+- 2026-11-05, #459 contract prompt: `test_the_contract_prompt_teaches_nf_include_and_a_folder_format`
+  failed on `forge.draft.v4` with "an example still ends in .nf". With `settled` narrowed back
+  to questions only, `test_a_contract_redraft_does_not_see_its_earlier_open_proposal` failed.
+  Both pass. Restored. Live on quast with GPT: on v5 the first try was accepted, with
+  `modules/nf-core/quast/main` and `results` as `folder`.
+- 2026-11-07, #468 forge chat item kinds: `test_the_chat_can_add_the_first_constraint_row`
+  failed on `forge.chat.v2` ("'contract:constraint:row<n>' in …" false). With the guide's
+  `tests:test` line renamed, `test_the_item_guide_names_every_kind_the_engine_reads` failed
+  ("does not describe ['tests:test']"); an earlier substring version of it passed against that
+  break and was tightened. Both pass on `forge.chat.v3`. Restored.
+- 2026-11-07, #468 draft param domain: `test_the_draft_teaches_a_param_domain_by_its_kind` failed
+  on `forge.draft.v6` (the domain sentence absent). Passes on `forge.draft.v7`. Restored.
+- 2026-11-07, #468 new type fields: `test_the_guide_spells_out_a_new_type` failed with the guide
+  before this change ("scope" absent). Passes. Restored.
+- 2026-11-07, #470 forge tests leave an optional input out: without the fix,
+  `test_an_optional_input_a_test_gives_no_data_is_off` failed (channels included `tool_fasta`,
+  `tool_gff`) and `test_a_test_may_leave_an_optional_input_out` failed ("nothing feeds input
+  'b'"). Both pass. Restored.
+- 2026-11-07, #471 weblog plugin: without the fix,
+  `test_the_site_config_loads_the_weblog_plugin_the_image_installs` failed at import
+  (`WEBLOG_PLUGIN` absent), before its assertions; the defect itself was seen in the worker
+  log (`Unrecognized config option 'weblog.enabled'`) and in a run stuck `queued`. Passes.
+- 2026-11-07, #472 folder outputs in forge tests: `test_a_folder_output_is_matched_by_its_folder`
+  failed without the fix ("output results: nothing published matches quast"). Passes. Restored.
+- 2026-11-07, #473 publishing a type extension: without the fix,
+  `test_an_extension_the_registry_already_has_is_placed_as_nothing` failed (MF0517 "would
+  change a shared file" though the state was there). Passes. Restored.
+- 2026-11-08, #475 deploy secrets in tests: `test_deploy_secrets_from_the_developer_environment_are_dropped`
+  failed before `configure` dropped them; with tokens in `.env`, 64 Wiener and forge tests failed
+  (401s, a forge token found). Passes, and those tests pass.

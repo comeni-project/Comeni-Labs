@@ -161,3 +161,21 @@ def test_pending_families_are_separate_from_type_and_role_names(stack, own, expe
     seen = known(stack, pending=frozenset({"assembly"}), pending_families=frozenset({"assembly"}))
     assert pending_used(items, seen) == set()
     assert pending_families_used(items, seen) == expected
+
+
+def _test_items(inputs: dict) -> dict:
+    return {"contract:input:a": {"position": 0, "name": "a", "type_id": "fastq.reads"},
+            "contract:input:b": {"position": 1, "name": "b", "type_id": "genome.fasta",
+                                 "required": False},
+            "contract:output:o": {"position": 0, "name": "o", "type_id": "qc.report"},
+            "tests:test:t": {"inputs": inputs, "expect": [{"port": "o", "pattern": "*"}]}}
+
+
+def test_a_test_may_leave_an_optional_input_out(stack):
+    """#470: QUAST's no-reference test was told "nothing feeds input 'fasta'"."""
+    from mendel_forge.forging.validate import _test_problems
+
+    for inputs in ({"a": ["x"]}, {"a": ["x"], "b": []}):
+        assert _test_problems(_test_items(inputs), known(stack)) == []
+    says = [p.says for p in _test_problems(_test_items({"a": [], "b": ["y"]}), known(stack))]
+    assert says == ["tests:test:t: nothing feeds input 'a'"]

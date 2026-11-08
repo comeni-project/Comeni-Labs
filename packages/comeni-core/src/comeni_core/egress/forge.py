@@ -38,6 +38,22 @@ class ModuleFacts(EgressPayload):
     """Its `tests/main.nf.test`: public module source, which test files it uses and how."""
 
 
+class TypeScope(StrEnum):
+    """How a type arrives: once for the whole run (a reference) or once per sample."""
+
+    RUN = "run"
+    SAMPLE = "sample"
+
+
+class KnownType(EgressPayload):
+    """A registry type's declared meaning (#453): what the page shows beside each option."""
+
+    id: TypeId
+    name: Text = ""
+    scope: TypeScope = TypeScope.SAMPLE
+    explain: Text = ""
+
+
 class KnownIds(EgressPayload):
     """What a reply may name: the registry's ids, and pending ones from assembled drafts."""
 
@@ -49,6 +65,8 @@ class KnownIds(EgressPayload):
     pending: list[TypeId] = []
     families: list[TypeId] = []
     pending_families: list[TypeId] = []
+    described: list[KnownType] = []
+    """Each registry type with its name, scope and explanation, not the bare id alone."""
 
 
 class ForgeItemStatus(StrEnum):
@@ -67,6 +85,14 @@ class ForgeItemText(EgressPayload):
     status: ForgeItemStatus = ForgeItemStatus.PROPOSED
 
 
+class ForgeFinding(EgressPayload):
+    """An engine check on a question (#452), computed from the items and registry above."""
+
+    item: Text
+    code: Text
+    says: Text
+
+
 class ForgeTurn(EgressPayload):
     role: AuthoringRole
     content: Text
@@ -79,3 +105,4 @@ class ForgeRequest(EgressPayload):
     known: KnownIds
     items: list[ForgeItemText] = []
     turns: list[ForgeTurn] = []
+    findings: list[ForgeFinding] = []

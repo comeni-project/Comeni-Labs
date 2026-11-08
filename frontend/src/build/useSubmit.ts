@@ -69,21 +69,34 @@ export function useSubmit(draftId: string | null, name = "") {
         artifact_id: artifact?.artifact_id,
         // The samplesheet replaces `input`'s string. Wiener accepts either — a laboratory that
         // already has a CSV gives its path, and the editor is a convenience over that.
-        params: sheet ? { ...values, input: rows } : values,
+        // Trimmed, so a value that is only spaces is empty here as it is in the check above:
+        // Groovy would read "  " as given (second review).
+        params: Object.fromEntries(Object.entries(sheet ? { ...values, input: rows } : values)
+          .map(([name, value]) => [name, typeof value === "string" ? value.trim() : value])),
         executor: "local",
       }),
   });
 
   const sheet = artifact?.input_form === "samplesheet";
 
+  const optional = new Set(artifact?.optional ?? []);
   const unfilled = [
     ...Object.entries(values)
       // `input` is the samplesheet's own hole, and a table answers it — so an empty string
-      // there is not an unfilled field, it is a field this form does not use.
-      .filter(([name, value]) => value.trim() === "" && !(sheet && name === "input"))
+      // there is not an unfilled field, it is a field this form does not use. An optional
+      // input left empty is a run without it (issue 460), sent as "".
+      .filter(([name, value]) => value.trim() === "" && !(sheet && name === "input")
+                                 && !optional.has(name))
       .map(([name]) => name),
     ...(sheet ? incomplete(rows, artifact?.input_columns ?? []) : []),
   ];
+  // The constraints a run must settle, checked here before sending; the pipeline checks them
+  // again at its start.
+  const given = (name: string) => (values[name] ?? "").trim() !== "";
+  const broken = (artifact?.rules ?? [])
+    .filter((rule) => rule.given.every(given)
+      && ((rule.requires ?? []).some((n) => !given(n)) || (rule.forbids ?? []).some(given)))
+    .map((rule) => rule.says);
 
   return {
     artifact,
@@ -102,6 +115,9 @@ export function useSubmit(draftId: string | null, name = "") {
      *  the button says it first, because a refusal that a disabled button could have prevented
      *  is a round trip a person had to make to learn something the page knew. */
     unfilled,
+    /** The run rules the values entered break, as sentences; starting waits until none. */
+    broken,
+    optional,
     /** **The class, not the message.** Both screens that meet a 401 offer the same thing — a
      *  field to paste the token into — and deciding that by matching on a message string is
      *  how one of them stops recognising it. */

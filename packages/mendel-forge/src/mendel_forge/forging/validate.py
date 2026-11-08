@@ -79,6 +79,39 @@ def _introduced(items: dict[str, JsonValue]) -> tuple[dict[str, frozenset[str]],
     return types, roles
 
 
+def option_is_new(key: str, identifier: str, seen: Known,
+                  items: dict[str, JsonValue]) -> bool:
+    """Whether a question's option needs vocabulary review (#451): the engine decides from the
+    registry, pending and this adaptation's own drafts and approved answers, never the model."""
+    introduced_types, introduced_roles = _introduced(items)
+    if key == "questions:role":
+        return identifier not in (seen.roles | seen.pending | _own(items, "role")
+                                  | introduced_roles)
+    if not key.startswith(("questions:input_type:", "questions:output_type:")):
+        return False
+    try:
+        type_id, states = split(identifier)
+    except ValueError:
+        return True
+    allowed = set(seen.states.get(type_id, frozenset())) | set(introduced_types.get(type_id, ()))
+    own = items.get(f"vocabulary:type:{type_id}")
+    if isinstance(own, dict):
+        allowed |= set(own.get("add_states", own.get("states", [])))
+    declared = type_id in (seen.types | seen.pending | _own(items, "type")
+                           | introduced_types.keys())
+    return not declared or not states <= allowed
+
+
+def mark_new(key: str, value: JsonValue, seen: Known,
+             items: dict[str, JsonValue]) -> JsonValue:
+    """A question with each option's `new` set by `option_is_new`, replacing the model's."""
+    if not isinstance(value, dict) or not isinstance(value.get("options"), list):
+        return value
+    options = [{**o, "new": option_is_new(key, str(o.get("id", "")), seen, items)}
+               if isinstance(o, dict) else o for o in value["options"]]
+    return {**value, "options": options}
+
+
 def _port_signatures(key: str, value: dict) -> list[str]:
     """Read the port models' alternatives and state fields, including `::` input notation."""
     fields = {k: v for k, v in value.items() if k != "position"}
@@ -165,6 +198,13 @@ def _names(items: dict[str, JsonValue], prefix: str) -> set[str]:
     return {k.removeprefix(prefix) for k in items if k.startswith(prefix)}
 
 
+def _required(items: dict[str, JsonValue]) -> set[str]:
+    """The inputs a test must feed: an optional one it leaves out runs without (#470)."""
+    return {key.rsplit(":", 1)[1] for key, value in items.items()
+            if key.startswith("contract:input:")
+            and not (isinstance(value, dict) and value.get("required") is False)}
+
+
 def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
     """A test must fit the contract as it stands: every port fed, every output accounted for."""
     takes, makes = _names(items, "contract:input:"), _names(items, "contract:output:")
@@ -177,7 +217,8 @@ def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
             problems.append(f"{key}: input {port!r} is not a port of this contract")
         for port in sorted(fed - takes):
             problems.append(f"{key}: a setup step feeds {port!r}, not a port of this contract")
-        for port in sorted(takes - set(test.inputs) - fed):
+        given = {port for port, paths in test.inputs.items() if paths}
+        for port in sorted(_required(items) - given - fed):
             problems.append(f"{key}: nothing feeds input {port!r}")
         for name in sorted(set(test.params) - settings):
             problems.append(f"{key}: setting {name!r} is not one this contract declares")

@@ -24,7 +24,9 @@ from wiener_api.services import deletion, launcher, stream, verbs
 from wiener_api.services.artifacts import (
     declared_holes,
     input_shape,
+    optional_holes,
     pipeline_digest,
+    run_rules,
     store,
 )
 from wiener_api.services.projection import state_of
@@ -63,6 +65,16 @@ class SubmitRequest(BaseModel):
     offer them in a dropdown."""
 
 
+class RunRuleView(BaseModel):
+    """A constraint only a run can settle (#460): when every param in `given` is supplied, those
+    in `requires` must be and those in `forbids` must not. `says` is the sentence to show."""
+
+    given: list[str]
+    requires: list[str] = []
+    forbids: list[str] = []
+    says: str
+
+
 class ArtifactStored(BaseModel):
     artifact_id: str
     digest: str
@@ -76,6 +88,11 @@ class ArtifactStored(BaseModel):
     question. The moment somebody has uploaded an artifact is the moment they need to know what
     it wants, so it is said then.
     """
+
+    optional: list[str] = []
+    """The declared parameters a run may leave empty (#460); send `""` for one left empty."""
+    rules: list[RunRuleView] = []
+    """What a run's values must satisfy between optional inputs, checked before sending."""
 
     input_form: Literal["direct", "samplesheet"] = "direct"
     """Whether `params.input` is a glob or the path to a samplesheet.
@@ -210,8 +227,11 @@ async def upload_artifact(bundle: UploadFile,
             pipeline_digest=pipeline_digest(artifact_id),
         ))
     form, columns = input_shape(artifact_id)
+    holes = declared_holes(artifact_id)
     return ArtifactStored(artifact_id=artifact_id, digest=digest, size_bytes=size,
-                          declared=sorted(declared_holes(artifact_id)),
+                          declared=sorted(holes),
+                          optional=sorted(optional_holes(artifact_id) & holes),
+                          rules=[RunRuleView(**r) for r in run_rules(artifact_id)],
                           input_form=form, input_columns=columns)
 
 
@@ -229,6 +249,15 @@ async def submit(body: SubmitRequest) -> RunAccepted:
                 "declared": sorted(holes),
                 "unknown": sorted(supplied - holes),
                 "missing": sorted(holes - supplied),
+            })
+        # `""` means "run without it" only for an input the pipeline takes as optional (#460).
+        optional = optional_holes(body.artifact_id)
+        empty = sorted(name for name, value in body.params.items()
+                       if isinstance(value, str) and not value.strip() and name not in optional)
+        if empty:
+            raise HTTPException(status_code=422, detail={
+                "message": "a required parameter cannot be left empty",
+                "declared": sorted(holes), "empty": empty,
             })
         repository.add(session, settings.lab_id, Run(
             id=run_id, artifact_id=body.artifact_id, submitted_by="operator",

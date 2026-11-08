@@ -11,7 +11,7 @@ from enum import StrEnum
 from secrets import token_hex
 
 from comeni_core.diagnostics import coded
-from comeni_core.goal.asked import Goal, Site
+from comeni_core.goal.asked import Goal, InputState, Site
 from mendel_authoring.decisions import (
     ActorKind,
     Attribution,
@@ -20,6 +20,7 @@ from mendel_authoring.decisions import (
     FactDecision,
     FactOrigin,
     InputDecision,
+    OptionalInputChoice,
     ParameterChoice,
     ProducerChoice,
     RoleChoice,
@@ -42,6 +43,8 @@ from mendel_api.models import (
     PipelineInput,
     PipelineInputRevision,
     PipelineObservation,
+    PipelineOptionalInput,
+    PipelineOptionalInputRevision,
     PipelineParameter,
     PipelineParameterRevision,
     PipelineProducer,
@@ -69,6 +72,7 @@ _FAMILIES = {
     "role": (PipelineRole, PipelineRoleRevision),
     "exclusion": (PipelineExclusion, PipelineExclusionRevision),
     "source": (PipelineSource, PipelineSourceRevision),
+    "optional_input": (PipelineOptionalInput, PipelineOptionalInputRevision),
 }
 
 
@@ -393,6 +397,11 @@ def read(draft_id):
             ],
             sources=[SourceChoice(consumer=r.consumer, port=r.port, producer=r.producer)
                      for s, r in _current(db, draft_id, "source")],
+            optional_inputs=[
+                OptionalInputChoice(contract=r.contract, port=r.port,
+                                    state=InputState(r.state) if r.state else None)
+                for s, r in _current(db, draft_id, "optional_input")
+            ],
         )
 
 
@@ -438,6 +447,12 @@ def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):
                 (source_key(p.consumer, p.port),
                  {"consumer": p.consumer, "port": p.port, "producer": p.producer})
                 for p in decisions.sources
+            ],
+            "optional_input": [
+                (source_key(c.contract, c.port),
+                 {"contract": c.contract, "port": c.port,
+                  "state": c.state.value if c.state else None})
+                for c in decisions.optional_inputs
             ],
         }
         for family, values in families.items():
@@ -618,6 +633,7 @@ _FIELDS = {
     "role": ("role", "absent"),
     "exclusion": ("type_id", "states", "contract", "excluded"),
     "source": ("consumer", "port", "producer"),
+    "optional_input": ("contract", "port", "state"),
 }
 
 _WITHDRAWN = {
@@ -628,6 +644,7 @@ _WITHDRAWN = {
     "role": ("absent", False),
     "exclusion": ("excluded", False),
     "source": ("producer", None),
+    "optional_input": ("state", None),
 }
 """The field a retraction sets, and to what, per family."""
 
@@ -810,7 +827,17 @@ def pin_source(draft_id, consumer, port, producer, *, who, actor_kind=ActorKind.
                       actor_kind=actor_kind, proposal_id=proposal_id).id
 
 
-_INTENTS = ("role", "exclusion", "source")
+def set_optional_input(draft_id, contract, port, state, *, who, actor_kind=ActorKind.PERSON,
+                       proposal_id=None, expected_revision=None):
+    """A person's choice for a tool's optional input (#460): `off`, `optional` or `required`."""
+    with session_scope() as db:
+        draft = _draft(db, draft_id, expected_revision)
+        fields = {"contract": contract, "port": port, "state": InputState(state).value}
+        return _write(db, draft, "optional_input", source_key(contract, port), fields, who=who,
+                      actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+_INTENTS = ("role", "exclusion", "source", "optional_input")
 
 
 def release_intent(draft_id, family, key, *, who, expected_revision=None):

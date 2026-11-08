@@ -35,6 +35,7 @@ from comeni_core.egress.base import EgressPayload
 from comeni_core.goal.asked import Facts, Goal, Intent
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
+from comeni_core.plan.ir import InputRecord
 from comeni_core.plan.tiers import (
     InputForm,
     PremiseOrigin,
@@ -82,6 +83,7 @@ __all__ = [
     "ModuleRef",
     "Pipeline",
     "RegistryProvenance",
+    "RunRule",
     "Setting",
     "Step",
     "StepInput",
@@ -290,6 +292,18 @@ class StepInput(BaseModel):
 # ---------------- MODELS: STEPS AND CHANNELS ----------------
 
 
+class RunRule(BaseModel):
+    """One constraint only a run can settle (#460), in the pipeline's own params: when every
+    param in `given` is supplied, those in `requires` must be and those in `forbids` must not."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    given: list[NfIdentifier]
+    requires: list[NfIdentifier] = Field(default_factory=list)
+    forbids: list[NfIdentifier] = Field(default_factory=list)
+    says: Line
+
+
 class Step(BaseModel):
     """One pipeline process, including its module, arguments, inputs, and provenance."""
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -308,6 +322,14 @@ class Step(BaseModel):
     inputs: list[StepInput] = Field(default_factory=list)
     call: list[CallArg] = Field(default_factory=list)
     settings: list[Setting] = Field(default_factory=list)
+    input_states: list[InputRecord] = Field(
+        default_factory=list, exclude_if=lambda states: not states)
+    """Each optional input's state, who set it and why, sorted by port (#460); omitted when the
+    step's tool has none."""
+    run_rules: list[RunRule] = Field(default_factory=list, exclude_if=lambda rules: not rules)
+    """This step's constraints only a run can settle, because they involve an input each run
+    may leave empty. The pipeline checks them at its start and the run sheet before sending.
+    On the step, not the channel: a channel carries no free text (test_scope_override)."""
 
     @model_validator(mode="after")
     def _no_duplicate_setting(self) -> "Step":
@@ -370,6 +392,18 @@ class Channel(BaseModel):
     meta: list[MetaEntry] = Field(default_factory=list)
     test_data: list[TestDataRef] = Field(default_factory=list)
     """Public example inputs used by the test profile, represented as a list."""
+
+    optional: bool = Field(default=False, exclude_if=lambda optional: not optional)
+    """Each run may supply this input or leave it empty (#460). True only when every step it
+    feeds has it as an optional input."""
+    absent_width: int = Field(default=0, exclude_if=lambda width: not width)
+    """The empty tuple's width passed when a run leaves this input empty."""
+
+    @model_validator(mode="after")
+    def _optional_says_its_placeholder(self) -> "Channel":
+        if self.optional and self.absent_width < 1:
+            raise ValueError(f"optional channel {self.name} has no absent_width")
+        return self
 
     @model_validator(mode="after")
     def _params_match_the_expression(self) -> "Channel":

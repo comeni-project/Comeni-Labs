@@ -13,9 +13,9 @@ from comeni_core.declared.contract import ParamDomain
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.diagnostics import coded
+from comeni_core.logic.when import tier_of_row
 from comeni_core.plan.tiers import Tier
 
-from mendel_resolver.predicates import tier_of_row
 from mendel_resolver.rules.format import (
     _GOAL_FACTS,
     Decision,

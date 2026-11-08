@@ -11,10 +11,10 @@ from typing import Any
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal
+from comeni_core.logic.when import matches
 from comeni_core.plan.tiers import PremiseOrigin, ValueSource
 from pydantic import BaseModel, ConfigDict, Field
 
-from mendel_resolver.predicates import matches
 from mendel_resolver.rules import Derivation
 
 __all__ = ["Premise", "PremiseError", "PremiseOrigin", "build_premises"]

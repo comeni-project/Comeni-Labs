@@ -6,6 +6,7 @@ import json
 
 import sqlalchemy as sa
 from comeni_ai import Client
+from comeni_core.egress.forge import ForgeItemStatus
 from mendel_forge.forging.model import Piece, Status
 from pydantic import BaseModel
 
@@ -60,6 +61,10 @@ def _finish(adaptation_id: str, seq: int, text: str) -> None:
             message.content = text
 
 
+REVIEW_PROMPT = "forge.review.v2"
+"""Comments only where there is a concern, each quoting the module (#453)."""
+
+
 def review_piece(adaptation_id: str, piece: str, revisions: dict[str, int],
                  client: Client | None = None) -> None:
     client = client or forging_ai._client(InvocationPurpose.REVIEW)
@@ -79,16 +84,21 @@ def review_piece(adaptation_id: str, piece: str, revisions: dict[str, int],
     wanted = {k: n for k, n in wanted.items() if (k, n) not in existing}
     if not wanted:
         return
-    request = forging_ai.compose(adaptation, state, Piece(piece), "forge.review.v1")
+    request = forging_ai.compose(adaptation, state, Piece(piece), REVIEW_PROMPT)
     request = request.model_copy(update={"items": [i for i in request.items if i.key in wanted]})
     forging.record(adaptation_id, "started", what="reviewing", piece=piece)
-    reply, invocation = forging_ai._call("forge.review.v1", request, ReviewReply, client,
+    reply, invocation = forging_ai._call(REVIEW_PROMPT, request, ReviewReply, client,
                                          adaptation_id, 1, attempts=1)
     if reply is None:
         raise ValueError("The reviewer did not return usable comments.")
+    # The prompt lists items as `key [status] = value`; a model may copy the label into the key.
+    # Only that exact label is removed, so an invented key is still refused below.
+    labels = tuple(f" [{status.value}]" for status in ForgeItemStatus)
+    reply.comments = [c.model_copy(update={"item": c.item.removesuffix(next(
+        (label for label in labels if c.item.endswith(label)), ""))}) for c in reply.comments]
     keys = [c.item for c in reply.comments]
-    if len(keys) != len(set(keys)) or set(keys) != set(wanted):
-        raise ValueError("The reviewer did not comment on exactly the items it was given.")
+    if len(keys) != len(set(keys)) or not set(keys) <= set(wanted):
+        raise ValueError("The reviewer commented on items it was not given, or twice on one.")
     folder = forging.module_folder(adaptation.source, adaptation.path)
     sources = {name: text for name, text in {
         "main.nf": request.module.main_nf, "meta.yml": request.module.meta_yml,
@@ -99,17 +109,21 @@ def review_piece(adaptation_id: str, piece: str, revisions: dict[str, int],
         forging.lock(session, adaptation_id)
         existing = {(r.item, r.revision) for r in session.scalars(sa.select(ForgeReview).where(
             ForgeReview.adaptation == adaptation_id))}
-        for comment in reply.comments:
-            if (comment.item, wanted[comment.item]) in existing:
+        # A comment must quote its evidence verbatim, or it is dropped. Every reviewed revision
+        # gets a row, an empty comment meaning "no concern", so it is not reviewed again.
+        said = {c.item: c for c in reply.comments
+                if c.quote and c.quote.strip() and c.quote in sources.get(c.file, "")}
+        dropped = len(reply.comments) - len(said)
+        for key, n in sorted(wanted.items()):
+            if (key, n) in existing:
                 continue
-            quote = comment.quote
-            if not quote or quote not in sources.get(comment.file, ""):
-                quote = None
-            session.add(ForgeReview(adaptation=adaptation_id, item=comment.item,
-                revision=wanted[comment.item], comment=comment.comment, quote=quote,
-                file=comment.file if quote else None,
+            comment = said.get(key)
+            session.add(ForgeReview(adaptation=adaptation_id, item=key, revision=n,
+                comment=comment.comment if comment else "",
+                quote=comment.quote if comment else None,
+                file=comment.file if comment else None,
                 model=client.access.model, invocation=invocation))
-    forging.record(adaptation_id, "saved", items=0, comments=len(reply.comments))
+    forging.record(adaptation_id, "saved", items=0, comments=len(said), dropped=dropped)
 
 
 async def review_forge_piece(ctx: dict, adaptation_id: str, piece: str,

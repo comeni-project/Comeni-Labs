@@ -253,6 +253,11 @@
             "$ref": "#/$defs/Cardinality",
             "default": "1"
           },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
           "position": {
             "title": "Position",
             "type": "integer"
@@ -298,6 +303,19 @@
             "title": "Format",
             "type": "array",
             "uniqueItems": true
+          },
+          "produced_when": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Produced When"
           },
           "position": {
             "title": "Position",
@@ -368,6 +386,11 @@
                   }
                 ],
                 "default": null
+              },
+              "absent": {
+                "default": 0,
+                "title": "Absent",
+                "type": "integer"
               }
             },
             "title": "NfInput",

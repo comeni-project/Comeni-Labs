@@ -87,7 +87,59 @@ def test_drafting_questions_stores_proposals_and_records_the_call(adaptation):
     assert item.current.actor == "ai" and item.current.invocation
     with session_scope() as db:
         row = db.get(AiInvocation, item.current.invocation)
-        assert row.agent == "forge" and row.prompt_id == "forge.questions.v4"
+        assert row.agent == "forge" and row.prompt_id == "forge.questions.v7"
+
+
+def test_a_redraft_sees_only_what_the_person_settled(adaptation):
+    """#457 walk: GPT redrafting quast left gemma's open questions alone, because the prompt
+    listed them as "so far". An open proposal is an earlier model's guess: a redraft drafts it
+    fresh. An answer and a removal are the person's, and the drafter keeps seeing both."""
+    first = {"questions": [*QUESTIONS["questions"], {
+        "key": "questions:input_type:reads", "asks": "Which type?", "options": [
+            {"id": "earlier.guess", "label": "earlier guess", "because": "a weak model said so"}],
+        "suggested": "earlier.guess"}, {
+        "key": "questions:output_type:bam", "asks": "Which type?", "options": [
+            {"id": "alignment.bam", "label": "aligned reads", "because": "BAM"}]}]}
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(first))
+    state = forging.load(adaptation)
+    forging.act(adaptation, forging.person(Move.ANSWER, "questions:role",
+                                           expected=state.items["questions:role"].current.n,
+                                           value={"choice": "alignment"}, because=None))
+    forging.act(adaptation, forging.person(
+        Move.REMOVE, "questions:output_type:bam",
+        expected=state.items["questions:output_type:bam"].current.n, value=None,
+        because="not needed"))
+    again = FakeClient({"questions": [{
+        "key": "questions:input_type:reads", "asks": "Which type?", "options": [
+            {"id": "fastq.reads", "label": "reads", "because": "FASTQ per sample"}],
+        "suggested": "fastq.reads"}]})
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, again)
+    sent = again.prompts[0]
+    assert "earlier.guess" not in sent, "the earlier open proposal anchored the redraft"
+    assert "questions:role" in sent and '"choice": "alignment"' in sent, "the answer is context"
+    assert "questions:output_type:bam [removed]" in sent, "a removal stays visible, not re-asked"
+    assert forging.load(adaptation).items["questions:input_type:reads"].current.value[
+        "suggested"] == "fastq.reads"
+
+
+def test_a_contract_redraft_does_not_see_its_earlier_open_proposal(adaptation):
+    """The quast contract's first draft had nf_include ending in main.nf; a redraft shown that
+    proposal would be anchored to it, as questions were."""
+    _answer(adaptation)
+    wrong = {"items": {**CONTRACT["items"], "contract:process": {
+        **CONTRACT["items"]["contract:process"], "nf_include": "modules/nf-core/bwa/mem/main.nf"}},
+        "because": {}}
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, FakeClient(wrong))
+    again = FakeClient(CONTRACT)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, again)
+    assert "bwa/mem/main.nf" not in again.prompts[0]
+    assert '"choice": "alignment"' in again.prompts[0], "the answered questions are context"
+
+
+def test_the_questions_prompt_says_the_versions_topic_is_not_a_port(adaptation):
+    client = FakeClient(QUESTIONS)
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, client)
+    assert "nf-core's versions channel for the run's software report" in client.prompts[0]
 
 
 def test_drafting_the_contract_stores_proposals(adaptation):
@@ -96,6 +148,18 @@ def test_drafting_the_contract_stores_proposals(adaptation):
     items = forging.load(adaptation).items
     assert items["contract:input:reads"].status == "proposed"
     assert items["contract:process"].current.because == "BWA_MEM in main.nf"
+
+
+def test_the_contract_prompt_teaches_nf_include_and_a_folder_format(adaptation):
+    """#459: v4's own example was `.../module/main.nf`, and GPT copied it for quast, which
+    keys no module. A directory output also got no format."""
+    _answer(adaptation)
+    client = FakeClient(CONTRACT)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    sent = client.prompts[0]
+    assert "main.nf\"" not in sent.split("=== the module")[0], "an example still ends in .nf"
+    assert '"nf_include": "modules/nf-core/example/main"' in sent
+    assert '"format": ["folder"]' in sent
 
 
 def test_the_prompt_carries_the_module_and_the_registry(adaptation):
@@ -386,7 +450,8 @@ def test_review_quote_is_checked_and_cannot_change_items(adaptation):
     forge_review.review_piece(adaptation, "questions", revisions, FakeClient(reply))
     reviews = forge_review.read(adaptation)
     assert len(reviews) == 1
-    assert reviews[0].comment == "Check the alignment role."
+    # #453: a comment without a verbatim quote is dropped; the revision is still reviewed.
+    assert reviews[0].comment == ""
     assert reviews[0].quote is None and reviews[0].file is None
     assert forging.load(adaptation).model_dump() == before
     forging.act(adaptation, forging.person(Move.ANSWER, "questions:role", expected=1,
@@ -441,7 +506,8 @@ async def test_reviewer_failure_clears_pending_message_without_changing_piece(
 
     revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
     before = forging.load(adaptation).model_dump()
-    monkeypatch.setattr(forging_ai, "_client", lambda purpose: FakeClient({"comments": []}))
+    monkeypatch.setattr(forging_ai, "_client", lambda purpose: FakeClient(
+        {"comments": [{"item": "questions:invented", "comment": "x"}]}))
     seq = forging.post_message(adaptation, role="engine", content="Reviewing", pending=True)
     await forge_review.review_forge_piece({}, adaptation, "questions", revisions, seq)
     assert not forging.working(adaptation)
@@ -591,7 +657,169 @@ def test_family_proposals_need_human_approval_and_include_known_family_context(a
     assert "Families require human approval" in client.prompts[0]
     with session_scope() as db:
         invocation = db.get(AiInvocation, item.current.invocation)
-        assert invocation.prompt_id == "forge.draft.v4"
+        assert invocation.prompt_id == "forge.draft.v7"
     forging.act(adaptation, forging.person(Move.APPROVE, key,
         expected=item.current.n, value=None, because=None))
     assert forging.load(adaptation).items[key].status == "approved"
+
+
+def _typed(*options: dict) -> dict:
+    return {"questions": [{"key": "questions:input_type:reads", "asks": "What does reads hold?",
+                           "options": list(options), "suggested": options[0]["id"]}]}
+
+
+def test_the_engine_not_the_model_says_which_options_are_new(adaptation):
+    """#451: a declared type the model marked new is not new; an undeclared one it left
+    unmarked is. The model's flag is discarded on the way in."""
+    reply = _typed({"id": "genome.fasta", "label": "genome", "because": "fasta", "new": True},
+                   {"id": "assembly.fasta", "label": "assembly", "because": "contigs"})
+    forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(reply, reply))
+    items = forging.load(adaptation).items
+    assert "questions:input_type:reads" in items, (
+        "the draft was refused: the model's `new` flag decided, not the registry")
+    options = items["questions:input_type:reads"].value["options"]
+    assert options, "the question was stored without options"
+    assert {o["id"]: o["new"] for o in options} == {"genome.fasta": False, "assembly.fasta": True}
+
+
+@pytest.fixture
+def quast(tmp_path, monkeypatch, adaptation) -> str:
+    """quast beside bwa/mem: three inputs, one per sample and two references (#412)."""
+    cache = settings.forge_cache
+    shutil.copytree(FIXTURES / "quast", cache / "nf-core-modules/modules/nf-core/quast")
+    catalogue.run_sync(FakeSource(["bwa/mem", "quast"]))
+    return forging.start("nf-core", "quast", "rafael").id
+
+
+def test_quasts_walk_suggestions_show_engine_findings(quast):
+    """#452: the GPU walk's suggestions, each flagged on the item view and in the context."""
+    def asked(name: str, type_id: str) -> dict:
+        return {"key": f"questions:input_type:{name}", "asks": f"What does {name} hold?",
+                "options": [{"id": type_id, "label": type_id, "because": "fits"}],
+                "suggested": type_id}
+    forging_ai.draft_piece(quast, Piece.QUESTIONS, FakeClient({"questions": [
+        asked("consensus", "genome.fasta"), asked("fasta", "genome.fasta"),
+        asked("gff", "annotation.gtf")]}))
+    view = {i.key: [f.code for f in i.findings] for i in forging.read(quast).items}
+    assert view["questions:input_type:consensus"] == ["MF0520", "MF0521"]
+    assert view["questions:input_type:gff"] == ["MF0522"]
+    from mendel_api.services import forge_context
+    context = forge_context.read(quast, "questions:input_type:consensus")
+    assert context.arrival == "sample"
+    assert context.channel == "tuple val(meta) , path(consensus)"
+    assert [f.code for f in context.findings] == ["MF0520", "MF0521"]
+    request = forging_ai.compose(forging.row(quast), forging.load(quast), Piece.QUESTIONS,
+                                 prompt="forge.questions.v4")
+    assert any(t.id == "genome.fasta" and t.scope == "run" for t in request.known.described)
+    assert {f.code for f in request.findings} == {"MF0520", "MF0521", "MF0522"}
+
+
+def test_a_reviewer_with_no_concern_says_nothing_and_is_not_asked_again(adaptation):
+    """#453: v1 had to comment on every item; v2 may return none, and that is recorded."""
+    from mendel_api.services import forge_review
+
+    revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    client = FakeClient({"comments": []})
+    forge_review.review_piece(adaptation, "questions", revisions, client)
+    reviews = forge_review.read(adaptation)
+    assert reviews, "the reviewed revision is recorded"
+    assert [r.comment for r in reviews] == [""]
+    forge_review.review_piece(adaptation, "questions", revisions, client)
+    assert len(client.prompts) == 1
+    assert "Engine findings" in client.prompts[0] and "one per" in client.prompts[0]
+
+
+def test_a_reviewer_key_with_the_prompts_status_label_is_read_as_the_key(adaptation):
+    """gemma3:12b replied `questions:role [proposed]`, copying the prompt's label (#453)."""
+    from mendel_api.services import forge_review
+
+    revisions = forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(QUESTIONS))
+    forge_review.review_piece(adaptation, "questions", revisions, FakeClient({"comments": [
+        {"item": "questions:role [proposed]", "comment": "Check this process.",
+         "quote": "process BWA_MEM", "file": "main.nf"}]}))
+    reviews = forge_review.read(adaptation)
+    assert reviews, "the review was refused"
+    assert [(r.item, r.comment) for r in reviews] == [("questions:role", "Check this process.")]
+
+
+def test_the_contract_prompt_teaches_constraints(adaptation):
+    """#460: the Contract piece can say an input is optional, when an output is written, and
+    how inputs constrain each other."""
+    _answer(adaptation)
+    client = FakeClient(CONTRACT)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    sent = client.prompts[0]
+    assert '"produced_when"' in sent and "contract:constraint:" in sent and '"absent"' in sent
+    with session_scope() as db:
+        assert db.query(AiInvocation).order_by(AiInvocation.started_at.desc()).first(
+            ).prompt_id == "forge.draft.v7"
+
+
+def test_a_contract_item_carries_its_engine_finding_on_read(adaptation):
+    """#460: an optional input whose nf_inputs entry has no `absent` is MF0532 on the page."""
+    _answer(adaptation)
+    optional = {"items": {
+        **CONTRACT["items"],
+        "contract:input:reads": {"position": 0, "name": "reads", "type_id": "fastq.reads",
+                                 "required": False},
+        "contract:nf_inputs": [{"ports": ["reads"]}],
+    }, "because": {}}
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, FakeClient(optional))
+    view = forging.read(adaptation)
+    found = next(i for i in view.items if i.key == "contract:nf_inputs").findings
+    assert [f.code for f in found] == ["MF0532"]
+
+
+def test_a_constraint_item_reads_as_its_sentence(adaptation):
+    _answer(adaptation)
+    drafted = {"items": {
+        **CONTRACT["items"],
+        "contract:constraint:row1": {"when": {"given.reads": "present"}, "forbids": [],
+                                  "requires": ["reads"], "because": "it reads them"},
+    }, "because": {}}
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, FakeClient(drafted))
+    item = next(i for i in forging.read(adaptation).items if i.key == "contract:constraint:row1")
+    assert item.sentence == "`reads` is used only with `reads` (it reads them)"
+
+
+def test_the_item_guide_names_every_kind_the_engine_reads():
+    """#468: one description of each item kind, kept in step with the engine's own table."""
+    from mendel_forge.forging.values import _FAMILIES
+
+    guide = forging_ai.ITEM_SHAPES.read_text()
+    assert _FAMILIES, "the engine declares no item kinds — this test is measuring nothing"
+    import re
+
+    missing = [kind for kind in [*_FAMILIES, "<piece>:none"]
+               if not re.search(rf"^- {re.escape(kind)}[: ]", guide, re.MULTILINE)]
+    assert missing == [], f"the item guide does not describe {missing}"
+
+
+def test_the_chat_can_add_the_first_constraint_row(adaptation):
+    """#468: with no constraint in the draft, the chat was shown no key for one, and refused."""
+    _answer(adaptation)
+    assert not any(k.startswith("contract:constraint") for k in forging.load(adaptation).items)
+    seq = forging.post_message(adaptation, role="person", content="gff needs the reference")
+    client = FakeClient({"text": "Nothing to add.", "commands": []})
+    forging_ai.answer_message(adaptation, seq, client)
+    assert "contract:constraint:row<n>" in client.prompts[0]
+    assert "contract:group:group<n>" in client.prompts[0]
+
+
+def test_the_draft_teaches_a_param_domain_by_its_kind(adaptation):
+    """#468 walk: GPT wrote `domain: {type: ...}`; the shape was named but never spelled out."""
+    _answer(adaptation)
+    reply = {"items": {"parameters:none": {"because": "none"}}, "because": {}}
+    client = FakeClient(reply, reply)
+    forging_ai.draft_piece(adaptation, Piece.PARAMETERS, client)
+    assert '"domain" is null or {"kind": "boolean" | "enum" | "integer" | "number"' in \
+        client.prompts[0]
+    assert "contract:constraint:row<n>" in client.prompts[0], "the draft reads the shared guide"
+
+
+def test_the_guide_spells_out_a_new_type():
+    """#468 walk: drafted types were bare ids, so a run-wide annotation arrived per sample
+    and outputs were named "null"."""
+    guide = forging_ai.ITEM_SHAPES.read_text()
+    for field in ('"scope"', '"name"', '"explain"', '"entry_channel"', "[id: f.baseName]"):
+        assert field in guide, field

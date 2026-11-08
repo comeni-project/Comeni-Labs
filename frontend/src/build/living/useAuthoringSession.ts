@@ -206,6 +206,25 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     },
   });
 
+  // **A tool's optional input, switched** (issue 460): the person's change, written as a click,
+  // the chat and the model all write it — one DecisionChange, `optional_input`.
+  const switching = useMutation({
+    mutationFn: (input: { contract: string; port: string; state: "off" | "optional" | "required" }) => {
+      const current = session.data;
+      if (!current) throw new Error("Reload the session before changing an input");
+      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
+        change: { kind: "optional_input", subject: `${input.contract}|${input.port}`, value: input.state },
+        expected_decision_revision: current.decision_revision ?? 0,
+        expected_draft_revision: current.revision, expected_session_version: current.row_version,
+      });
+    },
+    onSuccess: () => void refresh(),
+    onError: error => {
+      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
+      void refresh();
+    },
+  });
+
   // **The model's suggestions wait for one click** (Part I.0): applied as the person's own change,
   // or set aside.
   const suggestion = useMutation({
@@ -270,6 +289,8 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     vocabulary: vocabulary.data?.types ?? null,
     measurements: vocabulary.data?.measurements,
     correcting: correction.isPending,
+    switchInput: (contract: string, port: string, state: "off" | "optional" | "required") =>
+      switching.mutate({ contract, port, state }),
     releaseTool: (type_id: string, states: string[]) => correction.mutateAsync({
       release: { type_id, states }, value: null }),
     correct: (subject: string, value: FactValue, kind: "input" | "measurement") =>

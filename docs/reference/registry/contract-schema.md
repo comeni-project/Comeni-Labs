@@ -49,6 +49,8 @@ Model: `comeni_core.declared.contract.ModuleContract`
 | `container` | string \| null | `null` | the image. Take the **last** quoted string in `main.nf`'s ternary |
 | `nf_inputs` | [nf-input] | `[]` | the real call signature — see below |
 | `ext_args` | string \| object | `""` | flags the module always needs, via `task.ext.args` |
+| `constraints` | [constraint row] | `[]` | what the tool allows between its inputs and params — see below |
+| `groups` | [group] | `[]` | inputs or params that go together — see below |
 | `provenance` | object | *required* | where this came from and who approved it |
 
 ## `consumes` — input ports
@@ -66,6 +68,7 @@ Model: `comeni_core.declared.contract.InputPort`
 | `accepts` | [alternative] | `[]` | other types this port will take |
 | `prefer` | {string} | `{}` | which alternative to prefer |
 | `cardinality` | enum | one | whether the port takes one or many |
+| `required` | boolean | `true` | `false` for an input the process can run without. Its `nf_inputs` entry declares `absent` |
 
 **The three requirement levels are the point.** `state_required` excludes; `state_preferred`
 ranks; `state_required_conventional` *causes work to happen* — it is why asking for an alignment
@@ -82,6 +85,7 @@ Model: `comeni_core.declared.contract.OutputPort`
 | `type_id` | string | *required* | the semantic type it produces |
 | `state` | {string} | `{}` | states the output carries. Written in the type, `alignment.bam::coordinate_sorted`; a file that writes this key is refused (`MD0110`) |
 | `format` | {string} | `{}` | the file formats it writes, from `main.nf`, or `folder`. Shown to people and checked (`MD0109`); takes no part in matching |
+| `produced_when` | object \| null | `null` | when the process writes it: `null` is always, otherwise a condition, e.g. `{given.fasta: present}` |
 
 **`name` is not a name for the thing** — it is the Nextflow channel the compiler reads.
 `type_id` carries the meaning. Three contracts got this backwards and `MD0105` found all three;
@@ -118,6 +122,7 @@ Model: `comeni_core.declared.contract.NfInput`
 | `because` | string | `""` | why. **Required for `empty`** |
 | `empty` | integer | `0` | an empty slot, and **the tuple width** it must have |
 | `join` | object \| null | `null` | how several ports combine into one channel |
+| `absent` | integer | `0` | the tuple width passed when this entry's optional ports are all left out. Required on such an entry, refused on one with a required port (`MD0601`) |
 
 **A contract port is not a process argument.** Only one of six spine processes matches its port
 count: `featurecounts` takes one channel carrying two ports; `samtools/sort` takes three, of
@@ -127,6 +132,38 @@ which two model nothing.
 *"Path value cannot be null"*. And `because` is required on it because `-stub-run` cannot see a
 hollow input: nf-core stubs never read their inputs, so a process handed nothing where a genome
 belongs is exactly as green as one handed a genome. Two shipped that way.
+
+## `constraints` and `groups` — what a tool allows
+
+Models: `comeni_core.declared.contract.ConstraintRow`, `Group`.
+
+A constraint is a fact about the tool: when its condition holds, these inputs or params must or
+must not be given. It never chooses; choosing is a rule's.
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `when` | object | `{}` | the condition, in rules' syntax, over `given.<input>` and `param.<name>` |
+| `requires` | [string] | `[]` | inputs or params that must be given when `when` holds |
+| `forbids` | [string] | `[]` | inputs or params that must not be given |
+| `because` | string | *required* | why, in a sentence a person reads |
+| `cite` | string | `""` | where the tool says so |
+
+A group is shorthand for rows: `kind` is `one_of` (exactly one member), `any_of` (at least one)
+or `all_or_none`, over at least two `members`, with an optional `when` and a required `because`.
+
+```yaml
+# quast: the GFF is read only against a reference
+constraints:
+  - {when: {given.gff: present}, requires: [fasta],
+     because: "QUAST reads --features only against a reference (-r)"}
+# gatk4/haplotypecaller: the VCF and its index go together
+groups:
+  - {kind: all_or_none, members: [dbsnp, dbsnp_tbi],
+     because: "the tabix index is read with the VCF it indexes"}
+```
+
+Every name must be one this contract declares (`MD0602`). A condition may not yet test a
+measurement such as `paired`, which can differ per sample.
 
 ## `provenance`
 

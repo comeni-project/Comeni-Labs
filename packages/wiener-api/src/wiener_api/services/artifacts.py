@@ -159,6 +159,38 @@ def input_shape(artifact_id: str) -> tuple[str, list[str]]:
     return (pipeline.input_form.value, columns)
 
 
+def _pipeline(artifact_id: str):
+    """The artifact's `pipeline.yml`, or `None` when there is none it can read."""
+    from comeni_core import yaml_strict
+    from comeni_core.artifact.pipeline import Pipeline
+
+    path = settings.artifact_root / artifact_id / "pipeline.yml"
+    try:
+        return Pipeline.model_validate(yaml_strict.load(path))
+    except Exception:
+        return None
+
+
+def optional_holes(artifact_id: str) -> set[str]:
+    """The holes a run may leave empty (#460): the params of the channels the artifact marks
+    optional. Read from the artifact, so Wiener never learns what a contract is; the pipeline's
+    own ternary passes the empty placeholder when a run sends `""`."""
+    pipeline = _pipeline(artifact_id)
+    if pipeline is None:
+        return set()
+    return {channel.param for channel in pipeline.channels if channel.optional}
+
+
+def run_rules(artifact_id: str) -> list[dict]:
+    """The constraints only a run can settle, as the pipeline's params, for the run sheet to
+    check before sending. The pipeline checks them again at its start."""
+    pipeline = _pipeline(artifact_id)
+    if pipeline is None:
+        return []
+    rules = [rule.model_dump(mode="json") for step in pipeline.steps for rule in step.run_rules]
+    return [r for n, r in enumerate(rules) if r not in rules[:n]]
+
+
 def declared_holes(artifact_id: str) -> set[str]:
     """The parameters this artifact says only the laboratory can supply.
 

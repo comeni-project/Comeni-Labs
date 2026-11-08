@@ -68,12 +68,24 @@ FREE_TEXT_FIELDS = {
     ("ForgeItemText", "value"),
     ("ForgeTurn", "content"),
     ("ForgeRequest", "prompt"),
+    # #453: each registry type's declared name and explanation (registry data), and
+    # #452: the engine's own findings on the adaptation's questions. No lab data in either.
+    ("KnownType", "name"),
+    ("KnownType", "explain"),
+    ("ForgeFinding", "item"),
+    ("ForgeFinding", "code"),
+    ("ForgeFinding", "says"),
     ("GateFailure", "tool_message"),
     # Reachable through RepairRequest.ir and Pipeline. Model- or resolver-written
     # prose explaining a choice — genuinely free text, and named here rather than
     # exempted, because an audit found these riding along unexamined inside a nested
     # model the guard never opened.
     ("ResolvedValue", "reason"),
+    # Why a step's optional input is off, optional or required (#460): the router's or the
+    # person's sentence, beside the decisions above.
+    ("InputRecord", "reason"),
+    # The sentence of a constraint only a run can settle, shown by the run sheet (#460).
+    ("RunRule", "says"),
     # One per decision kind since A16 split `DecisionRecord` into three. Four entries
     # became six by a refactor rather than by a new field crossing the boundary — which is
     # exactly the sort of change this literal list exists to make someone notice.

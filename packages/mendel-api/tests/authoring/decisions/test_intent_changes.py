@@ -77,3 +77,53 @@ def test_reading_change_round_trips():
     goal = decisions.goal(draft)
     assert "qc.report" in goal.want
     assert any(p.contract == FASTQC for p in goal.constraints.producers)
+
+
+# ── a tool's optional input (#460) ──────────────────────────────────────────────────────────
+
+QUAST = "nf-core/quast@5.3.0"
+
+
+@pytest.fixture
+def with_quast(tmp_path, monkeypatch):
+    """The curated registry plus an overlay with QUAST, whose reference is optional."""
+    from mendel_resolver import layers
+    from support.paths import ROOT
+
+    layer = tmp_path / "overlay"
+    layer.mkdir()
+    quast = (ROOT / "packages/comeni-core/tests/fixtures/constraints/quast.yml").read_text()
+    files = {
+        "assembly.family.yml": "declares: family\nid: assembly\ndescription: assemblies\n",
+        "assembly.fasta.yml": "declares: vocabulary\nid: assembly.fasta\nstates: []\n",
+        "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\n",
+        "quast.contract.yml": "declares: contract\n" + quast,
+    }
+    for name, body in files.items():
+        (layer / name).write_text(body)
+    stacked = layers.load([ROOT / "registry", layer])
+    monkeypatch.setattr(registry, "stack", lambda: stacked)
+
+
+def _switch(port: str, state: str | None, contract: str = QUAST) -> DecisionChange:
+    from mendel_authoring.payloads import source_subject
+
+    return DecisionChange(kind="optional_input", subject=source_subject(contract, port),
+                          value=state, retract=state is None)
+
+
+def test_an_optional_input_change_switches_it_on_and_back(with_quast):
+    from comeni_core.goal.asked import InputChoice, InputState
+
+    draft = _draft()
+    assert changes.apply(draft, _switch("fasta", "optional"), who="ana")
+    assert _constraints(draft).inputs == [
+        InputChoice(contract=QUAST, port="fasta", state=InputState.OPTIONAL)]
+    assert changes.describe(_switch("fasta", "optional")) == "QUAST may read a fasta"
+    assert changes.apply(draft, _switch("fasta", None), who="ana")
+    assert _constraints(draft).inputs == []
+
+
+def test_switching_a_required_input_is_refused():
+    with pytest.raises(ValueError, match="MI0204"):
+        changes.check(_switch("reads", "optional", contract=STAR))

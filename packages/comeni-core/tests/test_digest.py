@@ -350,3 +350,30 @@ def test_the_file_tag_separates_entry_kinds():
     assert as_file == hashlib.sha256(module._FILE + payload).hexdigest(), (
         "`content_hash` no longer applies the tag it is supposed to apply"
     )
+
+
+# Computed on 2026-11-06, before contracts gained constraints (#460). A contract that declares
+# none of the new fields must keep the digest a lockfile already pins.
+_PINNED = {
+    "registry/tools/nf-core/fastqc/contract.yml":
+        "sha256:0043a19e49a846acbaf37734c002c3da1d0981cbe42f04b43f5f044e074ac860",
+    "registry/tools/nf-core/hisat2/align/contract.yml":
+        "sha256:d810c4a98b903c8c0615a9f81cb19c0c4cbbc387f5855356f92180fc2461b3bc",
+    "registry/tools/nf-core/hisat2/build/contract.yml":
+        "sha256:dbea70ab98853f5636b51c878b24d506ffdc0dddb3584b658f154a368c50201e",
+}
+
+
+def test_contracts_without_constraints_keep_their_digest():
+    from comeni_core import yaml_strict
+    from support.paths import ROOT
+
+    assert _PINNED, "nothing pinned — this test is measuring nothing"
+    for relative, pinned in _PINNED.items():
+        data = yaml_strict.load(ROOT / relative)
+        data.pop("declares", None)
+        contract = ModuleContract.model_validate(data)
+        dumped = contract.model_dump_json()
+        for field in ("required", "produced_when", "absent", "constraints", "groups"):
+            assert f'"{field}"' not in dumped, f"{relative} serialises default {field}"
+        assert digest_of(contract) == pinned, relative

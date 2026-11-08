@@ -13,6 +13,8 @@ from comeni_core.goal.asked import (
     Constraints,
     Goal,
     GoalInput,
+    InputChoice,
+    InputState,
     ParamOverride,
     ProducerExclusion,
     ProducerPin,
@@ -131,6 +133,15 @@ class SourceChoice(_Value):
     producer: ContractId | None = None
 
 
+class OptionalInputChoice(_Value):
+    """A person's choice for a tool's optional input (#460): off, optional (each run may leave
+    it empty) or required. `state=None` is the choice withdrawn."""
+
+    contract: ContractId
+    port: PortName
+    state: InputState | None = None
+
+
 class Profiles(Protocol):
     def profile_of(self, entries: Sequence[MeasuredEntry]) -> DataProfile: ...
 
@@ -152,6 +163,7 @@ class Decisions(_Value):
     roles: list[RoleChoice] = Field(default_factory=list)
     exclusions: list[ExclusionChoice] = Field(default_factory=list)
     sources: list[SourceChoice] = Field(default_factory=list)
+    optional_inputs: list[OptionalInputChoice] = Field(default_factory=list)
 
     def goal(self, measurements: Profiles) -> Goal:
         """The active goal. Only a declaration-validating registry constructs its profile."""
@@ -193,6 +205,11 @@ class Decisions(_Value):
                     SourcePin(consumer=p.consumer, port=p.port, producer=p.producer)
                     for p in self.sources
                     if p.producer is not None
+                ],
+                inputs=[
+                    InputChoice(contract=c.contract, port=c.port, state=c.state)
+                    for c in self.optional_inputs
+                    if c.state is not None
                 ],
             ),
             profile=measurements.profile_of(
@@ -269,5 +286,9 @@ class Decisions(_Value):
             sources=[
                 SourceChoice(consumer=p.consumer, port=p.port, producer=p.producer)
                 for p in goal.constraints.sources
+            ],
+            optional_inputs=[
+                OptionalInputChoice(contract=c.contract, port=c.port, state=c.state)
+                for c in goal.constraints.inputs
             ],
         )

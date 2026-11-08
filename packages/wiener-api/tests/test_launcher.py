@@ -173,3 +173,14 @@ def test_a_run_already_claimed_is_not_launched_again(a_run, session, tmp_path, m
     assert spawned == [], f"a {phase} run was launched again"
     assert not launcher.work_dir(a_run.id).exists(), "the work directory was touched"
     assert repository.run(session, a_run.lab_id, a_run.id).phase == phase
+
+
+def test_the_site_config_loads_the_weblog_plugin_the_image_installs(a_run):
+    """#471: Nextflow 26 has no built-in weblog; without the plugin no run ever ended."""
+    from support.paths import ROOT
+    from wiener_api.services.launcher import WEBLOG_PLUGIN, site_config
+
+    assert f"id '{WEBLOG_PLUGIN}'" in site_config(a_run)
+    dockerfile = (ROOT / "Dockerfile").read_text()
+    assert f"nextflow plugin install {WEBLOG_PLUGIN}" in dockerfile
+    assert "ENV NXF_VER=" in dockerfile, "Nextflow must be pinned"

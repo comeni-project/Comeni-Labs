@@ -99,7 +99,7 @@ a family holds the result itself, never a step on the way (ChIP-seq peaks were r
 `alignment.bam`); the question for a `no` does not steer toward what exists; and it opens with
 the shared block, as every template does."""
 
-CHAT: PromptId = "builder.chat.v7"
+CHAT: PromptId = "builder.chat.v8"
 """Typed words anywhere after the want is read, in; something to say and the changes they ask
 for out (`ChatReply`), each quoting the person (#307).
 

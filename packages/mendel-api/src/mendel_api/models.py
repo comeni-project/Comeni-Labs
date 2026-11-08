@@ -626,6 +626,8 @@ from mendel_api.decision_models import (  # noqa: E402, F401
     PipelineInput,
     PipelineInputRevision,
     PipelineObservation,
+    PipelineOptionalInput,
+    PipelineOptionalInputRevision,
     PipelineParameter,
     PipelineParameterRevision,
     PipelinePhrasing,

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from mendel_resolver import layers
 
-from mendel_compiler import orchestrate, tool_docs
+from mendel_compiler import conformance, orchestrate, tool_docs
 
 
 def _pages(registries: list[Path]) -> dict[Path, str]:
@@ -74,7 +74,7 @@ def _conformance_verb(registries: list[Path]) -> int:
     for diagnostic in found:
         print(diagnostic.render())
         print()
-    blocking = [d for d in found if d.code != "MD0100"]
+    blocking = conformance.blocking(found)
     unverified = [d for d in found if d.code == "MD0100"]
     checked = len(_contracts(registries)) - len(unverified)
     print(f"{checked} contract(s) checked against their modules, {len(unverified)} unverified")

@@ -9,7 +9,7 @@ import { StepSheet } from "./StepSheet";
 function sheet(overrides = {}) {
   const props = {
     node: "star_align", step: FAKE_STEPS.star_align as AnsweredStep, graph: FAKE_SESSION.graph, requests: [],
-    onSetParam: vi.fn(), onEdit: vi.fn(), onClose: vi.fn(), ...overrides,
+    onSetParam: vi.fn(), onEdit: vi.fn(), onClose: vi.fn(), onSwitchInput: vi.fn(), ...overrides,
   };
   render(<QueryClientProvider client={new QueryClient()}><StepSheet {...props} /></QueryClientProvider>);
   return props;
@@ -45,5 +45,32 @@ describe("a step opened over the conversation (one builder plan 3)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close the step" }));
     fireEvent.click(screen.getByRole("button", { name: "‹ Back to the conversation" }));
     expect(p.onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("a step's optional inputs (issue 460)", () => {
+  const QUAST = {
+    ...FAKE_STEPS.star_align, id: "quast", contract_id: "nf-core/quast@5.3.0", settings: [],
+    ports: [
+      { name: "consensus", type_id: "assembly.fasta", side: "in", met: true, optional: false, adds: [] },
+      { name: "fasta", type_id: "genome.fasta", side: "in", met: true, optional: true, state: "off",
+        reason: "off: not switched on", adds: ["transcriptome", "misassemblies", "unaligned"] },
+    ],
+  } as unknown as AnsweredStep;
+
+  it("lists each optional input with its state, why, and what it adds", () => {
+    sheet({ node: "quast", step: QUAST, onSwitchInput: vi.fn() });
+    const region = screen.getByRole("region", { name: "Optional inputs" });
+    expect(within(region).getByText("fasta")).toBeInTheDocument();
+    expect(within(region).getByText(/adds transcriptome, misassemblies, unaligned/)).toBeInTheDocument();
+    expect(within(region).getByText("off: not switched on")).toBeInTheDocument();
+    expect(within(region).queryByText("consensus")).toBeNull();
+    expect(within(region).getByRole("radio", { name: "Off" })).toBeChecked();
+  });
+
+  it("switches one on as the person's change", () => {
+    const props = sheet({ node: "quast", step: QUAST, onSwitchInput: vi.fn() });
+    fireEvent.click(screen.getByRole("radio", { name: "Optional" }));
+    expect(props.onSwitchInput).toHaveBeenCalledWith("nf-core/quast@5.3.0", "fasta", "optional");
   });
 });

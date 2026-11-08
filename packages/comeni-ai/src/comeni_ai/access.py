@@ -1,8 +1,9 @@
 """Provider access configuration shared by local, self-hosted, and hosted models.
 
-All deployment lanes use the same :class:`ModelAccess` shape and transport path. Subscription
-OAuth credentials are intentionally unsupported. Environment loading returns ``None`` when no
-model is configured so an unconfigured installation cannot contact a provider implicitly.
+All deployment lanes use the same :class:`ModelAccess` shape and transport path. A subscription
+sign-in (LiteLLM's ``chatgpt/`` provider, #457) needs no field here: LiteLLM keeps its token in
+``CHATGPT_TOKEN_DIR``. Environment loading returns ``None`` when no model is configured so an
+unconfigured installation cannot contact a provider implicitly.
 """
 
 from collections.abc import Mapping
@@ -62,6 +63,9 @@ class ModelAccess(BaseModel):
     timeout_seconds: float = 60.0
     temperature: float = 0.0
     """Sampling randomness, defaulting to zero for reproducible comparisons."""
+    reasoning_effort: str | None = None
+    """How hard a reasoning model thinks (`none` … `high`); `None` sends nothing, which every
+    other model needs."""
 
     @classmethod
     def require_from_env(cls, env: Mapping[str, str]) -> "ModelAccess":

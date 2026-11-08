@@ -68,6 +68,7 @@ export function LivingSurface({
   vocabulary = null,
   declarations, onCorrect, onRelease, onDisagreement, correcting = false,
   onSetParam,
+  onSwitchInput,
   onApplyChange,
   onEdit,
   onRename,
@@ -106,6 +107,8 @@ export function LivingSurface({
   onDisagreement?: (proposal: AuthoringProposal, option: string, value?: FactValue) => Promise<unknown>;
   correcting?: boolean;
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
+  /** Switch a tool's optional input (issue 460). */
+  onSwitchInput?: (contract: string, port: string, state: "off" | "optional" | "required") => void;
   onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
   /** A direct change to a step already drawn — swap, settings, remove — as the whole next graph,
    *  for the session's edit verb to save, stamp as the person's and write a receipt for. */
@@ -347,6 +350,7 @@ export function LivingSurface({
             steps={steps}
             onEdit={onEdit}
             onSetParam={onSetParam}
+            onSwitchInput={onSwitchInput}
             onApplyChange={onApplyChange}
             suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
             questionRequest={questionRequest}
@@ -513,6 +517,7 @@ export function LivingSurface({
           steps={steps}
           onEdit={onEdit}
           onSetParam={onSetParam}
+          onSwitchInput={onSwitchInput}
           onApplyChange={onApplyChange}
           suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
           questionRequest={questionRequest}

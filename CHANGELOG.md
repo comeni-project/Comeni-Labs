@@ -21,6 +21,8 @@ mounted here as a submodule. Its changes and releases are recorded in that repos
   and migration histories. A new data volume preserves both legacy volumes; migration tooling
   backs up, restores and verifies data before Make permits cutover.
 - Production requires separate administrator, Mendel and Wiener database passwords.
+- The API and the AI worker share `.run/chatgpt` as `CHATGPT_TOKEN_DIR`, for a ChatGPT
+  subscription's sign-in (#457).
 
 These notes consolidate the earlier unreleased entries and backfill notable changes
 through the explain-inputs and retention work on this branch. They are not a new release
@@ -28,6 +30,9 @@ or a complete commit history.
 
 ### comeni-core
 
+- Tool constraints (#460): contracts declare optional inputs (`required: false`, `absent`), outputs written under a condition (`produced_when`), constraint rows and groups. `comeni_core.logic.when` is the one condition evaluator for contracts and rules; `declared.constraints` evaluates a setup and checks a contract for contradictions, dead and fake-optional inputs and outputs never written (MD0601–MD0607). `pipeline.yml` records each step's optional-input states and run rules, and marks optional channels.
+- A model choice may carry `temperature`, `reasoning_effort` and `timeout_seconds` for that
+  purpose's calls (#457). Invariant 12 (no subscription OAuth) is retired.
 - `qc.report::assembly`: a type's states are written in the type. A contract file writing them
   beside it is refused (`MD0110`), and a signature is spelled that way. `OutputPort.format` records the file formats an output
   writes, checked against the module (`MD0109`) and taking no part in matching.
@@ -94,6 +99,8 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- Optional inputs are routed off unless switched on, made required when a later step needs what they add, and brought along by constraint rows; constraints are re-checked once parameters resolve (MD0608–MD0610) (#460).
+
 #### Added
 
 - Loading refuses a module that no contract in the stack binds (`MD0025`): such a module could
@@ -116,6 +123,8 @@ or a complete commit history.
 - Profile validation occurs at the resolver boundary, not only in the CLI.
 
 ### mendel-compiler
+
+- An optional channel is emitted as `params.x ? … : <empty tuple>`, and run rules as guards at the workflow's start. `ModuleSpec.optional_emits`; MD0611 reports an optional emit a contract says is always written. Builds stop only on codes `diagnostics.yml` declares refusing (#460).
 
 #### Added
 
@@ -191,6 +200,30 @@ or a complete commit history.
 
 ### mendel-api
 
+- A person's choice for a tool's optional input is a decision family (`optional_input`), switched from the step sheet or proposed by the chat (`builder.chat.v8`) under the quote rule. The forge drafts constraints (`forge.draft.v6`) and flags main.nf evidence (MF0530–MF0532). Turn blocks, suggestions and proposals move to shapes 5, 3 and 3 (identity upgrades).
+- The forge publishes a draft that extends a shared type once the registry has the added states, and names the missing states otherwise (#473).
+- A forge test's expected pattern may match a folder output by the folder's name (#472).
+- A forge test may leave an optional input out: the tool runs without it, and validation
+  asks only required inputs to be fed (#470).
+- The forge chat (`forge.chat.v3`) is shown every item kind and its shape, from one shared
+  guide (`forge/prompts/parts/items.v1.md`), so it can add the first constraint, group or
+  other item of a kind the draft has none of (#468). Pieces are drafted with `forge.draft.v7`,
+  which reads the same guide; it spells out a parameter's `domain` by its `kind`.
+- The forge's reviewer (`forge.review.v2`) comments only where it has a concern, and only with a
+  verbatim quote. A revision it reads with no concern is recorded as reviewed. Drafted
+  questions use `forge.questions.v5`. Both prompts see each type's name, scope and meaning, and
+  the engine's findings (#453).
+- Questions are drafted with `forge.questions.v7`. A redraft sees only what the person
+  settled (answers and removals), so each open question is drafted fresh rather than kept
+  from an earlier model's guess. Outputs on nf-core's `versions` topic get no type question.
+  Every question carries a suggestion, an output prefers a state of a listed type to a new
+  type, and competition is answered `no_rule` or `rule_needed` (#453).
+- Pieces after Questions are drafted with `forge.draft.v5`. It names each port's exact
+  fields, writes `nf_include` without `.nf`, and gives a directory output `folder`. Every
+  piece's redraft, not only Questions, sees only what the person settled (#459).
+- Each question option's `new` flag comes from the registry, not the model (#451).
+- Type questions carry advisory engine findings (MF0520–MF0522) for scope, duplicate types and
+  format, on each item and in the question context (#452).
 - Questions have explicit removal with a recorded reason; rejection remains unresolved. Approved
   new question answers permit draft references, while vocabulary declarations remain required
   at Assembly. Contract completion requires a process and a port. Draft prompts distinguish
@@ -330,6 +363,8 @@ or a complete commit history.
   cache markers, raw replies and cached-token accounting.
 - Provider-specific structured response formats constrain declared answers and preserve null
   where allowed. Server validation remains required; an empty allowed list allows no values.
+- `ModelAccess.reasoning_effort`, sent only when set. A `chatgpt/` model signs in through
+  LiteLLM with no key (#457).
 
 ### mendel-ai
 
@@ -354,6 +389,8 @@ or a complete commit history.
 
 ### mendel-forge
 
+- `forging.checks` finds a type question's scope, duplicate-type and format mismatches. They are
+  advice only; nothing is refused (#452).
 - Explicit Family items in Vocabulary let a reviewed new type such as `assembly.fasta` load
   with its new family at Assembly. Constructors and AI drafting use the registry Family schema;
   pending family dependencies reopen affected items when their supplying draft changes (#441).
@@ -410,6 +447,9 @@ or a complete commit history.
 
 ### wiener-api
 
+- A stored artifact says which inputs a run may leave empty and the run rules between them, read from its `pipeline.yml` (#460).
+- The image pins Nextflow (26.10.2) and installs `nf-weblog@1.2.0`, which the site config loads: Nextflow 26 has no built-in weblog, so no run reported its end (#471).
+
 #### Added
 
 - Run submission, local execution, event ingestion and live updates integrate with the build
@@ -432,6 +472,14 @@ or a complete commit history.
 ### frontend
 
 #### Added
+
+- Forge question cards (#454):
+  - one question open at a time;
+  - collapsed rows show the answer or the suggestion and the engine's findings;
+  - one card per option merges the registry's name, scope and meaning with the AI's reason;
+  - the module's evidence and the engine checks sit above the options;
+  - the second opinion is labelled as a model's;
+  - on a phone the options fold under "N more".
 
 - Forging ([#364](https://github.com/comeni-project/Comeni-Labs/issues/364)): the Forging tab, an adaptation's page (pieces, items with Approve,
   Change and Reject, *Draft with the AI* or *Write it myself*), the chat with the AI's proposal

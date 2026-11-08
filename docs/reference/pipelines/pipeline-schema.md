@@ -299,6 +299,17 @@ empty placeholder each carry a `why`: a positional choice is a decision, and `Nf
 already required a `because`, so the artifact records the whole provenance rather than an
 exception for the one route that had no artifact.
 
+A step whose tool has optional inputs (#460) also records them:
+
+| field | is |
+|---|---|
+| `input_states` | each optional input's state — `off`, `optional` or `required` — with who set it (`person` or `router`) and why |
+| `run_rules` | constraints only a run can settle, as the pipeline's own params: `{given: [gff], requires: [fasta], says: "…"}` |
+
+An input that is `off` is passed as its empty placeholder (`empty_width`). The emitted workflow
+checks each `run_rule` before any process starts — `if (params.gff && !params.fasta) { error
+"…" }` — and the run sheet checks it before sending. Both fields are left out when empty.
+
 ### `settings` — and where each value goes
 
 Every setting declares the **route** that carries it to the tool. There are three destinations,
@@ -336,6 +347,11 @@ expression references, and must agree with it (`MD0211`).
 `meta` carries the measured facts a module reads. This is how `strandedness: reverse` becomes
 featureCounts' `-s 2`: the module contains that translation, so the fact travels and the module
 decides what to do with it.
+
+A channel marked `optional: true` (#460) is one each run may leave empty. Its
+`absent_width` is the empty tuple its steps take instead, and the workflow reads it as
+`params.<name> ? <expression> : Channel.value(<empty tuple>)`. It is optional only when every
+step it feeds has it as an optional input; one step that needs it every run makes it required.
 
 `test_data` points at a small public example, pinned to a commit. Never a laboratory's own
 path — this file is shareable, and a dataset that moves is one you cannot compare a result

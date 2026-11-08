@@ -1,0 +1,18 @@
+# nf-core/gatk4/haplotypecaller: the dbSNP VCF and its index go together or not at all.
+id: nf-core/gatk4/haplotypecaller@4.6.1
+nf_process: GATK4_HAPLOTYPECALLER
+nf_include: modules/nf-core/gatk4/haplotypecaller/main
+roles: [calling]
+consumes:
+  - {name: input, type_id: alignment.bam}
+  - {name: dbsnp, type_id: variants.vcf, required: false}
+  - {name: dbsnp_tbi, type_id: variants.tbi, required: false}
+produces:
+  - {name: vcf, type_id: variants.vcf}
+nf_inputs:
+  - {ports: [input]}
+  - {ports: [dbsnp, dbsnp_tbi], absent: 3, join: broadcast}
+groups:
+  - {kind: all_or_none, members: [dbsnp, dbsnp_tbi],
+     because: "the tabix index is read with the VCF it indexes"}
+provenance: {source: test, drafted_by: test, approved_by: test, approved_at: "2026-11-06"}

@@ -1,5 +1,7 @@
 """Resolved pipeline representation shared by the resolver, artifacts, and compiler."""
 
+from enum import StrEnum
+
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -10,7 +12,7 @@ from pydantic import (
 )
 
 from comeni_core.declared.layered import Displacement
-from comeni_core.goal.asked import Site
+from comeni_core.goal.asked import InputState, Site
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.goal.profile import DataProfile
 from comeni_core.plan.decision import DecisionRecord
@@ -80,6 +82,24 @@ class ParamBinding(BaseModel):
     value: ResolvedValue
 
 
+class InputDecider(StrEnum):
+    """Who set an optional input's state. A rule joins with rules v2 (#461)."""
+
+    PERSON = "person"
+    ROUTER = "router"
+
+
+class InputRecord(BaseModel):
+    """What became of one optional input of a step, who decided, and why (#460)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    port: PortName
+    state: InputState
+    reason: Line
+    by: InputDecider
+
+
 class IRNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -101,6 +121,8 @@ class IRNode(BaseModel):
         )
     )
     """Why the step exists, independently of which contract was selected for it."""
+    inputs: list[InputRecord] = Field(default_factory=list, exclude_if=lambda inputs: not inputs)
+    """Each optional input's state, sorted by port; omitted when the step has none."""
 
     @model_validator(mode="before")
     @classmethod

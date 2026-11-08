@@ -464,6 +464,7 @@ body {
   transition: border-color var(--t), background-color var(--t), transform var(--t);
 }
 .pin-box[data-decided="true"] { background: var(--surface-2); border: 1px solid var(--action-edge); }
+.pin-box[data-optional="true"] { border-style: dashed; }
 .pin-box:hover { border-color: var(--now); transform: translateY(-1px); }
 .pin-box[aria-pressed="true"] { background: var(--now-soft); border: 1px solid var(--now); }
 .tool-block {
@@ -629,3 +630,65 @@ body {
   .chat-peek { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 16px 10px; box-sizing: content-box; color: var(--ink); text-align: left; background: transparent; border: 0; cursor: pointer; }
   .chat-head { display: none; }
 }
+
+/* Forge questions (#454): one open at a time, one card per option. Tokens only. */
+.q-row {
+  display: flex; gap: 12px; align-items: center; width: 100%; padding: 14px 22px; border: 0;
+  background: transparent; color: var(--ink); text-align: left; cursor: pointer; font: inherit;
+  transition: background-color var(--t);
+}
+.q-row:hover { background: var(--hover); }
+.q-row[aria-expanded="true"] { background: var(--surface-2); }
+.q-row:focus-visible, .option:focus-visible, .option-more:focus-visible { outline: none; box-shadow: var(--ring); }
+.q-body {
+  display: flex; flex-direction: column; gap: 12px; padding: 4px 22px 18px 52px;
+  background: var(--surface-2); font-size: 13.5px; line-height: 1.55; color: var(--ink-2);
+}
+@media (max-width: 639px) { .q-row { padding: 14px 16px; } .q-body { padding: 4px 16px 16px; } }
+.q-dot {
+  flex: 0 0 auto; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+  font-size: 11px; font-weight: 600; box-sizing: border-box;
+}
+.q-dot-done { background: var(--done); color: var(--on-action); }
+.q-dot-wait { border: 1.5px dashed var(--line-2); }
+.q-dot-flag { border: 2px solid var(--needs-you); background: var(--needs-you-soft); }
+.q-dot-removed { border: 1.5px solid var(--line-2); background: var(--line-soft); }
+.q-evidence {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-control);
+  border: 1px solid var(--line-soft); background: var(--paper);
+}
+.q-finding {
+  padding: 10px 12px; border-radius: var(--radius-control); border: 1px solid var(--needs-you);
+  background: var(--needs-you-soft); color: var(--needs-you-ink);
+}
+.chip { display: inline-block; font-size: 11px; line-height: 1.6; padding: 0 8px; border-radius: 999px; white-space: nowrap; }
+.chip-flag { background: var(--needs-you-soft); color: var(--needs-you-ink); }
+.chip-new { background: var(--measured-soft); color: var(--measured-ink); }
+.chip-now { background: var(--now-soft); color: var(--now-ink); }
+.chip-done { background: var(--done-soft); color: var(--done-ink); }
+.chip-plain { background: var(--line-soft); color: var(--ink-2); }
+.option-card {
+  display: flex; flex-direction: column; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--surface); transition: border-color var(--t), background-color var(--t);
+}
+.option-card:hover { border-color: var(--line-2); }
+.option-card.is-checked { border-color: var(--done); background: var(--done-soft); box-shadow: inset 0 0 0 1px var(--done); }
+.option {
+  display: flex; gap: 10px; width: 100%; padding: 12px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--ink); text-align: left; cursor: pointer; font: inherit;
+}
+.option:disabled { cursor: not-allowed; opacity: .55; }
+.option-dot {
+  flex: 0 0 auto; margin-top: 3px; width: 14px; height: 14px; border-radius: 50%;
+  border: 1.5px solid var(--line-2); box-sizing: border-box; transition: border-width var(--t), border-color var(--t);
+}
+.option[aria-checked="true"] .option-dot { border: 4px solid var(--done); }
+.option-tools { padding: 0 12px 10px 36px; font-size: 12.5px; color: var(--ink-3); }
+.option-tools summary { cursor: pointer; width: fit-content; }
+.option-more {
+  padding: 10px 12px; border-radius: var(--radius-control); border: 1px dashed var(--line-2);
+  background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; text-align: center; cursor: pointer;
+}
+.option-more:hover { background: var(--hover); color: var(--ink); }
+/* On a phone the two likeliest options show; the rest fold under "N more". */
+@media (max-width: 639px) { .option-card.is-folded { display: none; } }

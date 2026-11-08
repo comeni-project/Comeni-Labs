@@ -12,13 +12,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import sqlalchemy as sa
-from comeni_core.declared.contract import ModuleContract, Provenance
+from comeni_core.declared.constraints import group_sentence, sentence
+from comeni_core.declared.contract import ConstraintRow, Group, ModuleContract, Provenance
 from comeni_core.diagnostics import coded
 from comeni_flow.interpret import Refused
 from comeni_vendor.ops import PREFIX, REPOS, SOURCE_LICENCE
 from mendel_compiler.modulespec import ModuleSpec
 from mendel_forge.forging import rules
 from mendel_forge.forging.assemble import ModuleOrigin, Proof, prove, write_layer
+from mendel_forge.forging.checks import QuestionFinding
 from mendel_forge.forging.model import (
     Actor,
     Adaptation,
@@ -89,6 +91,10 @@ class ItemView(BaseModel):
     value: JsonValue = None
     current_n: int
     revisions: list[RevisionView]
+    findings: list[QuestionFinding] = []
+    """The engine's advice on a type question (#452); recomputed on each read, never stored."""
+    sentence: str | None = None
+    """A constraint or group item as a person reads it (#460); none for any other item."""
 
 
 class TestRunView(BaseModel):
@@ -675,6 +681,8 @@ def read(adaptation_id: str) -> AdaptationView:
             .order_by(ForgeMessage.seq)
         ).all()
         next_piece = rules.next_piece(state)
+        from mendel_api.services import forge_checks
+        found = forge_checks.for_adaptation(row.source, row.path, state)
         return AdaptationView(
             id=row.id, source=row.source, path=row.path, version=row.version, base=row.base,
             reforge=row.reforge, phase=row.phase, depends_on=list(row.depends_on or []),
@@ -682,7 +690,8 @@ def read(adaptation_id: str) -> AdaptationView:
             abandoned_at=row.abandoned_at,
             next_piece=next_piece.value if next_piece else None,
             ready=rules.ready_to_assemble(state),
-            items=[_item_view(i) for i in sorted(state.items.values(), key=lambda i: i.key)],
+            items=[_item_view(i, found.get(i.key, []))
+                   for i in sorted(state.items.values(), key=lambda i: i.key)],
             tests=_test_views(session, adaptation_id),
             tests_unavailable=None if settings.wiener_url else NO_WIENER,
             pull_request=_pull_request_view(session, adaptation_id),
@@ -725,8 +734,22 @@ def visible_phases() -> frozenset[str]:
     return frozenset(p.value for p in _ASSEMBLED)
 
 
-def _item_view(item: Item) -> ItemView:
+def _sentence(key: str, value: JsonValue) -> str | None:
+    """The plain sentence for a constraint or group item; none if it does not validate yet."""
+    try:
+        if key.startswith("contract:constraint:"):
+            return sentence(ConstraintRow.model_validate(value))
+        if key.startswith("contract:group:"):
+            return group_sentence(Group.model_validate(value))
+    except ValidationError:
+        return None
+    return None
+
+
+def _item_view(item: Item, findings: list[QuestionFinding] = ()) -> ItemView:
     return ItemView(
+        findings=list(findings),
+        sentence=_sentence(item.key, item.value),
         key=item.key, piece=item.piece, status=item.status, value=item.value,
         current_n=item.current.n,
         revisions=[RevisionView(**r.model_dump()) for r in item.revisions],

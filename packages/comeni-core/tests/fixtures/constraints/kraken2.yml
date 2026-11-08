@@ -1,0 +1,25 @@
+# nf-core/kraken2/kraken2: two flags decide whether its read outputs are written.
+id: nf-core/kraken2/kraken2@2.1.3
+nf_process: KRAKEN2_KRAKEN2
+nf_include: modules/nf-core/kraken2/kraken2/main
+roles: [classification]
+consumes:
+  - {name: reads, type_id: fastq.reads}
+  - {name: db, type_id: kraken2.db}
+produces:
+  - {name: report, type_id: qc.report, format: [txt]}
+  - {name: classified_reads_fastq, type_id: fastq.reads,
+     produced_when: {param.save_output_fastqs: true}}
+  - {name: classified_reads_assignment, type_id: qc.report, format: [txt],
+     produced_when: {param.save_reads_assignment: true}}
+params:
+  - {name: save_output_fastqs, via: positional, default: false,
+     domain: {kind: boolean}, because: "the FASTQs are large and usually not needed"}
+  - {name: save_reads_assignment, via: positional, default: false,
+     domain: {kind: boolean}, because: "the per-read table is large"}
+nf_inputs:
+  - {ports: [reads]}
+  - {ports: [db]}
+  - {param: save_output_fastqs}
+  - {param: save_reads_assignment}
+provenance: {source: test, drafted_by: test, approved_by: test, approved_at: "2026-11-06"}

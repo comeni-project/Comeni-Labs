@@ -52,6 +52,13 @@ decline to curate one.
 | `MD0228` | a type names a param literally in its `entry_channel` |
 | `MD0317` | an inspector piece names a type or measurement no layer declares |
 | `MD0318` | an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
+| `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
+| `MD0602` | a contract's constraint names an input or param it does not declare |
+| `MD0603` | no combination of inputs and params satisfies a contract's constraints |
+| `MD0604` | an optional input is connected in no combination the constraints allow |
+| `MD0605` | an optional input is connected in every combination the constraints allow |
+| `MD0606` | an output's `produced_when` holds in no combination the constraints allow |
+| `MD0607` | a contract has too many combinations to check |
 
 ## A contract disagrees with its module
 
@@ -67,6 +74,7 @@ decline to curate one.
 | `MD0107` | `container` has drifted from the module's directive |
 | `MD0108` | a setting routes to an `ext` key this module never reads |
 | `MD0109` | a `produces[].format` is not what the module's output pattern writes |
+| `MD0611` | an output the module marks `optional: true` is always written, by the contract |
 
 ## A layer is not arranged the way its manifest says
 
@@ -146,6 +154,9 @@ decline to curate one.
 | `MD0319` | a role you switched off is one this goal needs, so nothing can make what it wants |
 | `MD0320` | a tool you excluded was the only one that can make this step's output |
 | `MD0321` | a tool you chose to feed a step's input makes nothing that input accepts |
+| `MD0608` | an output a later step needs is not written with this step's settings |
+| `MD0609` | a tool's input is needed, but it was switched off or cannot be connected |
+| `MD0610` | a connection or setting is forbidden by the tool's constraints |
 
 ## Gates and emission
 
@@ -270,3 +281,9 @@ decline to curate one.
 | `MF0517` | the draft cannot be published: the registry's own checks refuse it |
 | `MF0518` | the pull request cannot be merged: registry CI is not green |
 | `MF0519` | the release cannot be cut |
+| `MF0520` | an input arrives at a different scope than its type |
+| `MF0521` | two inputs of one tool have the same type |
+| `MF0522` | an input's file format differs from its type's format |
+| `MF0530` | an output main.nf marks optional has no `produced_when` |
+| `MF0531` | an input the script reads only under `?:` is marked required |
+| `MF0532` | an nf_inputs entry whose inputs are all optional has no `absent` |

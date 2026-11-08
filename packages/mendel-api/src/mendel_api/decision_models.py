@@ -315,6 +315,23 @@ class PipelineSourceRevision(_Revision):
     producer: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
+class PipelineOptionalInput(_Subject):
+    """A person's choice for a tool's optional input (#460); keyed by the tool and its port."""
+
+    __tablename__ = "pipeline_optional_input"
+    __table_args__ = _subject_keys("optional_input")
+
+
+class PipelineOptionalInputRevision(_Revision):
+    __tablename__ = "pipeline_optional_input_revision"
+    __table_args__ = _revision_keys("optional_input")
+
+    contract: Mapped[str] = mapped_column(String(200))
+    port: Mapped[str] = mapped_column(String(128))
+    state: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    """`off`, `optional` or `required`; `None` once withdrawn."""
+
+
 class PipelineParameter(_Subject):
     __tablename__ = "pipeline_parameter"
     __table_args__ = _subject_keys("parameter")

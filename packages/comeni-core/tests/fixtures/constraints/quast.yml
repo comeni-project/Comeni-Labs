@@ -1,0 +1,24 @@
+# nf-core/quast 5.3.0, as #460's quast walk found it: the reference and the GFF are optional,
+# and three reports exist only with a reference.
+id: nf-core/quast@5.3.0
+nf_process: QUAST
+nf_include: modules/nf-core/quast/main
+roles: [qc_per_sample]
+consumes:
+  - {name: consensus, type_id: assembly.fasta}
+  - {name: fasta, type_id: genome.fasta, required: false}
+  - {name: gff, type_id: annotation.gff, required: false}
+produces:
+  - {name: results, type_id: qc.report, format: [folder]}
+  - {name: tsv, type_id: qc.report, format: [tsv]}
+  - {name: transcriptome, type_id: qc.report, format: [tsv], produced_when: {given.fasta: present}}
+  - {name: misassemblies, type_id: qc.report, format: [tsv], produced_when: {given.fasta: present}}
+  - {name: unaligned, type_id: qc.report, format: [tsv], produced_when: {given.fasta: present}}
+nf_inputs:
+  - {ports: [consensus]}
+  - {ports: [fasta], absent: 2}
+  - {ports: [gff], absent: 2}
+constraints:
+  - {when: {given.gff: present}, requires: [fasta],
+     because: "QUAST reads --features only against a reference (-r)"}
+provenance: {source: test, drafted_by: test, approved_by: test, approved_at: "2026-11-06"}

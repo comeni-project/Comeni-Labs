@@ -261,6 +261,8 @@ CARRIED_AS: dict[str, str] = {
     "PipelineIR.unverified": "registry.unverified",
     "IRNode.id": "steps.id",
     "IRNode.contract_id": "steps.module.contract_id",
+    # Each optional input's state, who set it and why (#460).
+    "IRNode.inputs": "steps.input_states",
     # Written only where a person pinned a tool: the site is excluded from the IR's own dump.
     "IRNode.site": "intent.constraints.producers.site",
     # Version 7 regroups the goal: what is wanted, then what is known (Plan B, spec §8.1).

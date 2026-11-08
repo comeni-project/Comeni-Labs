@@ -38,3 +38,11 @@ def test_collection_configures_the_application_before_its_engine_is_imported():
 
     selected = os.environ.get("MENDEL_TEST_DATABASE_URL", MENDEL_TEST_URL)
     assert engine.url == make_url(selected)
+
+
+def test_deploy_secrets_from_the_developer_environment_are_dropped():
+    """Issue 475: a token in .env turned Wiener routes into 401s and found a forge token."""
+    environ = {"WIENER_API_TOKEN": "developer", "COMENI_FORGE_GITHUB_TOKEN": "developer"}
+    configure(environ)
+    assert "WIENER_API_TOKEN" not in environ
+    assert "COMENI_FORGE_GITHUB_TOKEN" not in environ

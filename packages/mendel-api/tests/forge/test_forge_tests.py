@@ -239,3 +239,18 @@ async def test_a_tested_adaptation_stays_pending_vocabulary(fake):
     assert forging.read(a).phase == "tested"
     assert a not in forging.pending_ids(a)
     assert forging.visible_phases() >= {"assembled", "testing", "tested"}
+
+
+def test_a_folder_output_is_matched_by_its_folder():
+    """#472: QUAST's `results` folder was published as `quast/quast/report.tsv` and so on, and
+    `pattern: quast` matched no file."""
+    from comeni_core.declared.tooltest import ToolTest
+
+    test = ToolTest(contract="nf-core/quast@5.3.0", name="t", data_commit="abc",
+                    inputs={"consensus": ["a.fa"]},
+                    expect=[{"port": "results", "pattern": "quast"},
+                            {"port": "tsv", "pattern": "quast.tsv"}])
+    files = ["quast/quast.tsv", "quast/quast/report.tsv", "quast/quast/basic_stats/Nx_plot.pdf"]
+    assert forge_tests.green(test, "QUAST", files) == []
+    assert [p.says for p in forge_tests.green(test, "QUAST", ["quast/quast.tsv"])] == [
+        "output results: nothing published matches quast"]
