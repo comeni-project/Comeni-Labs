@@ -203,6 +203,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- The builder asks only for the inputs of producers that can make a wanted type in its
+  required states: QUAST's assembly report no longer asks for FastQC's reads (#479).
 - The forge's item guide (`items.v2`) says a setting the module falls back on itself, such as
   `task.ext.prefix ?: "${meta.id}"`, has no default (#477).
 - A person's choice for a tool's optional input is a decision family (`optional_input`), switched from the step sheet or proposed by the chat (`builder.chat.v8`) under the quote rule. The forge drafts constraints (`forge.draft.v6`) and flags main.nf evidence (MF0530–MF0532). Turn blocks, suggestions and proposals move to shapes 5, 3 and 3 (identity upgrades).

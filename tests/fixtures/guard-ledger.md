@@ -5526,3 +5526,8 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 - 2026-11-08, #477 ext defaults: `test_an_untemplated_ext_default_outside_the_substitutable_class_is_refused`
   failed before the `Param` check; `mendel docs` then refused QUAST as released (MD0221).
   `test_the_guide_leaves_out_a_default_the_module_falls_back_on` failed against items.v1. Pass.
+- 2026-11-08, #479 wanted states in the builder's gaps: `test_a_wanted_state_leaves_out_the_inputs_of_producers_it_rules_out`
+  failed before `gaps(required=...)` (its precondition, that reads are asked without the state,
+  held). Passes.
+- 2026-11-08, #475 widened: `test_the_developers_model_is_dropped` failed before COMENI_AI_* was
+  dropped; two gathering tests failed in isolation with the developer's model. Pass.

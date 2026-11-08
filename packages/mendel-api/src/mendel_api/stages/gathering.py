@@ -239,7 +239,8 @@ def need_listed(session_id: str) -> bool:
     what they want, and the want is cleared so their reply is read from the top."""
     wanted, facts, version = _gathered(session_id)
     stack = registry.stack()
-    found = gaps.gaps(wanted.get("want", []), facts, stack)
+    found = gaps.gaps(wanted.get("want", []), facts, stack,
+                      required=gaps.required_of(wanted.get("constraints")))
 
     if isinstance(found, gaps.Unreachable):
         # **A dead end asks** (#202). Only a model's want reaches here — a goal edited on the
@@ -282,7 +283,8 @@ def offer_gap_or_card(session_id: str) -> str:
     (`nothing_missing`)."""
     wanted, facts, version = _gathered(session_id)
     stack = registry.stack()
-    found = gaps.gaps(wanted.get("want", []), facts, stack)
+    found = gaps.gaps(wanted.get("want", []), facts, stack,
+                      required=gaps.required_of(wanted.get("constraints")))
 
     if not found:
         goal = compose_goal(session_id)
@@ -523,7 +525,8 @@ def _unphrased(session_id: str) -> list[str]:
     if not _model_configured():
         return []
     wanted, facts, _ = _gathered(session_id)
-    found = gaps.gaps(wanted.get("want", []), facts, registry.stack())
+    found = gaps.gaps(wanted.get("want", []), facts, registry.stack(),
+                      required=gaps.required_of(wanted.get("constraints")))
     if isinstance(found, gaps.Unreachable):
         return []
     return [g.subject for g in found[:1] if not cached_phrasing(session_id, g.subject)[0]]
@@ -533,7 +536,8 @@ def gap_context(session_id: str, subject: str) -> dict | None:
     """What `builder.ask.v1` is given about one question, or `None` if it is no longer needed."""
     wanted, facts, version = _gathered(session_id)
     stack = registry.stack()
-    found = gaps.gaps(wanted.get("want", []), facts, stack)
+    found = gaps.gaps(wanted.get("want", []), facts, stack,
+                      required=gaps.required_of(wanted.get("constraints")))
     if isinstance(found, gaps.Unreachable):
         return None
     gap = next((g for g in found if g.subject == subject), None)

@@ -5,8 +5,10 @@ only the chosen one: a gap asked for and then not needed costs one question, and
 costs the build (#114). Deterministic: same want and facts in, same gaps out, in the same order.
 """
 
+from collections.abc import Iterable, Mapping
 from typing import NamedTuple
 
+from comeni_core.goal.asked import Constraints
 from mendel_resolver.layers import Layers
 from mendel_resolver.rules.format import Decision
 
@@ -75,8 +77,21 @@ def _carried_by(measurement, leaves: list[str], consumers: dict[str, list[str]]
     return ()
 
 
-def gaps(want: list[str], facts: list[Fact], stack: Layers) -> list[Gap] | Unreachable:
+def required_of(constraints: Constraints | dict | None) -> dict[str, list[str]]:
+    """The goal's required states per type, for `gaps(required=...)`."""
+    if constraints is None:
+        return {}
+    found = Constraints.model_validate(constraints) if isinstance(constraints, dict) \
+        else constraints
+    return {r.type_id: list(r.states) for r in found.required_states}
+
+
+def gaps(want: list[str], facts: list[Fact], stack: Layers,
+         required: Mapping[str, Iterable[str]] | None = None) -> list[Gap] | Unreachable:
     """Every input and measurement the want needs that no fact settles yet, inputs first.
+
+    `required` is the goal's required states per wanted type: a producer whose output cannot
+    carry them is not walked, so its inputs are not asked for (#479).
 
     An `OPEN` fact settles its gap too: *can't share it* is an answer, and asking again would
     be the protocol ignoring it (review focus 2).
@@ -91,7 +106,9 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers) -> list[Gap] | Unrea
     # two contracts consume names both (Part I.1 §4).
     consumers: dict[str, list[str]] = {}
 
-    def walk(type_id: str, visiting: frozenset[str]) -> None:
+    wanted_states = {t: frozenset(states) for t, states in (required or {}).items()}
+
+    def walk(type_id: str, visiting: frozenset[str], states: frozenset[str] = frozenset()) -> None:
         if type_id in seen:
             return
         seen.add(type_id)
@@ -100,7 +117,7 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers) -> list[Gap] | Unrea
         # person has to supply.
         producers = [
             c
-            for c in stack.registry.producers_of(type_id, frozenset())
+            for c in stack.registry.producers_of(type_id, states)
             if c.id not in visiting and all(port.type_id != type_id for port in c.consumes)
         ]
         if not producers:
@@ -115,9 +132,10 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers) -> list[Gap] | Unrea
                     walk(port.type_id, visiting | {contract.id})
 
     for type_id in want:
-        if not stack.registry.producers_of(type_id, frozenset()):
+        states = wanted_states.get(type_id, frozenset())
+        if not stack.registry.producers_of(type_id, states):
             return Unreachable(type_id)
-        walk(type_id, frozenset())
+        walk(type_id, frozenset(), states)
 
     from mendel_api.services import measurers
 

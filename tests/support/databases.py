@@ -4,8 +4,10 @@ from collections.abc import MutableMapping
 
 MENDEL_TEST_URL = "postgresql+psycopg://mendel:mendel@127.0.0.1:5442/mendel"
 WIENER_TEST_URL = "postgresql+psycopg://mendel:mendel@127.0.0.1:5442/wiener"
-# Deploy secrets a developer keeps in .env; a test that needs one sets it with monkeypatch.
-DEPLOY_SECRETS = ("WIENER_API_TOKEN", "COMENI_FORGE_GITHUB_TOKEN")
+# What a developer keeps in .env that changes what a test sees: deploy secrets, and the model
+# `model_access()` reads at call time. A test that needs one sets it with monkeypatch.
+DEPLOY_SECRETS = ("WIENER_API_TOKEN", "COMENI_FORGE_GITHUB_TOKEN", "COMENI_AI_MODEL",
+                  "COMENI_AI_BASE_URL", "COMENI_AI_API_KEY")
 
 
 def configure(environ: MutableMapping[str, str]) -> None:

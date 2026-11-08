@@ -88,3 +88,37 @@ def test_a_fact_only_a_tool_reads_and_no_sample_measures_is_not_asked():
     assert "strandedness" not in subjects
     assert "read_length" in subjects  # a rule reads it
     assert "paired" in subjects  # a sample measures it
+
+
+# ── a wanted state narrows who can make the want (issue 479) ────────────────────────────────
+
+from mendel_resolver import layers  # noqa: E402
+from support.paths import ROOT  # noqa: E402
+
+QUAST = (ROOT / "packages/comeni-core/tests/fixtures/constraints/quast.yml").read_text()
+ASSEMBLY_OVERLAY = {
+    "assembly.family.yml": "declares: family\nid: assembly\ndescription: Assembled genomes\n",
+    "assembly.fasta.yml": "declares: vocabulary\nid: assembly.fasta\nstates: []\nscope: sample\n",
+    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\nscope: run\n",
+    "qc.report.yml": "declares: vocabulary\nid: qc.report\nstates: [aggregated, assembly]\n",
+    "quast.contract.yml": "declares: contract\n" + QUAST.replace(
+        "type_id: qc.report", "type_id: qc.report::assembly"),
+}
+
+
+def _with_quast(tmp_path):
+    layer = tmp_path / "overlay"
+    layer.mkdir()
+    for name, body in ASSEMBLY_OVERLAY.items():
+        (layer / name).write_text(body)
+    return layers.load([ROOT / "registry", layer])
+
+
+def test_a_wanted_state_leaves_out_the_inputs_of_producers_it_rules_out(tmp_path):
+    """#460 walk: QUAST's report asked for FASTQ reads, FastQC's input, and then stopped."""
+    stack = _with_quast(tmp_path)
+    have = [Fact(kind=FactKind.INPUT, subject="assembly.fasta", source=FactSource.PERSON_SAID)]
+    assert "fastq.reads" in {gap.subject for gap in g.gaps(["qc.report"], have, stack)}, \
+        "without the state FastQC still competes — this test would measure nothing"
+    found = g.gaps(["qc.report"], have, stack, required={"qc.report": ["assembly"]})
+    assert "fastq.reads" not in {gap.subject for gap in found}
