@@ -30,6 +30,7 @@ from comeni_core.spell.marks import (
     PortName,
     RoleName,
     TypeId,
+    substitutable,
 )
 from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
@@ -292,6 +293,17 @@ class Param(BaseModel):
                     "MD0204",
                     f"{self.name} routes to {self.via}, which takes one typed value rather "
                     "than an argument string, so a template has nothing to compose into")
+            )
+        # The default becomes the step's setting, which refuses this at MD0221 on every build
+        # (issue 477). A module that falls back on its own (`task.ext.prefix ?: meta.id`) needs
+        # no default: an unset value contributes no fragment.
+        if (self.via is Via.EXT and self.template is None and self.default is not None
+                and not substitutable(self.default)):
+            raise ValueError(
+                coded("MD0221", f"{self.name}'s default {self.default!r} routes to "
+                      f"`ext.{self.key}` with no template, so every pipeline using it would be "
+                      "refused. Leave the default out when the module falls back on its own, "
+                      "or use letters, digits and _ . : + - only — `mendel explain MD0221`.")
             )
         return self
 

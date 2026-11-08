@@ -22,6 +22,9 @@
   "key", "template", "because"}; via is ext (with key), positional (wired in nf_inputs) or meta.
   "domain" is null or {"kind": "boolean" | "enum" | "integer" | "number", "values": [...]
   (for enum), "minimum", "maximum"}; a free-text setting such as a prefix has no domain
+  A setting the module falls back on itself (`task.ext.prefix ?: "${meta.id}"`) has no
+  "default" and no "tier_hint": leave both out. An ext "default" without a template is
+  letters, digits and _ . : + - only; never `${...}`.
 - parameters:ext_args — {"template", "because"}
 - vocabulary:type:<id> — a full type declaration for a new id, or {"id", "add_states": [...]} to
   extend an existing type with the content states the person chose. New states require this

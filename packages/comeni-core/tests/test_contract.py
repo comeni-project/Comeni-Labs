@@ -132,3 +132,25 @@ def test_parameter_domains_accept_only_declared_values(domain, value, refusal):
         assert result is None
     else:
         assert result is not None and refusal in result
+
+
+# ── an ext default the builder could never use (issue 477) ──────────────────────────────────
+
+from comeni_core.declared.contract import Param  # noqa: E402
+
+QUAST_PREFIX = {"name": "prefix", "default": "${meta.id}", "via": "ext", "key": "prefix",
+                "because": "main.nf falls back to meta.id"}
+
+
+def test_an_untemplated_ext_default_outside_the_substitutable_class_is_refused():
+    """QUAST v0.8.0 shipped this; every build with it then failed at MD0221."""
+    with pytest.raises(ValueError, match="MD0221"):
+        Param.model_validate(QUAST_PREFIX)
+
+
+def test_an_ext_setting_with_no_default_is_left_to_the_module():
+    assert Param.model_validate({**QUAST_PREFIX, "default": None}).default is None
+
+
+def test_a_plain_ext_default_is_still_accepted():
+    assert Param.model_validate({**QUAST_PREFIX, "default": "quast"}).default == "quast"
