@@ -46,3 +46,10 @@ def test_deploy_secrets_from_the_developer_environment_are_dropped():
     configure(environ)
     assert "WIENER_API_TOKEN" not in environ
     assert "COMENI_FORGE_GITHUB_TOKEN" not in environ
+
+
+def test_the_developers_model_is_dropped():
+    """Issue 475: with COMENI_AI_MODEL in .env, gathering tests saw a model and phrased."""
+    environ = {"COMENI_AI_MODEL": "ollama_chat/x", "COMENI_AI_BASE_URL": "http://ollama:11434"}
+    configure(environ)
+    assert environ == {k: v for k, v in environ.items() if not k.startswith("COMENI_AI_")}
