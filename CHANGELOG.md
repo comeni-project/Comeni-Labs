@@ -30,6 +30,9 @@ or a complete commit history.
 
 ### comeni-core
 
+- A contract param routed to `ext` with no template is refused when it loads if its default
+  is outside the substitutable class (MD0221). QUAST's `prefix: ${meta.id}` passed every check
+  and then failed every build that used it (#477).
 - Tool constraints (#460): contracts declare optional inputs (`required: false`, `absent`), outputs written under a condition (`produced_when`), constraint rows and groups. `comeni_core.logic.when` is the one condition evaluator for contracts and rules; `declared.constraints` evaluates a setup and checks a contract for contradictions, dead and fake-optional inputs and outputs never written (MD0601–MD0607). `pipeline.yml` records each step's optional-input states and run rules, and marks optional channels.
 - A model choice may carry `temperature`, `reasoning_effort` and `timeout_seconds` for that
   purpose's calls (#457). Invariant 12 (no subscription OAuth) is retired.
@@ -200,13 +203,15 @@ or a complete commit history.
 
 ### mendel-api
 
+- The forge's item guide (`items.v2`) says a setting the module falls back on itself, such as
+  `task.ext.prefix ?: "${meta.id}"`, has no default (#477).
 - A person's choice for a tool's optional input is a decision family (`optional_input`), switched from the step sheet or proposed by the chat (`builder.chat.v8`) under the quote rule. The forge drafts constraints (`forge.draft.v6`) and flags main.nf evidence (MF0530–MF0532). Turn blocks, suggestions and proposals move to shapes 5, 3 and 3 (identity upgrades).
 - The forge publishes a draft that extends a shared type once the registry has the added states, and names the missing states otherwise (#473).
 - A forge test's expected pattern may match a folder output by the folder's name (#472).
 - A forge test may leave an optional input out: the tool runs without it, and validation
   asks only required inputs to be fed (#470).
 - The forge chat (`forge.chat.v3`) is shown every item kind and its shape, from one shared
-  guide (`forge/prompts/parts/items.v1.md`), so it can add the first constraint, group or
+  guide (`forge/prompts/parts/items.v2.md`), so it can add the first constraint, group or
   other item of a kind the draft has none of (#468). Pieces are drafted with `forge.draft.v7`,
   which reads the same guide; it spells out a parameter's `domain` by its `kind`.
 - The forge's reviewer (`forge.review.v2`) comments only where it has a concern, and only with a

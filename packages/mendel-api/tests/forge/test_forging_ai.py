@@ -823,3 +823,12 @@ def test_the_guide_spells_out_a_new_type():
     guide = forging_ai.ITEM_SHAPES.read_text()
     for field in ('"scope"', '"name"', '"explain"', '"entry_channel"', "[id: f.baseName]"):
         assert field in guide, field
+
+
+def test_the_guide_leaves_out_a_default_the_module_falls_back_on(adaptation):
+    """Issue 477: QUAST's prefix was drafted with default ${meta.id}, which every build refused."""
+    _answer(adaptation)
+    reply = {"items": {"parameters:none": {"because": "none"}}, "because": {}}
+    client = FakeClient(reply, reply)
+    forging_ai.draft_piece(adaptation, Piece.PARAMETERS, client)
+    assert 'task.ext.prefix ?: "${meta.id}"`) has no\n  "default"' in client.prompts[0]

@@ -5523,3 +5523,6 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 - 2026-11-08, #475 deploy secrets in tests: `test_deploy_secrets_from_the_developer_environment_are_dropped`
   failed before `configure` dropped them; with tokens in `.env`, 64 Wiener and forge tests failed
   (401s, a forge token found). Passes, and those tests pass.
+- 2026-11-08, #477 ext defaults: `test_an_untemplated_ext_default_outside_the_substitutable_class_is_refused`
+  failed before the `Param` check; `mendel docs` then refused QUAST as released (MD0221).
+  `test_the_guide_leaves_out_a_default_the_module_falls_back_on` failed against items.v1. Pass.

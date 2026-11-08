@@ -734,6 +734,11 @@ MD0221:
     found the untemplated branch had none. An unanswered setting — `value: null` — is not
     affected: it contributes no fragment, and tier 4 is flagged rather than fatal.
 
+    A contract's `default:` on this route is checked when the contract loads, because it becomes
+    the setting's value: a default such as `${meta.id}` would refuse every pipeline using the
+    tool. When the module falls back on its own (`task.ext.prefix ?: "${meta.id}"`), declare no
+    default.
+
 MD0222:
   emitted_by: compiler
   concern: pipeline-file
