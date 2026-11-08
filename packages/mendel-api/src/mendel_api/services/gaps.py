@@ -24,6 +24,9 @@ class Gap(NamedTuple):
     the walk that consumes the type, in walk order (Part I.1 §4)."""
     decides: tuple[Decision, ...] = ()
     """For a measurement a rule reads: each decision whose `when` reads it, in table order."""
+    optional: bool = False
+    """For an input: every port on the walk that reads it is `required: false` (#481). Asked,
+    but *I don't have one* leaves it out instead of stopping the build."""
 
 
 class Unreachable(NamedTuple):
@@ -77,6 +80,13 @@ def _carried_by(measurement, leaves: list[str], consumers: dict[str, list[str]]
     return ()
 
 
+def absent_of(draft_id: str) -> list[str]:
+    """The inputs the person said they do not have, for `gaps(absent=...)`."""
+    from mendel_api.services import decisions
+
+    return sorted(i.type_id for i in decisions.read(draft_id).inputs if not i.present)
+
+
 def required_of(constraints: Constraints | dict | None) -> dict[str, list[str]]:
     """The goal's required states per type, for `gaps(required=...)`."""
     if constraints is None:
@@ -87,11 +97,14 @@ def required_of(constraints: Constraints | dict | None) -> dict[str, list[str]]:
 
 
 def gaps(want: list[str], facts: list[Fact], stack: Layers,
-         required: Mapping[str, Iterable[str]] | None = None) -> list[Gap] | Unreachable:
+         required: Mapping[str, Iterable[str]] | None = None,
+         absent: Iterable[str] = ()) -> list[Gap] | Unreachable:
     """Every input and measurement the want needs that no fact settles yet, inputs first.
 
     `required` is the goal's required states per wanted type: a producer whose output cannot
     carry them is not walked, so its inputs are not asked for (#479).
+    `absent` is the inputs the person said they do not have: an optional one is left out and
+    not asked again (#481).
 
     An `OPEN` fact settles its gap too: *can't share it* is an answer, and asking again would
     be the protocol ignoring it (review focus 2).
@@ -99,19 +112,28 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers,
     A fact only a tool reads off the sample's label, that no rule reads and no trusted inspector
     measures, is not a gap (#338): the step that reads it stops for it instead.
     """
-    known = {(f.kind, f.subject) for f in facts}
+    known = {(f.kind, f.subject) for f in facts} | {(FactKind.INPUT, t) for t in absent}
     leaves: list[str] = []
     seen: set[str] = set()
     # Who reads each type, recorded before the `seen` check cuts a second visit short, so a type
     # two contracts consume names both (Part I.1 §4).
     consumers: dict[str, list[str]] = {}
+    # Whether any port on the walk needs the type, rather than reading it only if given.
+    needed: dict[str, bool] = {}
+    seen_needed: set[str] = set()
 
     wanted_states = {t: frozenset(states) for t, states in (required or {}).items()}
 
-    def walk(type_id: str, visiting: frozenset[str], states: frozenset[str] = frozenset()) -> None:
-        if type_id in seen:
+    def walk(type_id: str, visiting: frozenset[str], states: frozenset[str] = frozenset(),
+             optional: bool = False) -> None:
+        # A type first reached behind an optional input is walked again when a required port
+        # reaches it, so what lies behind it is marked needed too (#481).
+        if type_id in seen and (optional or type_id in seen_needed):
             return
+        first = type_id not in seen
         seen.add(type_id)
+        if not optional:
+            seen_needed.add(type_id)
         # A contract cannot satisfy its own input (the router's rule): a trimmer makes reads
         # only from reads, so reads with nothing but trimmers behind them are still a leaf the
         # person has to supply.
@@ -121,15 +143,19 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers,
             if c.id not in visiting and all(port.type_id != type_id for port in c.consumes)
         ]
         if not producers:
-            leaves.append(type_id)
+            if first:
+                leaves.append(type_id)
             return
         for contract in producers:
             for port in contract.consumes:
                 if port.type_id:
+                    # Behind an optional input, even a required port only reads what is given.
+                    behind = optional or not port.required
+                    needed[port.type_id] = needed.get(port.type_id, False) or not behind
                     readers = consumers.setdefault(port.type_id, [])
                     if contract.id not in readers:
                         readers.append(contract.id)
-                    walk(port.type_id, visiting | {contract.id})
+                    walk(port.type_id, visiting | {contract.id}, optional=behind)
 
     for type_id in want:
         states = wanted_states.get(type_id, frozenset())
@@ -150,7 +176,7 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers,
     }
     out = [
         Gap(FactKind.INPUT, t, "the pipeline needs it and nothing can make it",
-            used_by=tuple(consumers.get(t, ())))
+            used_by=tuple(consumers.get(t, ())), optional=not needed.get(t, True))
         for t in leaves
         if (FactKind.INPUT, t) not in known
     ]

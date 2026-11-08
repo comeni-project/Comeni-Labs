@@ -452,3 +452,18 @@ def test_the_phrasing_model_is_given_the_name_not_the_id(clean):
     context = gathering.gap_context(sid, "fastq.reads")
     assert "sequencing reads (FASTQ)" in context["description"]
     assert "fastq.reads" not in context["description"]
+
+
+def test_dont_have_an_optional_input_leaves_it_out_and_goes_on(clean, monkeypatch, tmp_path):
+    """Issue 481: QUAST's reference is asked, and *I don't have one* no longer stops."""
+    from mendel_api.services import registry
+    from mendel_api_tests.stacks import with_quast as _with_quast
+
+    stack = _with_quast(tmp_path)
+    monkeypatch.setattr(registry, "stack", lambda: stack)
+    sid = _gathering(want=["qc.report"])
+    _answer_until(sid, "genome.fasta", "dont_have")
+    assert facade.current_phase(sid) is not Phase.STOPPED
+    assert "genome.fasta" not in {f["subject"] for f in _facts(sid)}, "not something you have"
+    assert facade.pending_id(sid) and _payload(facade.pending_id(sid)).get("subject") != \
+        "genome.fasta", "asked again"

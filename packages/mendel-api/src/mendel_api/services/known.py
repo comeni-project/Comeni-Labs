@@ -48,7 +48,8 @@ def of(session_id: str) -> Known:
 
     wants = [w for w in current.wants if w.present]
     open_ = gaps.gaps([w.type_id for w in wants], authoring_decisions.facts(draft_id), stack,
-                      required={w.type_id: list(w.states) for w in wants if w.states})
+                      required={w.type_id: list(w.states) for w in wants if w.states},
+                      absent=[i.type_id for i in current.inputs if not i.present])
     return Known(
         wants=[KnownItem(label=explain.name_of(stack, FactKind.INPUT, w.type_id),
                          # A want nobody quoted is the model's reading until *That's right*.

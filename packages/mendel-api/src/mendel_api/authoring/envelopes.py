@@ -53,6 +53,8 @@ class GapOffer(_Offer):
     subject: str = Field(min_length=1, max_length=128)
     kind: FactKind
     why: str
+    optional: bool = False
+    """An input every reader takes as optional (#481): *I don't have one* leaves it out."""
     states: list[str] = Field(default_factory=list)
     block: Question
     explain: Explanation | None = None

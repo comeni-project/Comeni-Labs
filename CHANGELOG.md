@@ -203,6 +203,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- The builder still asks for an input only optional ports read, such as QUAST's reference,
+  but *I don't have one* leaves it out and the conversation goes on (#481).
 - The builder asks only for the inputs of producers that can make a wanted type in its
   required states: QUAST's assembly report no longer asks for FastQC's reads (#479).
 - The forge's item guide (`items.v2`) says a setting the module falls back on itself, such as

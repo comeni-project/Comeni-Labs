@@ -201,7 +201,8 @@ def _gathered(session_id: str) -> tuple[dict, list[Fact], int]:
         # recorded there from the first sentence, and confirmed later on the card.
         current = decisions.goal(row.draft_id)
         wanted = {"want": current.want,
-                  "constraints": current.constraints.model_dump(mode="json")}
+                  "constraints": current.constraints.model_dump(mode="json"),
+                  "absent": gaps.absent_of(row.draft_id)}
         return wanted, authoring_decisions.facts(row.draft_id), row.row_version
 
 
@@ -240,7 +241,8 @@ def need_listed(session_id: str) -> bool:
     wanted, facts, version = _gathered(session_id)
     stack = registry.stack()
     found = gaps.gaps(wanted.get("want", []), facts, stack,
-                      required=gaps.required_of(wanted.get("constraints")))
+                      required=gaps.required_of(wanted.get("constraints")),
+                      absent=wanted.get("absent", ()))
 
     if isinstance(found, gaps.Unreachable):
         # **A dead end asks** (#202). Only a model's want reaches here — a goal edited on the
@@ -284,7 +286,8 @@ def offer_gap_or_card(session_id: str) -> str:
     wanted, facts, version = _gathered(session_id)
     stack = registry.stack()
     found = gaps.gaps(wanted.get("want", []), facts, stack,
-                      required=gaps.required_of(wanted.get("constraints")))
+                      required=gaps.required_of(wanted.get("constraints")),
+                      absent=wanted.get("absent", ()))
 
     if not found:
         goal = compose_goal(session_id)
@@ -340,6 +343,7 @@ def offer_gap_or_card(session_id: str) -> str:
             "subject": gap.subject,
             "kind": gap.kind.value,
             "why": gap.why,
+            "optional": gap.optional,
             "options": options,
             "block": question.model_dump(mode="json"),
             "explain": explained.model_dump(mode="json"),
@@ -526,7 +530,8 @@ def _unphrased(session_id: str) -> list[str]:
         return []
     wanted, facts, _ = _gathered(session_id)
     found = gaps.gaps(wanted.get("want", []), facts, registry.stack(),
-                      required=gaps.required_of(wanted.get("constraints")))
+                      required=gaps.required_of(wanted.get("constraints")),
+                      absent=wanted.get("absent", ()))
     if isinstance(found, gaps.Unreachable):
         return []
     return [g.subject for g in found[:1] if not cached_phrasing(session_id, g.subject)[0]]
@@ -537,7 +542,8 @@ def gap_context(session_id: str, subject: str) -> dict | None:
     wanted, facts, version = _gathered(session_id)
     stack = registry.stack()
     found = gaps.gaps(wanted.get("want", []), facts, stack,
-                      required=gaps.required_of(wanted.get("constraints")))
+                      required=gaps.required_of(wanted.get("constraints")),
+                      absent=wanted.get("absent", ()))
     if isinstance(found, gaps.Unreachable):
         return None
     gap = next((g for g in found if g.subject == subject), None)
@@ -644,8 +650,10 @@ def _answer_gap(ctx: Ctx, cmd: c.AnswerGap) -> Phase:
 
         session_id = ctx.session_id = proposal.session_id
         row = db.get(PipelineAuthoringSession, session_id)
-        stops = kind is FactKind.INPUT and option == "dont_have"
-        if stops:
+        absent = kind is FactKind.INPUT and option == "dont_have"
+        # An input only optional ports read is left out, and gathering goes on (#481).
+        stops = absent and not payload.get("optional", False)
+        if absent:
             from mendel_authoring.decisions import InputDecision
 
             decisions.set_input(row.draft_id, InputDecision(
