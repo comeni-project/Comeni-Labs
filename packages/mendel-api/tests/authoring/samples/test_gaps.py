@@ -92,26 +92,7 @@ def test_a_fact_only_a_tool_reads_and_no_sample_measures_is_not_asked():
 
 # ── a wanted state narrows who can make the want (issue 479) ────────────────────────────────
 
-from mendel_resolver import layers  # noqa: E402
-from support.paths import ROOT  # noqa: E402
-
-QUAST = (ROOT / "packages/comeni-core/tests/fixtures/constraints/quast.yml").read_text()
-ASSEMBLY_OVERLAY = {
-    "assembly.family.yml": "declares: family\nid: assembly\ndescription: Assembled genomes\n",
-    "assembly.fasta.yml": "declares: vocabulary\nid: assembly.fasta\nstates: []\nscope: sample\n",
-    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\nscope: run\n",
-    "qc.report.yml": "declares: vocabulary\nid: qc.report\nstates: [aggregated, assembly]\n",
-    "quast.contract.yml": "declares: contract\n" + QUAST.replace(
-        "type_id: qc.report", "type_id: qc.report::assembly"),
-}
-
-
-def _with_quast(tmp_path):
-    layer = tmp_path / "overlay"
-    layer.mkdir()
-    for name, body in ASSEMBLY_OVERLAY.items():
-        (layer / name).write_text(body)
-    return layers.load([ROOT / "registry", layer])
+from mendel_api_tests.stacks import with_quast as _with_quast  # noqa: E402
 
 
 def test_a_wanted_state_leaves_out_the_inputs_of_producers_it_rules_out(tmp_path):
@@ -122,3 +103,17 @@ def test_a_wanted_state_leaves_out_the_inputs_of_producers_it_rules_out(tmp_path
         "without the state FastQC still competes — this test would measure nothing"
     found = g.gaps(["qc.report"], have, stack, required={"qc.report": ["assembly"]})
     assert "fastq.reads" not in {gap.subject for gap in found}
+
+
+def test_an_input_only_optional_ports_read_is_an_optional_gap(tmp_path):
+    """Issue 481: QUAST's reference was asked as a need, and *I don't have one* stopped."""
+    stack = _with_quast(tmp_path)
+    have = [Fact(kind=FactKind.INPUT, subject="assembly.fasta", source=FactSource.PERSON_SAID)]
+    found = _by_subject(g.gaps(["qc.report"], have, stack, required={"qc.report": ["assembly"]}))
+    assert found, "nothing was asked — the walk measured nothing"
+    assert found["genome.fasta"].optional and found["annotation.gff"].optional
+
+
+def test_an_input_a_required_port_reads_is_not_optional():
+    found = _by_subject(g.gaps(["counts.matrix"], [], registry.stack()))
+    assert found["fastq.reads"].optional is False

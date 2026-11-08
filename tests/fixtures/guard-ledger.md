@@ -5531,3 +5531,6 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   held). Passes.
 - 2026-11-08, #475 widened: `test_the_developers_model_is_dropped` failed before COMENI_AI_* was
   dropped; two gathering tests failed in isolation with the developer's model. Pass.
+- 2026-11-08, #481 optional inputs in gathering: `test_dont_have_an_optional_input_leaves_it_out_and_goes_on`
+  failed (the session stopped); `test_an_input_only_optional_ports_read_is_an_optional_gap`
+  failed (no `optional` on a gap). Pass.

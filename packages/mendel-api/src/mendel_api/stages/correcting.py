@@ -339,7 +339,8 @@ def blocked(ctx: Ctx):
         # Explained like gathering's questions (Part I.1): the walk's readers when the missing
         # type is one of its gaps, and what is still open, so a sample promises only those.
         goal = decisions.goal(row.draft_id)
-        found = gaps.gaps(goal.want, facts, stack, required=gaps.required_of(goal.constraints))
+        found = gaps.gaps(goal.want, facts, stack, required=gaps.required_of(goal.constraints),
+                          absent=gaps.absent_of(row.draft_id))
         found = [] if isinstance(found, gaps.Unreachable) else found
         walked = next((g for g in found if g.subject == gap.subject), gap)
         measured, read = gathering._inspectable(stack)
