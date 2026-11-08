@@ -5520,3 +5520,6 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 - 2026-11-07, #473 publishing a type extension: without the fix,
   `test_an_extension_the_registry_already_has_is_placed_as_nothing` failed (MF0517 "would
   change a shared file" though the state was there). Passes. Restored.
+- 2026-11-08, #475 deploy secrets in tests: `test_deploy_secrets_from_the_developer_environment_are_dropped`
+  failed before `configure` dropped them; with tokens in `.env`, 64 Wiener and forge tests failed
+  (401s, a forge token found). Passes, and those tests pass.
