@@ -501,6 +501,14 @@ def _resolve_param(
             reason=f"specified in the goal as {param.name}",
         ), None
 
+    # A tie under `hit: unique`: the rows disagree, so neither the rule nor a default
+    # decides; the question is asked with every value the rows give (#461).
+    ties = context.rules.ties_for(
+        context.roles, param.name, context.premises, implementation=context.implementation
+    )
+    if ties:
+        return _ask(param, context, [pin.value for pin in ties])
+
     # Tier 3 — a declared rule matches the measured profile.
     pin = context.rules.value_for(
         context.roles, param.name, context.premises, implementation=context.implementation
@@ -542,13 +550,20 @@ def _resolve_param(
         ), None
 
     # Tier 4 — nothing decided it. Ask the port, record it, flag it.
+    # Tier 2 already returned when a default existed, so there is exactly one candidate and
+    # it is None. Real alternatives arrive with the rule-tables spec, which gives a parameter
+    # a declared domain to draw them from.
+    return _ask(param, context, [None])
+
+
+def _ask(
+    param: Param, context: ParamContext, candidates: list
+) -> tuple[ResolvedValue, ParamDecision | None]:
+    """Tier 4: ask the port with these candidates, record the answer, and flag it."""
     ambiguity = ParamAsked(
         node_id=context.node_id,
         subject=param.name,
-        # Tier 2 already returned when a default existed, so there is exactly one
-        # candidate and it is None. Real alternatives arrive with the rule-tables
-        # spec, which gives a parameter a declared domain to draw them from.
-        candidates=[None],
+        candidates=candidates,
         tier_hint=param.tier_hint,
     )
     resolution = context.resolver.resolve(ambiguity)

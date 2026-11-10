@@ -247,23 +247,45 @@ class RuleTable(BaseModel):
                     )
                 decided_by[target.key()] = decision.key()
 
-    def _for(self, key: str, premises: "dict[str, object]") -> Pin | None:
+    def _matching(self, key: str, premises: "dict[str, object]") -> tuple[str, list[Pin]]:
+        """The decision's hit policy, and every row that fires for `key` here, in row order."""
         for decision in self.decisions:
             # `key()` is the composite; a two-target decision answers for either of them.
             if key not in {target.key() for target in decision.targets()}:
                 continue
+            pins = []
             for row in decision.rows:
                 gives, value = row.value(premises)
                 if gives and matches(row.when, premises):
-                    return Pin(
+                    pins.append(Pin(
                         value=value,
                         from_layer=self.layer_of.get(decision.key(), ""),
                         displaced_layer=self.displaced_layer.get(decision.key()),
                         decision=decision,
                         row=row,
                         premise=_premises_read(row, premises),
-                    )
-        return None
+                    ))
+                    if decision.hit == "first":
+                        break
+            return decision.hit, pins
+        return "first", []
+
+    def _for(self, key: str, premises: "dict[str, object]") -> Pin | None:
+        hit, pins = self._matching(key, premises)
+        if hit == "unique" and len(pins) > 1:
+            return None  # a tie: `ties_for` names it, and the resolver asks
+        return pins[0] if pins else None
+
+    def ties_for(self, roles: Sequence[str], param: str, premises: "dict[str, object]", *,
+                 implementation: str | None = None) -> list[Pin]:
+        """Under `hit: unique`, the rows that all match for `param` here, when more than one
+        does; otherwise none. A tie is a question for tier 4, never settled by row order."""
+        for role in roles:
+            hit, pins = self._matching(f"{Effect.PARAM}:{role}:{param}", premises)
+            pins = [p for p in pins if _applies_to(p, implementation)]
+            if hit == "unique" and len(pins) > 1:
+                return pins
+        return []
 
     def effects_for(self, premises: "dict[str, object]") -> list["Fired"]:
         """Every effect the table produces against these premises, in key order.
@@ -274,10 +296,11 @@ class RuleTable(BaseModel):
         """
         fired: list[Fired] = []
         for decision in self.decisions:
-            row = next((r for r in decision.rows
-                        if r.value(premises)[0] and matches(r.when, premises)), None)
-            if row is None:
+            fired_rows = [r for r in decision.rows
+                          if r.value(premises)[0] and matches(r.when, premises)]
+            if not fired_rows or (decision.hit == "unique" and len(fired_rows) > 1):
                 continue
+            row = fired_rows[0]
             value = row.value(premises)[1]
             pin = Pin(
                 value=value,

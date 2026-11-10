@@ -850,3 +850,57 @@ def test_a_derived_fact_must_fit_the_domain_too(world):
     as_number = FROM_FACT.replace("{fact: s_level, kind: integer,", "{fact: s_level, kind: number,")
     with pytest.raises(RuleValidationError, match="(?s)MD0300.*s_level"):
         _rules(world, as_number)
+
+
+# ── hit policy (#461) ──────────────────────────────────────────────────────────────────────
+
+UNIQUE = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: strandedness}
+    hit: unique
+    cite: "a fixture"
+    rows:
+      - {when: {read_length: ">= 100"}, then: 1}
+      - {when: {strandedness: reverse}, then: 2}
+"""
+
+
+def test_first_is_the_default_and_is_not_written():
+    """The registry's rule files say nothing of a hit policy and read as they did."""
+    from mendel_resolver import layers
+    from support.paths import REGISTRY
+
+    decisions = layers.load(REGISTRY).rules.decisions
+    assert decisions, "the registry declares no decision: this measures nothing"
+    for decision in decisions:
+        assert decision.hit == "first"
+        assert "hit" not in decision.model_dump()
+
+
+def test_unique_with_two_matching_rows_is_a_tie(world):
+    table = _rules(world, UNIQUE)
+    both = P(read_length=150, strandedness="reverse")
+    assert table.value_for(["quantification"], "strandedness", both) is None
+    assert [p.value for p in table.ties_for(["quantification"], "strandedness", both)] == [1, 2]
+    one = P(read_length=150, strandedness="forward")
+    assert table.value_for(["quantification"], "strandedness", one).value == 1
+    assert table.ties_for(["quantification"], "strandedness", one) == []
+
+
+def test_unique_with_two_matching_rows_is_a_tier_4_question(world):
+    """Review focus 4: a tie is asked, with both values, never settled by row order."""
+    from comeni_core.plan.decision import ParamDecision
+    from mendel_resolver.goal import GoalInput
+    from mendel_resolver.resolve import resolve
+
+    table = _rules(world, UNIQUE)
+    goal = Goal(have=[GoalInput(type_id="alignment.bam", states={"coordinate_sorted"})],
+                want=["counts.matrix"],
+                profile=world["measurements"].profile({"read_length": 150,
+                                                       "strandedness": "reverse"}))
+    ir = resolve(goal, world["registry"], table, world["measurements"],
+                 vocabulary=world["vocabulary"])
+    asked = [d for d in ir.decisions if isinstance(d, ParamDecision)
+             and d.subject == "strandedness"]
+    assert asked and sorted(asked[0].candidates) == [1, 2]

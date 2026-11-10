@@ -143,6 +143,9 @@ class Decision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     decides: DecisionTarget | list[DecisionTarget]
+    hit: Literal["first", "unique"] = Field(default="first", exclude_if=lambda h: h == "first")
+    """`first`: the first matching row decides, as rows always have. `unique`: at most one row
+    may match; two matching rows are a tie, asked at tier 4 (#461)."""
     rows: list[DecisionRow] = Field(default_factory=list)
     because: str | None = None
     cite: str | None = None

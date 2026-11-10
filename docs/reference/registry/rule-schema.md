@@ -32,7 +32,8 @@ Model: `mendel_resolver.rules.format.Decision`
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `decides` | DecisionTarget | *required* | what this block settles |
-| `rows` | [DecisionRow] | `[]` | branches, tried in order, first match wins |
+| `hit` | `first` \| `unique` | `first` | `first`: the first matching row decides. `unique`: at most one row may match; two matching rows are a tie, asked at tier 4 |
+| `rows` | [DecisionRow] | `[]` | branches, tried in order |
 | `because` | string \| null | `null` | why this decision exists, in prose |
 | `cite` | string \| null | `null` | the citation — reaches `selection.reason` and the generated `main.nf` |
 
@@ -73,7 +74,7 @@ Model: `mendel_resolver.rules.format.DecisionRow`
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `when` | map | `{}` | measurement id → expectation. All must hold. |
-| `then` | scalar | `null` | the value, or a contract id for `effect: implementation` |
+| `then` | scalar \| `{fact: <id>}` | `null` | the value, or a contract id for `effect: implementation`. For `effect: param`, `{fact: <id>}` takes the value of a measured or derived fact; a fact with no value makes the row not fire |
 | `because` | string \| null | `null` | overrides the block's `because` for this row |
 | `cite` | string \| null | `null` | overrides the block's `cite` for this row |
 
