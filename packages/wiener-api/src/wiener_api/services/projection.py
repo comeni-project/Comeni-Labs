@@ -112,9 +112,37 @@ def next_seq(session: Session, lab_id: str, run_id: str) -> int:
 
 
 def record(session: Session, lab_id: str, run_id: str, payload: dict) -> RunState:
-    """Admit one weblog body, append it to the record, and refresh the projections."""
+    """Admit one weblog body, append it to the record, and refresh the projections. When the
+    run completes, what it measured is read into the record too (#465)."""
     seq = next_seq(session, lab_id, run_id)
-    return append(session, lab_id, run_id, admit(payload, run_id=run_id, seq=seq))
+    event = admit(payload, run_id=run_id, seq=seq)
+    state = append(session, lab_id, run_id, event)
+    if event.kind is EventKind.COMPLETED:
+        state = _read_measured(session, lab_id, run_id, event.at_ms) or state
+    return state
+
+
+def _read_measured(session: Session, lab_id: str, run_id: str, at_ms: int) -> RunState | None:
+    """Each fact and decided value the run published, as Wiener's own `MEASURED` events.
+    Once: a redelivered `completed` finds them recorded and adds none."""
+    from wiener_core.events import measured as measured_event
+
+    from wiener_api.services import launcher, measured
+
+    if any(row.kind == EventKind.MEASURED for row in repository.events(session, lab_id, run_id)):
+        return None
+    pipeline = _artifact_pipeline(session, lab_id, run_id)
+    if pipeline is None:
+        return None
+    facts, decided = measured.read(launcher.results_dir(run_id), pipeline)
+    state = None
+    for fact in facts:
+        state = append(session, lab_id, run_id, measured_event(
+            run_id, at_ms, next_seq(session, lab_id, run_id), fact=fact))
+    for value in decided:
+        state = append(session, lab_id, run_id, measured_event(
+            run_id, at_ms, next_seq(session, lab_id, run_id), decided=value))
+    return state
 
 
 def beat(session: Session, lab_id: str, run_id: str, at_ms: int) -> RunState:
@@ -234,7 +262,9 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
         # that only goes up is worse than no gauge.
         telemetry.in_flight(+1, _artifact_pipeline(session, lab_id, run_id))
 
-    if state.phase in _TERMINAL:
+    # Once, on the way in: events Wiener appends after the end (a run's measurements, #465)
+    # must not export the run again.
+    if state.phase in _TERMINAL and prior.phase not in _TERMINAL:
         if prior.phase is RunPhase.RUNNING:
             telemetry.in_flight(-1, _artifact_pipeline(session, lab_id, run_id))
         # **After the flush, like the stream publish, and for the same reason**: telemetry for

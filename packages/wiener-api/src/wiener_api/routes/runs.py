@@ -12,7 +12,8 @@ from typing import Annotated, Literal
 from comeni_core.diagnostics import coded
 from fastapi import APIRouter, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict
-from wiener_core.events import TaskStatus
+from wiener_core.events import EventKind, RunEvent, TaskStatus
+from wiener_core.measured import DecidedValue, MeasuredView
 from wiener_core.series import Series, series
 from wiener_core.signals import signal_of
 from wiener_core.state import Attempt, RunPhase
@@ -355,6 +356,35 @@ def read(run_id: str) -> dict:
         # Part H: retention deleted its working files; results and record stay.
         state["work_cleared"] = row.work_cleared_at is not None
     return state
+
+
+class MeasuredOut(BaseModel):
+    """What the run measured, beside what the pipeline was built on (#465, #217)."""
+
+    facts: list[MeasuredView]
+    decided: list[DecidedValue]
+
+
+@router.get("/runs/{run_id}/measured", operation_id="readRunMeasured",
+            summary="What the run measured, confirmed or disagreeing")
+def run_measured(run_id: str) -> MeasuredOut:
+    """Each fact a measuring step reported, compared with the estimate the build used, and
+    each value a run-time setting took. Empty for a run that measured nothing or has not
+    finished: facts are read when it completes."""
+    from wiener_core.measured import Estimate, collect, compare
+
+    from wiener_api.services.projection import _artifact_pipeline
+
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+        found = collect(RunEvent.model_validate(row.payload) for row in
+                        repository.events(session, settings.lab_id, run_id)
+                        if row.kind == EventKind.MEASURED)
+        pipeline = _artifact_pipeline(session, settings.lab_id, run_id)
+    estimates = [Estimate(measurement=c.measurement, estimate=c.estimate, used_by=c.used_by)
+                 for c in (pipeline.confirms if pipeline is not None else [])]
+    return MeasuredOut(facts=compare(found, estimates), decided=found.decided)
 
 
 @router.get("/runs/{run_id}/events", operation_id="readRunEvents",
