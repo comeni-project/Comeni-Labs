@@ -832,7 +832,7 @@ def test_a_fact_reference_must_fit_the_domain(world):
     with pytest.raises(RuleValidationError, match="MD0300"):
         _rules(world, as_number)
     unknown = FROM_FACT.replace("then: {fact: s_level}", "then: {fact: nowhere}")
-    with pytest.raises((RuleValidationError, ValueError), match="nowhere"):
+    with pytest.raises(RuleValidationError, match="(?s)MD0310.*nowhere"):
         _rules(world, unknown)
     choosing = """
 version: 1
@@ -841,7 +841,7 @@ decisions:
     rows:
       - {when: {}, then: {fact: read_length}, cite: "a fixture"}
 """
-    with pytest.raises((RuleValidationError, ValueError), match="fact"):
+    with pytest.raises((RuleValidationError, ValueError), match="(?s)MD0300.*fact"):
         _rules(world, choosing)
 
 
@@ -904,3 +904,61 @@ def test_unique_with_two_matching_rows_is_a_tier_4_question(world):
     asked = [d for d in ir.decisions if isinstance(d, ParamDecision)
              and d.subject == "strandedness"]
     assert asked and sorted(asked[0].candidates) == [1, 2]
+
+
+def test_a_fact_read_twice_is_recorded_once(world):
+    """Task 1 review: a row testing and taking the same fact listed it twice in pipeline.yml."""
+    body = FROM_FACT.replace("{when: {}, then: {fact: s_level}",
+                             "{when: {s_level: present}, then: {fact: s_level}")
+    pin = _rules(world, body).value_for(["quantification"], "strandedness", P(s_level=2))
+    assert [record.id for record in pin.premise] == ["s_level"]
+
+
+def test_unique_is_for_settings_only(world):
+    """Task 2 review: a tie between tools fell through to registry priority with no question.
+    Until a tie can be asked there, `unique` decides a setting and nothing else."""
+    body = """
+version: 1
+decisions:
+  - decides: {effect: presence, of: quantification}
+    hit: unique
+    cite: "a fixture"
+    rows:
+      - {when: {read_length: ">= 100"}, then: present}
+      - {when: {read_length: "< 100"}, then: absent}
+"""
+    with pytest.raises(RuleValidationError, match="(?s)MD0300.*unique"):
+        _rules(world, body)
+
+
+def test_a_tie_shows_in_the_preview_as_a_question(world):
+    """Task 2 review: the forge preview showed a tie as no effect at all."""
+    from comeni_core.plan.tiers import Tier
+
+    table = _rules(world, UNIQUE)
+    [fired] = table.effects_for(P(read_length=150, strandedness="reverse"))
+    assert fired.value is None and fired.tier is Tier.AMBIGUOUS
+    assert "both match" in fired.because
+
+
+def test_an_answer_outside_a_tie_is_not_taken(world):
+    """Task 2 review: the tied values are a closed set; an answer outside it is demoted."""
+    from comeni_core.plan.decision import ParamDecision
+    from mendel_resolver.goal import GoalInput
+    from mendel_resolver.ports import Resolution
+    from mendel_resolver.resolve import resolve
+
+    class Answers3:
+        def resolve(self, ambiguity):
+            return Resolution(value=3, how="model", by="test", why="made up", confidence=1.0)
+
+    table = _rules(world, UNIQUE)
+    goal = Goal(have=[GoalInput(type_id="alignment.bam", states={"coordinate_sorted"})],
+                want=["counts.matrix"],
+                profile=world["measurements"].profile({"read_length": 150,
+                                                       "strandedness": "reverse"}))
+    ir = resolve(goal, world["registry"], table, world["measurements"],
+                 vocabulary=world["vocabulary"], resolver=Answers3())
+    [asked] = [d for d in ir.decisions if isinstance(d, ParamDecision)
+               and d.subject == "strandedness"]
+    assert asked.chosen is None

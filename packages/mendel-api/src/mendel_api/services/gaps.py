@@ -10,7 +10,7 @@ from typing import NamedTuple
 
 from comeni_core.goal.asked import Constraints
 from mendel_resolver.layers import Layers
-from mendel_resolver.rules.format import Decision
+from mendel_resolver.rules.format import Decision, FactRef
 
 from mendel_api.authoring.types import Fact, FactKind
 
@@ -36,8 +36,8 @@ class Unreachable(NamedTuple):
 
 
 def _premise_measurements(stack: Layers) -> dict[str, list[Decision]]:
-    """Measurement ids a rule's `when` reads, directly or through a derivation, each with the
-    decisions that read it, in table order.
+    """Measurement ids a rule reads, in its `when` or as the fact a `then` takes (#461),
+    directly or through a derivation, each with the decisions that read it, in table order.
 
     A derivation reads its `source`, its aggregate's measurement, or the keys of its own rows'
     `when`, and any of those may itself be derived, so the walk follows them to declared
@@ -65,7 +65,8 @@ def _premise_measurements(stack: Layers) -> dict[str, list[Decision]]:
     for decision in stack.rules.decisions:
         measured: set[str] = set()
         for row in decision.rows:
-            for key in row.when:
+            taken = [row.then.fact] if isinstance(row.then, FactRef) else []
+            for key in [*row.when, *taken]:
                 measured |= resolve(key, frozenset())
         for measurement in sorted(measured):
             read.setdefault(measurement, []).append(decision)

@@ -392,6 +392,12 @@ def _validate(
     # Every target, not only the first. A validator that loops over `decides` incorrectly
     # still passes every single-target test there is, which is why `test_both_targets_of_one
     # _decision_are_validated` exists and why it names that in its docstring.
+    if decision.hit == "unique" and any(t.effect is not Effect.PARAM
+                                        for t in decision.targets()):
+        raise RuleValidationError(coded(
+            "MD0300", f"{path}, decision {decision.key()}\n"
+            "  `hit: unique` decides a setting; a tie between tools or over a step's presence "
+            "cannot be asked yet, so it would fall to another path silently (#461)."))
     for target in decision.targets():
         _validate_target(
             target,

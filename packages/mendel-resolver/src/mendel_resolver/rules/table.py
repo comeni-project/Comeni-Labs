@@ -34,6 +34,7 @@ from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.logic.when import matches, tier_of_row
+from comeni_core.plan.tiers import Tier
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_resolver.rules.format import (
@@ -298,7 +299,16 @@ class RuleTable(BaseModel):
         for decision in self.decisions:
             fired_rows = [r for r in decision.rows
                           if r.value(premises)[0] and matches(r.when, premises)]
-            if not fired_rows or (decision.hit == "unique" and len(fired_rows) > 1):
+            if not fired_rows:
+                continue
+            if decision.hit == "unique" and len(fired_rows) > 1:
+                # A tie is shown as the question it becomes, never as no effect (#461).
+                numbers = [str(decision.rows.index(r) + 1) for r in fired_rows]
+                fired.extend(Fired(effect=t.effect, role=t.of, name=t.name, value=None,
+                                   tier=Tier.AMBIGUOUS,
+                                   because=f"rows {', '.join(numbers)} both match: a person "
+                                           "is asked")
+                             for t in decision.targets())
                 continue
             row = fired_rows[0]
             value = row.value(premises)[1]
@@ -389,7 +399,8 @@ def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[Prem
     does not exist. Its absence is already what the row says.
     """
     read: list[PremiseRecord] = []
-    named = list(row.when) + ([row.then.fact] if isinstance(row.then, FactRef) else [])
+    taken = [row.then.fact] if isinstance(row.then, FactRef) else []
+    named = list(dict.fromkeys([*row.when, *taken]))  # once each, in the order written
     for fact in named:
         premise = premises.get(fact)
         if premise is None:

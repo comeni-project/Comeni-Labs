@@ -117,3 +117,24 @@ def test_an_input_only_optional_ports_read_is_an_optional_gap(tmp_path):
 def test_an_input_a_required_port_reads_is_not_optional():
     found = _by_subject(g.gaps(["counts.matrix"], [], registry.stack()))
     assert found["fastq.reads"].optional is False
+
+
+def test_a_fact_a_setting_takes_is_a_fact_to_ask_for(tmp_path):
+    """Rules v2 review: `then: {fact: …}` reads that fact (and what it is derived from), but
+    only `when` keys were followed, so the builder never asked for genome_length."""
+    from mendel_resolver import layers
+    from support.paths import REGISTRY
+
+    rules = tmp_path / "rules"
+    rules.mkdir()
+    (rules / "s.yml").write_text(
+        "declares: rule\nversion: 1\n"
+        "derives:\n  - {fact: s_level, kind: integer, source: genome_length,\n"
+        "     transform: [{op: at_most, by: 2}], cite: a fixture}\n"
+        "decisions:\n"
+        "  - decides: {effect: param, of: quantification, name: min_mqs}\n"
+        "    rows:\n      - {when: {}, then: {fact: s_level}, cite: a fixture}\n")
+    stack = layers.load([REGISTRY, tmp_path])
+    read = g._premise_measurements(stack)
+    assert "genome_length" in read
+    assert any(d.targets()[0].name == "min_mqs" for d in read["genome_length"])

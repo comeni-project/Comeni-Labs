@@ -567,6 +567,10 @@ def _ask(
         tier_hint=param.tier_hint,
     )
     resolution = context.resolver.resolve(ambiguity)
+    if candidates != [None] and resolution.value not in candidates:
+        # A tie's values are a closed set (#461): an answer outside it is forged or stale,
+        # so it is dropped and the question stays open and flagged, as `router._choose` does.
+        resolution = resolution.model_copy(update={"value": None})
     # **This site trusts the answer; the other two do not, and the asymmetry is deliberate.**
     # `router._choose` and `_source_for` fall back when a resolver names something that is
     # not a candidate, because there the candidates are a closed set drawn from the registry
