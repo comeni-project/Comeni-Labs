@@ -276,6 +276,8 @@ class CallArg(BaseModel):
 
     def join_for(self, port: str) -> Join:
         """How `port`, a port after the first, meets the ones before it."""
+        if port not in self.ports[1:]:
+            raise ValueError(f"{port!r} is not a port after the first of {self.ports}")
         found = next((j.join for j in self.joins if j.port == port), self.join)
         if found is None:
             raise ValueError(f"call argument {self.ports} declares no join for {port!r}")

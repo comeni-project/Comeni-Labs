@@ -268,3 +268,14 @@ def test_join_for_names_only_a_port_after_the_first():
         slot = ModuleContract.model_validate(_gatk_slot(join)).nf_inputs[0]
         with pytest.raises(ValueError, match="after the first"):
             slot.join_for("input")
+
+
+def test_call_arg_join_for_names_only_a_port_after_the_first():
+    """Task 6 review: the artifact's join_for matches the contract's."""
+    from comeni_core.artifact.pipeline import CallArg
+    from comeni_core.spell.routes import Join
+
+    arg = CallArg(ports=["input", "input_index"], join=Join.BY_SAMPLE)
+    assert arg.join_for("input_index") is Join.BY_SAMPLE
+    with pytest.raises(ValueError, match="after the first"):
+        arg.join_for("input")

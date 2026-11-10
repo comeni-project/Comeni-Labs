@@ -102,7 +102,7 @@ def test_a_per_sample_index_joins_and_a_run_file_combines(tmp_path):
     argument = _first_argument(_call(emit(pipeline), "GATK4_HAPLOTYPECALLER"))
     assert argument.count(".join(") == 2, argument  # index and DRAGstr, per sample
     assert argument.count(".combine(") == 1, argument  # intervals, once per run
-    assert ".map {" not in argument.split(".combine(")[-1].split(")")[-1], "nothing is off"
+    assert ".map { meta" not in argument, "nothing is off"
 
 
 def test_spades_with_only_illumina_passes_two_empty_slots(tmp_path):
@@ -135,8 +135,10 @@ def test_an_optional_at_run_port_in_a_slot_is_an_empty_pair_when_left_empty(tmp_
 
 
 def test_an_optional_at_run_port_joined_per_sample_is_refused(tmp_path):
-    """A per-sample file a run may leave blank needs per-row placeholders: part 5 (#466)."""
+    """A per-sample file a run may leave blank needs per-row placeholders: part 5 (#466). The
+    samplesheet refuses it; a run-scoped port is never paired per sample, so this is the one
+    path (Task 6 review)."""
     pipeline = _build(tmp_path, GATK_HAVE, "variants.vcf", GATK_ID,
                       ("dragstr_model", InputState.OPTIONAL))
-    with pytest.raises(ValueError, match="466"):
+    with pytest.raises(ValueError, match="samplesheet cannot carry yet .#466."):
         emit(pipeline)

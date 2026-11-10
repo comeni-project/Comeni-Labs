@@ -163,8 +163,6 @@ def _argument(pipeline: Pipeline, step: Step, arg) -> str:
     # samples in gave four processes, half of them pairing one sample's data with another's,
     # and Nextflow exited 0. `--gate test` cannot see the class: the nf-core dataset has one
     # sample, so 1 x 1 == 1.
-    for name in on:
-        _no_blank_per_sample(pipeline, step, arg, name, on)
     head, *rest = expressions
     joined = "".join(
         f".join({expr})" if arg.join_for(name) is Join.BY_SAMPLE
@@ -176,20 +174,6 @@ def _argument(pipeline: Pipeline, step: Step, arg) -> str:
     given = iter(names)
     slots = ", ".join("[]" if port in off else next(given) for port in arg.ports)
     return f"{head}{joined}.map {{ meta, {', '.join(names)} -> [ meta, {slots} ] }}"
-
-
-def _no_blank_per_sample(pipeline: Pipeline, step: Step, arg, name: str, on: list[str]) -> None:
-    """A per-sample file a run may leave blank needs per-row placeholders (#466)."""
-    wiring = next(item for item in step.inputs if item.port == name)
-    channel = next((c for c in pipeline.channels if c.name == wiring.channel), None)
-    if channel is None or not channel.optional:
-        return
-    per_sample = (arg.join_for(name) is Join.BY_SAMPLE if name != on[0]
-                  else any(arg.join_for(other) is Join.BY_SAMPLE for other in on[1:]))
-    if per_sample:
-        raise ValueError(f"{step.id}'s {name} is an input a run may leave empty and is "
-                         "paired per sample in its slot, which needs per-row placeholders "
-                         "(#466)")
 
 
 def _render_meta(entries: list) -> str:
@@ -284,13 +268,15 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
     a counts matrix nobody could tell was wrong. A row is what makes *reads with their
     respective annotations* expressible at all.
 
-    ═══ NO EXPLICIT JOIN, AND THAT IS DELIBERATE ═════════════════════════════════════════════
+    ═══ NO EXPLICIT JOIN TO DERIVE THEM, AND THAT IS DELIBERATE ═════════════════════════════
 
     Every sample-scoped channel derives from **one** `splitCsv`, so they emit in row order and
     a process consuming several of them sees one row's values together. Joining them back on
     `meta.id` would be re-deriving an alignment that was never lost — and `.join()` on a queue
     is a synchronisation point, so it would also make the pipeline wait for the whole table
-    before the first sample could start.
+    before the first sample could start. A shared slot whose contract pairs two per-sample
+    ports (`by_sample`, #464) still joins them at the call; the projections share
+    `[id: row.sample]` and duplicate ids are refused, so that join is exact.
 
     A run-scoped channel is untouched: it is one file for the whole analysis, it has its own
     `params.<name>`, and it has no column.
