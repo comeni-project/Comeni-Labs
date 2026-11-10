@@ -307,7 +307,7 @@ def test_drafting_tests_reads_the_modules_nf_test(adaptation):
     item = forging.load(adaptation).items["tests:test:paired"]
     assert item.status == "proposed" and item.current.actor == "ai"
     with session_scope() as db:
-        assert db.get(AiInvocation, item.current.invocation).prompt_id == "forge.tests.v1"
+        assert db.get(AiInvocation, item.current.invocation).prompt_id == "forge.tests.v2"
 
 
 def test_a_module_with_no_nf_test_is_drafted_from_its_meta(adaptation):
@@ -852,3 +852,10 @@ def test_contract_drafts_use_draft_v8(adaptation):
     client = FakeClient(reply, reply)
     forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
     assert "an input that takes several types" in client.prompts[0]
+
+
+def test_the_tests_drafter_names_the_type_of_its_data():
+    """Task 7 review: the tests prompt never saw `types`, so a BAM test was typed as FASTQ."""
+    text = (forging_ai.PROMPTS / "forge.tests.v2.md").read_text()
+    assert '"types": {"<input port>": "<type id>"}' in text
+    assert forging_ai._DRAFTED_WITH[forging_ai.Piece.TESTS] == "forge.tests.v2"

@@ -21,7 +21,8 @@
   port its own. gatk4/haplotypecaller's `tuple val(meta), path(input), path(input_index),
   path(intervals), path(dragstr_model)` is {"ports": ["input", "input_index", "intervals",
   "dragstr_model"], "join": {"input_index": "by_sample", "intervals": "broadcast",
-  "dragstr_model": "by_sample"}}, with intervals and dragstr_model optional.
+  "dragstr_model": "by_sample"}}, with intervals and dragstr_model optional. If an entry's
+  first port is optional, give one join for all its later ports.
 - contract:constraint:row<n> (row1, row2, …) — {"when", "requires", "forbids", "because", "cite"}: what the tool
   allows between its inputs and params. "when" tests "given.<input>": "present",
   "param.<name>": <value>, or "type.<input>": <type id> for an input with "accepts" (also
@@ -31,7 +32,8 @@
   {"when": {"type.reads": "alignment.bam"}, "requires": ["transcript_fasta"],
    "forbids": ["index"], "because": "..."} and
   {"when": {"type.reads": "fastq.reads"}, "requires": ["index"], "because": "..."}.
-  A mode that changes the job is a separate tool, not rows. Example:
+  An input only some modes need is "required": false; the rows say when. A mode that changes
+  the job is a separate tool, not rows. Example:
   {"when": {"given.gff": "present"}, "requires": ["fasta"],
    "because": "the script reads the GFF only against a reference"}. A constraint says what is
   possible, never what to choose.

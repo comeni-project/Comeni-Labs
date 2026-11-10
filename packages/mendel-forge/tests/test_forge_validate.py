@@ -179,3 +179,19 @@ def test_a_test_may_leave_an_optional_input_out(stack):
         assert _test_problems(_test_items(inputs), known(stack)) == []
     says = [p.says for p in _test_problems(_test_items({"a": [], "b": ["y"]}), known(stack))]
     assert says == ["tests:test:t: nothing feeds input 'a'"]
+
+
+def test_a_test_type_names_an_input_and_a_type_it_accepts(stack):
+    """Task 7 review: `types` was checked only when the test ran, so a typo was ignored."""
+    from mendel_forge.forging.validate import _test_problems
+
+    items = _test_items({"a": ["x.bam"]})
+    items["contract:input:a"] = {"position": 0, "name": "a",
+                                 "accepts": [{"type_id": "fastq.reads"},
+                                             {"type_id": "alignment.bam"}]}
+    items["tests:test:t"]["types"] = {"a": "alignment.bam"}
+    assert _test_problems(items, known(stack)) == []
+    items["tests:test:t"]["types"] = {"a": "alignment.cram", "nope": "fastq.reads"}
+    says = sorted(p.says for p in _test_problems(items, known(stack)))
+    assert says == ["tests:test:t: input 'a' does not accept 'alignment.cram'",
+                    "tests:test:t: types names 'nope', not an input of this contract"]

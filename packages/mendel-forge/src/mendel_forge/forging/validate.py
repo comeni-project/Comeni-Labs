@@ -205,6 +205,16 @@ def _required(items: dict[str, JsonValue]) -> set[str]:
             and not (isinstance(value, dict) and value.get("required") is False)}
 
 
+def _accepted(items: dict[str, JsonValue]) -> dict[str, set[str]]:
+    """Each input's types: its `type_id`, or the types its `accepts` lists (#464)."""
+    found: dict[str, set[str]] = {}
+    for key, value in items.items():
+        if key.startswith("contract:input:") and isinstance(value, dict):
+            types = {a.get("type_id") for a in value.get("accepts") or [] if isinstance(a, dict)}
+            found[key.rsplit(":", 1)[1]] = types or {value.get("type_id")}
+    return found
+
+
 def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
     """A test must fit the contract as it stands: every port fed, every output accounted for."""
     takes, makes = _names(items, "contract:input:"), _names(items, "contract:output:")
@@ -220,6 +230,12 @@ def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
         given = {port for port, paths in test.inputs.items() if paths}
         for port in sorted(_required(items) - given - fed):
             problems.append(f"{key}: nothing feeds input {port!r}")
+        accepted = _accepted(items)
+        for port, type_id in sorted(test.types.items()):
+            if port not in takes:
+                problems.append(f"{key}: types names {port!r}, not an input of this contract")
+            elif type_id not in accepted.get(port, set()):
+                problems.append(f"{key}: input {port!r} does not accept {type_id!r}")
         for name in sorted(set(test.params) - settings):
             problems.append(f"{key}: setting {name!r} is not one this contract declares")
         for step in test.setup:
