@@ -41,6 +41,8 @@ def _with_rule_checks(found: dict[str, list[QuestionFinding]],
                       items: dict) -> dict[str, list[QuestionFinding]]:
     """A drafted rule's table checked as the registry will (#461): a gap over several facts,
     a dead row, too many cases. A rule that does not yet validate has nothing to check."""
+    if not any(key.startswith("rules:rule:") for key in items):
+        return found
     stack = registry.stack()
     derived = {d.fact: d.kind for d in stack.rules.derivations}
     for key, value in items.items():

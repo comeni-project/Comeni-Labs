@@ -179,7 +179,10 @@ def test_a_derived_fact_is_assembled_into_derives(tmp_path):
         "rows": [{"when": {}, "then": {"fact": "ignore_gtf"}, "cite": "STAR manual 2.2.3"}]}
     write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY,
                 out=tmp_path / "draft")
-    derived = yaml.safe_load((tmp_path / "draft" / "rules" / "derived.yml").read_text())
+    # One file per fact: a fixed shared name would make the next tool's derivations a
+    # shared-file change publishing refuses (Task 6 review).
+    derived = yaml.safe_load(
+        (tmp_path / "draft" / "rules" / "derived" / "ignore_gtf.yml").read_text())
     assert [d["fact"] for d in derived["derives"]] == ["ignore_gtf"]
     proof = prove(REGISTRY, [], tmp_path / "draft")
     assert proof.loaded, proof.problems

@@ -103,6 +103,7 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- Rules v2 (#461): a setting can take a fact's value (`then: {fact: <id>}`); `round` joins the transform chain; a decision declares `hit: first | unique`, and a tie under `unique` is asked at tier 4; load checks every case a table's rows tell apart for gaps (MD0311), dead rows (MD0323) and too many cases (MD0324), and a literal value against the tool's constraints (MD0325). A row reading a derived fact records the facts it came from. mendel-resolver needs pydantic 2.12.
 - Constraints are checked with the types routing connected (#464): a step's required inputs are routed first, its optional ones decided with their types; resolution follows the router's first matching alternative; a refused alternative leaves no steps behind; a pipeline input feeding an `accepts` input gets a channel of the type it matched.
 - Optional inputs are routed off unless switched on, made required when a later step needs what they add, and brought along by constraint rows; constraints are re-checked once parameters resolve (MD0608–MD0610) (#460).
 
@@ -206,6 +207,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- Forge drafts read item guide v4 (`forge.draft.v9`): settings from facts, hit policies and derived facts (#461); drafted rules show table findings. The builder asks for a measurement a setting's fact is derived from.
 - Forge drafts read item guide v3 (`forge.draft.v8`): shared slots, joins per port, `accepts` inputs and rows on the connected type (#464); the forge shows MD0612. A step card shows the type connected to an `accepts` input and words a condition on a type.
 - The builder still asks for an input only optional ports read, such as QUAST's reference,
   but *I don't have one* leaves it out and the conversation goes on (#481).
@@ -402,6 +404,7 @@ or a complete commit history.
 
 ### mendel-forge
 
+- Derived facts are drafted as `rules:derive:<fact>` items and assembled into the layer's `rules/derived/<fact>.yml` (#461).
 - Forge tests may leave out a port in a shared slot and name the type of their data for an `accepts` input (#464); an `accepts` input round-trips through forging's items.
 - `forging.checks` finds a type question's scope, duplicate-type and format mismatches. They are
   advice only; nothing is refused (#452).

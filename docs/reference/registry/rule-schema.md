@@ -111,6 +111,19 @@ declarations. `RuleValidationError` if:
 | a comparison against an enum or boolean | `strandedness >= 70` has no meaning |
 | the same target decided twice in one layer | a copy-paste; resolving by file order would be a silent arbitrary pick |
 | `effect: param` with no `name:` | which parameter is unstated |
+| a case no row matches, over every fact the rows test (`MD0311`) | that profile would silently fall to tier 4 |
+| under `hit: first`, a row that is first for no case (`MD0323`) | it reads as a rule and never decides |
+| more than 4096 cases to try (`MD0324`) | a clean check must mean every case was tried |
+| a literal `then` the tool's constraints refuse with every input (`MD0325`) | the rule would set it and every build would stop |
+| `{fact:}` whose kind does not fit the parameter, or on a non-param decision (`MD0300`) | the tool would receive a value its flag does not accept |
+| `hit: unique` on an `implementation` or `presence` decision (`MD0300`) | a tie there cannot be asked yet |
+
+**How the table is checked** (#461). Load tries every case the rows can tell apart: each value
+of an enum (plus one an overlay may add, when it is `extensible`) or boolean, and for a number
+each boundary a comparison, `in` or `not` names, a point between neighbouring boundaries (none
+between adjacent integers) and one beyond each end. The check is exact, not sampled. Under
+`hit: unique` an overlap is legal: it is the question the build asks. A catch-all `when: {}`
+is never judged dead, because it decides when a fact is not known.
 
 Errors name what you *can* write:
 
@@ -122,6 +135,41 @@ rules/rnaseq.yml, decision param:aligner
 
 This is the load-bearing part of the format. `subject` used to be an unvalidated free
 string, and two of the five rules originally shipped had never once executed.
+
+## Derived facts
+
+A file may also declare `derives:`, facts computed from others, which `when` keys read and a
+`then: {fact: <id>}` takes. One computation each:
+
+| Form | Fields | Means |
+|---|---|---|
+| rows | `fact`, `kind`, `rows` | rows with literal `then` values, first match |
+| aggregate | `fact`, `kind`, `aggregate: {measurement, over: cohort, using: max \| min \| mean}` | one value from every sample's |
+| transform | `fact`, `kind`, `source`, `transform` | a chain of steps over `source`, left to right |
+
+Transform steps: `add`, `subtract`, `multiply`, `divide`, `at_most`, `at_least` (each with
+`by`), and `log2` and `round` (half to even, as `printf "%.0f"`) with none. An `integer` fact
+is truncated to a whole number when the chain does not round it. A row reading a derived fact
+records the facts it was computed from, so the setting's reason says where the value came from.
+
+STAR's genome index, which nf-core's module sizes inside `main.nf`:
+
+```yaml
+derives:
+  - fact: star_sa_index_nbases
+    kind: integer
+    source: genome_length
+    transform: [{op: log2}, {op: divide, by: 2}, {op: subtract, by: 1},
+                {op: at_most, by: 14}, {op: round}]
+    cite: "STAR manual 2.7.11b, section 2.2.5"
+decisions:
+  - decides: {effect: param, of: index_building, name: sa_index_nbases,
+              when_implementation: [nf-core/star/genomegenerate@2.7.11b]}
+    rows:
+      - {when: {}, then: {fact: star_sa_index_nbases}, cite: "STAR manual 2.7.11b, section 2.2.5"}
+```
+
+A genome length of 29,903 bp gives 6; 3.1 Gb gives 14.
 
 ## Layer composition
 

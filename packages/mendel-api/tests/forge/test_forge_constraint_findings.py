@@ -39,3 +39,14 @@ def test_forge_checks_report_a_table_gap():
                   "then": "nf-core/star/align@2.7.11b", "cite": "a"}]}}
     found = _with_rule_checks({}, items)
     assert [f.code for f in found["rules:rule:alignment"]] == ["MD0311"]
+
+
+def test_no_rule_items_means_no_registry_load(monkeypatch):
+    """Task 6 review: every adaptation read loaded the registry, rules or not."""
+    from mendel_api.services import forge_checks
+
+    def refuse():
+        raise AssertionError("loaded the registry with no rule to check")
+
+    monkeypatch.setattr(forge_checks.registry, "stack", refuse)
+    assert forge_checks._with_rule_checks({}, {"contract:process": {}}) == {}
