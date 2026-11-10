@@ -195,7 +195,11 @@ checked, no change expected).
 
 **Files:**
 - Modify: `packages/mendel-resolver/src/mendel_resolver/resolve.py` (the node loop around
-  `_constraints_hold`: wire sources first, then evaluate with types)
+  `_constraints_hold`: wire sources first, then evaluate with types; `_not_withheld` must see
+  an output written for the connected type)
+- Modify: `packages/mendel-resolver/src/mendel_resolver/router.py` (~470-484: the facts that
+  raise an input's state come from `given.` only; add `type.`, and decide a type-only row's
+  strength deliberately). Added after Task 3's review.
 - Modify: `packages/comeni-core/src/comeni_core/artifact/materialise.py` (`_step_inputs`, for
   an entry channel feeding an `accepts` alternative), if Review Focus 1 fails
 - Test: `packages/mendel-resolver/tests/test_optional_inputs.py`, `packages/mendel-compiler/tests/test_optional_inputs_built.py`

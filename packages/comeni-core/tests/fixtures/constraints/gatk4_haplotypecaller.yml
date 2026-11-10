@@ -1,16 +1,22 @@
-# nf-core/gatk4/haplotypecaller: the dbSNP VCF and its index go together or not at all.
+# nf-core/gatk4/haplotypecaller: the dbSNP VCF and its index go together or not at all. The
+# input tuple carries the BAM, its per-sample index, and optional run-wide intervals and a
+# per-sample DRAGstr model (#464): one slot mixing required and optional files, joined per port.
 id: nf-core/gatk4/haplotypecaller@4.6.1
 nf_process: GATK4_HAPLOTYPECALLER
 nf_include: modules/nf-core/gatk4/haplotypecaller/main
 roles: [calling]
 consumes:
   - {name: input, type_id: alignment.bam}
+  - {name: input_index, type_id: alignment.bai}
+  - {name: intervals, type_id: regions.bed, required: false}
+  - {name: dragstr_model, type_id: dragstr.model, required: false}
   - {name: dbsnp, type_id: variants.vcf, required: false}
   - {name: dbsnp_tbi, type_id: variants.tbi, required: false}
 produces:
   - {name: vcf, type_id: variants.vcf}
 nf_inputs:
-  - {ports: [input]}
+  - ports: [input, input_index, intervals, dragstr_model]
+    join: {input_index: by_sample, intervals: broadcast, dragstr_model: by_sample}
   - {ports: [dbsnp, dbsnp_tbi], absent: 3, join: broadcast}
 groups:
   - {kind: all_or_none, members: [dbsnp, dbsnp_tbi],

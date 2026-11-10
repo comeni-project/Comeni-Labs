@@ -59,6 +59,7 @@ decline to curate one.
 | `MD0605` | an optional input is connected in every combination the constraints allow |
 | `MD0606` | an output's `produced_when` holds in no combination the constraints allow |
 | `MD0607` | a contract has too many combinations to check |
+| `MD0612` | a type a contract's input accepts has no combination its constraints allow |
 
 ## A contract disagrees with its module
 

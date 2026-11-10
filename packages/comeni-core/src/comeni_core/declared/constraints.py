@@ -23,6 +23,7 @@ from comeni_core.declared.contract import (
     GroupKind,
     ModuleContract,
     Param,
+    accepted_types,
 )
 from comeni_core.declared.measurement import MeasurementKind
 from comeni_core.diagnostics import coded
@@ -81,8 +82,18 @@ def rows_of(contract: ModuleContract) -> list[ConstraintRow]:
 
 
 def _subject(row: ConstraintRow) -> str:
-    names = [key.partition(".")[2] for key in row.when]
-    return names[0] if names else ""
+    if not row.when:
+        return ""
+    key, value = next(iter(row.when.items()))
+    space, _, name = key.partition(".")
+    if space != "type":
+        return name
+    # A row on the connected type holds only for that type, and says so (#464).
+    if isinstance(value, dict) and "in" in value:
+        return f"{name}` as one of {', '.join(value['in'])}"
+    if isinstance(value, dict) and "not" in value:
+        return f"{name}` not as {value['not']}"
+    return f"{name}` as {value}"
 
 
 def sentence(row: ConstraintRow) -> str:
@@ -92,11 +103,16 @@ def sentence(row: ConstraintRow) -> str:
         needed = ", ".join(row.requires)
         if not subject:
             return f"`{needed}` is required ({row.because})"
-        return f"`{subject}` is used only with `{needed}` ({row.because})"
+        return f"`{_quoted(subject)} is used only with `{needed}` ({row.because})"
     banned = ", ".join(row.forbids)
     if not subject:
         return f"`{banned}` cannot be used ({row.because})"
-    return f"`{subject}` cannot be used with `{banned}` ({row.because})"
+    return f"`{_quoted(subject)} cannot be used with `{banned}` ({row.because})"
+
+
+def _quoted(subject: str) -> str:
+    """Close the subject's backtick: after the name, before a type phrase if there is one."""
+    return subject if "` " in subject else f"{subject}`"
 
 
 def group_sentence(group: Group) -> str:
@@ -221,7 +237,8 @@ def _conditions(contract: ModuleContract) -> list[dict[str, Any]]:
 
 def check_constraints(contract: ModuleContract) -> list[str]:
     """Findings, each a coded message: MD0603 no valid setup, MD0604 a dead optional input,
-    MD0605 a fake optional one, MD0606 an output never produced, MD0607 too many setups."""
+    MD0605 a fake optional one, MD0606 an output never produced, MD0607 too many setups,
+    MD0612 a type a port accepts that no setup allows (#464)."""
     optional = contract.optional_ports()
     required = frozenset(p.name for p in contract.consumes if p.required)
     compared: dict[str, list[Any]] = {}
@@ -239,20 +256,27 @@ def check_constraints(contract: ModuleContract) -> list[str]:
             compared.setdefault(param.name, [])
     params = [p for p in contract.params if p.name in compared]
     choices = [_values(p, compared[p.name]) for p in params]
-    count = 2 ** len(optional) * prod(len(c) for c in choices)
+    # Each type a port accepts is its own case: a row on `type.<port>` applies only to it.
+    typed = [p for p in contract.consumes if len(accepted_types(p)) > 1]
+    kinds = [sorted(accepted_types(p)) for p in typed]
+    count = 2 ** len(optional) * prod(len(c) for c in choices) * prod(len(k) for k in kinds)
     if count > SETUP_BOUND:
         return [coded("MD0607", f"{contract.id} has {count} setups to check, above "
                       f"{SETUP_BOUND}: fewer optional inputs or conditioned params")]
     valid: list[tuple[frozenset[str], Verdict]] = []
+    valid_types: list[tuple[frozenset[str], dict[str, str]]] = []
     for size in range(len(optional) + 1):
         for chosen in combinations(optional, size):
             given = required | frozenset(chosen)
             for values in product(*choices):
-                setup = Setup(given=given, params=dict(zip([p.name for p in params], values,
-                                                           strict=True)))
-                verdict = evaluate(contract, setup)
-                if not verdict.missing and not verdict.forbidden:
-                    valid.append((given, verdict))
+                for picked in product(*kinds):
+                    types = dict(zip([p.name for p in typed], picked, strict=True))
+                    setup = Setup(given=given, types=types,
+                                  params=dict(zip([p.name for p in params], values, strict=True)))
+                    verdict = evaluate(contract, setup)
+                    if not verdict.missing and not verdict.forbidden:
+                        valid.append((given, verdict))
+                        valid_types.append((given, types))
     if not valid:
         return [coded("MD0603", f"{contract.id}: no combination of inputs and params satisfies "
                       "its constraints, so the tool can never run")]
@@ -270,4 +294,13 @@ def check_constraints(contract: ModuleContract) -> list[str]:
         if output.produced_when and not any(output.name in v.produced for _, v in valid):
             findings.append(coded("MD0606", f"{contract.id}: output {output.name!r} is "
                                   "produced in no combination its constraints allow"))
+    for port, accepted in zip(typed, kinds, strict=True):
+        connected = [types[port.name] for given, types in valid_types if port.name in given]
+        if not connected:
+            continue  # never connected at all: MD0604 already says so
+        for type_id in accepted:
+            if type_id not in connected:
+                findings.append(coded(
+                    "MD0612", f"{contract.id}: with {port.name} as {type_id}, no combination "
+                    "of inputs and params satisfies its constraints"))
     return findings

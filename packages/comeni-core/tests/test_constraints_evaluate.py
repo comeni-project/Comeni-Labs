@@ -40,10 +40,10 @@ def test_a_required_input_left_out_is_missing():
 
 def test_gatk_dbsnp_without_its_index_is_missing_the_index():
     verdict = evaluate(_contract("gatk4_haplotypecaller"),
-                       Setup(given=frozenset({"input", "dbsnp"})))
+                       Setup(given=frozenset({"input", "input_index", "dbsnp"})))
     assert verdict.missing == ["dbsnp_tbi"]
     both = evaluate(_contract("gatk4_haplotypecaller"),
-                    Setup(given=frozenset({"input", "dbsnp", "dbsnp_tbi"})))
+                    Setup(given=frozenset({"input", "input_index", "dbsnp", "dbsnp_tbi"})))
     assert both.missing == []
 
 
@@ -125,3 +125,11 @@ def test_a_type_condition_decides_which_output_is_written():
     assert cram.missing == []
     bam = evaluate(picard, Setup(given=frozenset({"reads"}), types={"reads": "alignment.bam"}))
     assert bam.produced == ["bam", "metrics"]
+
+
+def test_a_type_row_says_which_type_it_is_about():
+    """Task 3 review: '`reads` is used only with …' claimed the rule for every reads."""
+    rows = rows_of(_contract("salmon_quant"))
+    assert sentence(rows[0]).startswith("`reads` as alignment.bam is used only with "
+                                        "`transcript_fasta`")
+    assert sentence(rows[1]).startswith("`reads` as fastq.reads is used only with `index`")
