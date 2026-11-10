@@ -16,7 +16,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from wiener_core.events import LAB_STRING
+from wiener_core.lab import LAB_STRING
 
 _ID = r"^[a-z][a-z0-9_]{0,63}$"
 Value = int | float | bool | str | None
@@ -30,11 +30,13 @@ class MeasuredFact(BaseModel):
     measurement: str = Field(pattern=_ID)
     sample: Annotated[str, LAB_STRING] = Field(max_length=256)
     """`meta.id`: a laboratory's own sample name."""
-    value: Value = None
+    value: int | float | bool | Annotated[str, LAB_STRING, Field(max_length=256)] | None = None
+    """A string value may come from a laboratory's own file, so it is marked as theirs."""
     undetermined: Annotated[str, LAB_STRING] | None = Field(default=None, max_length=512)
     """Why there is no value; it may name a file, so it is the laboratory's words."""
     coverage: Literal["head", "all"] | None = None
-    by: list[str] = Field(default_factory=list, max_length=8)
+    by: list[Annotated[str, Field(pattern=r"^[a-z0-9_]+@[0-9][0-9A-Za-z.+-]*$")]] = Field(
+        default_factory=list, max_length=8)
     """The pieces, `fastq@1.1.0` then `read_length@1.0.0`."""
 
 
@@ -91,6 +93,7 @@ class MeasuredView(BaseModel):
 def collect(events) -> Measurements:
     """The facts and decided values among a run's events, in a stable order; a redelivered
     report counts once."""
+    events = list(events)  # read twice below; a generator would give the second pass nothing
     facts = {(e.measured.measurement, e.measured.sample): e.measured
              for e in events if getattr(e, "measured", None) is not None}
     decided = {(d.step, d.setting, d.sample): d

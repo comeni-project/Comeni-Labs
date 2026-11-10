@@ -7,28 +7,15 @@ downstream privacy checks can identify them structurally.
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any, Final, final
+from typing import Annotated, Any, Final
 
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict, Field
 
-
-@final
-class LabString:
-    """Marks a field a laboratory's own words reach. §10.2's redactor filters on this, and §8
-    forbids one becoming a span attribute.
-
-    A sentinel **type** rather than a bare `"lab-string"` — A182. The marking is load-bearing:
-    §10.2's claim is that a marked field added later *cannot* be missed, because the totality
-    test fails rather than the data leaking. A string is spellable by accident and collides
-    with any other `Annotated[str, "lab-string"]`; an instance of a private class is neither.
-
-    It is deliberately **not** `comeni_core.spell.Mark` — widening that enum pulls in the
-    egress accounting invariant 14 keeps, for a marking that never crosses a Mendel door.
-    """
-
-
-LAB_STRING: Final = LabString()
+# Defined in `wiener_core.lab`, so a payload module can mark its fields without importing this
+# one; imported here because everything else names it from here.
+from wiener_core.lab import LAB_STRING, LabString  # noqa: E402,F401
+from wiener_core.measured import DecidedValue, MeasuredFact  # noqa: E402
 
 
 class EventKind(StrEnum):
@@ -176,8 +163,8 @@ class RunEvent(BaseModel):
     seq: int
     trace: TaskTrace | None = None
     manifest: RunManifest | None = None
-    measured: "MeasuredFact | None" = None
-    decided: "DecidedValue | None" = None
+    measured: MeasuredFact | None = None
+    decided: DecidedValue | None = None
 
 
 NO_EXIT: Final = 2**31 - 1
@@ -243,7 +230,3 @@ def measured(run_id: str, at_ms: int, seq: int, *, fact: "MeasuredFact | None" =
     return RunEvent(kind=EventKind.MEASURED, run_id=run_id, at_ms=at_ms, seq=seq,
                     measured=fact, decided=decided)
 
-
-from wiener_core.measured import DecidedValue, MeasuredFact  # noqa: E402 — they mark LAB_STRING
-
-RunEvent.model_rebuild()

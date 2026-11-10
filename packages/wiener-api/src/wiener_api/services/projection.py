@@ -37,7 +37,8 @@ _TERMINAL = {RunPhase.SUCCEEDED, RunPhase.FAILED, RunPhase.CANCELLED, RunPhase.L
 
 
 def _artifact_pipeline(session, lab_id: str, run_id: str):
-    """The run's own `pipeline.yml`, for `cicd.pipeline.name` and nothing else yet.
+    """The run's own `pipeline.yml`: for `cicd.pipeline.name`, and for what the run may have
+    measured (#465).
 
     Read from the artifact Wiener owns — §12 — so this reaches no Mendel package. Returns
     `None` when it cannot be read, and the name falls back to `unknown` rather than the export
@@ -136,12 +137,21 @@ def _read_measured(session: Session, lab_id: str, run_id: str, at_ms: int) -> Ru
         return None
     facts, decided = measured.read(launcher.results_dir(run_id), pipeline)
     state = None
-    for fact in facts:
-        state = append(session, lab_id, run_id, measured_event(
-            run_id, at_ms, next_seq(session, lab_id, run_id), fact=fact))
-    for value in decided:
-        state = append(session, lab_id, run_id, measured_event(
-            run_id, at_ms, next_seq(session, lab_id, run_id), decided=value))
+    # In a savepoint: whatever goes wrong here, the `completed` event already appended stays
+    # recorded (Task 9 review).
+    savepoint = session.begin_nested()
+    try:
+        for fact in facts:
+            state = append(session, lab_id, run_id, measured_event(
+                run_id, at_ms, next_seq(session, lab_id, run_id), fact=fact))
+        for value in decided:
+            state = append(session, lab_id, run_id, measured_event(
+                run_id, at_ms, next_seq(session, lab_id, run_id), decided=value))
+    except Exception:  # noqa: BLE001 — losing measurements must never lose the run's end
+        savepoint.rollback()
+        log.exception("run %s: completed, and its measurements could not be recorded", run_id)
+        return None
+    savepoint.commit()
     return state
 
 
@@ -262,9 +272,9 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
         # that only goes up is worse than no gauge.
         telemetry.in_flight(+1, _artifact_pipeline(session, lab_id, run_id))
 
-    # Once, on the way in: events Wiener appends after the end (a run's measurements, #465)
-    # must not export the run again.
-    if state.phase in _TERMINAL and prior.phase not in _TERMINAL:
+    # A run's measurements, appended after its end, export nothing: they are not Nextflow
+    # telling Wiener how the run went (#465). Every other terminal event exports as before.
+    if state.phase in _TERMINAL and event.kind is not EventKind.MEASURED:
         if prior.phase is RunPhase.RUNNING:
             telemetry.in_flight(-1, _artifact_pipeline(session, lab_id, run_id))
         # **After the flush, like the stream publish, and for the same reason**: telemetry for

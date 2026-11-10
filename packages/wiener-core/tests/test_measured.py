@@ -62,3 +62,12 @@ def test_the_kind_is_wieners_own():
     assert measured("r", 1, 1, fact=_fact("a", 1)).kind is EventKind.MEASURED
     with pytest.raises(ValueError):
         measured("r", 1, 1)
+
+
+def test_collect_reads_a_generator_whole():
+    """The route hands it a generator; both facts and decided values come out (Task 9)."""
+    events = [measured("r", 1, 1, fact=_fact("a", 150)),
+              measured("r", 1, 2, decided=DecidedValue(step="s", setting="n", sample="a",
+                                                       value="6"))]
+    got = collect(e for e in events)
+    assert len(got.facts) == 1 and len(got.decided) == 1
