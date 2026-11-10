@@ -350,12 +350,39 @@ def _because(layers, contract_id: str, name: str) -> str:
 
 
 def _only_with(when: dict | None) -> str | None:
-    """A condition in a few words: `{given.fasta: present}` reads "only with fasta"."""
+    """A condition in a few words: `{given.fasta: present}` reads "only with fasta", and
+    `{type.reads: alignment.cram}` "only with reads as alignment.cram" (#464)."""
     if not when:
         return None
-    parts = [key.partition(".")[2] if key.startswith("given.") or value is True
-             else f"{key.partition('.')[2]} = {value}" for key, value in when.items()]
-    return "only with " + " and ".join(parts)
+    return "only with " + " and ".join(_condition(k, v) for k, v in when.items())
+
+
+def _condition(key: str, value) -> str:
+    space, _, name = key.partition(".")
+    if space == "type":
+        if isinstance(value, dict) and "in" in value:
+            return f"{name} as one of {', '.join(value['in'])}"
+        if isinstance(value, dict) and "not" in value:
+            return f"{name} not as {value['not']}"
+        return f"{name} as {value}"
+    return name if space == "given" or value is True else f"{name} = {value}"
+
+
+def _connected_type(pipeline, layers, step, port) -> str:
+    """The type connected to `port`: its own, or for an input with `accepts` whichever one its
+    channel or upstream output carries (#464)."""
+    if port.type_id:
+        return port.type_id
+    wiring = next((i for i in step.inputs if i.port == port.name), None)
+    if wiring is not None and wiring.channel is not None:
+        return next((c.type_id for c in pipeline.channels if c.name == wiring.channel), "")
+    if wiring is not None and wiring.source is not None:
+        node, _, output = wiring.source.partition(".")
+        upstream = next((s for s in pipeline.steps if s.id == node), None)
+        if upstream is not None:
+            made = layers.registry.get(upstream.module.contract_id).produces
+            return next((o.type_id for o in made if o.name == output), "")
+    return ""
 
 
 def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[StepView]:
@@ -375,7 +402,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
         return [
             PortView(
                 name=port.name,
-                type_id=port.type_id,
+                type_id=_connected_type(pipeline, layers, step, port),
                 side="in",
                 gathers=(node_id, port.name) in gathered,
                 optional=not port.required,
@@ -383,7 +410,8 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                 reason=states[port.name].reason if port.name in states else None,
                 adds=[o.name for o in contract.produces
                       if f"given.{port.name}" in (o.produced_when or {})],
-                met=(node_id, port.name) in fed or port.type_id in entered,
+                met=((node_id, port.name) in fed
+                     or _connected_type(pipeline, layers, step, port) in entered),
                 # The conventional alternative — index 0 is the contract author's own first
                 # choice, the same ordering `compatibility.requires` carries.
                 states=sorted(port.alternatives()[0].states) if port.alternatives() else [],
