@@ -86,3 +86,106 @@ def test_an_index_with_bam_reads_is_refused_with_the_reason(tmp_path):
                                                             state=InputState.REQUIRED)]))
     with pytest.raises(ConstraintViolation, match="MD0610.*index.*alignment.bam"):
         resolve(goal, registry, RuleTable(), MeasurementRegistry(), vocabulary=vocabulary)
+
+
+# ── the router and resolution agree on the connected type (Task 5 review) ─────────────────
+
+ALIGNER = """id: lab/aligner@1.0.0
+nf_process: ALIGNER
+nf_include: modules/lab/aligner/main
+roles: [alignment]
+consumes: [{name: reads, type_id: fastq.reads}]
+produces: [{name: bam, type_id: alignment.bam}]
+provenance: {source: t, drafted_by: t, approved_by: t, approved_at: "2026-11-10"}
+"""
+BAMQC = """id: lab/bamqc@1.0.0
+nf_process: BAMQC
+nf_include: modules/lab/bamqc/main
+roles: [qc_per_sample]
+consumes: [{name: bam, type_id: alignment.bam}]
+produces: [{name: report, type_id: qc.report}]
+provenance: {source: t, drafted_by: t, approved_by: t, approved_at: "2026-11-10"}
+"""
+
+
+def _roles(tmp_path: pathlib.Path, *ids: str) -> None:
+    body = "declares: role\nroles:\n" + "".join(f"  - {{id: {i}, explain: x}}\n" for i in ids)
+    (tmp_path / "roles.yml").write_text(body)
+
+
+def test_a_held_earlier_alternative_wins_over_a_produced_later_one(tmp_path):
+    """The goal has FASTQ; another branch makes a BAM. The router connects salmon's reads to
+    the FASTQ (its first alternative) and switches the index on; resolution must wire the same
+    FASTQ, not the BAM, or alignment mode refuses the index it was just given."""
+    registry, vocabulary = _world(tmp_path)
+    (tmp_path / "contracts" / "aligner.yml").write_text("declares: contract\n" + ALIGNER)
+    (tmp_path / "contracts" / "bamqc.yml").write_text("declares: contract\n" + BAMQC)
+    (tmp_path / "vocabularies" / "qc.report.yml").write_text(
+        "declares: vocabulary\nid: qc.report\nstates: []\nscope: sample\n")
+    _roles(tmp_path, "quantification", "alignment", "qc_per_sample")
+    vocabulary = Vocabulary.load(tmp_path)
+    registry = Registry.load(tmp_path, vocabulary)
+    goal = Goal(have=[GoalInput(type_id="fastq.reads"), GoalInput(type_id="salmon.index")],
+                want=["qc.report", "salmon.quant"])
+    ir = resolve(goal, registry, RuleTable(), MeasurementRegistry(), vocabulary=vocabulary)
+    salmon = next(n for n in ir.nodes if n.contract_id == SALMON_ID)
+    assert not any(e.to_node == salmon.id and e.to_port == "reads" for e in ir.edges)
+    assert {r.port: r.state for r in salmon.inputs}["index"] is InputState.REQUIRED
+
+
+ORPHAN_TYPES = {"h.one": "sample", "m.mid": "sample", "q.opt": "run", "t.one": "sample",
+                "t.two": "sample", "w.want": "sample"}
+MAKER = """id: lab/maker@1.0.0
+nf_process: MAKER
+nf_include: modules/lab/maker/main
+roles: [trimming]
+consumes: [{name: h, type_id: h.one}]
+produces: [{name: m, type_id: m.mid}]
+provenance: {source: t, drafted_by: t, approved_by: t, approved_at: "2026-11-10"}
+"""
+ONE = """id: lab/one@1.0.0
+nf_process: ONE
+nf_include: modules/lab/one/main
+roles: [alignment]
+consumes:
+  - {name: m, type_id: m.mid}
+  - {name: q, type_id: q.opt, required: false}
+produces: [{name: t, type_id: t.one, produced_when: {given.q: present}}]
+nf_inputs: [{ports: [m]}, {ports: [q], absent: 2}]
+provenance: {source: t, drafted_by: t, approved_by: t, approved_at: "2026-11-10"}
+"""
+WANTS = """id: lab/wants@1.0.0
+nf_process: WANTS
+nf_include: modules/lab/wants/main
+roles: [quantification]
+consumes: [{name: p, accepts: [{type_id: t.one}, {type_id: t.two}]}]
+produces: [{name: w, type_id: w.want}]
+provenance: {source: t, drafted_by: t, approved_by: t, approved_at: "2026-11-10"}
+"""
+
+
+def test_a_failed_alternative_leaves_no_steps_behind(tmp_path):
+    """Task 5 review: required inputs are routed before optional ones are decided, so an
+    alternative refused at that point (MD0609) had already emitted its upstream steps."""
+    from comeni_core.goal.asked import Constraints, InputChoice
+
+    vocab_dir = tmp_path / "vocabularies"
+    vocab_dir.mkdir()
+    for type_id, scope in ORPHAN_TYPES.items():
+        family = type_id.split(".")[0]
+        (vocab_dir / f"{type_id}.yml").write_text(
+            f"declares: vocabulary\nid: {type_id}\nstates: []\nscope: {scope}\n")
+        (vocab_dir / f"{family}.family.yml").write_text(
+            f"declares: family\nid: {family}\ndescription: {family}\n")
+    contracts = tmp_path / "contracts"
+    contracts.mkdir()
+    for name, body in {"maker.yml": MAKER, "one.yml": ONE, "wants.yml": WANTS}.items():
+        (contracts / name).write_text("declares: contract\n" + body)
+    _roles(tmp_path, "trimming", "alignment", "quantification")
+    vocabulary = Vocabulary.load(tmp_path)
+    registry = Registry.load(tmp_path, vocabulary)
+    goal = Goal(have=[GoalInput(type_id="h.one"), GoalInput(type_id="t.two")], want=["w.want"],
+                constraints=Constraints(inputs=[InputChoice(contract="lab/one@1.0.0", port="q",
+                                                            state=InputState.OFF)]))
+    plan = route(goal, registry)
+    assert [s.contract_id for s in plan.steps] == ["lab/wants@1.0.0"]

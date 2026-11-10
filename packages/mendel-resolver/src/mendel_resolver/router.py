@@ -219,6 +219,20 @@ def route(
     # earlier visit left off (final review I2), so the order of the wants cannot decide it.
     seen_inputs: dict[str, list[InputRecord]] = {}
 
+    def checkpoint() -> Callable[[], None]:
+        """The plan as it is now, and how to return to it."""
+        steps, decisions = len(plan.steps), len(plan.decisions)
+        done, seen = set(emitted), {k: list(v) for k, v in seen_inputs.items()}
+
+        def restore() -> None:
+            del plan.steps[steps:]
+            del plan.decisions[decisions:]
+            emitted.clear()
+            emitted.update(done)
+            seen_inputs.clear()
+            seen_inputs.update(seen)
+        return restore
+
     def satisfy(
         type_id: str,
         states: frozenset[str],
@@ -295,6 +309,7 @@ def route(
                     depth + 1,
                     visiting | {chosen.id},
                     because=f"{chosen.id} requires {port.type_id or port.name!r} here",
+                    checkpoint=checkpoint,
                 )
             except UnroutablePinError:
                 raise
@@ -514,6 +529,7 @@ def _satisfy_port(
     depth: int,
     visiting: frozenset[str],
     because: str = "",
+    checkpoint: Callable[[], Callable[[], None]] | None = None,
 ) -> str:
     """Try each alternative in declaration order and take the first that routes; return its
     type, which a row on `type.<port>` reads (#464).
@@ -525,18 +541,31 @@ def _satisfy_port(
     alternatives = port.alternatives()
     failures = []
     for alternative in alternatives:
+        # A refused alternative may already have emitted the steps its required inputs need;
+        # they are undone, so the next alternative starts from the same plan (#464).
+        restore = checkpoint() if checkpoint is not None else None
         try:
             satisfy(alternative.type_id, alternative.states, depth, visiting, because)
             return alternative.type_id
         except UnroutableError as exc:
+            if restore is not None:
+                restore()
             if len(alternatives) == 1:
                 # One alternative, so its own message is the whole truth. Wrapping it
                 # would stack "no alternative for port 'reads'" once per level of a
                 # recursive route, which buries the fact at the bottom.
                 raise
-            failures.append(str(exc))
+            failures.append(exc)
+    # When nothing at all makes any alternative, the first is what the pipeline asks for from
+    # outside, so the port can still be fed as an input (#464, `_comes_from_outside`).
+    own = [(a.type_id, a.states) for a in alternatives]
+    nothing_makes = all(f.missing is not None and (f.missing[0], f.missing[1]) in own
+                        and not isinstance(f, IntentConflict | ConstraintViolation)
+                        for f in failures)
     raise UnroutableError(
-        f"no alternative for port {port.name!r} can be routed: " + "; ".join(failures)
+        f"no alternative for port {port.name!r} can be routed: "
+        + "; ".join(str(f) for f in failures),
+        missing=failures[0].missing if nothing_makes else None,
     )
 
 

@@ -59,3 +59,28 @@ def test_fastq_reads_take_the_index_instead(tmp_path):
     inputs = {i.port: i for i in _salmon(pipeline).inputs}
     assert sorted(inputs) == ["index", "reads"]
     assert _channel_type(pipeline, inputs["reads"].channel) == "fastq.reads"
+
+
+def test_an_optional_accepts_port_from_outside_gets_a_channel(tmp_path):
+    """Task 5 review: switched on, fed by nothing in the pipeline and not in the goal, the port
+    still had no type to choose its channel by."""
+    from comeni_core.goal.asked import Constraints, InputChoice, InputState
+
+    layer = tmp_path / "overlay"
+    layer.mkdir()
+    salmon = SALMON.replace("  - {name: gtf, type_id: annotation.gtf, required: false}",
+                            "  - name: gtf\n    required: false\n    accepts: "
+                            "[{type_id: annotation.gtf}, {type_id: annotation.gff}]")
+    assert salmon != SALMON
+    extra = {"salmon.contract.yml": "declares: contract\n" + salmon,
+             "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\n"
+                                   "scope: run\n"}
+    for name, body in {**OVERLAY, **extra}.items():
+        (layer / name).write_text(body)
+    goal = Goal(have=[GoalInput(type_id="alignment.bam"), GoalInput(type_id="transcripts.fasta")],
+                want=["salmon.quant"],
+                constraints=Constraints(inputs=[InputChoice(contract=SALMON_ID, port="gtf",
+                                                            state=InputState.OPTIONAL)]))
+    pipeline = orchestrate.build(goal, registry_roots=[ROOT / "registry", layer]).pipeline
+    inputs = {i.port: i for i in _salmon(pipeline).inputs}
+    assert _channel_type(pipeline, inputs["gtf"].channel) == "annotation.gtf"

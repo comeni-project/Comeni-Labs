@@ -279,14 +279,26 @@ def resolve(
             sources[port.name] = _source_for(
                 produced, port, node.id, ir.decisions, resolver,
                 pinned=_node_of(ir, pinned.producer) if pinned else None)
-            held = next((a.type_id for a in port.alternatives()
-                         if _have_satisfies(goal, a.type_id, a.states)), None)
+            alternatives = port.alternatives()
+            held_at = next((n for n, a in enumerate(alternatives)
+                            if _have_satisfies(goal, a.type_id, a.states)), None)
+            held = alternatives[held_at].type_id if held_at is not None else None
+            source = sources[port.name]
+            # The router takes the first alternative it can satisfy, and the pipeline's own
+            # input satisfies one at once: a produced later alternative must not override it,
+            # or the step is wired and checked with a type the router never chose (#464).
+            if source is not None and pinned is None and held_at is not None and held_at < next(
+                    n for n, a in enumerate(alternatives)
+                    if a.type_id == source[2] and a.states <= source[3]):
+                sources[port.name] = None
             if sources[port.name] is not None:
                 types[port.name] = sources[port.name][2]
-            elif held is not None:
-                types[port.name] = held
-                if len(port.alternatives()) > 1 or not port.type_id:
-                    node.entry_types.append(EntryType(port=port.name, type_id=held))
+            elif held is not None or (not port.required and not port.type_id):
+                # A switched-on optional input fed from outside asks for its first alternative.
+                entry = held if held is not None else alternatives[0].type_id
+                types[port.name] = entry
+                if len(alternatives) > 1 or not port.type_id:
+                    node.entry_types.append(EntryType(port=port.name, type_id=entry))
         verdict = _constraints_hold(contract, node, types)
         for port in contract.consumes:
             if port.name in off:
