@@ -166,7 +166,9 @@ def items_of(contract: ModuleContract) -> dict[str, JsonValue]:
         ).model_dump(mode="json"),
     }
     for n, port in enumerate(contract.consumes):
-        items[f"contract:input:{port.name}"] = {"position": n, **port.model_dump(mode="json")}
+        # A port with `accepts` has no type of its own; an empty `type_id` would be refused.
+        dumped = port.model_dump(mode="json", exclude={"type_id"} if port.accepts else None)
+        items[f"contract:input:{port.name}"] = {"position": n, **dumped}
     for n, port in enumerate(contract.produces):
         items[f"contract:output:{port.name}"] = {"position": n, **port.model_dump(mode="json")}
     if contract.nf_inputs:
@@ -229,4 +231,5 @@ def _numbered(values: dict[str, JsonValue], prefix: str) -> list:
 
 
 def _strip(item: BaseModel, model: type[BaseModel]) -> BaseModel:
-    return model(**item.model_dump(exclude={"position"}))
+    # Only what was set: a default re-sent as a value can be refused (an empty `type_id`).
+    return model(**item.model_dump(exclude={"position"}, exclude_unset=True))

@@ -2,7 +2,7 @@
 
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import (
     BaseModel,
@@ -359,7 +359,7 @@ class NfInput(BaseModel):
     value cannot be null". `samtools/sort` wants 3; most want 2.
     """
 
-    join: Join | dict[str, Join] | None = None
+    join: Join | Annotated[dict[str, Join], Field(title="Per port")] | None = None
     """How multiple ports are matched; required because no join policy is universally safe.
 
     One `Join` applies to every port after the first. A map gives each later port its own, for

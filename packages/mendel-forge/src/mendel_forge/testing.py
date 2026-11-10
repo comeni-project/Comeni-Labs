@@ -69,7 +69,8 @@ def build_test_pipeline(test: ToolTest, stack: Layers) -> Pipeline:
     off = left_out(test, tool, fed)
     fed |= {(TOOL, port) for port in off}
     channels = [
-        IRChannel(name=f"{node}_{port.name}", type_id=port.type_id, ports=[f"{node}.{port.name}"])
+        IRChannel(name=f"{node}_{port.name}", type_id=_entry_type(test, node, port),
+                  ports=[f"{node}.{port.name}"])
         for node, contract, _ in steps for port in contract.consumes
         if (node, port.name) not in fed
     ]
@@ -81,6 +82,17 @@ def build_test_pipeline(test: ToolTest, stack: Layers) -> Pipeline:
                 want=sorted({p.type_id for p in tool.produces}))
     return Pipeline.of(ir, stack.registry, stack.vocabulary, stack.measurements, stack.paths,
                        goal=goal, locators=locate.locators(stack.paths))
+
+
+def _entry_type(test: ToolTest, node: str, port) -> str:
+    """The type of the data a test gives `port`: its own, or for a port with `accepts` the one
+    the test names, else the first (#464)."""
+    accepted = [a.type_id for a in port.alternatives()]
+    named = test.types.get(port.name) if node == TOOL else None
+    if named is not None and named not in accepted:
+        raise ValueError(coded("MF0515", f"the test says {port.name} is {named}, which it does "
+                               f"not accept ({', '.join(accepted)})"))
+    return named or port.type_id or accepted[0]
 
 
 def left_out(test: ToolTest, tool: ModuleContract, fed: set) -> list[str]:
@@ -99,7 +111,7 @@ def _edges(test: ToolTest, steps: list, tool: ModuleContract) -> list[IREdge]:
                 raise ValueError(coded("MF0515", f"setup {step.tool} feeds {output} → {port}: "
                                        "one of those ports does not exist"))
             edges.append(IREdge(from_node=node, from_port=output, to_node=TOOL, to_port=port,
-                                type_id=takes[port].type_id))
+                                type_id=takes[port].type_id or makes[output].type_id))
     return edges
 
 

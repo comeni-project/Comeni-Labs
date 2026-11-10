@@ -385,6 +385,7 @@
                     "additionalProperties": {
                       "$ref": "#/$defs/Join"
                     },
+                    "title": "Per port",
                     "type": "object"
                   },
                   {
@@ -1392,6 +1393,14 @@
             },
             "default": {},
             "title": "Unchecked",
+            "type": "object"
+          },
+          "types": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Types",
             "type": "object"
           }
         },

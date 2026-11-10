@@ -657,7 +657,7 @@ def test_family_proposals_need_human_approval_and_include_known_family_context(a
     assert "Families require human approval" in client.prompts[0]
     with session_scope() as db:
         invocation = db.get(AiInvocation, item.current.invocation)
-        assert invocation.prompt_id == "forge.draft.v7"
+        assert invocation.prompt_id == "forge.draft.v8"
     forging.act(adaptation, forging.person(Move.APPROVE, key,
         expected=item.current.n, value=None, because=None))
     assert forging.load(adaptation).items[key].status == "approved"
@@ -752,7 +752,7 @@ def test_the_contract_prompt_teaches_constraints(adaptation):
     assert '"produced_when"' in sent and "contract:constraint:" in sent and '"absent"' in sent
     with session_scope() as db:
         assert db.query(AiInvocation).order_by(AiInvocation.started_at.desc()).first(
-            ).prompt_id == "forge.draft.v7"
+            ).prompt_id == "forge.draft.v8"
 
 
 def test_a_contract_item_carries_its_engine_finding_on_read(adaptation):
@@ -832,3 +832,23 @@ def test_the_guide_leaves_out_a_default_the_module_falls_back_on(adaptation):
     client = FakeClient(reply, reply)
     forging_ai.draft_piece(adaptation, Piece.PARAMETERS, client)
     assert 'task.ext.prefix ?: "${meta.id}"`) has no\n  "default"' in client.prompts[0]
+
+
+def test_the_guide_teaches_shared_slots_joins_and_types():
+    """#464: an optional file inside a tuple, a join per port, an input of several types, and a
+    row on the connected type, each spelled out with a module from the survey."""
+    guide = forging_ai.ITEM_SHAPES.read_text()
+    assert forging_ai.ITEM_SHAPES.name == "items.v3.md"
+    for shape in ('"accepts": [{"type_id"', '"join": {"input_index": "by_sample"',
+                  '"type.reads": "alignment.bam"', '"types": {', "[]"):
+        assert shape in guide, shape
+    assert "Several optional inputs\n  share an entry only when a group says" not in guide, \
+        "the old one-group rule is gone"
+
+
+def test_contract_drafts_use_draft_v8(adaptation):
+    _answer(adaptation)
+    reply = {"items": {"contract:none": {"because": "none"}}, "because": {}}
+    client = FakeClient(reply, reply)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    assert "an input that takes several types" in client.prompts[0]
