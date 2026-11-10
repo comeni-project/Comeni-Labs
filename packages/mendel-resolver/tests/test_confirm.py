@@ -33,7 +33,7 @@ def _measured(name, value, coverage, pieces=PIECES):
 
 def _ir(goal):
     return resolve(goal, STACK.routing, STACK.rules, STACK.measurements,
-                   vocabulary=STACK.vocabulary)
+                   vocabulary=STACK.vocabulary, inspection=STACK.inspection)
 
 
 def test_a_head_read_length_that_chose_the_aligner_is_confirmed():
@@ -56,13 +56,26 @@ def test_a_fact_read_in_full_is_not_measured_again():
     assert ir.confirms == []
 
 
-def test_two_estimates_on_the_reads_share_one_step():
+def test_an_estimate_no_decision_used_is_not_measured_again():
+    """`paired` read from the head chooses nothing here: there is nothing to confirm."""
     ir = _ir(_goal(_measured("read_length", 150, "head"),
                    _measured("paired", True, "head", ("fastq@1.1.0", "paired@1.1.0"))))
     measuring = [n for n in ir.nodes if n.contract_id == "comeni/measure/fastq@1.1.0"]
     assert len(measuring) == 1
-    assert {c.measurement for c in ir.confirms} <= {"read_length", "paired"}
-    assert {c.measured_at for c in ir.confirms} == {measuring[0].id}
+    assert [c.measurement for c in ir.confirms] == ["read_length"]
+
+
+def test_the_measuring_step_says_why_it_is_there():
+    ir = _ir(_goal(_measured("read_length", 150, "head")))
+    (node,) = [n for n in ir.nodes if n.contract_id == "comeni/measure/fastq@1.1.0"]
+    assert node.presence.reason.startswith("confirms read_length, estimated on part of the data")
+    assert "the goal asks for" not in node.presence.reason
+
+
+def test_without_the_measurers_nothing_is_confirmed():
+    ir = resolve(_goal(_measured("read_length", 150, "head")), STACK.routing, STACK.rules,
+                 STACK.measurements, vocabulary=STACK.vocabulary)
+    assert ir.confirms == []
 
 
 def test_confirming_keeps_the_graph_and_the_saved_pipeline_carries_it():

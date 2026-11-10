@@ -17,6 +17,7 @@ too: an overlap at run time has nobody to ask.
 
 from dataclasses import dataclass
 
+from comeni_core.declared.inspection import InspectionCatalogue
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.diagnostics import coded
@@ -25,7 +26,7 @@ from comeni_core.logic.when import ABSENT, PRESENT, matches
 from comeni_core.plan.at_run import AtRun, AtRunOp, AtRunRow, AtRunStep, AtRunTest
 from comeni_core.plan.ir import PipelineIR
 
-from mendel_resolver.measure_steps import PREFIX
+from mendel_resolver.measure_steps import steps_for
 from mendel_resolver.rules import Derivation, RuleTable
 from mendel_resolver.rules.format import Decision, FactRef, _comparison
 from mendel_resolver.rules.table import _visible
@@ -244,7 +245,8 @@ class Estimate:
     used_by: tuple[str, ...]
 
 
-def estimates(ir: PipelineIR, registry: Registry, goal: Goal) -> list[Estimate]:
+def estimates(ir: PipelineIR, registry: Registry, goal: Goal,
+              catalogue: InspectionCatalogue | None = None) -> list[Estimate]:
     """Every fact read from part of the data (`coverage: head`) that a selection or a setting
     of `ir` rested on, where a pipeline measurer of our code can read it in full from an input
     the goal has. Sorted by fact (#465).
@@ -252,13 +254,16 @@ def estimates(ir: PipelineIR, registry: Registry, goal: Goal) -> list[Estimate]:
     Only `by: code` measurers: a fact the server measured is one our code measures, and the
     same code over all the data is the confirmation. A person's statement is not an estimate
     and is never re-measured."""
+    if catalogue is None:
+        return []
     have = {given.type_id for given in goal.have}
+    # Our code's steps only, by the format each reads: a tool's parser confirms nothing the
+    # server estimated (Task 8 review).
     measurable = {
-        port.type_id.removeprefix("measurement.")
-        for contract in registry.all() if contract.id.startswith(PREFIX)
-        and contract.consumes and contract.consumes[0].type_id in have
-        and contract.provenance.source.startswith("generated from ")
-        for port in contract.produces
+        measurer.measures
+        for step in steps_for(catalogue, registry)
+        if step.format is not None and set(step.format.reads) & have
+        for measurer in step.measurers
     }
     used: dict[str, tuple[object, set[str]]] = {}
 

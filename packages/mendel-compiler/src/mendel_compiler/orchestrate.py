@@ -103,6 +103,7 @@ def build(
         layer_names=[layer_name(p) for p in loaded.paths],
         prior=prior or [],
         facts_read=conformance.facts_read(loaded.registry, loaded.modules, loaded.measurements),
+        inspection=loaded.inspection,
     )
     ir.unverified = [d.where for d in diagnostics if d.code == "MD0100"]
 

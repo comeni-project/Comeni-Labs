@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from comeni_core.declared.constraints import Setup, Verdict, evaluate
 from comeni_core.declared.contract import InputPort, ModuleContract, OutputPort, Param
+from comeni_core.declared.inspection import InspectionCatalogue
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import UnknownTypeError, Vocabulary
@@ -116,6 +117,7 @@ def resolve(
     layer_names: Sequence[str] = (),
     prior: Sequence[DecisionRecord] = (),
     facts_read: Mapping[str, frozenset[str] | None] | None = None,
+    inspection: InspectionCatalogue | None = None,
 ) -> PipelineIR:
     """Resolve ``goal`` against one loaded registry stack, deciding at run time the settings
     whose rule waits on a fact only the pipeline can measure (#217).
@@ -132,7 +134,8 @@ def resolve(
     answered = frozenset(record.key for record in prior
                          if getattr(record, "human_override", None) is not None)
     needs = at_run.needed(first, registry, rules, premises, measurements, goal, answered)
-    estimates = at_run.estimates(first, registry, goal)
+    # `inspection`: the measurers, for confirming estimates; without it nothing is confirmed.
+    estimates = at_run.estimates(first, registry, goal, inspection)
     if not needs and not estimates:
         return first
     facts = sorted({need.fact for need in needs})
@@ -157,9 +160,13 @@ def resolve(
     moved = [n.id for n in first.nodes if kept.get(n.id) != n.contract_id]
     edges = {edge.model_dump_json() for edge in second.edges}
     if moved or not {edge.model_dump_json() for edge in first.edges} <= edges:
+        if not needs:
+            # Only confirmations asked for the second route, and they are optional: a build
+            # that stood before them is never refused because of them (Task 8 review).
+            return first
         raise ValueError(coded(
             "MD0329",
-            f"routing again to measure {', '.join(facts)} moved {moved or 'an edge'}: measuring "
+            f"routing again to measure {', '.join(measured)} moved {moved or 'an edge'}: measuring "
             "may add steps to a pipeline and never change one — `mendel explain MD0329`."))
     # Which step measures each fact is read off the graph the router made, never guessed.
     measuring = {
@@ -174,12 +181,32 @@ def resolve(
         for e in estimates
     ]
     _name_the_measurers(second, {fact: measuring[fact].contract_id for fact in facts})
+    _say_why_it_measures(second, measuring, needs, estimates)
     second.meta_at_run = [
         MetaAtRun(measurement=fact, meta_key=fact, type_id=measurements.get(fact).describes,
                   measured_at=measuring[fact].id, measured_port=fact)
         for fact in facts
     ]
     return second
+
+
+def _say_why_it_measures(ir: PipelineIR, measuring: Mapping[str, IRNode],
+                         needs: Sequence["at_run.Needed"],
+                         estimates: Sequence["at_run.Estimate"]) -> None:
+    """A measuring step's presence says what it measures and for whom: nobody asked for it,
+    the build added it (Task 8 review)."""
+    said: dict[str, list[str]] = {}
+    for need in needs:
+        said.setdefault(measuring[need.fact].id, []).append(
+            f"measures {need.fact} in the run, for {need.node_id}.{need.param}")
+    for estimate in estimates:
+        said.setdefault(measuring[estimate.fact].id, []).append(
+            f"confirms {estimate.fact}, estimated on part of the data, on all of it: "
+            f"{', '.join(estimate.used_by)} rest on it")
+    for node in ir.nodes:
+        if node.id in said:
+            node.presence = node.presence.model_copy(
+                update={"reason": "; ".join(sorted(set(said[node.id])))})
 
 
 def _name_the_measurers(ir: PipelineIR, measured_by: Mapping[str, str]) -> None:
