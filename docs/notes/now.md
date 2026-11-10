@@ -73,10 +73,10 @@ cites its entry; the long form is in [the archive](journal/archive/).
   disagreement asks keep, use, correct or unknown. (2026-10-03, 2026-10-04)
 - **A sample nothing reads is read by the AI** (door 6): up to 8 KB; a family, then a type; each
   property **quotes its line**, checked, then *read by AI*. Open: #238, #239. (2026-10-04)
-- **Inspectors are composed pieces** in `registry/inspectors/` (codecs, formats, measures), run
-  only from trusted layers in one pass; below a threshold a measure says *undetermined*. (10-03)
+- **Measurers are composed pieces** in `registry/measurers/` (codecs, formats, measurers), run
+  only from trusted layers in one pass; below a threshold a measurer says *undetermined*. (11-10)
 - **A measured fact is `MEASURED`**, naming its pieces and evidence. Adding a piece:
-  `registry/inspectors/README.md`. The registry is one folder per tool; the path is the id. (10-03)
+  `registry/measurers/README.md`. The registry is one folder per tool; the path is the id. (10-03)
 
 ## Settings (Settings → behind the gear)
 

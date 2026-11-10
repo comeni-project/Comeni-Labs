@@ -94,7 +94,7 @@ def _inspectable(stack) -> tuple[dict[str, set[str]], set[str]]:
 
     pieces = measurers.usable_pieces(stack)
     measured: dict[str, set[str]] = {}
-    for measure in pieces.measures.values():
+    for measure in pieces.measurers.values():
         for fmt in pieces.formats.values():
             if fmt.record == measure.record:
                 measured.setdefault(measure.measures, set()).update(fmt.reads)

@@ -167,7 +167,7 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers,
     from mendel_api.services import measurers
 
     premises = _premise_measurements(stack)
-    measurable = {piece.measures for piece in measurers.usable_pieces(stack).measures.values()}
+    measurable = {piece.measures for piece in measurers.usable_pieces(stack).measurers.values()}
     # **Not asked: what only a tool reads and no sample can measure** (#338). It is left
     # unknown, and each step whose tool reads it stops for it on the board, as tier 4.
     measurements = set(premises) | {

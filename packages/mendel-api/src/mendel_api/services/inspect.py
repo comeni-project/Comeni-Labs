@@ -153,7 +153,7 @@ def _ref(kind: str, piece) -> wire.PieceRef:
     folder = (
         piece.folder.resolve()
         if piece.folder is not None
-        else Path(active_registry()).resolve() / "inspectors" / kind / piece.id
+        else Path(active_registry()).resolve() / "measurers" / kind / piece.id
     )
     return wire.PieceRef(
         id=piece.id,
@@ -167,7 +167,7 @@ def _facts(report: wire.Report, pieces: InspectionCatalogue) -> list[InspectedFa
     """The report's facts, keyed by the measurement each measure produces, not the measure."""
     found = []
     for measure_id, fact in sorted(report.facts.items()):
-        measure = pieces.measures[measure_id]
+        measure = pieces.measurers[measure_id]
         found.append(
             InspectedFact(
                 measurement=measure.measures,
@@ -210,7 +210,7 @@ def inspect_sample(
             format=_ref("formats", fmt),
             codec=_ref("codecs", codec) if codec else None,
             measures=[
-                _ref("measures", m) for m in pieces.measures.values() if m.record == fmt.record
+                _ref("measures", m) for m in pieces.measurers.values() if m.record == fmt.record
             ],
             files=heads,
             cap_bytes=CAP_BYTES,

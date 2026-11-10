@@ -42,9 +42,10 @@ def index(stack) -> list[Measurer]:
             by=f"{fmt.id}@{fmt.version} + {measure.id}@{measure.version}",
             runs=fmt.runs,
             trusted=_trusted(pieces, f"format:{fmt.id}")
-            and _trusted(pieces, f"measure:{measure.id}"),
+            and _trusted(pieces, f"measurer:{measure.id}"),
         )
-        for measure in pieces.measures.values()
+        for measure in pieces.measurers.values()
+        if measure.by == "code"
         for fmt in pieces.formats.values()
         if fmt.record == measure.record
     ]
@@ -75,6 +76,8 @@ def usable_pieces(stack) -> InspectionCatalogue:
     return InspectionCatalogue(
         codecs=keep("codec", pieces.codecs),
         formats=formats,
-        measures=keep("measure", pieces.measures),
+        # Only our code runs here, and only a measurer that says it runs on the server (#465).
+        measurers={k: m for k, m in keep("measurer", pieces.measurers).items()
+                   if m.runs_on("server")},
         origin=pieces.origin,
     )

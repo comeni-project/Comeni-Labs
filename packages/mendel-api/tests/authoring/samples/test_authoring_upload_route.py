@@ -25,7 +25,7 @@ from mendel_authoring import commands
 from support.paths import ROOT as REPOSITORY_ROOT
 
 ROOT = REPOSITORY_ROOT
-PAIR = ROOT / "registry/inspectors/formats/fastq/piece/fixtures/pair_150"
+PAIR = ROOT / "registry/measurers/formats/fastq/piece/fixtures/pair_150"
 needs_db = pytest.mark.skipif(not reachable(), reason="no database")
 
 

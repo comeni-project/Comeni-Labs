@@ -10,7 +10,7 @@ import ast
 import pytest
 from support.paths import ROOT
 
-INSPECTORS = ROOT / "registry" / "inspectors"
+INSPECTORS = ROOT / "registry" / "measurers"
 PIECES = sorted(p for p in INSPECTORS.glob("*/*") if p.is_dir() and p.name != "__pycache__")
 ALLOWED = {
     "comeni_inspect.outcome", "comeni_inspect.records",

@@ -21,7 +21,7 @@ def test_a_piece_from_an_untrusted_layer_is_listed_and_not_usable(monkeypatch):
     inspectors = [m for m in measurers.index(stack) if m.kind == "inspector"]
     assert inspectors and all(not m.trusted for m in inspectors)
     usable = measurers.usable_pieces(stack)
-    assert usable.formats == {} and usable.codecs == {} and usable.measures == {}
+    assert usable.formats == {} and usable.codecs == {} and usable.measurers == {}
 
 
 def test_the_index_is_in_a_stable_order():

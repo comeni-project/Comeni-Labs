@@ -165,6 +165,9 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     # layer may legitimately fill a role an overlay declares.
     for contract in registry.all():
         roles.check(contract.id, contract.roles)
+    # A `by: tool` measurer names a tool's contract, which may come from any layer (#465).
+    inspection, refused_tools = inspection.check_tools(registry)
+    refused_pieces = [*refused_pieces, *refused_tools]
     # #410: a module no contract binds can never be chosen, so it is a mistake, not a store.
     bound = {key_of(contract.nf_include) for contract in registry.all()}
     for key in sorted(set(vendored.entries) - bound):

@@ -2928,6 +2928,35 @@ MD0325:
     A rule decides among what a tool allows (#461); a tool's constraints say what it allows
     (#460). A `then` that a constraint row refuses with every combination of inputs would be
     set and then refuse the build, so the rule is refused when it loads.
+MD0326:
+  emitted_by: core
+  concern: loading
+  says: "a measurer's declaration does not fit how it says it measures: by our code, or by a tool and a parser"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    A `by: code` measurer names the `record:` shape it reads and no tool. A `by: tool` measurer
+    names its tool's contract in `uses:` and the output port its parser reads in `output:`, has
+    no `record:`, and runs only in the `pipeline`. Every measurer lists at least one place in
+    `runs:`.
+  explanation: |
+    A measurer is our own code folding a format's records, or a tool in the registry plus a
+    parser for its output (#465). The two need different fields, and a tool runs only in the
+    lab's pipeline: the server runs code from trusted layers over an upload's head, never a
+    tool.
+MD0327:
+  emitted_by: core
+  concern: loading
+  says: "a measurer uses a tool, or an output of it, that no layer declares"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Name in `uses:` a contract some layer declares, by its full id with version, and in
+    `output:` one of that contract's output ports.
+  explanation: |
+    A `by: tool` measurer's tool runs as an ordinary step and its parser reads one of its
+    outputs, so both must exist in the stack. **The measurer is not loaded; the others are**,
+    as for MD0317.
 
 MD0501:
   emitted_by: resolver

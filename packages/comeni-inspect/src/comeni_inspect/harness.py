@@ -41,7 +41,7 @@ def _ref(folder: Path) -> wire.PieceRef:
 
 
 def _pieces(registry: Path, kind: str) -> list[Path]:
-    return sorted(p for p in (registry / "inspectors" / kind).glob("*") if p.is_dir())
+    return sorted(p for p in (registry / "measurers" / kind).glob("*") if p.is_dir())
 
 
 def _codec_for(registry: Path, names: list[str]) -> wire.PieceRef | None:
@@ -95,7 +95,7 @@ def request_for_bytes(
     registry: Path, name: str, raw: bytes, format_id: str = "fastq"
 ) -> tuple[wire.Request, list[bytes]]:
     """One file, built the way `cases` builds them."""
-    folder = registry / "inspectors" / "formats" / format_id
+    folder = registry / "measurers" / "formats" / format_id
     return request_for(registry, folder, [(name, raw)], None)
 
 
