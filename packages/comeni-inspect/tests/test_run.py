@@ -31,7 +31,7 @@ COUNT = textwrap.dedent("""
                 return Undetermined(reason=f"only {self.n} records", evidence={"records": self.n})
             return Value(value=self.n, evidence={"records": self.n})
 """)
-GZIP = "import gzip, io\n\ndef open(raw):\n    return gzip.GzipFile(fileobj=io.BytesIO(raw))\n"
+GZIP = "import gzip\n\ndef open(stream):\n    return gzip.GzipFile(fileobj=stream)\n"
 
 
 def _request(tmp_path, n=2, codec=False, cap=2**20):
@@ -173,7 +173,7 @@ def test_a_measure_answering_badly_is_unreadable_not_a_crash(tmp_path, body):
 
 def test_a_codec_that_returns_no_stream_is_unreadable(tmp_path):
     request = _request(tmp_path, codec=True)
-    (tmp_path / "gz.py").write_text("def open(raw):\n    return raw\n")
+    (tmp_path / "gz.py").write_text("def open(stream):\n    return b\"not a stream\"\n")
     report = run.inspect(*_with(request, b">a\n"))
     assert report.unreadable and "gzip" in report.unreadable
 
@@ -193,11 +193,11 @@ def test_the_format_is_shown_a_full_window_even_through_a_codec(tmp_path):
     )
     (tmp_path / "gz.py").write_text(
         "import io\nclass Slow(io.RawIOBase):\n"
-        "    def __init__(self, raw): self.raw = io.BytesIO(raw)\n"
+        "    def __init__(self, stream): self.raw = stream\n"
         "    def readable(self): return True\n"
         "    def readinto(self, b):\n"
         "        data = self.raw.read(min(len(b), 100)); b[:len(data)] = data; return len(data)\n"
-        "def open(raw):\n    return Slow(raw)\n"
+        "def open(stream):\n    return Slow(stream)\n"
     )
     report = run.inspect(*_with(request, b">" * 10_000))
     assert report.unreadable is None

@@ -68,7 +68,8 @@ def request_for(
         format=_ref(format_folder),
         codec=_codec_for(registry, [name for name, _ in named]),
         measures=[_ref(folder) for folder in chosen],
-        files=[wire.FileHead(name=name, length=len(data)) for name, data in named],
+        # A fixture is the whole file, so its facts cover `all` of it unless the cap cuts it.
+        files=[wire.FileHead(name=name, length=len(data), whole=True) for name, data in named],
         cap_bytes=CAP_BYTES,
     )
     return request, [data for _, data in named]
