@@ -12,6 +12,7 @@ from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.declared.layer import layer_name
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal
+from mendel_resolver.measure_steps import contracts_for
 from mendel_resolver.ports import AmbiguityResolver
 from mendel_resolver.resolve import resolve
 
@@ -90,9 +91,12 @@ def build(
             f"{len(blocking)} contract(s) disagree with their modules. Nothing was emitted.",
         )
 
+    # The registry this build routes with: the layers' contracts and the generated measuring
+    # steps (#465). Conformance above checks only what a layer declares.
+    routing = loaded.registry.with_contracts(contracts_for(loaded.inspection, loaded.registry))
     ir = resolve(
         goal,
-        loaded.registry,
+        routing,
         loaded.rules,
         loaded.measurements,
         vocabulary=loaded.vocabulary,
@@ -104,7 +108,7 @@ def build(
     ir.unverified = [d.where for d in diagnostics if d.code == "MD0100"]
 
     pipeline = Pipeline.of(
-        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal,
+        ir, routing, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal,
         locators=locate.locators(loaded.paths),
     )
     return Built(pipeline=pipeline, ir=ir, layers=loaded, unverified=ir.unverified)

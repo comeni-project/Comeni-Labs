@@ -11,6 +11,7 @@ from pathlib import Path
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.diagnostics import coded
 from mendel_resolver import layers
+from mendel_resolver.measure_steps import steps_for
 from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.resolve import inert_pins
 
@@ -182,7 +183,8 @@ def run(args, parser) -> int:
     # `--registry` the contracts did rather than out of a `vendor/` in this repository. One
     # implementation, shared with the API's `keep`, which had no copy at all until `MD0210`
     # found it.
-    staging.stage(pipeline, built.layers.modules, args.out)
+    staging.stage(pipeline, built.layers.modules, args.out,
+                  measuring=steps_for(built.layers.inspection, built.layers.registry))
 
     # Its own section, above the review list rather than inside it. "What did my overlay
     # change" and "what must I decide" are different questions, and folding the first into

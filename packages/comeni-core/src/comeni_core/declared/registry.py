@@ -68,6 +68,15 @@ class Registry(BaseModel):
             layer_order=[layer.name for layer in layers],
         )
 
+    def with_contracts(self, extra: Sequence[ModuleContract]) -> "Registry":
+        """This registry plus contracts nothing declared: the generated measuring steps a build
+        routes with (#465). They displace nothing, and an id already here is a defect."""
+        clash = sorted({c.id for c in extra} & set(self.contracts))
+        if clash:
+            raise ValueError(f"generated contracts clash with declared ones: {', '.join(clash)}")
+        return self.model_copy(update={"contracts": {**self.contracts,
+                                                     **{c.id: c for c in extra}}})
+
     @classmethod
     def load(cls, layers: Path | Sequence[Path], vocab: Vocabulary) -> "Registry":
         """Load and stack contracts from one or more layer roots."""

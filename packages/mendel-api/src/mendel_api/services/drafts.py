@@ -512,7 +512,10 @@ def keep(draft_id: str, *, by: str = "", ai: AiProvenance | None = None) -> Path
     # source lives. Deliberately not the same path, and since Plan 5A the layer carries both —
     # so `staging.stage` is one implementation shared with `mendel build` rather than a second
     # `copytree` that can go missing again.
-    staging.stage(pipeline, stack.modules, out)
+    from mendel_resolver.measure_steps import steps_for
+
+    staging.stage(pipeline, stack.modules, out,
+                  measuring=steps_for(stack.inspection, stack.registry))
     _record_kept(draft_id, fingerprint(graph), pipeline.content_digest())
     return out / "pipeline.yml"
 

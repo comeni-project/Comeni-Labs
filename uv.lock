@@ -1611,6 +1611,7 @@ version = "0.1.0"
 source = { editable = "packages/mendel-compiler" }
 dependencies = [
     { name = "comeni-core" },
+    { name = "comeni-inspect" },
     { name = "dag-core" },
     { name = "jinja2" },
     { name = "mendel-resolver" },
@@ -1621,6 +1622,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "comeni-inspect", editable = "packages/comeni-inspect" },
     { name = "dag-core", editable = "packages/dag-core" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
