@@ -172,7 +172,7 @@ SERIALISED_SHAPE = {
         "from_layer",
         "displaced_layer",
     ],
-    "CallArg": ["ports", "literal", "empty_width", "from_setting", "join", "why"],
+    "CallArg": ["ports", "literal", "empty_width", "from_setting", "join", "joins", "why"],
     "MetaEntry": ["key", "value", "why"],
     "Emitted": ["schema_version", "files", "from_digest"],
     "ParamDecision": [

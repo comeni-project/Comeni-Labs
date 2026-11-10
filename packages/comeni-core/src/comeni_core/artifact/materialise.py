@@ -28,6 +28,7 @@ from comeni_core.artifact.pipeline import (
     MetaEntry,
     ModuleRef,
     Pipeline,
+    PortJoin,
     RegistryProvenance,
     RunRule,
     Setting,
@@ -249,7 +250,9 @@ def _call(contract: ModuleContract, off: frozenset[str] = frozenset()) -> list[C
             empty_width=(spec.absent if spec.ports and set(spec.ports) <= off
                          else spec.empty) or None,
             from_setting=spec.param or None,
-            join=spec.join,
+            join=None if isinstance(spec.join, dict) else spec.join,
+            joins=([PortJoin(port=p, join=spec.join[p]) for p in spec.ports[1:]]
+                   if isinstance(spec.join, dict) else []),
             why=(
                 Why(
                     tier=Tier.STRUCTURAL,
@@ -328,7 +331,10 @@ def _optional_channels(
             if states.get(port) is not InputState.OPTIONAL:
                 break
             contract = registry.get(step.module.contract_id)
-            widths += [e.absent for e in contract.input_signature() if port in e.ports]
+            # Alone in its slot the channel is the argument, so it takes the slot's empty
+            # tuple; inside a shared slot it is one `[meta, file]` among others (#464).
+            widths += [e.absent if len(e.ports) == 1 else 2
+                       for e in contract.input_signature() if port in e.ports]
         else:
             if fed and len(set(widths)) > 1:
                 # One empty tuple feeds every consumer, and Nextflow matches its arity.

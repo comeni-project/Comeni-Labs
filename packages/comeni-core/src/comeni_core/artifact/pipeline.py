@@ -243,6 +243,15 @@ class ExtArgs(BaseModel):
         return data
 
 
+class PortJoin(BaseModel):
+    """How one port after the first of a shared slot meets the ones before it (#464)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    port: PortName
+    join: Join
+
+
 class CallArg(BaseModel):
     """One positional process argument.
 
@@ -259,8 +268,18 @@ class CallArg(BaseModel):
     """Setting whose value supplies this positional argument."""
     join: Join | None = None
     """How multiple input ports are combined for this argument."""
+    joins: list["PortJoin"] = Field(default_factory=list, exclude_if=lambda joins: not joins)
+    """Each later port's own join, when the contract gives one per port (#464); then `join`
+    is unset."""
     why: Why | None = None
     """Provenance for the argument, when supplied."""
+
+    def join_for(self, port: str) -> Join:
+        """How `port`, a port after the first, meets the ones before it."""
+        found = next((j.join for j in self.joins if j.port == port), self.join)
+        if found is None:
+            raise ValueError(f"call argument {self.ports} declares no join for {port!r}")
+        return found
 
 
 class StepInput(BaseModel):

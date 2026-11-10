@@ -5,6 +5,7 @@ from typing import NamedTuple
 
 from comeni_core.artifact.pipeline import InputForm, Pipeline, Scope, Step
 from comeni_core.diagnostics import coded
+from comeni_core.goal.asked import InputState
 from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -144,8 +145,13 @@ def _argument(pipeline: Pipeline, step: Step, arg) -> str:
         return _render_literal(setting.value)
     if not arg.ports:
         return _render_literal(arg.literal)
-    expressions = [_port_expression(pipeline, step, name) for name in arg.ports]
-    if len(expressions) == 1:
+    # A port that is off has no channel: the tuple is built from the ports that are on, and
+    # `[]` then takes each left-out port's position, so the order still matches the module's
+    # input block (#464). The first port that is on stands in for the head.
+    off = {r.port for r in step.input_states if r.state is InputState.OFF}
+    on = [name for name in arg.ports if name not in off]
+    expressions = [_port_expression(pipeline, step, name) for name in on]
+    if len(arg.ports) == 1:
         return expressions[0]
     # Several semantic ports share one channel — featurecounts wants
     # tuple(meta, bams, annotation). The contract says how they meet, because the emitter
@@ -157,12 +163,33 @@ def _argument(pipeline: Pipeline, step: Step, arg) -> str:
     # samples in gave four processes, half of them pairing one sample's data with another's,
     # and Nextflow exited 0. `--gate test` cannot see the class: the nf-core dataset has one
     # sample, so 1 x 1 == 1.
+    for name in on:
+        _no_blank_per_sample(pipeline, step, arg, name, on)
     head, *rest = expressions
-    if arg.join is Join.BY_SAMPLE:
-        joined = "".join(f".join({expr})" for expr in rest)
-    else:
-        joined = "".join(f".combine({expr}.map {{ it[1] }})" for expr in rest)
-    return f"{head}{joined}"
+    joined = "".join(
+        f".join({expr})" if arg.join_for(name) is Join.BY_SAMPLE
+        else f".combine({expr}.map {{ it[1] }})"
+        for name, expr in zip(on[1:], rest, strict=True))
+    if len(on) == len(arg.ports):
+        return f"{head}{joined}"
+    names = [chr(ord("a") + n) for n in range(len(on))]
+    given = iter(names)
+    slots = ", ".join("[]" if port in off else next(given) for port in arg.ports)
+    return f"{head}{joined}.map {{ meta, {', '.join(names)} -> [ meta, {slots} ] }}"
+
+
+def _no_blank_per_sample(pipeline: Pipeline, step: Step, arg, name: str, on: list[str]) -> None:
+    """A per-sample file a run may leave blank needs per-row placeholders (#466)."""
+    wiring = next(item for item in step.inputs if item.port == name)
+    channel = next((c for c in pipeline.channels if c.name == wiring.channel), None)
+    if channel is None or not channel.optional:
+        return
+    per_sample = (arg.join_for(name) is Join.BY_SAMPLE if name != on[0]
+                  else any(arg.join_for(other) is Join.BY_SAMPLE for other in on[1:]))
+    if per_sample:
+        raise ValueError(f"{step.id}'s {name} is an input a run may leave empty and is "
+                         "paired per sample in its slot, which needs per-row placeholders "
+                         "(#466)")
 
 
 def _render_meta(entries: list) -> str:

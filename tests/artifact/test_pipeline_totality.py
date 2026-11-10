@@ -53,6 +53,10 @@ NOT_CARRIED: dict[str, str] = {
         "renamed `Step.why`, the same shape a `Setting` carries. One word for one idea: why is "
         "this what it is."
     ),
+    "IRNode.entry_types": (
+        "used only to choose the pipeline input's channel for a port with `accepts` (#464); the "
+        "channel `StepInput.channel` names carries the matched type as `Channel.type_id`."
+    ),
     "Lockfile.contracts": (
         "carried per step as `Step.module`, so the pin sits beside the thing it pins rather "
         "than in a side file a reader has to join by hand."

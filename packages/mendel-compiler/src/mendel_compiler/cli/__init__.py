@@ -47,6 +47,7 @@ _PIPELINE_MODELS = frozenset(
         "StepInput",
         "Setting",
         "CallArg",
+        "PortJoin",
         "MetaEntry",
         "ExtArgs",
         "ModuleRef",
