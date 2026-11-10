@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from itertools import product
 from pathlib import Path
 
+from comeni_core.declared.constraints import Setup, evaluate
 from comeni_core.declared.contract import ParamDomain
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
@@ -143,6 +144,26 @@ def _validate_target(
     seen[target.key()] = str(path)
 
 
+def _allowed_by_constraints(row: DecisionRow, target: DecisionTarget, path: Path,
+                            registry: Registry, fillers_by_role: dict[str, list[str]]) -> None:
+    """MD0325 when a tool's constraints (#460) refuse this value in every setup: the rule
+    would set it and the build would then be refused, whichever inputs were given (#461)."""
+    for contract_id in target.when_implementation or fillers_by_role[target.of]:
+        contract = registry.get(contract_id)
+        if not any(p.name == target.name for p in contract.params):
+            continue
+        verdict = evaluate(contract, Setup(
+            given=frozenset(p.name for p in contract.consumes if p.required),
+            unknown=frozenset(contract.optional_ports()),
+            params={target.name: row.then}))
+        if verdict.forbidden:
+            raise RuleValidationError(coded(
+                "MD0325", f"{path}, decision {target.key()}\n"
+                f"  `then: {row.then!r}` is a value {contract_id} refuses: "
+                f"{'; '.join(verdict.sentences)}.\n"
+                f"  The rule would set it and every build using {contract_id} would stop."))
+
+
 def _fact_fits(ref: "FactRef", domain, target: DecisionTarget, path: Path,
                measurements: MeasurementRegistry, *, kind: "MeasurementKind | None" = None) -> None:
     """MD0300 when a fact's kind cannot be the setting's value (#461): a measured fact's from
@@ -209,6 +230,7 @@ def _validate_rows(
             if isinstance(row.then, FactRef):
                 _fact_fits(row.then, domain, target, path, measurements)
                 continue
+            _allowed_by_constraints(row, target, path, registry, fillers_by_role)
             # A declared domain answers this by type check; `_computed_over` answers it by
             # heuristic. Both emit `MD0300` because both refuse the same thing — a `then` the
             # tool cannot receive — and one concern gets one code.

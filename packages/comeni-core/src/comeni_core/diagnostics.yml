@@ -2915,6 +2915,20 @@ MD0324:
     The check tries every case, bounded at 4096. Above the bound the rule is refused rather
     than checked partly, so a clean result always means every case was tried.
 
+MD0325:
+  emitted_by: resolver
+  concern: loading
+  says: "a rule sets a value the tool's constraints refuse"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Choose a value the tool allows, or narrow the decision with `when_implementation:` to the
+    tools that accept it.
+  explanation: |
+    A rule decides among what a tool allows (#461); a tool's constraints say what it allows
+    (#460). A `then` that a constraint row refuses with every combination of inputs would be
+    set and then refuse the build, so the rule is refused when it loads.
+
 MD0501:
   emitted_by: resolver
   concern: validation

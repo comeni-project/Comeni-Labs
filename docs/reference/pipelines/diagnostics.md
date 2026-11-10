@@ -54,6 +54,7 @@ decline to curate one.
 | `MD0318` | an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
 | `MD0323` | a rule row is first for no case, so it never decides |
 | `MD0324` | a rule's rows tell too many cases apart to check |
+| `MD0325` | a rule sets a value the tool's constraints refuse |
 | `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
 | `MD0602` | a contract's constraint names an input or param it does not declare |
 | `MD0603` | no combination of inputs and params satisfies a contract's constraints |

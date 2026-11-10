@@ -1030,3 +1030,45 @@ def test_too_many_cases_is_refused(world):
     rows += '      - {when: {}, then: 1}\n'
     with pytest.raises(RuleValidationError, match="MD0324"):
         _rules(world, _table(rows))
+
+
+# ── a rule's value against the tool's constraints (#461, #460) ───────────────────────────
+
+MODAL = """
+id: lab/modal@1.0.0
+roles: [quantification]
+nf_process: MODAL
+nf_include: modules/lab/modal/main
+consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted}]
+produces: [{name: counts, type_id: counts.matrix::gene_level}]
+params:
+  - name: mode
+    via: ext
+    key: args
+    template: "--mode {value}"
+    domain: {kind: enum, values: [fast, careful]}
+    default: careful
+    because: "the tool's default"
+constraints:
+  - {when: {param.mode: fast}, forbids: [bam],
+     because: "fast mode reads unsorted input only"}
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-11-10"}
+"""
+
+
+def test_a_rule_value_the_tool_forbids_is_refused(world):
+    contracts = world["layer"] / "contracts"
+    (contracts / "modal.yml").write_text(_declared(contracts / "modal.yml", MODAL))
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: mode,
+              when_implementation: [lab/modal@1.0.0]}
+    rows:
+      - {when: {}, then: fast, cite: "a fixture"}
+"""
+    with pytest.raises(RuleValidationError, match="(?s)MD0325.*fast mode reads unsorted"):
+        _rules(world, body)
+    careful = body.replace("then: fast", "then: careful")
+    assert len(_rules(world, careful).decisions) == 1
