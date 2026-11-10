@@ -30,6 +30,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- Tool constraints, phase 2 (#464): an `nf_inputs` entry may mix required and optional ports and hold independent optional ones; `join` may be a map giving each later port its own (`NfInput.join_for`); conditions may test `type.<input>`, the type connected to an input with `accepts`; the constraint check tries each accepted type (MD0612). `ToolTest.types` says which accepted type a test's data is. The artifact's `CallArg.joins` carries a per-port join.
 - A contract param routed to `ext` with no template is refused when it loads if its default
   is outside the substitutable class (MD0221). QUAST's `prefix: ${meta.id}` passed every check
   and then failed every build that used it (#477).
@@ -102,6 +103,7 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- Constraints are checked with the types routing connected (#464): a step's required inputs are routed first, its optional ones decided with their types; resolution follows the router's first matching alternative; a refused alternative leaves no steps behind; a pipeline input feeding an `accepts` input gets a channel of the type it matched.
 - Optional inputs are routed off unless switched on, made required when a later step needs what they add, and brought along by constraint rows; constraints are re-checked once parameters resolve (MD0608–MD0610) (#460).
 
 #### Added
@@ -127,6 +129,7 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- A shared slot passes `[]` in the position of each optional port that is off, and joins each later port its own way (#464).
 - An optional channel is emitted as `params.x ? … : <empty tuple>`, and run rules as guards at the workflow's start. `ModuleSpec.optional_emits`; MD0611 reports an optional emit a contract says is always written. Builds stop only on codes `diagnostics.yml` declares refusing (#460).
 
 #### Added
@@ -203,6 +206,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- Forge drafts read item guide v3 (`forge.draft.v8`): shared slots, joins per port, `accepts` inputs and rows on the connected type (#464); the forge shows MD0612. A step card shows the type connected to an `accepts` input and words a condition on a type.
 - The builder still asks for an input only optional ports read, such as QUAST's reference,
   but *I don't have one* leaves it out and the conversation goes on (#481).
 - The builder asks only for the inputs of producers that can make a wanted type in its
@@ -398,6 +402,7 @@ or a complete commit history.
 
 ### mendel-forge
 
+- Forge tests may leave out a port in a shared slot and name the type of their data for an `accepts` input (#464); an `accepts` input round-trips through forging's items.
 - `forging.checks` finds a type question's scope, duplicate-type and format mismatches. They are
   advice only; nothing is refused (#452).
 - Explicit Family items in Vocabulary let a reviewed new type such as `assembly.fasta` load

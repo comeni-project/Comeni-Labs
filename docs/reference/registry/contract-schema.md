@@ -128,6 +128,22 @@ Model: `comeni_core.declared.contract.NfInput`
 count: `featurecounts` takes one channel carrying two ports; `samtools/sort` takes three, of
 which two model nothing.
 
+**A shared slot** keeps the tuple `main.nf` declares, even when some of its files are optional
+(#464). A file left out passes `[]` in its own position, so no `absent` is needed unless every
+file in the slot can be left out. Each later port joins by the entry's `join`, or by its own:
+
+```yaml
+# gatk4/haplotypecaller: tuple val(meta), path(input), path(input_index), path(intervals),
+# path(dragstr_model). The index and DRAGstr model are per sample; the intervals are one file
+# for the run; intervals and dragstr_model are optional.
+nf_inputs:
+  - ports: [input, input_index, intervals, dragstr_model]
+    join: {input_index: by_sample, intervals: broadcast, dragstr_model: by_sample}
+```
+
+When the slot's first port is optional, the first port that is on stands in for it, so its later
+ports must all join the same way (`MD0601`).
+
 `empty` carries a **width** because Nextflow matches arity — a 2-tuple in a 3-tuple slot dies on
 *"Path value cannot be null"*. And `because` is required on it because `-stub-run` cannot see a
 hollow input: nf-core stubs never read their inputs, so a process handed nothing where a genome
@@ -156,13 +172,21 @@ or `all_or_none`, over at least two `members`, with an optional `when` and a req
 constraints:
   - {when: {given.gff: present}, requires: [fasta],
      because: "QUAST reads --features only against a reference (-r)"}
+# salmon/quant: which inputs it needs depends on the type its reads were connected with
+constraints:
+  - {when: {type.reads: alignment.bam}, requires: [transcript_fasta], forbids: [index],
+     because: "alignment mode quantifies BAM reads against the transcripts, not an index"}
+  - {when: {type.reads: fastq.reads}, requires: [index],
+     because: "mapping mode maps FASTQ reads against a salmon index"}
 # gatk4/haplotypecaller: the VCF and its index go together
 groups:
   - {kind: all_or_none, members: [dbsnp, dbsnp_tbi],
      because: "the tabix index is read with the VCF it indexes"}
 ```
 
-Every name must be one this contract declares (`MD0602`). A condition may not yet test a
+Every name must be one this contract declares, and a `type.` condition names only types its
+input accepts (`MD0602`). The load-time check tries each type an input accepts as its own
+case, and refuses a type no combination allows (`MD0612`). A condition may not yet test a
 measurement such as `paired`, which can differ per sample.
 
 ## `provenance`
