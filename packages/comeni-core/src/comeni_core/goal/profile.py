@@ -42,11 +42,11 @@ class Measured(BaseModel):
     """Lists are valid only for declarations marked ``per_sample`` by the registry."""
     source: ValueSource = ValueSource.SAID
     by: ContractId | None = None
-    """The profiling contract that produced the value, when applicable."""
+    """The contract that produced the value, when a step in a pipeline did."""
     pieces: list[PieceRef] = Field(default_factory=list, exclude_if=lambda pieces: not pieces)
     """Ordered inspector pieces that produced the value, omitted when empty.
 
-    A profiling contract uses ``by`` instead. Person-authored assertions use neither.
+    A contract uses ``by`` instead. Person-authored assertions use neither.
     """
     evidence: Evidence | None = Field(default=None, exclude_if=lambda evidence: evidence is None)
 

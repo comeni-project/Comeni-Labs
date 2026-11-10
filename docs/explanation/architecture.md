@@ -502,12 +502,13 @@ A measurement is a type, `measurement.<id>`, so measuring in the pipeline needs 
 of its own. A **measurer** (`registry/measurers/`) produces one measurement, by our code over a
 format's records or by a tool plus a parser for its output, and declares where it runs: on the
 **server**, over an upload's head during the conversation, and in the **pipeline**, as a step
-over all the data (#465). The same measure code runs in both places.
+over all the data. The same measure code is written to run in both places; the server runner is
+built, and the pipeline step is being built (#465).
 
-A fact records how much of the data it read (`coverage: head` or `all`) and what measured it:
-`Measured.pieces` names the format and measurer. A setting whose fact nobody knew before the
-build is decided in the pipeline, from the step that measures it, by a lookup the build lists
-in full beforehand (#217). Where each runs, and what crosses, is
+A fact records what measured it: `Measured.pieces` names the format and measurer. Planned in the
+same work: each fact records how much of the data it read (`coverage: head` or `all`), and a
+setting whose fact nobody knew before the build is decided in the pipeline, from the step that
+measures it, by a lookup the build lists in full beforehand (#217). Where each runs, and what crosses, is
 [the protocol page's table](authoring-protocol.md#where-each-measurer-runs).
 
 A hand-written profile records no tool, and that absence *is* the provenance:

@@ -53,7 +53,7 @@ class MetaValue(BaseModel):
 
 
 class Measurement(BaseModel):
-    """A typed property that a goal may assert or a profiling contract may measure."""
+    """A typed property that a goal may assert or a measurer may measure."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -69,7 +69,7 @@ class Measurement(BaseModel):
     whether the value can be carried into metadata for a particular data type.
     """
     assertion_only: bool = False
-    """Whether a goal must supply this value because no profiling contract produces it."""
+    """Whether a goal must supply this value because no measurer produces it."""
 
     assertion_only_because: str = ""
     """Human-readable reason for `assertion_only`; required exactly when that flag is true."""

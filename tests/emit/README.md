@@ -1,6 +1,6 @@
 # Workflow emission tests
 
-Tests exercise compiler output and cross-package construction. `test_counts.py` includes slow real-tool cases; select them with `make slow`. Other files cover channel names, fan-in, fan-out, joins, inputs, profiling and scope overrides.
+Tests exercise compiler output and cross-package construction. `test_counts.py` includes slow real-tool cases; select them with `make slow`. Other files cover channel names, fan-in, fan-out, joins, inputs and scope overrides.
 
 | Subject | File |
 |---|---|
@@ -12,7 +12,6 @@ Tests exercise compiler output and cross-package construction. `test_counts.py` 
 | fan out | [test_fan_out.py](test_fan_out.py) |
 | input form | [test_input_form.py](test_input_form.py) |
 | join | [test_join.py](test_join.py) |
-| profiling | [test_profiling.py](test_profiling.py) |
 | runnable | [test_runnable.py](test_runnable.py) |
 | samplesheet | [test_samplesheet.py](test_samplesheet.py) |
 | scope override | [test_scope_override.py](test_scope_override.py) |

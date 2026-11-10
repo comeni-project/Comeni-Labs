@@ -162,7 +162,7 @@ MD0110:
   emitted_by: core
   concern: loading
   says: "a contract file writes `state`, `state_required` or `states` beside the type"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Write the states in the type: `type_id: alignment.bam::coordinate_sorted`.
@@ -961,7 +961,7 @@ MD0301:
   emitted_by: resolver
   concern: routing
   says: "a rule row justifies nothing — no `because` and no `cite`, on the row or the block"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Give the row a `because:` saying why *this* answer, a `cite:` naming the evidence, or
@@ -999,7 +999,7 @@ MD0300:
   emitted_by: resolver
   concern: routing
   says: "a rule's `then` reads as arithmetic, and `then` is emitted verbatim"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Write one row per range with a literal `then`:
@@ -1034,7 +1034,7 @@ MD0302:
   emitted_by: core
   concern: routing
   says: "a contract declares a role no layer in the stack declares"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Declare the role, or use one that exists:
@@ -1066,7 +1066,7 @@ MD0316:
   emitted_by: core
   concern: routing
   says: "a type names a family no layer in the stack declares"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Declare the family, or rename the type into one that exists. A type's family is the part
@@ -1090,7 +1090,7 @@ MD0317:
   emitted_by: core
   concern: loading
   says: "a measurer, format or codec names a type or measurement no layer declares"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Declare the id in the vocabulary, or fix the piece. A format names the types it reads in
@@ -1104,7 +1104,7 @@ MD0318:
   emitted_by: core
   concern: loading
   says: "a measurer, format or codec cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Put the piece's code where `entry:` says, inside its `piece/` folder; name the folder for
@@ -1163,7 +1163,7 @@ MD0303:
   emitted_by: resolver
   concern: routing
   says: "a measurement is declared named `required_states`, which is the goal's own shape"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Rename the measurement. A property of the data that happens to concern states is a
@@ -1195,7 +1195,7 @@ MD0304:
   emitted_by: resolver
   concern: routing
   says: "a derivation has no rows, so it can never fire"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Give it a row, or delete it:
@@ -1238,7 +1238,7 @@ MD0305:
   emitted_by: core
   concern: routing
   says: "a `when` clause uses a mapping predicate nothing implements"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     The mapping predicates are `not` and `in`:
@@ -1265,7 +1265,7 @@ MD0312:
   emitted_by: core
   concern: routing
   says: "a scalar comparison is applied to a per-sample measurement"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Reduce the cohort to one fact, then test that fact:
@@ -1302,7 +1302,7 @@ MD0306:
   emitted_by: resolver
   concern: routing
   says: "a decision names a role nothing fills, or a row names a contract that does not fill it"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Name a role some contract in the stack fills, and rows that fill it:
@@ -1333,7 +1333,7 @@ MD0307:
   emitted_by: resolver
   concern: routing
   says: "a decision's effect and its `name` disagree, or a presence row is not present/absent"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     A `param` effect names a parameter; the other two decide the role itself:
@@ -1359,7 +1359,7 @@ MD0308:
   emitted_by: resolver
   concern: routing
   says: "a param decision sets a value some filler of the role does not declare"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Narrow the decision to the implementations that declare the parameter:
@@ -1390,7 +1390,7 @@ MD0309:
   emitted_by: resolver
   concern: routing
   says: "two decisions in one file decide the same key"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Merge them into one block with both rows, or give them different targets. A reviewer
@@ -1415,7 +1415,7 @@ MD0310:
   emitted_by: resolver
   concern: routing
   says: "a `when` clause names a premise nothing supplies, or compares one that cannot be ordered"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Name a declared measurement, a derived fact, or a goal fact:
@@ -1443,7 +1443,7 @@ MD0313:
   emitted_by: resolver
   concern: routing
   says: "a row exits at tier 2 and cites nothing"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Give the row — or its block — a `cite:` naming the document:
@@ -1479,7 +1479,7 @@ MD0311:
   emitted_by: resolver
   concern: routing
   says: "a decision's rows do not cover every case of the premises they test"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Cover the rest of the domain; over several premises, the case the message names (#461).
@@ -1526,7 +1526,7 @@ MD0314:
   emitted_by: resolver
   concern: routing
   says: "a `transform` chain is applied to a per-sample measurement"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Reduce the cohort first, then transform the derived fact:
@@ -1555,7 +1555,7 @@ MD0315:
   emitted_by: core
   concern: routing
   says: "a measurement's `assertion_only` and its reason disagree"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Declare both, or neither:
@@ -1595,7 +1595,7 @@ MD0001:
   emitted_by: core
   concern: loading
   says: "a declared file is not valid YAML"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     The file named in the message did not parse. The parser's own complaint follows it,
@@ -1615,7 +1615,7 @@ MD0002:
   emitted_by: core
   concern: loading
   says: "a declared file does not match the schema for its kind"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     The message names the file, then one line per problem: the field path, and what was
@@ -1639,7 +1639,7 @@ MD0004:
   emitted_by: resolver
   concern: loading
   says: "a registry layer contains a symlink"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Replace the link with the file. A layer is a unit strangers distribute: a link out of it
@@ -1669,7 +1669,7 @@ MD0005:
   emitted_by: resolver
   concern: loading
   says: "a layer holds no declared data at all"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     If the layer is `registry/`, it is a git submodule and was not checked out:
@@ -1692,7 +1692,7 @@ MD0006:
   emitted_by: core
   concern: loading
   says: "a key is declared twice inside one layer"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Delete one of them. Shadowing happens *between* layers and is recorded as a
@@ -1710,7 +1710,7 @@ MD0007:
   emitted_by: core
   concern: loading
   says: "`add_states` carries other fields as well"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     `add_states` extends a declaration another layer made. To change anything else about the
@@ -1728,7 +1728,7 @@ MD0008:
   emitted_by: core
   concern: loading
   says: "`add_states` names a type no layer declares"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Extending nothing is almost always a typo in the type id, or a layer ordering mistake —
@@ -1744,7 +1744,7 @@ MD0009:
   emitted_by: core
   concern: loading
   says: "a contract requires a state no layer declares"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Vocabularies are closed (invariant 7): a contract using an undeclared state fails to
@@ -1804,7 +1804,7 @@ MD0010:
   emitted_by: core
   concern: loading
   says: "a declared file does not say what it is"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Add a `declares:` line naming what the file is:
@@ -1829,7 +1829,7 @@ MD0011:
   emitted_by: core
   concern: loading
   says: "a declared file names a kind that does not exist"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     The message names what was written and what was expected. Almost always a typo —
@@ -1848,7 +1848,7 @@ MD0012:
   emitted_by: core
   concern: loading
   says: "a vocabulary or measurement does not declare its id"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Add an `id:`:
@@ -1997,7 +1997,7 @@ MD0020:
   emitted_by: core
   concern: loading
   says: "a layer declares a registry format this Mendel does not understand"
-  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  fires_on: [build, upgrade, publish, conformance, registry lint]
   refuses: true
   fix: |
     Upgrade Mendel. Or, if the layer is a submodule you control, pin it back to a
@@ -2083,7 +2083,7 @@ MD0025:
   emitted_by: resolver
   concern: loading
   says: "a module is declared with no contract binding it"
-  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  fires_on: [build, upgrade, publish, conformance, registry lint]
   refuses: true
   fix: |
     Add a `contract.yml` beside the module's `module/` folder, binding it, or remove the
@@ -2096,7 +2096,7 @@ MD0026:
   emitted_by: resolver
   concern: loading
   says: "a tool's test names a contract nothing declares"
-  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  fires_on: [build, upgrade, publish, conformance, registry lint]
   refuses: true
   fix: |
     Correct the test's `contract:` to the id in the tool's `contract.yml`, or remove the test
@@ -2166,7 +2166,7 @@ MD0228:
   emitted_by: core
   concern: loading
   says: "a type names a param literally in its `entry_channel`"
-  fires_on: [build, upgrade, profile, publish, conformance, registry lint, docs]
+  fires_on: [build, upgrade, publish, conformance, registry lint, docs]
   refuses: true
   fix: |
     Write `params.{param}` where the literal param name is:
@@ -2213,7 +2213,7 @@ MD0601:
   emitted_by: core
   concern: loading
   says: "an nf_inputs entry cannot be emitted when its optional inputs are left out"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Give an entry whose inputs can all be left out `absent: <width>`, the width of the empty
@@ -2232,7 +2232,7 @@ MD0602:
   emitted_by: core
   concern: loading
   says: "a contract's constraint names an input or param it does not declare"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Spell the name as the contract declares it, case included. A condition tests
@@ -2246,7 +2246,7 @@ MD0603:
   emitted_by: core
   concern: loading
   says: "no combination of inputs and params satisfies a contract's constraints"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Read the rows together: one of them forbids what another, or a required input, needs. Remove or narrow the row that contradicts the tool's own main.nf.
@@ -2257,7 +2257,7 @@ MD0604:
   emitted_by: core
   concern: loading
   says: "an optional input is connected in no combination the constraints allow"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     A row forbids the input whenever it could be given. Narrow that row, or remove the input if the tool really never uses it.
@@ -2268,7 +2268,7 @@ MD0605:
   emitted_by: core
   concern: loading
   says: "an optional input is connected in every combination the constraints allow"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Mark it `required: true`, or relax the row that requires it unconditionally.
@@ -2279,7 +2279,7 @@ MD0606:
   emitted_by: core
   concern: loading
   says: "an output's `produced_when` holds in no combination the constraints allow"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Check the output's condition against the rows: it tests an input or a value the rows never allow.
@@ -2290,7 +2290,7 @@ MD0607:
   emitted_by: core
   concern: loading
   says: "a contract has too many combinations to check"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Reduce the optional inputs or the params its conditions test, or split the contract by mode (#464).
@@ -2351,7 +2351,7 @@ MD0612:
   emitted_by: core
   concern: loading
   says: "a type a contract's input accepts has no combination its constraints allow"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Change the rows on `type.<input>` so that each type the input accepts has at least one
@@ -2890,7 +2890,7 @@ MD0323:
   emitted_by: resolver
   concern: loading
   says: "a rule row is first for no case, so it never decides"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Remove the row, or move it above the rows that already match everything it would. Under
@@ -2906,7 +2906,7 @@ MD0324:
   emitted_by: resolver
   concern: loading
   says: "a rule's rows tell too many cases apart to check"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Use fewer boundaries or facts in one decision, or split it into a derived fact and a
@@ -2919,7 +2919,7 @@ MD0325:
   emitted_by: resolver
   concern: loading
   says: "a rule sets a value the tool's constraints refuse"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Choose a value the tool allows, or narrow the decision with `when_implementation:` to the
@@ -2932,7 +2932,7 @@ MD0326:
   emitted_by: core
   concern: loading
   says: "a measurer's declaration does not fit how it says it measures: by our code, or by a tool and a parser"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     A `by: code` measurer names the `record:` shape it reads and no tool. A `by: tool` measurer
@@ -2948,7 +2948,7 @@ MD0327:
   emitted_by: core
   concern: loading
   says: "a measurer uses a tool, or an output of it, that no layer declares"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Name in `uses:` a contract some layer declares, by its full id with version, and in

@@ -45,17 +45,19 @@ def index(stack) -> list[Measurer]:
                 trusted=mine,
             ))
             continue
-        found += [
-            Measurer(
-                measurement=measurer.measures,
-                by=f"{fmt.id}@{fmt.version} + {measurer.id}@{measurer.version}",
-                # A format that cannot run on this server takes the server out for both.
-                runs=[r for r in measurer.runs if r != "server" or fmt.runs == "server"],
-                trusted=mine and _trusted(pieces, f"format:{fmt.id}"),
-            )
-            for fmt in pieces.formats.values()
-            if fmt.record == measurer.record
-        ]
+        for fmt in pieces.formats.values():
+            if fmt.record != measurer.record:
+                continue
+            # A format that cannot run on this server takes the server out for both, and a
+            # pairing left with nowhere to run is not a way to measure anything.
+            runs = [r for r in measurer.runs if r != "server" or fmt.runs == "server"]
+            if runs:
+                found.append(Measurer(
+                    measurement=measurer.measures,
+                    by=f"{fmt.id}@{fmt.version} + {measurer.id}@{measurer.version}",
+                    runs=runs,
+                    trusted=mine and _trusted(pieces, f"format:{fmt.id}"),
+                ))
     return sorted(found, key=lambda m: (m.measurement, m.by))
 
 
