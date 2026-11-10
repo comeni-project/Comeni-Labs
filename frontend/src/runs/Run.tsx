@@ -11,6 +11,7 @@ import { DeleteRun } from "./DeleteRun";
 import { Console } from "./Console";
 import { Envelope } from "./Envelope";
 import { Graph } from "./Graph";
+import { Measured } from "./Measured";
 import { OverviewPanel, type OverviewData } from "./Overview";
 import { Panels } from "./Panels";
 import { Failure, type Attempt, type Failed as FailureDetail } from "./Failure";
@@ -265,6 +266,10 @@ export function Run() {
           then when things ran, then what they held. It shares the envelope's x-axis — the run's
           own span — because time is the comparison that matters and `curve.ts` already
           establishes that each series keeps its own y. */}
+      {/* What the run measured, beside what it was built on (issue 465): a disagreement is the
+          first thing after the summary, because it says the results rest on a wrong premise. */}
+      {view !== "console" && <Measured runId={id} live={!TERMINAL.has(run.phase)} />}
+
       {view !== "console" && (
         <Timeline runId={id} live={!TERMINAL.has(run.phase)} onPickLane={setOnly} />
       )}

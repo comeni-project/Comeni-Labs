@@ -107,6 +107,53 @@ class DomainView(BaseModel):
     maximum: float | None = None
 
 
+class AtRunView(BaseModel):
+    """A setting decided at run time, as the card shows it before the run (#217): the fact it
+    waits for, what measures it, every row as a line, and what it is when nothing matches."""
+
+    fact: str
+    measured_by: str
+    rule: str
+    rows: list[str]
+    """`strandedness is reverse → 2`, or `genome_length → log2 → ÷ 2 → − 1 → at most 14 →
+    round`."""
+    fallback: str | None
+    """Rendered; `None` when the fallback is itself an open question."""
+    fallback_reason: str
+
+
+_STEP_WORDS = {"add": "+ {}", "subtract": "− {}", "multiply": "× {}", "divide": "÷ {}",
+               "at_most": "at most {}", "at_least": "at least {}", "log2": "log2",
+               "round": "round"}
+
+
+def _number(value) -> str:
+    return str(int(value)) if isinstance(value, float) and value.is_integer() else str(value)
+
+
+def _row_line(fact: str, row) -> str:
+    test = row.test.value
+    shown = ", ".join(_number(o) for o in row.operand)
+    when = (f"any {fact}" if test == "any" else f"{fact} in {shown}" if test == "in"
+            else f"{fact} is {shown}" if test == "==" else f"{fact} is not {shown}"
+            if test == "!=" else f"{fact} {test} {shown}")
+    if not row.takes_fact:
+        return f"{when} → {_number(row.then)}"
+    chain = " → ".join(_STEP_WORDS[s.op.value].format(_number(s.by)) for s in row.transform)
+    return f"{when} → {fact}" + (f" → {chain}" if chain else "")
+
+
+def at_run_view(at_run) -> AtRunView | None:
+    if at_run is None:
+        return None
+    return AtRunView(
+        fact=at_run.fact, measured_by=at_run.measured_by, rule=at_run.rule,
+        rows=[_row_line(at_run.fact, row) for row in at_run.rows],
+        fallback=None if at_run.fallback is None else str(at_run.fallback),
+        fallback_reason=at_run.fallback_reason,
+    )
+
+
 class SettingView(BaseModel):
     """One resolved parameter, as the settings card needs it.
 
@@ -153,6 +200,8 @@ class SettingView(BaseModel):
     optional: bool = False
     """Whether leaving this setting unanswered leaves the tool its own behaviour (`OMITTABLE`).
     An optional open value stays tier 4 and flagged, but does not stop a run (#384)."""
+    at_run: AtRunView | None = None
+    """Decided at run time from a fact the pipeline measures (#217); `value` is its fallback."""
     evidence: Evidence | None = None
     """How good the facts a rule read were (#397), from `premise`'s records: *measured* only when
     every one was measured. `None` when no rule read anything. The interface counts and names a
@@ -440,6 +489,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                     premise=[record.prose() for record in setting.why.premise],
                     optional=setting.via in OMITTABLE,
                     evidence=evidence_of(setting.why.premise),
+                    at_run=at_run_view(setting.at_run),
                 )
                 for setting in (step.settings)
             ],

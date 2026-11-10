@@ -1553,6 +1553,25 @@ export interface components {
             files: string[];
         };
         /**
+         * AtRunView
+         * @description A setting decided at run time, as the card shows it before the run (#217): the fact it
+         *     waits for, what measures it, every row as a line, and what it is when nothing matches.
+         */
+        AtRunView: {
+            /** Fact */
+            fact: string;
+            /** Measured By */
+            measured_by: string;
+            /** Rule */
+            rule: string;
+            /** Rows */
+            rows: string[];
+            /** Fallback */
+            fallback: string | null;
+            /** Fallback Reason */
+            fallback_reason: string;
+        };
+        /**
          * Attention
          * @description What needs a person, now.
          */
@@ -2406,6 +2425,12 @@ export interface components {
             };
         };
         /**
+         * Coverage
+         * @description How much of the data a measured fact was read from (#465).
+         * @enum {string}
+         */
+        Coverage: "head" | "all";
+        /**
          * DataProfile
          * @description Measured properties of the input data.
          *
@@ -2808,6 +2833,7 @@ export interface components {
             rows?: number | null;
             /** Share */
             share?: number | null;
+            coverage?: components["schemas"]["Coverage"] | null;
         };
         /**
          * Explanation
@@ -2867,6 +2893,8 @@ export interface components {
             evidence?: {
                 [key: string]: number;
             } | null;
+            /** Coverage */
+            coverage?: ("head" | "all") | null;
             /** Heard */
             heard?: string | null;
         };
@@ -3054,6 +3082,11 @@ export interface components {
             kind: components["schemas"]["FactKind"];
             /** Why */
             why: string;
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
             /** States */
             states?: string[];
             block: components["schemas"]["Question"];
@@ -3272,6 +3305,8 @@ export interface components {
             evidence: {
                 [key: string]: number | boolean | string;
             };
+            /** Coverage */
+            coverage?: ("head" | "all") | null;
         };
         /** ItemView */
         ItemView: {
@@ -3366,7 +3401,7 @@ export interface components {
         };
         /**
          * Measurement
-         * @description A typed property that a goal may assert or a profiling contract may measure.
+         * @description A typed property that a goal may assert or a measurer may measure.
          */
         Measurement: {
             /** Id */
@@ -3437,18 +3472,10 @@ export interface components {
         MeasurerView: {
             /** Measurement */
             measurement: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "inspector" | "profiler";
             /** By */
             by: string;
-            /**
-             * Runs
-             * @enum {string}
-             */
-            runs: "server" | "lab" | "browser";
+            /** Runs */
+            runs: ("server" | "pipeline")[];
             /** Trusted */
             trusted: boolean;
         };
@@ -4719,6 +4746,7 @@ export interface components {
              * @default false
              */
             optional: boolean;
+            at_run?: components["schemas"]["AtRunView"] | null;
             /** Evidence */
             evidence?: ("measured" | "read_by_ai" | "not_measured") | null;
         };

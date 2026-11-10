@@ -92,6 +92,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/measured": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the run measured, confirmed or disagreeing
+         * @description Each fact a measuring step reported, compared with the estimate the build used, and
+         *     each value a run-time setting took. Empty for a run that measured nothing or has not
+         *     finished: facts are read when it completes.
+         */
+        get: operations["readRunMeasured"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}/events": {
         parameters: {
             query?: never;
@@ -556,6 +578,20 @@ export interface components {
             failed: number;
         };
         /**
+         * DecidedValue
+         * @description The value a run-time setting took for one sample.
+         */
+        DecidedValue: {
+            /** Step */
+            step: string;
+            /** Setting */
+            setting: string;
+            /** Sample */
+            sample: string;
+            /** Value */
+            value: string;
+        };
+        /**
          * Designed
          * @description Designed, not built: shown so the menu tells the truth about what is coming.
          */
@@ -671,6 +707,43 @@ export interface components {
             removed: {
                 [key: string]: number;
             };
+        };
+        /**
+         * MeasuredOut
+         * @description What the run measured, beside what the pipeline was built on (#465, #217).
+         */
+        MeasuredOut: {
+            /** Facts */
+            facts: components["schemas"]["MeasuredView"][];
+            /** Decided */
+            decided: components["schemas"]["DecidedValue"][];
+        };
+        /**
+         * MeasuredView
+         * @description One measured fact as the run page shows it.
+         */
+        MeasuredView: {
+            /** Measurement */
+            measurement: string;
+            /** Sample */
+            sample: string;
+            /** Value */
+            value: number | boolean | string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "confirmed" | "disagrees" | "measured" | "undetermined";
+            /** Estimate */
+            estimate?: number | boolean | string | (number | boolean | string | null)[] | null;
+            /** Used By */
+            used_by?: string[];
+            /** Coverage */
+            coverage?: ("head" | "all") | null;
+            /** By */
+            by?: string[];
+            /** Reason */
+            reason?: string | null;
         };
         /** Menu */
         Menu: {
@@ -1459,6 +1532,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BoardSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readRunMeasured: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasuredOut"];
                 };
             };
             /** @description Validation Error */

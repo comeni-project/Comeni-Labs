@@ -265,3 +265,31 @@ describe("answering a parameter", () => {
     expect(set).toHaveBeenCalledWith("index_format", "csi");
   });
 });
+
+describe("a setting decided at run time", () => {
+  it("lists every value the run can give it, and its fallback, before the run (issue 217)", async () => {
+    show({
+      ...STEP,
+      id: "star_genomegenerate",
+      settings: [{
+        ...setting("sa_index_nbases", 3, null),
+        reason: "decided at run time by rule param:index_building:sa_index_nbases",
+        at_run: {
+          fact: "genome_length",
+          measured_by: "comeni/measure/genome_length_fai@1.0.0",
+          rule: "param:index_building:sa_index_nbases",
+          rows: ["any genome_length → genome_length → log2 → ÷ 2 → − 1 → at most 14 → round"],
+          fallback: null,
+          fallback_reason: "asked",
+        },
+      }],
+    });
+    const block = await screen.findByTestId("setting-at-run");
+    expect(block.textContent).toContain("decided at run time from genome_length");
+    expect(block.textContent).toContain("comeni/measure/genome_length_fai@1.0.0");
+    expect(screen.getAllByTestId("at-run-row").map((r) => r.textContent)).toEqual([
+      "any genome_length → genome_length → log2 → ÷ 2 → − 1 → at most 14 → round",
+    ]);
+    expect(screen.getByTestId("at-run-fallback").textContent).toContain("an open question");
+  });
+});

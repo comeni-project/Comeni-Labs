@@ -18,6 +18,7 @@ const gap = (options: [string, string][], asks: string): AuthoringProposal => {
     options: options.map(([id]) => id).sort(), edges: [], block,
     envelope: {
       offer: "gap", subject: "read_length", kind: "measurement", why: "a step reads it",
+      optional: false,
       options: Object.fromEntries(options), block,
       context: { draft_revision: 0, decision_revision: 0, session_version: 1, registry: "" },
     },

@@ -107,7 +107,7 @@ function Row({
               setting.value === null ? "text-ink-3" : "text-ink"
             }`}
           >
-            {setting.value ?? "—"}
+            {setting.at_run ? "at run time" : (setting.value ?? "—")}
           </span>
         )}
       </div>
@@ -178,6 +178,7 @@ function Row({
         </div>
       )}
       <div className="text-secondary text-ink-3 pt-[7px] leading-[1.45]">{setting.reason}</div>
+      {setting.at_run && <AtRun lookup={setting.at_run} />}
       {/* **The convention you departed from, kept visible.** `reason` becomes *your* reason the
           moment you answer; `because` is the contract author's note on the default and survives
           the override, so the thing you overrode is still readable. */}
@@ -187,6 +188,28 @@ function Row({
         </div>
       )}
       <div className="text-label text-ink-3 pt-[5px] font-data">via {setting.via}</div>
+    </div>
+  );
+}
+
+/** **Decided at run time** (issue 217): the pipeline measures the fact and looks the value up, and
+ * every value it can take is listed here before the run, beside what it is when nothing matches. */
+function AtRun({ lookup }: { lookup: NonNullable<Setting["at_run"]> }) {
+  return (
+    <div data-testid="setting-at-run" className="pt-[7px]">
+      <div className="text-label font-data text-ink-2">
+        decided at run time from {lookup.fact}, measured by {lookup.measured_by}
+      </div>
+      <ul className="pt-[4px]">
+        {lookup.rows.map((row) => (
+          <li key={row} data-testid="at-run-row" className="font-data text-secondary text-ink-2">
+            {row}
+          </li>
+        ))}
+      </ul>
+      <div data-testid="at-run-fallback" className="text-secondary text-ink-3 pt-[4px]">
+        if it cannot be measured: {lookup.fallback ?? "an open question"} ({lookup.fallback_reason})
+      </div>
     </div>
   );
 }
