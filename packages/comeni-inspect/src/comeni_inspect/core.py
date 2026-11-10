@@ -26,6 +26,8 @@ from comeni_inspect.records import Malformed
 from comeni_inspect.stream import Capped, Prefixed, SourceFailed, TooLarge
 
 _CONFIRM_BYTES = 4096
+_BUFFER = 1 << 20
+"""Read a MiB at a time: the pipeline reads whole multi-GB files, where 8 KiB reads cost."""
 
 
 @dataclass(frozen=True)
@@ -193,10 +195,10 @@ def _inspect(
         # With no cap, `Capped` still turns a codec's end-of-stream into a quiet end.
         limit = Capped(opened, cap if cap is not None else sys.maxsize, name, given=source.given)
         limits.append(limit)
-        bounded = io.BufferedReader(limit)
+        bounded = io.BufferedReader(limit, buffer_size=_BUFFER)
         # `read`, not `peek`: a peek is one raw read and may show less than the window.
         first = bounded.read(_CONFIRM_BYTES)
-        stream = io.BufferedReader(Prefixed(first, bounded))
+        stream = io.BufferedReader(Prefixed(first, bounded), buffer_size=_BUFFER)
         if not first:
             return unreadable(f"{source.name} is empty")
         if not guarded(fmt_ref, lambda _, f=first: fmt.confirms(f)):
@@ -220,7 +222,14 @@ def _inspect(
     if state.stopped is not None:
         extra["stopped"] = state.stopped
     capped = any(limit.capped for limit in limits)
-    partial = capped or not all(source.whole for source in files)
+    truncated = any(limit.truncated for limit in limits)
+    if truncated and all(source.whole for source in files):
+        # A head always ends mid-stream, so this says something only of a whole file.
+        extra["truncated"] = True
+    # Anything left unread makes the fact an estimate: a cap, a head, a cut-off file, a stop at
+    # a malformed record, or the tail of a pair's longer file.
+    partial = (capped or truncated or state.stopped is not None
+               or state.shorter_index is not None or not all(s.whole for s in files))
     facts = {}
     for ref in measures:
         by = [fmt_ref.pinned, ref.pinned]

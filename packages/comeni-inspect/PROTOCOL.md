@@ -31,8 +31,11 @@ Every fact's `evidence` carries `rows`, how many rows of records it read, and, w
 `shorter_file` (one file of a pair ended first), `capped` (the head ended at `cap_bytes`) and
 `stopped` (the format stopped at a malformed record: `malformed record 3: …`).
 
-Every fact's `coverage` says how much of the data it read: `all` when every file in the request
-is marked `whole` and none was capped, and `head` otherwise. A request's `files` entry carries
+Every fact's `coverage` says how much of the data it read: `all` only when every file in the
+request is marked `whole` and was read to its end, and `head` otherwise: a file capped, cut short
+(a whole gzip that ends early also carries `truncated: true` in its evidence), stopped at a
+malformed record, or left with an unread tail because its pair ended first. A `value` must be a
+boolean, an integer, a finite number or a string; anything else makes the inspection unreadable. A request's `files` entry carries
 `whole: true` only when the caller knows the payload is the entire file; the browser sends the
 first 4 MB, so an upload is a head unless its real size says otherwise.
 
