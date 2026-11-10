@@ -256,10 +256,12 @@ def check_constraints(contract: ModuleContract) -> list[str]:
             compared.setdefault(param.name, [])
     params = [p for p in contract.params if p.name in compared]
     choices = [_values(p, compared[p.name]) for p in params]
-    # Each type a port accepts is its own case: a row on `type.<port>` applies only to it.
-    typed = [p for p in contract.consumes if len(accepted_types(p)) > 1]
-    kinds = [sorted(accepted_types(p)) for p in typed]
-    count = 2 ** len(optional) * prod(len(c) for c in choices) * prod(len(k) for k in kinds)
+    # Each type a connected port accepts is its own case: a row on `type.<port>` applies only
+    # to it. An optional port is off, or on as one of its types.
+    kinds = {p.name: sorted(accepted_types(p)) for p in contract.consumes}
+    count = (prod(len(c) for c in choices)
+             * prod(len(kinds[p]) for p in required)
+             * prod(1 + len(kinds[p]) for p in optional))
     if count > SETUP_BOUND:
         return [coded("MD0607", f"{contract.id} has {count} setups to check, above "
                       f"{SETUP_BOUND}: fewer optional inputs or conditioned params")]
@@ -268,9 +270,10 @@ def check_constraints(contract: ModuleContract) -> list[str]:
     for size in range(len(optional) + 1):
         for chosen in combinations(optional, size):
             given = required | frozenset(chosen)
+            connected = sorted(given)
             for values in product(*choices):
-                for picked in product(*kinds):
-                    types = dict(zip([p.name for p in typed], picked, strict=True))
+                for picked in product(*(kinds[p] for p in connected)):
+                    types = dict(zip(connected, picked, strict=True))
                     setup = Setup(given=given, types=types,
                                   params=dict(zip([p.name for p in params], values, strict=True)))
                     verdict = evaluate(contract, setup)
@@ -294,11 +297,11 @@ def check_constraints(contract: ModuleContract) -> list[str]:
         if output.produced_when and not any(output.name in v.produced for _, v in valid):
             findings.append(coded("MD0606", f"{contract.id}: output {output.name!r} is "
                                   "produced in no combination its constraints allow"))
-    for port, accepted in zip(typed, kinds, strict=True):
+    for port in contract.consumes:
         connected = [types[port.name] for given, types in valid_types if port.name in given]
         if not connected:
-            continue  # never connected at all: MD0604 already says so
-        for type_id in accepted:
+            continue  # never connected at all: MD0603 or MD0604 already says so
+        for type_id in kinds[port.name]:
             if type_id not in connected:
                 findings.append(coded(
                     "MD0612", f"{contract.id}: with {port.name} as {type_id}, no combination "

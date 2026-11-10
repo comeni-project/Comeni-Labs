@@ -2296,21 +2296,6 @@ MD0607:
   explanation: |
     The checks try every combination, bounded at 4096. Above the bound the contract is refused rather than checked partly, so a clean result always means every case was tried.
 
-MD0612:
-  emitted_by: core
-  concern: loading
-  says: "a type a contract's input accepts has no combination its constraints allow"
-  fires_on: [build, upgrade, profile, publish]
-  refuses: true
-  fix: |
-    Change the rows on `type.<input>` so that each type the input accepts has at least one
-    combination of inputs and params they allow, or remove that type from the input's `accepts`.
-  explanation: |
-    A row can depend on which type was connected to an input (#464), as salmon needs a transcript
-    FASTA for BAM reads and an index for FASTQ reads. If no combination works for one accepted
-    type, routing could connect that type and the build would always be refused. The check tries
-    each accepted type as its own case.
-
 MD0608:
   emitted_by: resolver
   concern: routing
@@ -2360,6 +2345,21 @@ MD0611:
     and a contract that never omits it is right to say it is always written. STAR's `bam`:
     the module adds `--outSAMtype BAM Unsorted` unless `ext.args` sets another `--outSAMtype`,
     and the curated contract sets none.
+
+MD0612:
+  emitted_by: core
+  concern: loading
+  says: "a type a contract's input accepts has no combination its constraints allow"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Change the rows on `type.<input>` so that each type the input accepts has at least one
+    combination of inputs and params they allow, or remove that type from the input's `accepts`.
+  explanation: |
+    A row can depend on which type was connected to an input (#464), as salmon needs a transcript
+    FASTA for BAM reads and an index for FASTQ reads. If no combination works for one accepted
+    type, routing could connect that type and the build would always be refused. The check tries
+    each accepted type as its own case.
 
 MF0500:
   emitted_by: forge

@@ -129,3 +129,27 @@ def test_types_count_toward_the_setup_bound():
     many = [reads, *({"name": f"o{n}", "type_id": "genome.fasta", "required": False}
                      for n in range(11))]
     assert _codes(_tool(many)) == ["MD0607"]
+
+
+def test_a_type_row_on_a_single_type_port_is_checked():
+    """Task 4 review: a port with one type got no type fact, so this row was never tried."""
+    contract = _tool([A], constraints=[{"when": {"type.a": "fastq.reads"}, "forbids": ["a"],
+                                        "because": "contradicts itself"}])
+    assert _codes(contract) == ["MD0603"]
+
+
+def test_an_unconnected_typed_port_does_not_count_its_types():
+    """Task 4 review: an optional port accepting three types is off, or on as one of them, so
+    it multiplies the setups by 4, not by 2 * 3."""
+    reads = {"name": "r", "required": False,
+             "accepts": [{"type_id": "fastq.reads"}, {"type_id": "alignment.bam"},
+                         {"type_id": "alignment.cram"}]}
+    few = [A, reads, *({"name": f"o{n}", "type_id": "genome.fasta", "required": False}
+                       for n in range(9))]
+    # 2^9 * (1 + 3) = 2048: within the bound; the old count, 2^10 * 3 = 3072, also was, so the
+    # check here is that it runs clean rather than refusing.
+    assert _codes(_tool(few)) == []
+    many = [A, reads, *({"name": f"o{n}", "type_id": "genome.fasta", "required": False}
+                        for n in range(10))]
+    # 2^10 * 4 = 4096 exactly at the bound; the old count, 2^11 * 3 = 6144, refused it.
+    assert _codes(_tool(many)) == []
