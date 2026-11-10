@@ -408,6 +408,8 @@ class NfInput(BaseModel):
 
     def join_for(self, port: str) -> Join:
         """How `port`, a port after the first, meets the ones before it."""
+        if port not in self.ports[1:]:
+            raise ValueError(f"{port!r} is not a port after the first of nf_inputs {self.ports}")
         if isinstance(self.join, dict):
             return self.join[port]
         if self.join is None:
@@ -455,17 +457,41 @@ class Group(BaseModel):
     because: str = Field(min_length=1)
 
 
-def _when_keys(when: dict[str, Any], ports: set[str], params: set[str]) -> list[str]:
-    """The keys of a contract's `when` that name nothing in it. Phase 1 reads `given.<port>`
-    and `param.<name>` only; a measurement waits for per-sample facts (#466)."""
+def _when_keys(when: dict[str, Any], ports: dict[str, set[str]], params: set[str]) -> list[str]:
+    """The keys of a contract's `when` that name nothing in it. A condition reads
+    `given.<port>`, `param.<name>` and `type.<port>`, the type connected to a port (#464);
+    `ports` maps each port to the types it accepts. A measurement waits for per-sample facts
+    (#466)."""
     wrong = []
     for key, value in when.items():
         space, _, name = key.partition(".")
         if space == "given" and name in ports and value not in ("present", "absent"):
             wrong.append(f"{key}: {value!r} (an input is `present` or `absent`)")
+        elif space == "type" and name in ports:
+            named = _types_named(value)
+            accepted = ports[name]
+            if named is None or not named or not named <= accepted:
+                wrong.append(f"{key}: {value!r} (`{name}` accepts {', '.join(sorted(accepted))})")
         elif not ((space == "given" and name in ports) or (space == "param" and name in params)):
             wrong.append(key)
     return wrong
+
+
+def _types_named(value: Any) -> set[str] | None:
+    """The type ids a `type.<port>` condition names: one id, `{in: [...]}` or `{not: id}`."""
+    if isinstance(value, str) and value not in ("present", "absent") and " " not in value:
+        return {value}
+    if isinstance(value, dict) and len(value) == 1:
+        if isinstance(value.get("in"), list) and all(isinstance(v, str) for v in value["in"]):
+            return set(value["in"])
+        if isinstance(value.get("not"), str):
+            return {value["not"]}
+    return None
+
+
+def accepted_types(port: "InputPort") -> set[str]:
+    """The types routing can connect to `port`: its alternatives' types."""
+    return {alternative.type_id for alternative in port.alternatives()}
 
 
 class Provenance(BaseModel):
@@ -528,20 +554,22 @@ class ModuleContract(BaseModel):
     def _constraints_name_real_things(self) -> "ModuleContract":
         """MD0602 for a name the contract does not declare; MD0601 for an input slot that
         cannot be emitted when its optional ports are left out."""
-        ports = {p.name for p in self.consumes}
+        accepts = {p.name: accepted_types(p) for p in self.consumes}
+        ports = set(accepts)
         params = {p.name for p in self.params}
         clauses = [("a constraint row", r.when, [*r.requires, *r.forbids])
                    for r in self.constraints]
         clauses += [(f"a {g.kind} group", g.when, g.members) for g in self.groups]
         clauses += [(f"output {o.name!r}", o.produced_when or {}, []) for o in self.produces]
         for where, when, names in clauses:
-            unknown = _when_keys(when, ports, params)
+            unknown = _when_keys(when, accepts, params)
             unknown += [n for n in names if n not in ports | params]
             if unknown:
                 raise ValueError(coded(
                     "MD0602", f"{self.id}: {where} names {', '.join(unknown)}, which is not an "
-                    "input or param of this contract. Conditions test `given.<input>` or "
-                    "`param.<name>`; a measurement waits for per-sample facts (#466)"))
+                    "input or param of this contract, or a type it does not accept. Conditions "
+                    "test `given.<input>`, `param.<name>` or `type.<input>`; a measurement "
+                    "waits for per-sample facts (#466)"))
         self._optional_slots_can_be_emitted(ports)
         return self
 

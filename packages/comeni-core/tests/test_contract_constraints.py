@@ -213,8 +213,9 @@ def test_a_join_map_names_every_later_port_and_nothing_else(join):
 def test_an_optional_first_port_with_mixed_joins_is_refused():
     """The first port that is on takes the head's place, which is sound only if every later
     port joins the same way."""
-    _refused("MD0601", _gatk_slot({"input_index": "by_sample", "intervals": "broadcast"},
-                                  first_optional=True))
+    _refused("MD0601.*join the same way",
+             _gatk_slot({"input_index": "by_sample", "intervals": "broadcast"},
+                        first_optional=True))
 
 
 def test_a_join_map_digests_the_same_in_any_order():
@@ -229,6 +230,41 @@ def test_a_join_map_digests_the_same_in_any_order():
 
 def test_absent_on_a_mixed_slot_is_refused():
     """A slot with a required port is never left out whole, so its `absent` would be dead."""
-    data = _gatk_slot({"input_index": "by_sample", "intervals": "broadcast"})
+    data = _gatk_slot("broadcast")
     data["nf_inputs"][0]["absent"] = 4
-    _refused("MD0601", data)
+    _refused("MD0601.*never left out whole", data)
+
+
+def _typed(when: dict) -> dict:
+    data = _quast()
+    data["consumes"][0].pop("type_id")
+    data["consumes"][0]["accepts"] = [{"type_id": "assembly.fasta"},
+                                      {"type_id": "assembly.fastg"}]
+    data["constraints"] = [{"when": when, "requires": ["fasta"], "because": "a typed row"}]
+    return data
+
+
+def test_a_condition_may_test_the_connected_type():
+    contract = ModuleContract.model_validate(_typed({"type.consensus": "assembly.fastg"}))
+    assert contract.constraints[0].when == {"type.consensus": "assembly.fastg"}
+    ModuleContract.model_validate(_typed({"type.consensus": {"in": ["assembly.fasta",
+                                                                    "assembly.fastg"]}}))
+    ModuleContract.model_validate(_typed({"type.consensus": {"not": "assembly.fasta"}}))
+
+
+def test_a_type_the_port_does_not_accept_is_refused():
+    """A forge draft naming a type the port cannot take (#464 review focus 4)."""
+    _refused("MD0602.*alignment.cram", _typed({"type.consensus": "alignment.cram"}))
+    _refused("MD0602", _typed({"type.consensus": {"in": ["assembly.fasta", "alignment.cram"]}}))
+    _refused("MD0602", _typed({"type.consensus": "present"}))
+
+
+def test_type_of_an_unknown_port_is_refused():
+    _refused("MD0602", _typed({"type.nope": "assembly.fasta"}))
+
+
+def test_join_for_names_only_a_port_after_the_first():
+    for join in ("broadcast", {"input_index": "by_sample", "intervals": "broadcast"}):
+        slot = ModuleContract.model_validate(_gatk_slot(join)).nf_inputs[0]
+        with pytest.raises(ValueError, match="after the first"):
+            slot.join_for("input")

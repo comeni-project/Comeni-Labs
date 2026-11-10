@@ -38,6 +38,8 @@ class Setup(BaseModel):
     """Each param's resolved value. A missing key, or `None`, is no value."""
     unknown: frozenset[str] = frozenset()
     """Inputs each run may supply or leave empty."""
+    types: dict[str, str] = Field(default_factory=dict)
+    """The type connected to each input, where routing matched one of its `accepts` (#464)."""
 
 
 class Verdict(BaseModel):
@@ -115,9 +117,11 @@ def _worlds(setup: Setup) -> Iterator[frozenset[str]]:
             yield setup.given | frozenset(chosen)
 
 
-def _facts(given: frozenset[str], params: dict[str, Any]) -> dict[str, _Value]:
+def _facts(given: frozenset[str], params: dict[str, Any],
+           types: dict[str, str] | None = None) -> dict[str, _Value]:
     facts = {f"given.{port}": _Value(True) for port in given}
     facts.update({f"param.{name}": _Value(v) for name, v in params.items() if v is not None})
+    facts.update({f"type.{port}": _Value(t) for port, t in (types or {}).items() if port in given})
     return facts
 
 
@@ -138,7 +142,7 @@ def evaluate(contract: ModuleContract, setup: Setup) -> Verdict:
         broken = []
         applies = False
         for given in worlds:
-            if not matches(row.when, _facts(given, setup.params)):
+            if not matches(row.when, _facts(given, setup.params, setup.types)):
                 broken.append(False)
                 continue
             applies = True
@@ -158,13 +162,13 @@ def evaluate(contract: ModuleContract, setup: Setup) -> Verdict:
     for group in contract.groups:
         if group.kind is GroupKind.ALL_OR_NONE:
             continue
-        if not matches(group.when, _facts(setup.given, setup.params)):
+        if not matches(group.when, _facts(setup.given, setup.params, setup.types)):
             continue
         if not any(_has(m, setup.given | setup.unknown, setup.params) for m in group.members):
             add(verdict.missing, [f"one of {', '.join(group.members)}"])
     for output in contract.produces:
         when = output.produced_when
-        if when is None or all(matches(when, _facts(g, setup.params)) for g in worlds):
+        if when is None or all(matches(when, _facts(g, setup.params, setup.types)) for g in worlds):
             verdict.produced.append(output.name)
     return verdict
 

@@ -100,3 +100,28 @@ def test_each_group_kind_reads_as_a_sentence():
     assert of("one_of") == "exactly one of `a`, `b` (why)"
     assert of("any_of") == "at least one of `a`, `b` (why)"
     assert of("all_or_none") == "`a` and `b` together, or none of them (why)"
+
+
+def _salmon_setup(given: set[str], reads: str) -> Setup:
+    return Setup(given=frozenset(given), types={"reads": reads})
+
+
+def test_bam_reads_require_the_transcript_fasta():
+    """salmon's alignment mode (#464): the type connected to `reads` decides the inputs."""
+    salmon = _contract("salmon_quant")
+    assert evaluate(salmon, _salmon_setup({"reads"}, "alignment.bam")).missing == [
+        "transcript_fasta"]
+    assert evaluate(salmon, _salmon_setup({"reads", "transcript_fasta", "index"},
+                                          "alignment.bam")).forbidden == ["index"]
+    fastq = evaluate(salmon, _salmon_setup({"reads", "index"}, "fastq.reads"))
+    assert fastq.missing == [] and fastq.forbidden == []
+
+
+def test_a_type_condition_decides_which_output_is_written():
+    picard = _contract("picard_markduplicates")
+    cram = evaluate(picard, Setup(given=frozenset({"reads", "fasta", "fai"}),
+                                  types={"reads": "alignment.cram"}))
+    assert cram.produced == ["cram", "metrics"]
+    assert cram.missing == []
+    bam = evaluate(picard, Setup(given=frozenset({"reads"}), types={"reads": "alignment.bam"}))
+    assert bam.produced == ["bam", "metrics"]

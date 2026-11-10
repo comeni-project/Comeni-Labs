@@ -142,7 +142,7 @@ must not be given. It never chooses; choosing is a rule's.
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `when` | object | `{}` | the condition, in rules' syntax, over `given.<input>` and `param.<name>` |
+| `when` | object | `{}` | the condition, in rules' syntax, over `given.<input>`, `param.<name>` and `type.<input>`: the type connected to an input with `accepts`, as one type id, `{in: [...]}` or `{not: ...}` |
 | `requires` | [string] | `[]` | inputs or params that must be given when `when` holds |
 | `forbids` | [string] | `[]` | inputs or params that must not be given |
 | `because` | string | *required* | why, in a sentence a person reads |
