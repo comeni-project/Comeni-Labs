@@ -82,11 +82,15 @@ def _read(decision: Decision) -> set[str]:
 
 
 def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
-           measurements: MeasurementRegistry, goal: Goal) -> list[Needed]:
+           measurements: MeasurementRegistry, goal: Goal,
+           answered: frozenset[str] = frozenset()) -> list[Needed]:
     """Every setting of `ir` to decide at run time, in node then parameter order.
 
-    Refuses (`MD0328`) a decision that waits on two facts the pipeline could measure: one
-    lookup reads one measured fact, and two would need their values joined together."""
+    `answered`: settings a person has answered (`<node>.<param>`), which stay theirs: a rule
+    decided later never displaces a person's answer (Task 6 review).
+
+    Refuses (`MD0328`) a decision that waits on two facts the pipeline could measure and that
+    would otherwise compile: one lookup reads one measured fact."""
     derived = {d.fact: d for d in rules.derivations}
     lineage = _lineage(ir, registry, goal)
     overridden = {o.name for o in goal.constraints.params}
@@ -94,7 +98,7 @@ def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
     for node in ir.nodes:
         contract = registry.get(node.contract_id)
         for param in contract.params:
-            if param.name in overridden:
+            if param.name in overridden or f"{node.id}.{param.name}" in answered:
                 continue
             decision = rules.decision_for(contract.roles, param.name, contract.id)
             if decision is None or decision.hit == "unique":
@@ -103,24 +107,43 @@ def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
                                implementation=contract.id) is not None:
                 continue
             visible = _visible(decision, premises)
-            bases = set().union(*(_bases(f, derived) for f in _read(decision))) if decision.rows \
-                else set()
+            # Only what is not known is expanded to what it rests on: a derived fact already
+            # computed needs nothing measured.
+            bases = set().union(set(), *(_bases(f, derived) for f in _read(decision)
+                                         if f not in visible))
             unknown = sorted(f for f in bases if f not in visible)
             if not unknown:
                 continue
             reachable = [f for f in unknown if _measurable(f, node.id, lineage, registry,
                                                            measurements)]
-            if len(unknown) > 1 and len(reachable) == len(unknown):
+            if (len(unknown) > 1 and len(reachable) == len(unknown)
+                    and _compilable(decision, set(unknown), visible, derived)):
                 raise ValueError(coded(
                     "MD0328",
                     f"{contract.id}.{param.name} is decided by a rule that waits on "
                     f"{', '.join(unknown)}, and the pipeline could measure each, but a setting "
                     "decided at run time reads one measured fact. State all but one in the "
                     "goal, or split the rule — `mendel explain MD0328`."))
-            if len(unknown) == 1 and reachable:
+            if (len(unknown) == 1 and reachable
+                    and rows_of(decision, unknown[0], premises, rules, measurements) is not None):
                 found.append(Needed(node.id, param.name, unknown[0], decision,
                                     measurements.get(unknown[0]).describes))
     return found
+
+
+def _compilable(decision: Decision, facts: set[str], visible: dict,
+                derived: dict[str, Derivation]) -> bool:
+    """Would the rows compile into a lookup if every one of `facts` were measured? Only then
+    is waiting on several of them refused rather than left a question."""
+    for row in decision.rows:
+        if any(key not in visible and key not in facts for key in row.when):
+            return False
+        then = row.then
+        if isinstance(then, FactRef) and then.fact not in visible and then.fact not in facts:
+            chain = derived.get(then.fact)
+            if chain is None or chain.source not in facts or not chain.transform:
+                return False
+    return True
 
 
 def _measurable(fact: str, node_id: str, lineage: dict[str, set[str]], registry: Registry,

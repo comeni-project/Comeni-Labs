@@ -2972,6 +2972,19 @@ MD0328:
     reads one measured value from its input's `meta`; two would need the values of two steps
     joined first, which the pipeline does not do. Refused rather than guessed, so the build
     never chooses which fact to wait for.
+MD0329:
+  emitted_by: resolver
+  concern: routing
+  says: "routing again to add the steps that measure a run-time fact changed the pipeline instead of only adding to it"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Report it: it is a defect in the resolver, not in the goal or the registry. Stating the
+    fact in the goal decides the setting at build time and avoids the second route meanwhile.
+  explanation: |
+    A setting decided at run time adds the steps that measure its fact by routing the goal
+    again with the measurement wanted too (#217). Measuring may add steps and never move one,
+    so a second graph that does not hold the first one whole is refused rather than emitted.
 
 MD0501:
   emitted_by: resolver

@@ -144,3 +144,68 @@ def test_a_unique_decision_is_not_decided_at_run_time(tmp_path):
                  vocabulary=stack.vocabulary)
     assert _setting(ir).at_run is None
     assert not [n for n in ir.nodes if n.contract_id.startswith("comeni/measure/")]
+
+
+# ── Task 6 review ───────────────────────────────────────────────────────────────────────
+
+
+def test_a_persons_answer_is_not_displaced_by_a_rule_decided_later(tmp_path):
+    """Re-resolving a pipeline whose setting a person answered keeps their answer."""
+    from comeni_core.plan.decision import ParamDecision
+
+    first, _ = _resolved(tmp_path / "a", with_measurer=False)
+    node = next(n for n in first.nodes if n.contract_id == STAR_ID)
+    answered = ParamDecision(key=f"{node.id}.sa_index_nbases", subject="sa_index_nbases",
+                             reason="a person said so", resolved_by="human", chosen=8,
+                             human_override=8, candidates=[None])
+    stack = layers.load([ROOT / "registry", overlay(tmp_path / "b")])
+    goal = Goal(have=[GoalInput(type_id="genome.fasta"), GoalInput(type_id="annotation.gtf")],
+                want=["genome.index.star"], profile=stack.measurements.profile({}))
+    ir = resolve(goal, stack.routing, stack.rules, stack.measurements,
+                 vocabulary=stack.vocabulary, prior=[answered])
+    assert _setting(ir).at_run is None
+    assert not [n for n in ir.nodes if n.contract_id.startswith("comeni/measure/")]
+
+
+def _decision(rows: str):
+    import yaml
+    from mendel_resolver.rules.format import Decision
+
+    return Decision.model_validate(yaml.safe_load(
+        "decides: {effect: param, of: quantification, name: strandedness}\nrows:\n" + rows))
+
+
+def _rows(rows: str, known: dict | None = None):
+    from mendel_resolver.at_run import rows_of
+    from mendel_resolver.premises import Premise
+
+    stack = layers.load(ROOT / "registry")
+    premises = {k: Premise(id=k, value=v, origin=PremiseOrigin.ASSERTED)
+                for k, v in (known or {}).items()}
+    return rows_of(_decision(rows), "strandedness", premises, stack.rules, stack.measurements)
+
+
+def test_rows_spell_every_test_on_the_measured_fact():
+    rows = _rows(
+        "  - {when: {strandedness: reverse}, then: 2}\n"
+        "  - {when: {strandedness: {in: [forward, unstranded]}}, then: 1}\n"
+        "  - {when: {strandedness: {not: reverse}}, then: 0}\n"
+        "  - {when: {strandedness: present}, then: 3}\n"
+        "  - {when: {strandedness: absent}, then: 4}\n")
+    assert [(r.test, r.operand, r.then) for r in rows] == [
+        (AtRunTest.EQ, ["reverse"], 2), (AtRunTest.IN, ["forward", "unstranded"], 1),
+        (AtRunTest.NE, ["reverse"], 0), (AtRunTest.ANY, [], 3),
+    ]
+
+
+def test_a_known_fact_is_substituted_and_a_false_row_dropped():
+    rows = _rows(
+        "  - {when: {paired: false, strandedness: reverse}, then: 9}\n"
+        "  - {when: {paired: true, strandedness: reverse}, then: 2}\n"
+        "  - {when: {read_length: \">= 70\"}, then: {fact: read_length}}\n",
+        known={"paired": True, "read_length": 150})
+    assert [(r.test, r.then) for r in rows] == [(AtRunTest.EQ, 2), (AtRunTest.ANY, 150)]
+
+
+def test_a_row_reading_an_unknown_other_fact_cannot_be_a_lookup():
+    assert _rows("  - {when: {paired: true, strandedness: reverse}, then: 2}\n") is None

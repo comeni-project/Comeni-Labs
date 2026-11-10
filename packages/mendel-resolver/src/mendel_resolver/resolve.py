@@ -39,6 +39,7 @@ from mendel_resolver import at_run
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 from mendel_resolver.premises import Premise, build_premises
+from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.router import (
     ConstraintViolation,
     IntentConflict,
@@ -66,8 +67,6 @@ class ParamContext:
     measurements: MeasurementRegistry | None = None
     at_run: "Mapping[str, at_run.Needed]" = None  # type: ignore[assignment]
     """This node's settings to decide at run time, by parameter name (#217)."""
-    measured_by: Mapping[str, str] = None  # type: ignore[assignment]
-    """Each run-time fact's measuring step, by fact."""
 
 
 def _constraints_hold(contract: ModuleContract, node: IRNode,
@@ -130,7 +129,9 @@ def resolve(
     first = _resolve_once(goal, registry, rules, measurements, **args)
     premises = build_premises(goal=goal, derivations=rules.derivations,
                               measurements=measurements)
-    needs = at_run.needed(first, registry, rules, premises, measurements, goal)
+    answered = frozenset(record.key for record in prior
+                         if getattr(record, "human_override", None) is not None)
+    needs = at_run.needed(first, registry, rules, premises, measurements, goal, answered)
     if not needs:
         return first
     facts = sorted({need.fact for need in needs})
@@ -139,25 +140,54 @@ def resolve(
     plan: dict[str, dict[str, at_run.Needed]] = {}
     for need in needs:
         plan.setdefault(need.node_id, {})[need.param] = need
-    measured_by = {fact: sorted(c.id for c in registry.producers_of(
-        f"measurement.{fact}", frozenset()))[0] for fact in facts}
-    second = _resolve_once(widened, registry, rules, measurements, at_run_plan=plan,
-                           measured_by=measured_by, **args)
+    # The second pass replays the first's answers: a question is asked once, and a model's
+    # choice cannot change between the passes and move the graph (Task 6 review).
+    replay = ReplayResolver(first.decisions, fallback=resolver or FlagOnlyResolver())
+    try:
+        second = _resolve_once(widened, registry, rules, measurements, at_run_plan=plan,
+                               **{**args, "resolver": replay})
+    except UnroutableError:
+        # A measurer this goal cannot feed: the settings stay what the first pass made them,
+        # questions included, as before measuring existed.
+        return first
     kept = {node.id: node.contract_id for node in second.nodes}
     moved = [n.id for n in first.nodes if kept.get(n.id) != n.contract_id]
     edges = {edge.model_dump_json() for edge in second.edges}
     if moved or not {edge.model_dump_json() for edge in first.edges} <= edges:
-        raise RuntimeError(
+        raise ValueError(coded(
+            "MD0329",
             f"routing again to measure {', '.join(facts)} moved {moved or 'an edge'}: measuring "
-            "may add steps to a pipeline and never change one")
+            "may add steps to a pipeline and never change one — `mendel explain MD0329`."))
+    # Which step measures each fact is read off the graph the router made, never guessed.
+    measuring = {
+        fact: next(node for node in second.nodes
+                   if f"measurement.{fact}" in {p.type_id for p in
+                                                 registry.get(node.contract_id).produces})
+        for fact in facts
+    }
+    _name_the_measurers(second, {fact: node.contract_id for fact, node in measuring.items()})
     second.meta_at_run = [
         MetaAtRun(measurement=fact, meta_key=fact, type_id=measurements.get(fact).describes,
-                  measured_at=next(n.id for n in second.nodes
-                                   if n.contract_id == measured_by[fact]),
-                  measured_port=fact)
+                  measured_at=measuring[fact].id, measured_port=fact)
         for fact in facts
     ]
     return second
+
+
+def _name_the_measurers(ir: PipelineIR, measured_by: Mapping[str, str]) -> None:
+    """Each run-time setting names the step that actually measures its fact."""
+    for node in ir.nodes:
+        for binding in node.params:
+            lookup = binding.value.at_run
+            if lookup is None:
+                continue
+            by = measured_by[lookup.fact]
+            binding.value = binding.value.model_copy(update={
+                "at_run": lookup.model_copy(update={"measured_by": by}),
+                "reason": _at_run_reason(lookup.rule, lookup.fact, by, lookup.fallback),
+                "premise": [p.model_copy(update={"by": by}) if p.id == lookup.fact else p
+                            for p in binding.value.premise],
+            })
 
 
 def _resolve_once(
@@ -172,7 +202,6 @@ def _resolve_once(
     prior: Sequence[DecisionRecord] = (),
     facts_read: Mapping[str, frozenset[str] | None] | None = None,
     at_run_plan: Mapping[str, Mapping[str, "at_run.Needed"]] | None = None,
-    measured_by: Mapping[str, str] | None = None,
 ) -> PipelineIR:
     """Resolve ``goal`` against one loaded registry stack.
 
@@ -310,7 +339,6 @@ def _resolve_once(
             backed=backed,
             measurements=measurements,
             at_run=(at_run_plan or {}).get(step.node_id, {}),
-            measured_by=measured_by or {},
         )
         for param in contract.params:
             value, decision = _resolve_param(param, context)
@@ -632,6 +660,11 @@ def _resolve_param(
     return _ask(param, context, [None])
 
 
+def _at_run_reason(rule: str, fact: str, measured_by: str, fallback) -> str:
+    return (f"decided at run time by rule {rule} from {fact}, measured in the pipeline by "
+            f"{measured_by}; if it cannot be measured, {fallback}")
+
+
 def _at_run(
     param: Param, context: ParamContext, need: "at_run.Needed"
 ) -> tuple[ResolvedValue, ParamDecision | None] | None:
@@ -647,14 +680,14 @@ def _at_run(
     else:
         asked, decision = _ask(param, context, [None])
         fallback, why = asked.value, asked.reason
-    measured_by = context.measured_by[need.fact]
+    # Named once the graph exists (`_name_the_measurers`): the router picks the step.
+    measured_by = "comeni/measure/pending@0.0.0"
     lookup = at_run.lookup(need, rows, measured_by, fallback, why)
     return ResolvedValue(
         value=fallback,
         tier=Tier.DATA_PROFILED,
         source=ValueSource.RESOLVER,
-        reason=(f"decided at run time by rule {need.decision.key()} from {need.fact}, measured "
-                f"in the pipeline by {measured_by}; if it cannot be measured, {fallback}"),
+        reason=_at_run_reason(need.decision.key(), need.fact, measured_by, fallback),
         premise=[PremiseRecord(id=need.fact, value=None, origin=PremiseOrigin.UNMEASURED,
                                by=measured_by)],
         axis_reason=need.decision.because or "",
