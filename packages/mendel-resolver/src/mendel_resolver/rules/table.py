@@ -42,6 +42,7 @@ from mendel_resolver.rules.format import (
     DecisionRow,
     Derivation,
     Effect,
+    FactRef,
     Fired,
     Pin,
     RuleValidationError,
@@ -192,6 +193,12 @@ class RuleTable(BaseModel):
             _check_when(
                 decision.rows, where, measurements=measurements, facts=facts
             )
+            for row in decision.rows:
+                if isinstance(row.then, FactRef) and row.then.fact not in facts:
+                    raise RuleValidationError(coded(
+                        "MD0310", f"{where}\n  `then` takes the value of {row.then.fact!r}, "
+                        "which no measurement or derivation supplies, so this row can never "
+                        "fire."))
             # After the stack, like everything else here: `add_values` lets an overlay extend
             # an enum, so a table exhaustive against the base layer alone is not exhaustive
             # against the stack it will actually run under. Checking per file would pass it.
@@ -228,9 +235,10 @@ class RuleTable(BaseModel):
             if key not in {target.key() for target in decision.targets()}:
                 continue
             for row in decision.rows:
-                if matches(row.when, premises):
+                gives, value = row.value(premises)
+                if gives and matches(row.when, premises):
                     return Pin(
-                        value=row.then,
+                        value=value,
                         from_layer=self.layer_of.get(decision.key(), ""),
                         displaced_layer=self.displaced_layer.get(decision.key()),
                         decision=decision,
@@ -248,11 +256,13 @@ class RuleTable(BaseModel):
         """
         fired: list[Fired] = []
         for decision in self.decisions:
-            row = next((r for r in decision.rows if matches(r.when, premises)), None)
+            row = next((r for r in decision.rows
+                        if r.value(premises)[0] and matches(r.when, premises)), None)
             if row is None:
                 continue
+            value = row.value(premises)[1]
             pin = Pin(
-                value=row.then,
+                value=value,
                 from_layer=self.layer_of.get(decision.key(), ""),
                 displaced_layer=self.displaced_layer.get(decision.key()),
                 decision=decision,
@@ -264,7 +274,7 @@ class RuleTable(BaseModel):
                         effect=target.effect,
                         role=target.of,
                         name=target.name,
-                        value=row.then,
+                        value=value,
                         tier=tier_of_row(row.when),
                         because=pin.because(),
                         cite=row.cite or decision.cite or "",
@@ -338,7 +348,8 @@ def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[Prem
     does not exist. Its absence is already what the row says.
     """
     read: list[PremiseRecord] = []
-    for fact in row.when:
+    named = list(row.when) + ([row.then.fact] if isinstance(row.then, FactRef) else [])
+    for fact in named:
         premise = premises.get(fact)
         if premise is None:
             continue

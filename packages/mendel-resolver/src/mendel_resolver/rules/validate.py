@@ -22,6 +22,7 @@ from mendel_resolver.rules.format import (
     DecisionRow,
     DecisionTarget,
     Effect,
+    FactRef,
     RuleValidationError,
     _comparison,
 )
@@ -141,6 +142,24 @@ def _validate_target(
     seen[target.key()] = str(path)
 
 
+def _fact_fits(ref: "FactRef", domain, target: DecisionTarget, path: Path,
+               measurements: MeasurementRegistry) -> None:
+    """MD0300 when a measured fact's kind cannot be the setting's value (#461). A derived
+    fact's kind is checked where derivations are known, after the stack."""
+    if domain is None or ref.fact not in measurements.ids():
+        return
+    kind = measurements.get(ref.fact).kind
+    fits = {"integer": {MeasurementKind.INTEGER},
+            "number": {MeasurementKind.INTEGER, MeasurementKind.NUMBER},
+            "boolean": {MeasurementKind.BOOLEAN},
+            "enum": {MeasurementKind.ENUM}}.get(str(domain.kind), set())
+    if kind not in fits:
+        raise RuleValidationError(coded(
+            "MD0300", f"{path}, decision {target.key()}\n"
+            f"  `then: {{fact: {ref.fact}}}` is a {kind}, and {target.name!r} takes a "
+            f"{domain.kind}: the tool would receive a value its flag does not accept."))
+
+
 def _domain_of(
     target: DecisionTarget, registry: Registry, fillers_by_role: dict[str, list[str]]
 ) -> "ParamDomain | None":
@@ -174,9 +193,18 @@ def _validate_rows(
     fillers_by_role: dict[str, list[str]],
     measurements: MeasurementRegistry,
 ) -> None:
+    for row in decision.rows:
+        if isinstance(row.then, FactRef) and target.effect is not Effect.PARAM:
+            raise RuleValidationError(coded(
+                "MD0300", f"{path}, decision {target.key()}\n"
+                f"  `then: {{fact: {row.then.fact}}}` gives a setting a fact's value; a "
+                f"{target.effect} decision chooses with a literal `then`."))
     if target.effect is Effect.PARAM:
         domain = _domain_of(target, registry, fillers_by_role)
         for row in decision.rows:
+            if isinstance(row.then, FactRef):
+                _fact_fits(row.then, domain, target, path, measurements)
+                continue
             # A declared domain answers this by type check; `_computed_over` answers it by
             # heuristic. Both emit `MD0300` because both refuse the same thing — a `then` the
             # tool cannot receive — and one concern gets one code.

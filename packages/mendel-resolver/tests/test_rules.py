@@ -793,3 +793,53 @@ def test_a_mapping_predicate_survives_the_model_as_well_as_the_evaluator(two_rol
         for state in ("reverse", "unstranded")
     }
     assert answered == {"reverse": 2, "unstranded": 0}
+
+
+# ── a setting from a fact (#461) ──────────────────────────────────────────────────────────
+
+FROM_FACT = """
+version: 1
+derives:
+  - {fact: s_level, kind: integer, source: read_length, transform: [{op: at_most, by: 2}],
+     cite: "a fixture"}
+decisions:
+  - decides: {effect: param, of: quantification, name: strandedness}
+    rows:
+      - {when: {}, then: {fact: s_level}, cite: "a fixture"}
+"""
+
+
+def test_a_setting_takes_its_value_from_a_fact(world):
+    table = _rules(world, FROM_FACT)
+    pin = table.value_for(["quantification"], "strandedness", P(s_level=2))
+    assert pin is not None and pin.value == 2
+    assert "s_level" in [record.id for record in pin.premise]
+
+
+def test_a_fact_reference_with_no_value_does_not_fire(world):
+    """Review focus 1: never `null` reaching the tool; the decision falls through."""
+    table = _rules(world, FROM_FACT)
+    assert table.value_for(["quantification"], "strandedness", P(read_length=150)) is None
+
+
+def test_a_fact_reference_must_fit_the_domain(world):
+    """Review focus 2: a number into an integer setting, a fact nobody declares, and a fact
+    choosing a tool are all refused at load."""
+    (world["layer"] / "measurements" / "gc.yml").write_text(
+        _declared(world["layer"] / "measurements" / "gc.yml", "kind: number\n"))
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
+    as_number = FROM_FACT.replace("then: {fact: s_level}", "then: {fact: gc}")
+    with pytest.raises(RuleValidationError, match="MD0300"):
+        _rules(world, as_number)
+    unknown = FROM_FACT.replace("then: {fact: s_level}", "then: {fact: nowhere}")
+    with pytest.raises((RuleValidationError, ValueError), match="nowhere"):
+        _rules(world, unknown)
+    choosing = """
+version: 1
+decisions:
+  - decides: {effect: implementation, of: quantification}
+    rows:
+      - {when: {}, then: {fact: read_length}, cite: "a fixture"}
+"""
+    with pytest.raises((RuleValidationError, ValueError), match="fact"):
+        _rules(world, choosing)

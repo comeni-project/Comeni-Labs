@@ -166,6 +166,8 @@ _OPS = {
     "log2": lambda value, by: math.log2(value),
     "at_most": lambda value, by: min(value, by),
     "at_least": lambda value, by: max(value, by),
+    # Half to even, as C's `printf "%.0f"`, which nf-core's modules round with (#461).
+    "round": lambda value, by: round(value),
 }
 """The whole arithmetic this format has. Issue #39.
 
