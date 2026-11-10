@@ -27,3 +27,15 @@ def test_forge_checks_report_a_type_gap():
     found = _with_constraint_checks({}, items_of(ModuleContract.model_validate(data)))
     codes = [f.code for f in found["contract:process"]]
     assert "MD0612" in codes
+
+
+def test_forge_checks_report_a_table_gap():
+    """#461: a drafted rule over two facts that leaves a case uncovered says so on its item."""
+    from mendel_api.services.forge_checks import _with_rule_checks
+
+    items = {"rules:rule:alignment": {
+        "decides": {"effect": "implementation", "of": "alignment"},
+        "rows": [{"when": {"read_length": ">= 70", "strandedness": "reverse"},
+                  "then": "nf-core/star/align@2.7.11b", "cite": "a"}]}}
+    found = _with_rule_checks({}, items)
+    assert [f.code for f in found["rules:rule:alignment"]] == ["MD0311"]

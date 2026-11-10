@@ -12,6 +12,8 @@ from mendel_forge.forging.checks import QuestionFinding, contract_findings, find
 from mendel_forge.forging.model import Adaptation, Piece, Status
 from mendel_forge.forging.values import contract_of
 from mendel_forge.nfcore.parse import parse_module
+from mendel_resolver.rules.format import Decision, Derivation
+from mendel_resolver.rules.validate import check_table
 
 from mendel_api.services import forging, registry
 
@@ -31,9 +33,40 @@ def asked_questions(state: Adaptation) -> dict[str, dict]:
 
 
 def for_adaptation(source: str, path: str, state: Adaptation) -> dict[str, list[QuestionFinding]]:
+    items = {k: i.value for k, i in state.items.items() if i.status is not Status.REMOVED}
+    return _with_rule_checks(_module_findings(source, path, state, items), items)
+
+
+def _with_rule_checks(found: dict[str, list[QuestionFinding]],
+                      items: dict) -> dict[str, list[QuestionFinding]]:
+    """A drafted rule's table checked as the registry will (#461): a gap over several facts,
+    a dead row, too many cases. A rule that does not yet validate has nothing to check."""
+    stack = registry.stack()
+    derived = {d.fact: d.kind for d in stack.rules.derivations}
+    for key, value in items.items():
+        if key.startswith("rules:derive:"):
+            try:
+                drafted = Derivation.model_validate(value)
+            except ValueError:
+                continue
+            derived[drafted.fact] = drafted.kind
+    for key, value in items.items():
+        if not key.startswith("rules:rule:"):
+            continue
+        try:
+            decision = Decision.model_validate(value)
+        except ValueError:
+            continue
+        for message in check_table(decision, measurements=stack.measurements, derived=derived):
+            code, _, says = message.partition(": ")
+            found.setdefault(key, []).append(QuestionFinding(code=code, says=says))
+    return found
+
+
+def _module_findings(source: str, path: str, state: Adaptation,
+                     items: dict) -> dict[str, list[QuestionFinding]]:
     asked = {k: v for k, v in asked_questions(state).items()
              if k.startswith("questions:input_type:")}
-    items = {k: i.value for k, i in state.items.items() if i.status is not Status.REMOVED}
     drafted = any(k.startswith("contract:") for k in items)
     if not asked and not drafted:
         return {}

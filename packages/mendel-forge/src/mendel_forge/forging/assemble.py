@@ -111,6 +111,12 @@ def write_layer(
             decision = validate_value(key, value).model_dump(mode="json", exclude_defaults=True)
             put(out / "rules" / f"{key.removeprefix('rules:rule:')}.yml",
                 _yaml({"declares": "rule", "version": 1, "decisions": [decision]}))
+    derived = [validate_value(k, v).model_dump(mode="json", exclude_defaults=True)
+               for k, v in sorted(values.items()) if k.startswith("rules:derive:")]
+    if derived:
+        # Facts a decision reads or takes (`then: {fact:}`, #461), in one file of the layer.
+        put(out / "rules" / "derived.yml",
+            _yaml({"declares": "rule", "version": 1, "derives": derived}))
     for key in tests:
         name = key.removeprefix("tests:test:")
         test = ToolTest(**values[key], contract=contract_id, name=name,

@@ -164,3 +164,22 @@ def test_new_family_requires_an_explicit_declaration_and_loads_with_it(tmp_path)
     assert proof.loaded and proof.conforms, proof.problems
     assert yaml.safe_load((out / "vocabulary/families/assembly.yml").read_text()) == {
         "declares": "family", **values["vocabulary:family:assembly"]}
+
+
+def test_a_derived_fact_is_assembled_into_derives(tmp_path):
+    """#461: a setting can take a derived fact's value; the forge drafts the derivation as its
+    own item and assembly writes it into the layer's rules."""
+    values = _star_values()
+    values["rules:derive:ignore_gtf"] = {
+        "fact": "ignore_gtf", "kind": "boolean",
+        "rows": [{"when": {}, "then": False, "cite": "STAR manual 2.2.3"}]}
+    values["rules:rule:alignment"] = {
+        "decides": {"effect": "param", "of": "alignment", "name": "star_ignore_sjdbgtf",
+                    "when_implementation": ["nf-core/star/align@2.7.11b"]},
+        "rows": [{"when": {}, "then": {"fact": "ignore_gtf"}, "cite": "STAR manual 2.2.3"}]}
+    write_layer(values, "nf-core/star/align@2.7.11b", PROVENANCE, _origin(), base=REGISTRY,
+                out=tmp_path / "draft")
+    derived = yaml.safe_load((tmp_path / "draft" / "rules" / "derived.yml").read_text())
+    assert [d["fact"] for d in derived["derives"]] == ["ignore_gtf"]
+    proof = prove(REGISTRY, [], tmp_path / "draft")
+    assert proof.loaded, proof.problems

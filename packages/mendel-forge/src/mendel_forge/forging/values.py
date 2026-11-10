@@ -6,7 +6,8 @@ Item keys: `contract:process`, `contract:input:<port>`, `contract:output:<port>`
 `contract:nf_inputs`, `contract:constraint:row<n>`, `contract:group:group<n>`,
 `parameters:param:<name>`, `parameters:ext_args`,
 `vocabulary:type:<id>`, `vocabulary:measurement:<id>`, `vocabulary:role:<name>`,
-`vocabulary:family:<id>`, `rules:rule:<role>`, `tests:test:<name>`, `<piece>:none`,
+`vocabulary:family:<id>`, `rules:rule:<role>`, `rules:derive:<fact>`, `tests:test:<name>`,
+`<piece>:none`,
 `questions:<subject>`.
 """
 
@@ -28,7 +29,7 @@ from comeni_core.declared.measurement import Measurement
 from comeni_core.declared.tooltest import TestDraft
 from comeni_core.declared.vocabulary import TypeDeclaration, TypeExtension
 from comeni_core.spell.marks import TypeId
-from mendel_resolver.rules.format import Decision
+from mendel_resolver.rules.format import Decision, Derivation
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -126,6 +127,7 @@ _FAMILIES: dict[str, type] = {
     "vocabulary:role": RoleDraft,
     "vocabulary:family": FamilyDraft,
     "rules:rule": Decision,
+    "rules:derive": Derivation,
     "tests:test": TestDraft,
 }
 
