@@ -189,3 +189,58 @@ def test_a_failed_alternative_leaves_no_steps_behind(tmp_path):
                                                             state=InputState.OFF)]))
     plan = route(goal, registry)
     assert [s.contract_id for s in plan.steps] == ["lab/wants@1.0.0"]
+
+
+REVISIT_TYPES = {"h.one": "sample", "c.out": "sample", "c.extra": "sample", "o.opt": "run",
+                 "g.raw": "run", "e.two": "sample", "t.one": "sample", "t.two": "sample",
+                 "w.want": "sample"}
+
+
+def _contract(cid: str, consumes: str, produces: str, extra: str = "") -> str:
+    name = cid.split("/")[1].split("@")[0]
+    return (f"id: {cid}\nnf_process: {name.upper()}\nnf_include: modules/lab/{name}/main\n"
+            f"roles: [trimming]\nconsumes: {consumes}\nproduces: {produces}\n{extra}"
+            "provenance: {source: t, drafted_by: t, approved_by: t, approved_at: '2026-11-10'}\n")
+
+
+def test_a_failed_alternative_undoes_a_revisit_that_switched_an_input_on(tmp_path):
+    """Final review: a refused alternative revisited an earlier step, switched its optional
+    input on and routed it; the rollback removed the routed step but left the input on."""
+    vocab_dir = tmp_path / "vocabularies"
+    vocab_dir.mkdir()
+    for type_id, scope in REVISIT_TYPES.items():
+        family = type_id.split(".")[0]
+        (vocab_dir / f"{type_id}.yml").write_text(
+            f"declares: vocabulary\nid: {type_id}\nstates: []\nscope: {scope}\n")
+        (vocab_dir / f"{family}.family.yml").write_text(
+            f"declares: family\nid: {family}\ndescription: {family}\n")
+    contracts = tmp_path / "contracts"
+    contracts.mkdir()
+    bodies = {
+        "c.yml": _contract("lab/c@1.0.0",
+                           "[{name: h, type_id: h.one}, "
+                           "{name: o, type_id: o.opt, required: false}]",
+                           "[{name: out, type_id: c.out}, "
+                           "{name: extra, type_id: c.extra, produced_when: {given.o: present}}]",
+                           "nf_inputs: [{ports: [h]}, {ports: [o], absent: 2}]\n"),
+        "f.yml": _contract("lab/f@1.0.0", "[{name: g, type_id: g.raw}]",
+                           "[{name: o, type_id: o.opt}]"),
+        "e.yml": _contract("lab/e@1.0.0",
+                           "[{name: extra, type_id: c.extra}, {name: two, type_id: e.two}]",
+                           "[{name: t, type_id: t.one}]"),
+        "x.yml": _contract("lab/x@1.0.0",
+                           "[{name: c, type_id: c.out}, "
+                           "{name: p, accepts: [{type_id: t.one}, {type_id: t.two}]}]",
+                           "[{name: w, type_id: w.want}]"),
+    }
+    for name, body in bodies.items():
+        (contracts / name).write_text("declares: contract\n" + body)
+    _roles(tmp_path, "trimming")
+    vocabulary = Vocabulary.load(tmp_path)
+    registry = Registry.load(tmp_path, vocabulary)
+    goal = Goal(have=[GoalInput(type_id=t) for t in ("h.one", "g.raw", "t.two")],
+                want=["w.want"])
+    plan = route(goal, registry)
+    assert [s.contract_id for s in plan.steps] == ["lab/c@1.0.0", "lab/x@1.0.0"]
+    c = next(s for s in plan.steps if s.contract_id == "lab/c@1.0.0")
+    assert {r.port: r.state for r in c.inputs}["o"] is InputState.OFF

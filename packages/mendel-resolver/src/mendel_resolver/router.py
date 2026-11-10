@@ -223,8 +223,12 @@ def route(
         """The plan as it is now, and how to return to it."""
         steps, decisions = len(plan.steps), len(plan.decisions)
         done, seen = set(emitted), {k: list(v) for k, v in seen_inputs.items()}
+        # A revisit rewrites an earlier step's inputs in place, so those are kept too.
+        inputs = [list(step.inputs) for step in plan.steps]
 
         def restore() -> None:
+            for step, kept in zip(plan.steps, inputs, strict=False):
+                step.inputs = kept
             del plan.steps[steps:]
             del plan.decisions[decisions:]
             emitted.clear()

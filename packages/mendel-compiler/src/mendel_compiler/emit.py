@@ -163,6 +163,9 @@ def _argument(pipeline: Pipeline, step: Step, arg) -> str:
     # samples in gave four processes, half of them pairing one sample's data with another's,
     # and Nextflow exited 0. `--gate test` cannot see the class: the nf-core dataset has one
     # sample, so 1 x 1 == 1.
+    # A per-sample input a run may leave empty is refused where the samplesheet is built
+    # (#466); with one sample-scoped channel there is no samplesheet, and nothing else is
+    # per-sample to pair it with, so `.join` cannot mis-pair it.
     head, *rest = expressions
     joined = "".join(
         f".join({expr})" if arg.join_for(name) is Join.BY_SAMPLE
