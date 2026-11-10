@@ -328,7 +328,7 @@ class BuiltPipeline(BaseModel):
 
 
 def _param(layers, contract_id: str, name: str):
-    contract = layers.registry.get(contract_id)
+    contract = layers.routing.get(contract_id)
     return next((p for p in contract.params if p.name == name), None)
 
 
@@ -380,7 +380,7 @@ def _connected_type(pipeline, layers, step, port) -> str:
         node, _, output = wiring.source.partition(".")
         upstream = next((s for s in pipeline.steps if s.id == node), None)
         if upstream is not None:
-            made = layers.registry.get(upstream.module.contract_id).produces
+            made = layers.routing.get(upstream.module.contract_id).produces
             return next((o.type_id for o in made if o.name == output), "")
     return ""
 
@@ -397,7 +397,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
         step = by_id.get(node_id)
         if step is None:
             return []
-        contract = layers.registry.get(step.module.contract_id)
+        contract = layers.routing.get(step.module.contract_id)
         states = {r.port: r for r in step.input_states}
         return [
             PortView(
@@ -467,7 +467,7 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
     # node was fully wired. Found by the operator dragging.
     declared: dict[str, tuple[list[str], list[str]]] = {}
     for step in pipeline.steps:
-        contract = layers.registry.get(step.module.contract_id)
+        contract = layers.routing.get(step.module.contract_id)
         declared[step.id] = (
             [port.name for port in contract.consumes],
             [port.name for port in contract.produces],
@@ -580,7 +580,7 @@ def drawn(graph: DraftGraph, *, by: str = "") -> BuiltPipeline:
     stack = registry.stack()
     ir = ir_of(graph, stack, by=by)
     pipeline = Pipeline.of(
-        ir, stack.registry, stack.vocabulary, stack.measurements, stack.paths,
+        ir, stack.routing, stack.vocabulary, stack.measurements, stack.paths,
         goal=goal_of(graph, stack),
     )
     return _view(ir, pipeline, stack)

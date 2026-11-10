@@ -71,7 +71,7 @@ def frame_of(*, blueprint, graph, provenance, pending, proposal_id, context,
         graph = graph.model_copy(update={"edges": [
             e for e in graph.edges if e.from_node in kept and e.to_node in kept]})
         ir = build.ir_of(graph, layers, provenance=provenance)
-        pipeline = Pipeline.of(ir, layers.registry, layers.vocabulary, layers.measurements,
+        pipeline = Pipeline.of(ir, layers.routing, layers.vocabulary, layers.measurements,
                                layers.paths, goal=build.goal_of(graph, layers))
         shown = build._view(ir, pipeline, layers)
         return CanvasFrame(context=context, proposal_id=None, current=current, graph=graph,

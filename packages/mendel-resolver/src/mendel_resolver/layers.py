@@ -80,6 +80,16 @@ class Layers(BaseModel):
     my overlay change" is one field rather than four conventions.
     """
 
+    @property
+    def routing(self) -> Registry:
+        """The registry a build routes with and maps its graph back through: the layers'
+        contracts plus the generated measuring steps (#465). Everything that turns a node back
+        into a contract uses this; the registry browser, the docs and conformance use
+        `registry`, which holds only what a layer declares."""
+        from mendel_resolver.measure_steps import contracts_for
+
+        return self.registry.with_contracts(contracts_for(self.inspection, self.registry))
+
 
 def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     """Load a registry layer stack. Later layers win, as everywhere else.

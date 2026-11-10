@@ -13,6 +13,8 @@ byte-identical, and `pipeline_file.stamp` records each file's digest in `pipelin
 
 import importlib.metadata
 import json
+import re
+import shutil
 from pathlib import Path
 
 from mendel_resolver.measure_steps import MeasureStep
@@ -45,7 +47,10 @@ def _runner_folder() -> Path:
     direct = json.loads(dist.read_text("direct_url.json") or "{}")
     url = direct.get("url", "")
     if direct.get("dir_info", {}).get("editable") and url.startswith("file://"):
-        folder = Path(url.removeprefix("file://")) / "src" / "comeni_inspect"
+        # Percent-decoded by hand: `urllib` is a transport and a pure package names none.
+        path = re.sub(r"%([0-9A-Fa-f]{2})", lambda m: chr(int(m.group(1), 16)),
+                      url.removeprefix("file://"))
+        folder = Path(path) / "src" / "comeni_inspect"
     else:
         folder = Path(str(dist.locate_file("comeni_inspect")))
     if not (folder / "measure_cli.py").is_file():
@@ -75,8 +80,11 @@ process {contract.nf_process} {{
 {outputs}
 
     script:
+    // Run with `python3 -I`, found on the PATH the module binary joins: the launcher's mode
+    // bit does not survive every bundle (a zip keeps none), and `-I` keeps a container's own
+    // PYTHONPATH away from the runner.
     \"\"\"
-    {launcher_name(step)} ${{data}} > ${{meta.id}}.measured.json
+    python3 -I "\\$(command -v {launcher_name(step)})" ${{data}} > "${{meta.id}}.measured.json"
     \"\"\"
 }}
 """
@@ -124,7 +132,8 @@ def _here(spelled):
 
 
 files = sys.argv[1:]
-codec = next((spec for ext, spec in CODECS.items()
+# The longest extension first, so `.tar.gz` would win over `.gz`.
+codec = next((CODECS[ext] for ext in sorted(CODECS, key=len, reverse=True)
               if files and all(name.endswith(ext) for name in files)), None)
 args = [_here(a) for a in ARGS] + (["--codec", _here(codec)] if codec else [])
 sys.exit(main(args + files))
@@ -154,7 +163,12 @@ def files(step: MeasureStep) -> dict[str, bytes]:
 
 
 def write(step: MeasureStep, folder: Path) -> None:
-    """Write the step's module folder; the launcher is executable."""
+    """Write the step's module folder afresh; the launcher is executable.
+
+    Cleared first, so a file an earlier version of a piece left behind is never staged,
+    digested and shipped: the folder is exactly `files(step)`."""
+    if folder.exists():
+        shutil.rmtree(folder)
     for name, data in files(step).items():
         path = folder / name
         path.parent.mkdir(parents=True, exist_ok=True)

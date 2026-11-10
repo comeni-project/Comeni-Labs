@@ -614,7 +614,7 @@ def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) 
         # value claiming a model settled it would certify that a model was there to settle it.
         # So a Spawn draft kept without this is *refused*, which is the check working. Task 6's
         # authoring service is what knows the configuration and supplies it.
-        stack.registry,
+        stack.routing,
         stack.vocabulary,
         stack.measurements,
         stack.paths,

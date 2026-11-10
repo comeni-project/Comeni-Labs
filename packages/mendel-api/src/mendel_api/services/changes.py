@@ -333,6 +333,6 @@ def describe(change: DecisionChange) -> str:
 
 def _process(stack, contract: str) -> str:
     try:
-        return stack.registry.get(contract).nf_process
+        return stack.routing.get(contract).nf_process
     except (KeyError, ValueError):
         return contract

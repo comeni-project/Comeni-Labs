@@ -33,7 +33,8 @@ def test_the_generated_module_conforms_to_its_contract():
 def test_the_process_runs_the_pinned_image():
     text = measure_module.files(FASTQ)["main.nf"].decode()
     assert "process MEASURE_FASTQ" in text and f"container '{RUNNER_IMAGE}'" in text
-    assert "comeni-measure-fastq ${data}" in text
+    # The launcher's mode bit does not survive a zip (Task 5 review): it is run by python3.
+    assert 'python3 -I "\\$(command -v comeni-measure-fastq)" ${data}' in text
 
 
 def test_a_build_wanting_a_measurement_emits_the_step():
@@ -91,3 +92,32 @@ def test_the_staged_launcher_measures_a_gzipped_pair_on_a_bare_python(tmp_path):
     report = json.loads(done.stdout)
     assert report["facts"]["paired"]["value"] is True, done.stderr
     assert report["facts"]["paired"]["coverage"] == "all"
+
+
+def test_a_restage_leaves_no_file_an_earlier_piece_left(tmp_path):
+    """Task 5 review: the folder is exactly the step's files, whatever was there before."""
+    built = _built()
+    steps = steps_for(built.layers.inspection, built.layers.registry)
+    stale = tmp_path / "modules/comeni/measure/fastq/resources/usr/bin/comeni_measure/old.py"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("x = 1\n")
+    staging.stage(built.pipeline, built.layers.modules, tmp_path, measuring=steps)
+    assert not stale.exists()
+
+
+def test_the_step_runs_without_the_launcher_s_mode_bit(tmp_path):
+    """What a zip does to it: 0644. The process runs the launcher through python3 anyway."""
+    files = measure_module.files(FASTQ)
+    for name, data in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        path.chmod(0o644)
+    pair = sorted((FIXTURES / "pair_150").glob("*.gz"))
+    launcher = tmp_path / "resources/usr/bin/comeni-measure-fastq"
+    done = subprocess.run([sys.executable, "-I", str(launcher), *map(str, pair)],
+                          capture_output=True, text=True,
+                          env={})
+    import json
+
+    assert json.loads(done.stdout)["facts"]["read_length"]["coverage"] == "all", done.stderr

@@ -12,7 +12,6 @@ from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.declared.layer import layer_name
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal
-from mendel_resolver.measure_steps import contracts_for
 from mendel_resolver.ports import AmbiguityResolver
 from mendel_resolver.resolve import resolve
 
@@ -93,7 +92,7 @@ def build(
 
     # The registry this build routes with: the layers' contracts and the generated measuring
     # steps (#465). Conformance above checks only what a layer declares.
-    routing = loaded.registry.with_contracts(contracts_for(loaded.inspection, loaded.registry))
+    routing = loaded.routing
     ir = resolve(
         goal,
         routing,
