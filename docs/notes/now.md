@@ -9,13 +9,13 @@ cites its entry; the long form is in [the archive](journal/archive/).
 ## Where the work is
 
 - **Task 14, step 14.7: walking the living pipeline with a real model.** The tree is #119.
-- **Part I (#293) of 14.7.8.3d** (Parts A–H done): I.0 (#307, the walks and the save file) and
-  I.1 (explain the inputs) are done; **I.2, say what was narrowed or already known** (#268's DE
-  and paired-end items, #306) is open; I.3, a conversation, became one builder plan 3. (10-26)
-- **One builder (#395):** plans 1 (structural intent) and 2 (no fork) are done. **Next is plan
-  3**, the chat as one stream and Describe: #392's protocol question first (what typed words may
-  change while the goal is gathered), then #391 and #399's findings. Plans 4 (the hand-over,
-  #393) and 5 (the file, #394) follow; 3 and 5 take mockups first. Also #357, #302. (10-22, 10-26)
+- **One builder (#395) plans 1–5 and Part I.2 (#293) are built** (journal 10-27, 10-28, not yet
+  compacted); their browser checks are #404. Also #357, #302. (10-22, 10-28)
+- **Tool constraints, phase 1 (#460) is merged** (PR #476): optional inputs, conditional
+  outputs, constraint rows; run rules checked at a run's start; a person or the model switches
+  an optional input (the `optional_input` decision). **Left:** browser checks of the forge
+  page, run sheet and step cards, then the QUAST walk to a real run (plan Task 17). (11-10)
+- **Walks run on GPT** through the ChatGPT subscription (#457), not local models. (11-10)
 - **All of it is on `main`** (PR #402, with a behaviour-preserving refactoring campaign). Left for
   an authorised behaviour pass: `SampleUpload.tsx`'s hook warning, Node under Vite's floor. (10-26)
 
@@ -102,7 +102,7 @@ cites its entry; the long form is in [the archive](journal/archive/).
   open. **The [live walk](../how-to/development/forge-live-walk.md) (#412) stopped at step 4;**
   findings are #420–#432. Redesign slices 1–6 landed (#445); #428/#431 have approved decisions
   and implemented fixes. #441 adds explicit, approved Family declarations in Vocabulary.
-  **Next:** resume live step 4 on the GPU machine. No redesign slice 7 is planned; MVPs 4–6 already have implementations. (11-03)
+  **Next:** resume live step 4, on GPT. No redesign slice 7 is planned; MVPs 4–6 already have implementations. (11-03)
 
 ## Wiener (run → watch)
 
