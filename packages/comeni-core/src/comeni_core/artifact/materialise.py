@@ -123,6 +123,7 @@ def of(
         # Availability comes from the caller; decisions alone cannot establish it.
         ai=_read_upstream(ai or AiProvenance(available=[], used=[]), ir.profile),
         steps=steps,
+        confirms=list(ir.confirms),
         channels=channels,
         input_form=_form(channels),
         decisions=list(ir.decisions),

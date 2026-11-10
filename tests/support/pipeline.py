@@ -140,6 +140,7 @@ SERIALISED_SHAPE = {
         "registry",
         "ai",
         "steps",
+        "confirms",
         "channels",
         "decisions",
         "emitted",

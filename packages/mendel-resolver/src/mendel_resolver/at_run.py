@@ -25,6 +25,7 @@ from comeni_core.logic.when import ABSENT, PRESENT, matches
 from comeni_core.plan.at_run import AtRun, AtRunOp, AtRunRow, AtRunStep, AtRunTest
 from comeni_core.plan.ir import PipelineIR
 
+from mendel_resolver.measure_steps import PREFIX
 from mendel_resolver.rules import Derivation, RuleTable
 from mendel_resolver.rules.format import Decision, FactRef, _comparison
 from mendel_resolver.rules.table import _visible
@@ -232,3 +233,43 @@ def lookup(need: Needed, rows: list[AtRunRow], measured_by: str, fallback, fallb
         fallback=fallback,
         fallback_reason=fallback_reason,
     )
+
+
+@dataclass(frozen=True)
+class Estimate:
+    """A `head` fact a build decision used, and which decisions."""
+
+    fact: str
+    value: object
+    used_by: tuple[str, ...]
+
+
+def estimates(ir: PipelineIR, registry: Registry, goal: Goal) -> list[Estimate]:
+    """Every fact read from part of the data (`coverage: head`) that a selection or a setting
+    of `ir` rested on, where a pipeline measurer of our code can read it in full from an input
+    the goal has. Sorted by fact (#465).
+
+    Only `by: code` measurers: a fact the server measured is one our code measures, and the
+    same code over all the data is the confirmation. A person's statement is not an estimate
+    and is never re-measured."""
+    have = {given.type_id for given in goal.have}
+    measurable = {
+        port.type_id.removeprefix("measurement.")
+        for contract in registry.all() if contract.id.startswith(PREFIX)
+        and contract.consumes and contract.consumes[0].type_id in have
+        and contract.provenance.source.startswith("generated from ")
+        for port in contract.produces
+    }
+    used: dict[str, tuple[object, set[str]]] = {}
+
+    def note(premises, where: str) -> None:
+        for premise in premises:
+            if premise.coverage == "head" and premise.id in measurable:
+                used.setdefault(premise.id, (premise.value, set()))[1].add(where)
+
+    for node in ir.nodes:
+        note(node.selection.premise, f"selection:{node.id}")
+        for binding in node.params:
+            note(binding.value.premise, f"setting:{node.id}.{binding.name}")
+    return [Estimate(fact, value, tuple(sorted(where)))
+            for fact, (value, where) in sorted(used.items())]

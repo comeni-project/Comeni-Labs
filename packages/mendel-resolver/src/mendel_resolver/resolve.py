@@ -23,7 +23,7 @@ from comeni_core.goal.asked import (
     SourcePin,
 )
 from comeni_core.goal.premise import PremiseRecord
-from comeni_core.plan.at_run import MetaAtRun
+from comeni_core.plan.at_run import Confirm, MetaAtRun
 from comeni_core.plan.decision import (
     DecisionRecord,
     FactDecision,
@@ -132,10 +132,13 @@ def resolve(
     answered = frozenset(record.key for record in prior
                          if getattr(record, "human_override", None) is not None)
     needs = at_run.needed(first, registry, rules, premises, measurements, goal, answered)
-    if not needs:
+    estimates = at_run.estimates(first, registry, goal)
+    if not needs and not estimates:
         return first
     facts = sorted({need.fact for need in needs})
-    wanted = [f"measurement.{fact}" for fact in facts if f"measurement.{fact}" not in goal.want]
+    measured = sorted({*facts, *(e.fact for e in estimates)})
+    wanted = [f"measurement.{fact}" for fact in measured
+              if f"measurement.{fact}" not in goal.want]
     widened = goal.model_copy(update={"want": [*goal.want, *wanted]})
     plan: dict[str, dict[str, at_run.Needed]] = {}
     for need in needs:
@@ -163,9 +166,14 @@ def resolve(
         fact: next(node for node in second.nodes
                    if f"measurement.{fact}" in {p.type_id for p in
                                                  registry.get(node.contract_id).produces})
-        for fact in facts
+        for fact in measured
     }
-    _name_the_measurers(second, {fact: node.contract_id for fact, node in measuring.items()})
+    second.confirms = [
+        Confirm(measurement=e.fact, estimate=e.value, measured_at=measuring[e.fact].id,
+                used_by=list(e.used_by))
+        for e in estimates
+    ]
+    _name_the_measurers(second, {fact: measuring[fact].contract_id for fact in facts})
     second.meta_at_run = [
         MetaAtRun(measurement=fact, meta_key=fact, type_id=measurements.get(fact).describes,
                   measured_at=measuring[fact].id, measured_port=fact)

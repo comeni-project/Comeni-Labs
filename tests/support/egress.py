@@ -146,6 +146,9 @@ FREE_TEXT_FIELDS = {
     # contract, the same authors as `reason`; nothing about a sample crosses with them.
     ("AtRun", "rule"),
     ("AtRun", "fallback_reason"),
+    # The decisions an estimate was used for, by key (`selection:<step>`), written by the
+    # resolver; read back when the run measures the fact in full (#465).
+    ("Confirm", "used_by"),
     # Tenth, Plan 1.14 Task 8, and the **first one that is genuinely new** rather than a
     # split of something already crossing. The nine above are written by a contract author, a
     # rule author, or the resolver. This one is written by *the person answering a tier-4

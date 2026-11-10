@@ -15,7 +15,7 @@ from comeni_core.declared.layered import Displacement
 from comeni_core.goal.asked import InputState, Site
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.goal.profile import DataProfile
-from comeni_core.plan.at_run import AtRun, MetaAtRun
+from comeni_core.plan.at_run import AtRun, Confirm, MetaAtRun
 from comeni_core.plan.decision import DecisionRecord
 from comeni_core.plan.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 from comeni_core.spell.marks import (
@@ -221,6 +221,9 @@ class PipelineIR(BaseModel):
 
     meta_at_run: list[MetaAtRun] = Field(default_factory=list, exclude_if=lambda m: not m)
     """Facts measured in the run and joined into an input's `meta` for a run-time setting."""
+
+    confirms: list[Confirm] = Field(default_factory=list, exclude_if=lambda c: not c)
+    """Estimates the build used, measured again over all the data in the run (#465)."""
 
     def needs_review(self) -> list[str]:
         """Return unresolved parameter, module-selection, and decision keys requiring review."""

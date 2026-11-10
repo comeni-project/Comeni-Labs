@@ -115,3 +115,21 @@ class MetaAtRun(BaseModel):
     """The step that measures it."""
     measured_port: PortName
     """That step's output carrying the fact."""
+
+
+class Confirm(BaseModel):
+    """An estimate a build decision rested on, measured again over all the data in the run.
+
+    A fact the server read from an upload's head (`coverage: head`) chose a tool or a setting;
+    the pipeline measures it in full. After the run, the two are compared: the same value is
+    confirmed, a different one is a disagreement naming every decision listed here (#465)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    measurement: MeasurementId
+    estimate: ParamValue | list[ParamValue]
+    measured_at: NodeId
+    """The step that measures it in full."""
+    used_by: list[Line]
+    """Sorted: `selection:<step>` for a tool chosen on it, `setting:<step>.<name>` for a
+    setting decided from it."""

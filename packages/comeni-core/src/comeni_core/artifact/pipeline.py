@@ -34,7 +34,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.egress.base import EgressPayload
 from comeni_core.goal.asked import Facts, Goal, Intent
 from comeni_core.goal.premise import PremiseRecord
-from comeni_core.plan.at_run import AtRun, MetaAtRun
+from comeni_core.plan.at_run import AtRun, Confirm, MetaAtRun
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.ir import InputRecord
 from comeni_core.plan.tiers import (
@@ -537,6 +537,9 @@ class Pipeline(EgressPayload):
     ai: AiProvenance = Field(default_factory=AiProvenance)
     """Recorded AI availability and usage for this build."""
     steps: list[Step] = Field(default_factory=list)
+    confirms: list[Confirm] = Field(default_factory=list, exclude_if=lambda c: not c)
+    """Estimates the build rested on, measured again over all the data in the run, each with
+    the decisions that used it: what the run's reading of the facts is compared against."""
     channels: list[Channel] = Field(default_factory=list)
     decisions: list[DecisionRecord] = Field(default_factory=list)
     emitted: Emitted | None = None

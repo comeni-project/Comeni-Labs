@@ -283,6 +283,8 @@ CARRIED_AS: dict[str, str] = {
     "ResolvedValue.at_run": "steps.settings.at_run",
     # The measured facts joined into an input's `meta`, on that input's channel.
     "PipelineIR.meta_at_run": "channels.meta_at_run",
+    # Estimates measured again in the run (#465), each with what it was used for.
+    "PipelineIR.confirms": "confirms",
     "ResolvedValue.tier": "steps.why.tier",
     "ResolvedValue.source": "steps.why.source",
     "ResolvedValue.reason": "steps.why.reason",
