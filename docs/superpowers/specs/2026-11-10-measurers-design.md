@@ -89,7 +89,7 @@ both runners, a decision made at run time, and a disagreement.
   #218. Here a disagreement is recorded, shown and flagged.
 - **The forge drafting measurers**, including parser code. A measurer is hand-written and
   reviewed in this part, and the forge imports the tool it uses (samtools faidx). This is
-  recorded on #465.
+  issue #487, part 5.1 of #463.
 - **A run-time decision over two or more run-time facts.** Facts known before the build are
   substituted into the table at build time, and at most one fact per decision is left for run
   time. A second one is refused with a code.
