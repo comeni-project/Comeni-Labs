@@ -175,7 +175,7 @@ runs: [pipeline]
 - The server's coverage is `all` when no file was capped, and `head` otherwise.
 - `Decision.coverage: all` (default unset): a premise with `head` coverage does not satisfy
   that decision before the build.
-- The reason says it: "read length is 150, measured on the first 4 MB".
+- The reason says it: "read_length is 150, measured on part of the data by fastq@1.1.0 + read_length@1.0.0".
 
 ### D. Run-time decisions
 

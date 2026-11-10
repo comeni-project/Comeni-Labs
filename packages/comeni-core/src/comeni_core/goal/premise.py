@@ -5,11 +5,9 @@ share it without an import cycle. ``PremiseOrigin`` describes evidence quality, 
 ``ValueSource`` describes who supplied a value.
 """
 
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict, Field
 
-from comeni_core.plan.tiers import PremiseOrigin
+from comeni_core.plan.tiers import Coverage, PremiseOrigin
 from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue, PieceRef
 
 
@@ -29,9 +27,7 @@ class PremiseRecord(BaseModel):
     """The profiling contract that measured the fact, when one did."""
     pieces: list[PieceRef] = Field(default_factory=list, exclude_if=lambda pieces: not pieces)
     """The inspector pieces that measured the fact, omitted when empty."""
-    coverage: Literal["head", "all"] | None = Field(
-        default=None, exclude_if=lambda coverage: coverage is None
-    )
+    coverage: Coverage | None = Field(default=None, exclude_if=lambda coverage: coverage is None)
     """How much of the data it was measured on, when a measurer read it (#465)."""
 
     def prose(self) -> str:

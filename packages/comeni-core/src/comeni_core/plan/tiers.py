@@ -76,6 +76,16 @@ class PremiseOrigin(StrEnum):
     """The measurement is known to be absent."""
 
 
+class Coverage(StrEnum):
+    """How much of the data a measured fact was read from (#465)."""
+
+    HEAD = "head"
+    """Part of it: an upload's first 4 MB, a file cut short, or reading stopped early. An
+    estimate."""
+    ALL = "all"
+    """All of it, every file read to its end."""
+
+
 class ReviewLevel(StrEnum):
     NONE = "none"
     ADVISORY = "advisory"

@@ -384,10 +384,13 @@ class RuleTable(BaseModel):
             for decision in self.decisions:
                 if key not in {target.key() for target in decision.targets()}:
                     continue
-                if any(matches(row.when, premises) for row in decision.rows):
+                # Under `coverage: all` an estimate is no premise: the rule misses and the
+                # person is asked, rather than the pick falling to priority (#465).
+                visible = _visible(decision, premises)
+                if any(matches(row.when, visible) for row in decision.rows):
                     continue
                 unknown = sorted(
-                    {fact for row in decision.rows for fact in row.when if fact not in premises}
+                    {fact for row in decision.rows for fact in row.when if fact not in visible}
                 )
                 return decision, unknown
         return None

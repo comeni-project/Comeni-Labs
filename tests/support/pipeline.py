@@ -192,9 +192,9 @@ SERIALISED_SHAPE = {
     ],
     # Watched since issue 233 added what measured a premise; the goal's `Measured` and
     # `Evidence` gained theirs in 14.7.6.3 within the same unreleased version.
-    "PremiseRecord": ["id", "value", "origin", "by", "pieces"],
+    "PremiseRecord": ["id", "value", "origin", "by", "pieces", "coverage"],
     "Measured": ["measurement", "value", "source", "by", "pieces", "evidence"],
-    "Evidence": ["records", "rows", "share"],
+    "Evidence": ["records", "rows", "share", "coverage"],
 }
 """The artifact's serialised field order, as of `SCHEMA_VERSION = 6`.
 

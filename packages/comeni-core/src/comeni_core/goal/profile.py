@@ -6,11 +6,9 @@ measurement declarations can construct profiles without depending on the resolve
 re-exports them for compatibility.
 """
 
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from comeni_core.plan.tiers import ValueSource
+from comeni_core.plan.tiers import Coverage, ValueSource
 from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue, PieceRef
 
 
@@ -23,9 +21,7 @@ class Evidence(BaseModel):
     rows: int | None = Field(default=None, ge=0, exclude_if=lambda count: count is None)
     share: float | None = Field(default=None, ge=0, le=1, exclude_if=lambda share: share is None)
     """Each value is serialized only when known."""
-    coverage: Literal["head", "all"] | None = Field(
-        default=None, exclude_if=lambda coverage: coverage is None
-    )
+    coverage: Coverage | None = Field(default=None, exclude_if=lambda coverage: coverage is None)
     """How much of the data was read (#465): `head`, part of it (an upload's first 4 MB, a cut
     file), or `all`. A rule that needs all of the data does not read a `head` fact."""
 
@@ -59,7 +55,7 @@ class Measured(BaseModel):
     evidence: Evidence | None = Field(default=None, exclude_if=lambda evidence: evidence is None)
 
     @property
-    def coverage(self) -> Literal["head", "all"] | None:
+    def coverage(self) -> Coverage | None:
         """How much of the data the measurer read; `None` for a value nothing measured."""
         return self.evidence.coverage if self.evidence is not None else None
 

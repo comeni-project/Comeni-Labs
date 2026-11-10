@@ -74,7 +74,7 @@ React with TypeScript.
   - CLI `python -m comeni_inspect.measure_cli --format DIR --measure DIR... --codec DIR? FILE...`
     or `--parser DIR FILE`, which writes a report JSON to stdout.
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - `test_core_imports_only_stdlib`: run `python -I -c "import comeni_inspect.core"` in a
     subprocess with `sys.modules` checked. Assert that `pydantic` was not imported.
   - `test_coverage_all_when_uncapped`: inspect `single_150` with a cap larger than the file.
@@ -88,22 +88,22 @@ React with TypeScript.
     coverage `all`.
   - `test_parser_that_raises_is_unreadable`: the report has `unreadable` set and the exit
     status is 0.
-- [ ] **Step 2: Run** `uv run pytest packages/comeni-inspect -q`.
+- [x] **Step 2: Run** `uv run pytest packages/comeni-inspect -q`.
   Expected: the new tests FAIL with an ImportError on `core`.
-- [ ] **Step 3: Move the logic.** `_inspect` and its helpers move into `core.py`, working on
+- [x] **Step 3: Move the logic.** `_inspect` and its helpers move into `core.py`, working on
   `Ref` and plain dicts. `run.inspect` adapts `wire.Request` to `core` and validates the result
   into `wire.Report`. `cap=None` means unbounded (`Capped` is skipped). Coverage is `"head"` if
   any limit capped, and `"all"` otherwise. `outcome.py` and `records.py` are already stdlib.
-- [ ] **Step 4: Write `measure_cli.py`.** It is stdlib only: `argparse`, a piece directory's
+- [x] **Step 4: Write `measure_cli.py`.** It is stdlib only: `argparse`, a piece directory's
   declaration read through a tiny YAML-free path, and `decided` passed as `--decided JSON`. The
   emitter passes everything on the command line, so the runner never parses YAML. It must
   never raise: any failure becomes an `unreadable` report.
-- [ ] **Step 5: Regenerate the golden reports.** Every report gains `coverage`. Use the
+- [x] **Step 5: Regenerate the golden reports.** Every report gains `coverage`. Use the
   `harness.run_case` one-liner from `registry/inspectors/README.md`, then read the diff: only
   `"coverage"` lines should be added.
-- [ ] **Step 6: Run** `uv run pytest packages/comeni-inspect registry/inspectors tests/registry/test_inspection_conformance.py -q`.
+- [x] **Step 6: Run** `uv run pytest packages/comeni-inspect registry/inspectors tests/registry/test_inspection_conformance.py -q`.
   Expected: PASS.
-- [ ] **Step 7: Commit:** `feat(inspect): a stdlib core, coverage, and a pipeline runner (#465)`.
+- [x] **Step 7: Commit:** `feat(inspect): a stdlib core, coverage, and a pipeline runner (#465)`.
   The golden reports are a registry change: carry them into Task 2's registry branch rather than
   committing them in the submodule. Here, commit the engine side only, and run the conformance
   test against the regenerated files in the working tree.
@@ -143,18 +143,18 @@ React with TypeScript.
   - `by: tool` with a `record`, or without `uses`/`output`;
   - `uses` not a contract in the stack, or `output` not one of its ports.
 
-- [ ] **Step 1: Write the failing tests.** One per refusal above, each asserting its code. Add
+- [x] **Step 1: Write the failing tests.** One per refusal above, each asserting its code. Add
   `test_code_measurer_loads` (the registry's `read_length` loads with
   `runs == ["server", "pipeline"]`).
-- [ ] **Step 2: Run** `uv run pytest packages/comeni-core/tests/declared/test_measurer.py -q`.
+- [x] **Step 2: Run** `uv run pytest packages/comeni-core/tests/declared/test_measurer.py -q`.
   Expected: FAIL (`Measurer` does not exist).
-- [ ] **Step 3: Implement.** Rename everywhere; use `grep -rn "MeasurePiece\|\.measures\b\|DeclaredKind.MEASURES"` and leave no hit. `declares: measure` becomes an unknown kind (MD0011). The `uses`/`output` checks run where the catalogue is validated against the registry (`inspection.py` near line 193, which already checks `measures` against measurement ids). Pass the registry in if needed.
-- [ ] **Step 4: Move the registry.** Make the changes on the `measurers` branch of
+- [x] **Step 3: Implement.** Rename everywhere; use `grep -rn "MeasurePiece\|\.measures\b\|DeclaredKind.MEASURES"` and leave no hit. `declares: measure` becomes an unknown kind (MD0011). The `uses`/`output` checks run where the catalogue is validated against the registry (`inspection.py` near line 193, which already checks `measures` against measurement ids). Pass the registry in if needed.
+- [x] **Step 4: Move the registry.** Make the changes on the `measurers` branch of
   `../comeni-registry` (use `git -C`), commit there, then move the submodule to it:
   `git -C registry fetch ../../comeni-registry measurers && git -C registry checkout FETCH_HEAD`.
-- [ ] **Step 5: Run** `uv run pytest packages/comeni-core packages/comeni-inspect registry/measurers tests/registry tests/guards -q`.
+- [x] **Step 5: Run** `uv run pytest packages/comeni-core packages/comeni-inspect registry/measurers tests/registry tests/guards -q`.
   Expected: PASS.
-- [ ] **Step 6: Commit** the engine side and the submodule pointer:
+- [x] **Step 6: Commit** the engine side and the submodule pointer:
   `feat(core): one measurer declaration (#465)`.
 
 ### Task 3: Profilers and `mendel profile` removed
@@ -174,15 +174,15 @@ React with TypeScript.
 - Produces `Measurer` in the index: `measurement`, `by` (`fastq@1.1.0 + read_length@1.0.0`, or
   `genome_length_fai@1.0.0 (nf-core/samtools/faidx@…)`), `runs: list[str]`, `trusted`.
 
-- [ ] **Step 1: Write the failing test.** `test_index_lists_runs`: with the registry,
+- [x] **Step 1: Write the failing test.** `test_index_lists_runs`: with the registry,
   `read_length`'s entry has `runs == ["server", "pipeline"]`, and no entry has a `kind`.
-- [ ] **Step 2: Run it.** Expected: FAIL.
-- [ ] **Step 3: Implement the deletions and the index change.** Then run
+- [x] **Step 2: Run it.** Expected: FAIL.
+- [x] **Step 3: Implement the deletions and the index change.** Then run
   `grep -rn "profiling_goal\|profile\.yml\|\"profile\"" packages` and leave only unrelated hits
   (Nextflow `-profile` is unrelated).
-- [ ] **Step 4: Run** `uv run pytest tests/api/test_measurer_index.py packages/mendel-compiler -q`,
+- [x] **Step 4: Run** `uv run pytest tests/api/test_measurer_index.py packages/mendel-compiler -q`,
   then `make test` once. Expected: PASS.
-- [ ] **Step 5: Commit** (engine, and the registry branch with the submodule pointer):
+- [x] **Step 5: Commit** (engine, and the registry branch with the submodule pointer):
   `refactor: profilers and mendel profile removed; measurers replace them (#465)`.
 
 ### Task 4: Coverage on facts, and `coverage: all` on decisions
@@ -215,7 +215,7 @@ React with TypeScript.
   `ParamContext` and to `build_premises`'s result. Rule on the exact carrier when you read
   `premises.py`, and ledger it.
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - `test_head_premise_does_not_satisfy_coverage_all`: a decision with `coverage: all` and a
     row on `read_length >= 70`, a `head` premise of 150 → `value_for` is `None`.
   - `test_all_premise_satisfies`: the same with coverage `all` → it pins.
@@ -224,12 +224,12 @@ React with TypeScript.
   - `test_prose_head`.
   - `test_coverage_stored` (DB): inspecting an uploaded capped file stores `head`, and the
     goal's `Measured` carries it.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement**, including the migration
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement**, including the migration
   (`uv run alembic -c packages/mendel-api/alembic.ini revision -m "observation coverage"`, or
   follow the repo's migration command in `packages/mendel-api`).
-- [ ] **Step 4: Run** the pure tests, then `make test` once. Expected: PASS.
-- [ ] **Step 5: Commit:** `feat: facts record their coverage; decisions may require all of the data (#465)`.
+- [x] **Step 4: Run** the pure tests, then `make test` once. Expected: PASS.
+- [x] **Step 5: Commit:** `feat: facts record their coverage; decisions may require all of the data (#465)`.
 
 ### Task 5: Pipeline measurers as synthetic contracts, with a generated module
 
@@ -560,4 +560,23 @@ Close #465 and #217 with their commits.
 
 ## Deviations
 
-(Filled in during execution.)
+- **Task 1.** Codecs take a byte stream (`open(stream)`), not bytes, so the pipeline never holds a
+  whole file in memory. `FileHead.whole` was added, because the browser sends only the first 4 MB
+  and an uncapped head is not the whole file. Coverage is `all` only when every file was read to
+  its end: a cut gzip, a stop at a malformed record or a pair's unread tail is `head` (review). A
+  parser's report is keyed by the measurer id. Deferred: an uncompressed whole file cut mid-record
+  still reads `all`, because the format ends quietly on a partial record.
+- **Task 2.** MD0326 (shape) refuses at load. MD0327 (tool or port missing) drops the measurer, as
+  MD0317 does, after the registry is assembled. The registry branch lives in the worktree
+  `../comeni-registry-measurers`. `runs` is canonical (sorted, once each).
+- **Task 3.** The index tests stayed in `packages/mendel-api/tests/authoring/samples/test_measurers.py`.
+  `tests/emit/test_profiling.py` and `make profile` went with the verb. `fires_on: profile` was
+  dropped from every diagnostic.
+- **Task 4.** Coverage rides on `Evidence` (a `Coverage` enum) and on the session `Fact` /
+  `InspectedFact`, not on a new observation column; the stored shapes moved by identity
+  upgraders (`d4a7c2e9b815_measured_coverage`). An asserted premise satisfies `coverage: all`. A
+  derived fact inherits `head`. The prose reads "measured on part of the data". The browser sends
+  `sizes`. `unapplied_implementation` honours `coverage: all`, so a miss is asked (review).
+  Ruling: a `head` fact read only by `coverage: all` implementation or presence decisions is not
+  reopened as a gap; that decision misses and is asked at tier 4, and a param decision is decided
+  at run time from Task 6.

@@ -810,7 +810,7 @@
           }
         },
         "additionalProperties": false,
-        "description": "A typed property that a goal may assert or a profiling contract may measure.",
+        "description": "A typed property that a goal may assert or a measurer may measure.",
         "properties": {
           "id": {
             "title": "Id",
@@ -1258,6 +1258,19 @@
             ],
             "title": "Hit",
             "type": "string"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "const": "all",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage"
           },
           "rows": {
             "items": {

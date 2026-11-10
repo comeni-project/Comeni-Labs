@@ -1211,3 +1211,22 @@ def test_coverage_is_left_out_of_the_dump_when_unset(world):
 def test_effects_respect_coverage_all(world):
     table = _rules(world, _coverage_table("all"))
     assert table.effects_for(_read(150, "head")) == []
+
+
+def test_an_implementation_rule_needing_all_the_data_misses_on_an_estimate(world):
+    """Task 4 review: the miss is asked of the person, never settled by priority (#174)."""
+    table = _rules(world, """
+version: 1
+decisions:
+  - decides: {effect: implementation, of: quantification}
+    coverage: all
+    because: "a fixture"
+    rows:
+      - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.1.1}
+      - {when: {read_length: "< 70"}, then: nf-core/subread/featurecounts@2.1.1}
+""")
+    head = _read(150, "head")
+    assert table.implementation_for("quantification", head) is None
+    missed = table.unapplied_implementation(["quantification"], head)
+    assert missed is not None and missed[1] == ["read_length"]
+    assert table.unapplied_implementation(["quantification"], _read(150, "all")) is None
