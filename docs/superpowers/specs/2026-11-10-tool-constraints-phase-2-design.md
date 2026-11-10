@@ -110,12 +110,13 @@ what each needs that a contract cannot say today. Two findings set this phase:
 - **Syntax:** `type.<port>: <type id>` or `type.<port>: [<type id>, …]`, in a constraint's
   `when`, a group's `when` and `produced_when`. Load-time validation (`MD0602`) refuses a port
   that does not exist and a type that is not that port's `type_id` or one of its `accepts`.
-- **Recording:** `StepInput.type_id`, the type of the source routing connected (the value
-  `_source_for` already returns, or the goal input's type for an entry channel). It is sorted
-  and serialised like the other fields. `pipeline_authoring_turn` and `SERIALISED_SHAPE`
-  change as phase 1's did.
+- **Recording:** none new. The resolver already writes the matched alternative on each
+  `IREdge.type_id`. For a port fed by an entry channel, the type is the first alternative the
+  goal's `have` satisfies. *My call:* `pipeline.yml` gains no field, because constraints are
+  settled at resolution and none holds at run time.
 - **Evaluation:** `Setup` gains `types: dict[str, str]`. `_facts` adds `type.<port>` for each
-  port that is on. The resolver passes the recorded types when it checks constraints after
+  port that is on. The resolver wires a step's sources before checking its constraints, and
+  passes their types when it checks constraints after
   resolution, so phase 1's "switch on by need" turns on salmon's `transcript_fasta` for BAM
   reads.
 - **Run time:** none. A port's type is fixed at build time, so no type fact holds at run time.
@@ -125,7 +126,7 @@ what each needs that a contract cannot say today. Two findings set this phase:
 - `check_constraints` enumerates, for each port with `accepts`, its type id and each
   alternative, in the product with the optional inputs and params. `SETUP_BOUND` and `MD0607`
   still apply.
-- **New `MD0608`:** for an accepted type of a port, no combination is valid. For example,
+- **New `MD0612`:** for an accepted type of a port, no combination is valid. For example,
   "salmon: with `reads` as `alignment.bam`, no combination of inputs satisfies its
   constraints". This is the *gap* check. An *overlap*, two rows that contradict for the same
   type, has no valid setup either, so it is caught the same way.
@@ -140,7 +141,7 @@ what each needs that a contract cannot say today. Two findings set this phase:
 - Forge drafting reads `meta.yml` patterns. When an input's pattern lists several formats
   that map to different vocabulary types, the draft proposes `accepts`. A type the vocabulary
   lacks becomes a vocabulary question (#441), never an invented id.
-- Forge checks run `check_constraints` (so `MD0608` reaches the draft's findings). Forge tests
+- Forge checks run `check_constraints` (so `MD0612` reaches the draft's findings). Forge tests
   may leave out a port in a shared slot (extending #470's fix).
 
 ### F. The builder (`mendel-api`, `frontend`)
@@ -170,8 +171,6 @@ parts 2–5 (operator, 2026-11-10).
 
 - How the reorder `.map` is spelled, as long as the emitted tuple order is pinned by tests.
 - Diagnostic wording, following `docs/design/voice.md`.
-- Whether `StepInput.type_id` is omitted when it equals the port's own `type_id`, as long as
-  the digest is stable.
 
 ## Appendix: the module survey (2026-11-10)
 
