@@ -843,3 +843,10 @@ decisions:
 """
     with pytest.raises((RuleValidationError, ValueError), match="fact"):
         _rules(world, choosing)
+
+
+def test_a_derived_fact_must_fit_the_domain_too(world):
+    """A `number` derivation into an integer setting, refused once derivations are known."""
+    as_number = FROM_FACT.replace("{fact: s_level, kind: integer,", "{fact: s_level, kind: number,")
+    with pytest.raises(RuleValidationError, match="(?s)MD0300.*s_level"):
+        _rules(world, as_number)

@@ -143,12 +143,15 @@ def _validate_target(
 
 
 def _fact_fits(ref: "FactRef", domain, target: DecisionTarget, path: Path,
-               measurements: MeasurementRegistry) -> None:
-    """MD0300 when a measured fact's kind cannot be the setting's value (#461). A derived
-    fact's kind is checked where derivations are known, after the stack."""
-    if domain is None or ref.fact not in measurements.ids():
+               measurements: MeasurementRegistry, *, kind: "MeasurementKind | None" = None) -> None:
+    """MD0300 when a fact's kind cannot be the setting's value (#461): a measured fact's from
+    its declaration, a derived fact's passed in once derivations are known (after the stack)."""
+    if kind is None:
+        if ref.fact not in measurements.ids():
+            return
+        kind = measurements.get(ref.fact).kind
+    if domain is None:
         return
-    kind = measurements.get(ref.fact).kind
     fits = {"integer": {MeasurementKind.INTEGER},
             "number": {MeasurementKind.INTEGER, MeasurementKind.NUMBER},
             "boolean": {MeasurementKind.BOOLEAN},
@@ -156,8 +159,8 @@ def _fact_fits(ref: "FactRef", domain, target: DecisionTarget, path: Path,
     if kind not in fits:
         raise RuleValidationError(coded(
             "MD0300", f"{path}, decision {target.key()}\n"
-            f"  `then: {{fact: {ref.fact}}}` is a {kind}, and {target.name!r} takes a "
-            f"{domain.kind}: the tool would receive a value its flag does not accept."))
+            f"  `then: {{fact: {ref.fact}}}` is {kind}, and {target.name!r} takes "
+            f"{domain.kind} values: the tool would receive a value its flag does not accept."))
 
 
 def _domain_of(

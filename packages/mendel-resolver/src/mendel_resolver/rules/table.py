@@ -50,6 +50,8 @@ from mendel_resolver.rules.format import (
 from mendel_resolver.rules.validate import (
     _check_exhaustive,
     _check_when,
+    _domain_of,
+    _fact_fits,
     _fillers_by_role,
     _validate,
 )
@@ -170,7 +172,23 @@ class RuleTable(BaseModel):
         # accident of which one `stack()` reached first. Same reason `roles.check` runs after
         # the registry is assembled rather than inside `Registry.kind`'s parse.
         table.check_premise_names(measurements)
+        table.check_fact_kinds(registry, measurements)
         return table
+
+    def check_fact_kinds(self, registry: Registry, measurements: MeasurementRegistry) -> None:
+        """A derived fact a setting takes (`then: {fact:}`) fits that setting's domain (#461).
+        After the stack, where every derivation is known; a measured one is checked per file."""
+        kinds = {d.fact: d.kind for d in self.derivations}
+        fillers = _fillers_by_role(registry)
+        for decision in self.decisions:
+            for target in decision.targets():
+                if target.effect is not Effect.PARAM:
+                    continue
+                for row in decision.rows:
+                    if isinstance(row.then, FactRef) and row.then.fact in kinds:
+                        _fact_fits(row.then, _domain_of(target, registry, fillers), target,
+                                   Path("rules"), measurements,
+                                   kind=kinds[row.then.fact])
 
     def check_premise_names(self, measurements: MeasurementRegistry) -> None:
         """Every `when` key across the table names a premise something supplies.
