@@ -141,6 +141,11 @@ FREE_TEXT_FIELDS = {
     # `reason` does. Nothing newly crosses; one thing that already crossed is now legible.
     ("ResolvedValue", "axis_reason"),
     ("Why", "axis_reason"),
+    # A setting decided at run time (#217): the decision it compiles, named by its key, and
+    # why its fallback is the value it is. Both are written by the resolver from a rule and a
+    # contract, the same authors as `reason`; nothing about a sample crosses with them.
+    ("AtRun", "rule"),
+    ("AtRun", "fallback_reason"),
     # Tenth, Plan 1.14 Task 8, and the **first one that is genuinely new** rather than a
     # split of something already crossing. The nine above are written by a contract author, a
     # rule author, or the resolver. This one is written by *the person answering a tier-4

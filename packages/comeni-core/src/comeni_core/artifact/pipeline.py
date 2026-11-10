@@ -34,6 +34,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.egress.base import EgressPayload
 from comeni_core.goal.asked import Facts, Goal, Intent
 from comeni_core.goal.premise import PremiseRecord
+from comeni_core.plan.at_run import AtRun, MetaAtRun
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.ir import InputRecord
 from comeni_core.plan.tiers import (
@@ -179,6 +180,9 @@ class Setting(BaseModel):
     key: ExtKey | None = None
     template: NfTemplate | None = None
     why: Why
+    at_run: AtRun | None = Field(default=None, exclude_if=lambda at_run: at_run is None)
+    """Decided at run time (#217): the lookup the pipeline runs over a measured fact. `value`
+    is then the fallback, used when the fact is undetermined or no row matches."""
 
     @model_validator(mode="after")
     def _a_raw_ext_value_cannot_be_groovy(self) -> "Setting":
@@ -418,6 +422,9 @@ class Channel(BaseModel):
     """Each run may supply this input or leave it empty (#460). True only when every step it
     feeds has it as an optional input."""
     absent_width: int = Field(default=0, exclude_if=lambda width: not width)
+    meta_at_run: list[MetaAtRun] = Field(default_factory=list, exclude_if=lambda m: not m)
+    """Facts the run measures on this input and joins into its `meta` (#217): the step that
+    measures each, and the key a run-time setting reads."""
     """The empty tuple's width passed when a run leaves this input empty."""
 
     @model_validator(mode="after")

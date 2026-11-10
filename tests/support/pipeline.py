@@ -161,7 +161,7 @@ SERIALISED_SHAPE = {
         "run_rules",
     ],
     "ExtArgs": ["template", "why"],
-    "Setting": ["name", "value", "via", "key", "template", "why"],
+    "Setting": ["name", "value", "via", "key", "template", "why", "at_run"],
     "Why": [
         "tier",
         "source",

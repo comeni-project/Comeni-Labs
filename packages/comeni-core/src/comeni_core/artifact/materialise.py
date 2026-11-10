@@ -227,6 +227,7 @@ def _settings(node: IRNode, contract: ModuleContract) -> list[Setting]:
             key=routes[binding.name].key,
             template=routes[binding.name].template,
             why=_why(binding.value),
+            at_run=binding.value.at_run,
         )
         for binding in sorted(node.params, key=lambda b: b.name)
     ]
@@ -479,6 +480,9 @@ def _channels(
                     for key in sorted(sourced)
                 ],
                 test_data=[declared] if isinstance(declared, str) else list(declared or []),
+                # Facts the run measures on this input, for a run-time setting (#217).
+                meta_at_run=sorted((m for m in ir.meta_at_run if m.type_id == type_id),
+                                   key=lambda m: m.measurement),
             )
         )
     return channels

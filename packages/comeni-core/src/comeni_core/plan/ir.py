@@ -15,6 +15,7 @@ from comeni_core.declared.layered import Displacement
 from comeni_core.goal.asked import InputState, Site
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.goal.profile import DataProfile
+from comeni_core.plan.at_run import AtRun, MetaAtRun
 from comeni_core.plan.decision import DecisionRecord
 from comeni_core.plan.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 from comeni_core.spell.marks import (
@@ -66,6 +67,10 @@ class ResolvedValue(BaseModel):
 
     displaced_layer: LayerName | None = None
     """Lower layer displaced by this value, when an overlay changed an existing route."""
+
+    at_run: AtRun | None = Field(default=None, exclude_if=lambda at_run: at_run is None)
+    """For a setting decided at run time (#217): the lookup the pipeline runs over a measured
+    fact. `value` is then the fallback."""
 
     @computed_field
     @property
@@ -213,6 +218,9 @@ class PipelineIR(BaseModel):
 
     unverified: list[ContractId] = Field(default_factory=list)
     """Contracts whose module source was unavailable for conformance checking."""
+
+    meta_at_run: list[MetaAtRun] = Field(default_factory=list, exclude_if=lambda m: not m)
+    """Facts measured in the run and joined into an input's `meta` for a run-time setting."""
 
     def needs_review(self) -> list[str]:
         """Return unresolved parameter, module-selection, and decision keys requiring review."""

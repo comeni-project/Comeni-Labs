@@ -279,6 +279,10 @@ CARRIED_AS: dict[str, str] = {
     "IREdge.states": "steps.inputs.states",
     "ParamBinding.name": "steps.settings.name",
     "ResolvedValue.value": "steps.settings.value",
+    # A setting decided at run time (#217): its lookup, beside the setting it decides.
+    "ResolvedValue.at_run": "steps.settings.at_run",
+    # The measured facts joined into an input's `meta`, on that input's channel.
+    "PipelineIR.meta_at_run": "channels.meta_at_run",
     "ResolvedValue.tier": "steps.why.tier",
     "ResolvedValue.source": "steps.why.source",
     "ResolvedValue.reason": "steps.why.reason",

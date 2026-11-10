@@ -44,6 +44,10 @@ _PIPELINE_MODELS = frozenset(
     {
         "Pipeline",
         "Step",
+        "AtRun",
+        "AtRunRow",
+        "AtRunStep",
+        "MetaAtRun",
         "StepInput",
         "Setting",
         "CallArg",

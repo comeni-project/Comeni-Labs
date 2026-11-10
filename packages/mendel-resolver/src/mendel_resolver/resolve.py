@@ -22,6 +22,8 @@ from comeni_core.goal.asked import (
     RoleAbsence,
     SourcePin,
 )
+from comeni_core.goal.premise import PremiseRecord
+from comeni_core.plan.at_run import MetaAtRun
 from comeni_core.plan.decision import (
     DecisionRecord,
     FactDecision,
@@ -31,8 +33,9 @@ from comeni_core.plan.decision import (
     SourceDecision,
 )
 from comeni_core.plan.ir import EntryType, IREdge, IRNode, PipelineIR, ResolvedValue, Tier
-from comeni_core.plan.tiers import ValueSource
+from comeni_core.plan.tiers import PremiseOrigin, ValueSource
 
+from mendel_resolver import at_run
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 from mendel_resolver.premises import Premise, build_premises
@@ -60,6 +63,11 @@ class ParamContext:
     premises: Mapping[str, Premise]
     resolver: AmbiguityResolver
     backed: Mapping[str, object]
+    measurements: MeasurementRegistry | None = None
+    at_run: "Mapping[str, at_run.Needed]" = None  # type: ignore[assignment]
+    """This node's settings to decide at run time, by parameter name (#217)."""
+    measured_by: Mapping[str, str] = None  # type: ignore[assignment]
+    """Each run-time fact's measuring step, by fact."""
 
 
 def _constraints_hold(contract: ModuleContract, node: IRNode,
@@ -109,6 +117,62 @@ def resolve(
     layer_names: Sequence[str] = (),
     prior: Sequence[DecisionRecord] = (),
     facts_read: Mapping[str, frozenset[str] | None] | None = None,
+) -> PipelineIR:
+    """Resolve ``goal`` against one loaded registry stack, deciding at run time the settings
+    whose rule waits on a fact only the pipeline can measure (#217).
+
+    Once, as always; and when such a setting exists, again with the measurements wanted too, so
+    the steps that measure them join the graph. The second graph must hold the first one
+    whole: measuring adds steps, it never moves one. See `_resolve_once` for the rest.
+    """
+    args = dict(vocabulary=vocabulary, resolver=resolver, layer_names=layer_names,
+                prior=prior, facts_read=facts_read)
+    first = _resolve_once(goal, registry, rules, measurements, **args)
+    premises = build_premises(goal=goal, derivations=rules.derivations,
+                              measurements=measurements)
+    needs = at_run.needed(first, registry, rules, premises, measurements, goal)
+    if not needs:
+        return first
+    facts = sorted({need.fact for need in needs})
+    wanted = [f"measurement.{fact}" for fact in facts if f"measurement.{fact}" not in goal.want]
+    widened = goal.model_copy(update={"want": [*goal.want, *wanted]})
+    plan: dict[str, dict[str, at_run.Needed]] = {}
+    for need in needs:
+        plan.setdefault(need.node_id, {})[need.param] = need
+    measured_by = {fact: sorted(c.id for c in registry.producers_of(
+        f"measurement.{fact}", frozenset()))[0] for fact in facts}
+    second = _resolve_once(widened, registry, rules, measurements, at_run_plan=plan,
+                           measured_by=measured_by, **args)
+    kept = {node.id: node.contract_id for node in second.nodes}
+    moved = [n.id for n in first.nodes if kept.get(n.id) != n.contract_id]
+    edges = {edge.model_dump_json() for edge in second.edges}
+    if moved or not {edge.model_dump_json() for edge in first.edges} <= edges:
+        raise RuntimeError(
+            f"routing again to measure {', '.join(facts)} moved {moved or 'an edge'}: measuring "
+            "may add steps to a pipeline and never change one")
+    second.meta_at_run = [
+        MetaAtRun(measurement=fact, meta_key=fact, type_id=measurements.get(fact).describes,
+                  measured_at=next(n.id for n in second.nodes
+                                   if n.contract_id == measured_by[fact]),
+                  measured_port=fact)
+        for fact in facts
+    ]
+    return second
+
+
+def _resolve_once(
+    goal: Goal,
+    registry: Registry,
+    rules: RuleTable,
+    measurements: MeasurementRegistry,
+    *,
+    vocabulary: Vocabulary,
+    resolver: AmbiguityResolver | None = None,
+    layer_names: Sequence[str] = (),
+    prior: Sequence[DecisionRecord] = (),
+    facts_read: Mapping[str, frozenset[str] | None] | None = None,
+    at_run_plan: Mapping[str, Mapping[str, "at_run.Needed"]] | None = None,
+    measured_by: Mapping[str, str] | None = None,
 ) -> PipelineIR:
     """Resolve ``goal`` against one loaded registry stack.
 
@@ -244,6 +308,9 @@ def resolve(
             premises=premises,
             resolver=resolver,
             backed=backed,
+            measurements=measurements,
+            at_run=(at_run_plan or {}).get(step.node_id, {}),
+            measured_by=measured_by or {},
         )
         for param in contract.params:
             value, decision = _resolve_param(param, context)
@@ -535,6 +602,15 @@ def _resolve_param(
             displaced_layer=pin.displaced_layer,
         ), None
 
+    # Decided at run time (#217): the rule waits on a fact the pipeline measures, and is
+    # compiled into a lookup over it. Between tier 3 and tier 2, because it *is* the rule,
+    # decided later; the lower tiers become its fallback.
+    need = (context.at_run or {}).get(param.name)
+    if need is not None:
+        decided = _at_run(param, context, need)
+        if decided is not None:
+            return decided
+
     # Tier 2 — a documented default exists for this context.
     if param.default is not None:
         # The *document*, and the layer that wrote it. Both were missing: the reason was
@@ -554,6 +630,36 @@ def _resolve_param(
     # it is None. Real alternatives arrive with the rule-tables spec, which gives a parameter
     # a declared domain to draw them from.
     return _ask(param, context, [None])
+
+
+def _at_run(
+    param: Param, context: ParamContext, need: "at_run.Needed"
+) -> tuple[ResolvedValue, ParamDecision | None] | None:
+    """The setting as a lookup over a measured fact, or `None` when its rows cannot be one."""
+    rows = at_run.rows_of(need.decision, need.fact, context.premises, context.rules,
+                          context.measurements)
+    if rows is None:
+        return None
+    # The fallback: what the setting is without the rule, used when the fact comes back
+    # undetermined or no row matches. A default, or a question a person answers now.
+    if param.default is not None:
+        fallback, why, decision = param.default, param.because or "the contract's default", None
+    else:
+        asked, decision = _ask(param, context, [None])
+        fallback, why = asked.value, asked.reason
+    measured_by = context.measured_by[need.fact]
+    lookup = at_run.lookup(need, rows, measured_by, fallback, why)
+    return ResolvedValue(
+        value=fallback,
+        tier=Tier.DATA_PROFILED,
+        source=ValueSource.RESOLVER,
+        reason=(f"decided at run time by rule {need.decision.key()} from {need.fact}, measured "
+                f"in the pipeline by {measured_by}; if it cannot be measured, {fallback}"),
+        premise=[PremiseRecord(id=need.fact, value=None, origin=PremiseOrigin.UNMEASURED,
+                               by=measured_by)],
+        axis_reason=need.decision.because or "",
+        at_run=lookup,
+    ), decision
 
 
 def _ask(

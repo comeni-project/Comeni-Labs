@@ -283,6 +283,21 @@ class RuleTable(BaseModel):
             return None  # a tie: `ties_for` names it, and the resolver asks
         return pins[0] if pins else None
 
+    def decision_for(self, roles: Sequence[str], param: str,
+                     implementation: str | None = None) -> "Decision | None":
+        """The decision that settles `param` on a node filling any of `roles`, whatever the
+        premises: roles in declared order, as `value_for` tries them (#217)."""
+        for role in roles:
+            key = f"{Effect.PARAM}:{role}:{param}"
+            for decision in self.decisions:
+                targets = [t for t in decision.targets() if t.key() == key]
+                if not targets:
+                    continue
+                narrowed = targets[0].when_implementation
+                if not narrowed or implementation is None or implementation in narrowed:
+                    return decision
+        return None
+
     def ties_for(self, roles: Sequence[str], param: str, premises: "dict[str, object]", *,
                  implementation: str | None = None) -> list[Pin]:
         """Under `hit: unique`, the rows that all match for `param` here, when more than one
