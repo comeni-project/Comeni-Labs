@@ -55,6 +55,7 @@ from mendel_resolver.rules.validate import (
     _fact_fits,
     _fillers_by_role,
     _validate,
+    check_table,
 )
 
 
@@ -222,6 +223,10 @@ class RuleTable(BaseModel):
             # an enum, so a table exhaustive against the base layer alone is not exhaustive
             # against the stack it will actually run under. Checking per file would pass it.
             _check_exhaustive(decision, where, measurements=measurements)
+            findings = check_table(decision, measurements=measurements,
+                                   derived={d.fact: d.kind for d in self.derivations})
+            if findings:
+                raise RuleValidationError(findings[0])
 
     def _no_target_is_decided_twice(self) -> None:
         """No two decisions in the assembled table land on the same target.

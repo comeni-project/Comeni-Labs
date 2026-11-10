@@ -149,15 +149,15 @@ decisions:
   - decides: {effect: param, of: quantification, name: strandedness}
     because: "a fixture; MD0301 requires every row to justify something"
     rows:
-      - {when: {strandedness: reverse}, then: 2}
-      - {when: {strandedness: reverse}, then: 1}
-      # The other two branches exist only to satisfy MD0311 — the point under test is that
-      # the *first* matching row wins, which needs two rows that both match.
-      - {when: {strandedness: forward}, then: 1}
-      - {when: {strandedness: unstranded}, then: 0}
+      # Overlapping, not repeated: a repeated row is dead and refused (MD0323, #461). The point
+      # under test is that where two rows match, the *first* wins.
+      - {when: {read_length: ">= 100"}, then: 2}
+      - {when: {read_length: ">= 50"}, then: 1}
+      - {when: {read_length: "< 50"}, then: 0}
 """)
-    pin = table.value_for(["quantification"], "strandedness", P(strandedness="reverse"))
+    pin = table.value_for(["quantification"], "strandedness", P(read_length=150))
     assert pin.value == 2, "the first matching row wins, not the last"
+    assert table.value_for(["quantification"], "strandedness", P(read_length=75)).value == 1
 
 
 def test_a_comparison_string_works(world):
@@ -168,15 +168,17 @@ decisions:
     because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {read_length: ">= 70", strandedness: reverse}, then: 2}
+      # The rest of the cases, so the table is complete (MD0311 over several facts, #461).
+      - {when: {read_length: "< 70"}, then: 0}
+      - {when: {strandedness: {not: reverse}}, then: 0}
 """)
     assert table.value_for(
         ["quantification"], "strandedness", P(read_length=150, strandedness="reverse")
-    )
+    ).value == 2
     assert (
         table.value_for(
             ["quantification"], "strandedness", P(read_length=50, strandedness="reverse")
-        )
-        is None
+        ).value == 0
     )
 
 
@@ -633,19 +635,15 @@ def test_a_catch_all_is_still_exhaustive(two_roles):
     assert len(table.decisions) == 1
 
 
-def test_rows_over_several_premises_are_not_checked_for_completeness(two_roles):
-    """Deliberately out of scope rather than approximated.
-
-    Completeness over a *product* of domains is a different and much larger claim, and a
-    check that half-computed it would refuse legitimate tables — which is worse than not
-    checking, because the author cannot argue with it. Recorded here so the gap is a
-    decision rather than an oversight.
-    """
-    table = _rules(two_roles, _decision(
-        f'      - {{when: {{read_length: ">= 70", strandedness: reverse}}, then: {STAR}, '
-        f'cite: "a"}}'
-    ))
-    assert len(table.decisions) == 1
+def test_rows_over_several_premises_are_checked_for_completeness(two_roles):
+    """#461 reverses the earlier decision to leave this out. The check is exact, not an
+    approximation: comparisons only cut an ordered fact at their literals, so one point in each
+    interval and at each literal tries every case, and an enum's values are finite."""
+    with pytest.raises(RuleValidationError, match="MD0311"):
+        _rules(two_roles, _decision(
+            f'      - {{when: {{read_length: ">= 70", strandedness: reverse}}, then: {STAR}, '
+            f'cite: "a"}}'
+        ))
 
 
 # Parameter domains and type-checking of ``then`` values.
@@ -863,6 +861,7 @@ decisions:
     rows:
       - {when: {read_length: ">= 100"}, then: 1}
       - {when: {strandedness: reverse}, then: 2}
+      - {when: {read_length: "< 100", strandedness: {not: reverse}}, then: 0}
 """
 
 
@@ -962,3 +961,72 @@ def test_an_answer_outside_a_tie_is_not_taken(world):
     [asked] = [d for d in ir.decisions if isinstance(d, ParamDecision)
                and d.subject == "strandedness"]
     assert asked.chosen is None
+
+
+# ── table checks over several facts (#461) ────────────────────────────────────────────────
+
+
+def _paired(world):
+    (world["layer"] / "measurements" / "paired.yml").write_text(
+        _declared(world["layer"] / "measurements" / "paired.yml", "kind: boolean\n"))
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
+    return world
+
+
+def _table(rows: str, hit: str = "first") -> str:
+    return ("version: 1\ndecisions:\n"
+            "  - decides: {effect: param, of: quantification, name: strandedness}\n"
+            f"    hit: {hit}\n    cite: \"a fixture\"\n    rows:\n{rows}")
+
+
+def test_a_two_fact_table_with_a_gap_is_refused(world):
+    rows = ('      - {when: {read_length: ">= 100", paired: true}, then: 0}\n'
+            '      - {when: {read_length: "< 100", paired: true}, then: 1}\n'
+            '      - {when: {read_length: ">= 100", paired: false}, then: 2}\n')
+    with pytest.raises(RuleValidationError, match="(?s)MD0311.*paired.*False"):
+        _rules(_paired(world), _table(rows))
+
+
+def test_a_two_fact_table_that_covers_every_case_loads(world):
+    rows = ('      - {when: {read_length: ">= 100", paired: true}, then: 0}\n'
+            '      - {when: {read_length: "< 100"}, then: 1}\n'
+            '      - {when: {paired: false}, then: 2}\n')
+    assert len(_rules(_paired(world), _table(rows)).decisions) == 1
+
+
+def test_overlapping_rows_under_unique_are_legal_and_asked(world):
+    """An overlap under `unique` is the case a person decides; under `first` row order would."""
+    rows = ('      - {when: {read_length: ">= 100"}, then: 1}\n'
+            '      - {when: {read_length: ">= 50"}, then: 2}\n'
+            '      - {when: {read_length: "< 50"}, then: 0}\n')
+    assert len(_rules(world, _table(rows, "unique")).decisions) == 1
+
+
+def test_a_row_no_case_reaches_first_is_dead(world):
+    rows = ('      - {when: {read_length: ">= 50"}, then: 1}\n'
+            '      - {when: {read_length: ">= 100"}, then: 2}\n'
+            '      - {when: {read_length: "< 50"}, then: 0}\n')
+    with pytest.raises(RuleValidationError, match="(?s)MD0323.*row 2"):
+        _rules(world, _table(rows))
+
+
+def test_an_extensible_enum_over_several_facts_still_needs_a_catch_all(world):
+    """Review focus 5: an overlay may add a value, so covering today's values is not enough."""
+    (world["layer"] / "measurements" / "strandedness.yml").write_text(_declared(
+        world["layer"] / "measurements" / "strandedness.yml",
+        "kind: enum\nvalues: [forward, reverse, unstranded]\nextensible: true\n"))
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
+    rows = "".join(f"      - {{when: {{strandedness: {v}, read_length: \">= 1\"}}, then: 0}}\n"
+                   for v in ("forward", "reverse", "unstranded"))
+    with pytest.raises(RuleValidationError, match="MD0311"):
+        _rules(world, _table(rows))
+
+
+def test_too_many_cases_is_refused(world):
+    """700 boundaries on read_length times three strandedness values: past the 4096 bound,
+    refused before any case is tried."""
+    rows = "".join(f'      - {{when: {{read_length: "== {n}", strandedness: reverse}}, then: 0}}\n'
+                   for n in range(1, 701))
+    rows += '      - {when: {}, then: 1}\n'
+    with pytest.raises(RuleValidationError, match="MD0324"):
+        _rules(world, _table(rows))

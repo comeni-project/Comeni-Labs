@@ -7,13 +7,14 @@ read derivations from other files and overlays may extend declared domains.
 
 import re
 from collections.abc import Sequence
+from itertools import product
 from pathlib import Path
 
 from comeni_core.declared.contract import ParamDomain
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.diagnostics import coded
-from comeni_core.logic.when import tier_of_row
+from comeni_core.logic.when import matches, tier_of_row
 from comeni_core.plan.tiers import Tier
 
 from mendel_resolver.rules.format import (
@@ -454,3 +455,92 @@ def _check_when(
                     f"  {fact!r} is an {measurement.kind}, so it can only be compared with\n"
                     f"  equality, `in` or `not` — never {expected!r}.")
                 )
+
+
+CASE_BOUND = 4096
+"""The most cases `check_table` tries; beyond it the table is refused (MD0324), so a clean check
+always means every case was tried."""
+
+_OTHER = object()
+"""A value an extensible enum may gain from an overlay, which no row can name today."""
+
+
+class _Seen:
+    __slots__ = ("value",)
+
+    def __init__(self, value: object) -> None:
+        self.value = value
+
+
+def _points(fact: str, rows: Sequence[DecisionRow], measurements: MeasurementRegistry,
+            derived: dict[str, MeasurementKind]) -> list[object] | None:
+    """One value per case the rows can tell apart, or `None` when the fact cannot be enumerated
+    (a goal fact, say), so the table is not checked."""
+    kind = measurements.get(fact).kind if fact in measurements.ids() else derived.get(fact)
+    tested = [row.when[fact] for row in rows if fact in row.when]
+    if kind is MeasurementKind.BOOLEAN:
+        return [True, False]
+    if kind is MeasurementKind.ENUM and fact in measurements.ids():
+        measurement = measurements.get(fact)
+        return [*measurement.values, *([_OTHER] if measurement.extensible else [])]
+    if kind in _ORDERED:
+        cuts: set[float] = set()
+        for expected in tested:
+            comparison = _comparison(expected)
+            if comparison is not None:
+                cuts.add(comparison[1])
+            elif isinstance(expected, int | float) and not isinstance(expected, bool):
+                cuts.add(float(expected))
+        if not cuts:
+            return [1]
+        ordered = sorted(cuts)
+        # Each cut, a point between neighbouring cuts, and one beyond each end: every interval
+        # the comparisons define is tried once, and every boundary on both sides.
+        between = [(a + b) / 2 for a, b in zip(ordered, ordered[1:], strict=False)]
+        return sorted({*ordered, *between, ordered[0] - 1, ordered[-1] + 1})
+    return None
+
+
+def check_table(decision: Decision, *, measurements: MeasurementRegistry,
+                derived: dict[str, MeasurementKind]) -> list[str]:
+    """A decision's rows tried against every case they can tell apart (#461): coded findings
+    for a gap over several facts (MD0311; one fact is `_check_exhaustive`'s), a dead row under
+    `first` (MD0323) and too many cases (MD0324). An overlap under `unique` is legal: it is
+    the question the build asks."""
+    facts = sorted({fact for row in decision.rows for fact in row.when})
+    if not facts:
+        return []
+    points = [_points(fact, decision.rows, measurements, derived) for fact in facts]
+    if any(p is None for p in points):
+        return []
+    count = 1
+    for p in points:
+        count *= len(p)
+    where = f"decision {decision.key()}"
+    if count > CASE_BOUND:
+        return [coded("MD0324", f"{where}\n  its rows tell {count} cases apart, above "
+                      f"{CASE_BOUND}: fewer boundaries or facts, or split the decision")]
+    findings: list[str] = []
+    first_for: set[int] = set()
+    gap = None
+    for case in product(*points):
+        seen = {f: _Seen(v) for f, v in zip(facts, case, strict=True) if v is not _OTHER}
+        hits = [n for n, row in enumerate(decision.rows) if matches(row.when, seen)]
+        if hits:
+            first_for.add(hits[0])
+        elif gap is None:
+            gap = ", ".join(f"{f} = {'a value an overlay adds' if v is _OTHER else v}"
+                            for f, v in zip(facts, case, strict=True))
+    if gap is not None and len(facts) > 1:
+        findings.append(coded("MD0311", f"{where}\n  no row matches {gap}, so a profile "
+                              "there matches nothing and the decision silently demotes to "
+                              "tier 4. Add a row for it, or a catch-all `when: {}` with a "
+                              "`cite:`."))
+    if decision.hit == "first":
+        for n, row in enumerate(decision.rows):
+            if n in first_for or any(v in ("absent", "present") for v in row.when.values()):
+                continue
+            findings.append(coded("MD0323", f"{where}\n  row {n + 1} is first for no case: "
+                                  "the rows above it already match everything it would, so "
+                                  "it never decides. Remove it, or move it above them."))
+    return findings

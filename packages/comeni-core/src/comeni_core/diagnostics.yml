@@ -1478,11 +1478,12 @@ MD0313:
 MD0311:
   emitted_by: resolver
   concern: routing
-  says: "a decision's rows do not cover the domain of the premise they test"
+  says: "a decision's rows do not cover every case of the premises they test"
   fires_on: [build, upgrade, profile]
   refuses: true
   fix: |
-    Cover the rest of the domain. Two complementary comparisons at one boundary are
+    Cover the rest of the domain; over several premises, the case the message names (#461).
+    Two complementary comparisons at one boundary are
     exhaustive with no bound declared anywhere:
 
         rows:
@@ -2884,6 +2885,35 @@ MA0009:
     obviously wrong. A surplus value is silent: the caller assembled a dossier, passed it
     under a key the template does not read, and the model answered a question with no
     evidence in it. That reads as a weak model rather than as a bug.
+
+MD0323:
+  emitted_by: resolver
+  concern: loading
+  says: "a rule row is first for no case, so it never decides"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Remove the row, or move it above the rows that already match everything it would. Under
+    `hit: first` the first matching row decides, so a row every case reaches only after another
+    row has matched can never be the answer.
+  explanation: |
+    The table check tries every case the rows can tell apart (#461): each value of an enum or
+    boolean, and for a number each boundary the comparisons name and a point in each interval
+    between them. A row that is first for none of them is dead: it reads as a rule and decides
+    nothing.
+
+MD0324:
+  emitted_by: resolver
+  concern: loading
+  says: "a rule's rows tell too many cases apart to check"
+  fires_on: [build, upgrade, profile, publish]
+  refuses: true
+  fix: |
+    Use fewer boundaries or facts in one decision, or split it into a derived fact and a
+    smaller decision that reads it.
+  explanation: |
+    The check tries every case, bounded at 4096. Above the bound the rule is refused rather
+    than checked partly, so a clean result always means every case was tried.
 
 MD0501:
   emitted_by: resolver

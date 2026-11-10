@@ -65,6 +65,7 @@ CLOSED_PACKAGES = {
         "collections.abc",
         "dataclasses",
         "enum",
+        "itertools",  # the rule table check's product of cases (#461)
         "math",
         "operator",
         "pathlib",

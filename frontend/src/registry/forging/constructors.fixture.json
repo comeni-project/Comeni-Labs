@@ -1121,6 +1121,9 @@
               "then": {
                 "anyOf": [
                   {
+                    "$ref": "#/$defs/FactRef"
+                  },
+                  {
                     "type": "integer"
                   },
                   {
@@ -1214,6 +1217,21 @@
             ],
             "title": "Effect",
             "type": "string"
+          },
+          "FactRef": {
+            "additionalProperties": false,
+            "description": "`then: {fact: <id>}`: a setting takes the value of a measured or derived fact (#461).\n\nThe value is the fact's, so it carries the fact's provenance; a literal `then` cannot\nexpress `min(14, log2(genome_length) / 2 - 1)`, and a string `then` is refused (MD0300).",
+            "properties": {
+              "fact": {
+                "title": "Fact",
+                "type": "string"
+              }
+            },
+            "required": [
+              "fact"
+            ],
+            "title": "FactRef",
+            "type": "object"
           }
         },
         "additionalProperties": false,
@@ -1231,6 +1249,15 @@
               }
             ],
             "title": "Decides"
+          },
+          "hit": {
+            "default": "first",
+            "enum": [
+              "first",
+              "unique"
+            ],
+            "title": "Hit",
+            "type": "string"
           },
           "rows": {
             "items": {
