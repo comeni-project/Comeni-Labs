@@ -523,7 +523,9 @@ class ModuleContract(BaseModel):
             raise ValueError(coded(
                 "MD0601", f"{self.id} has optional inputs but no nf_inputs: declare each "
                 "optional input's slot with `absent`, the empty tuple's width"))
-        together = [set(g.members) for g in self.groups if g.kind is GroupKind.ALL_OR_NONE]
+        # A slot may mix required and optional ports, and hold optional ports independent of
+        # each other (#464): the compiler passes `[]` in each left-out port's position. Only a
+        # slot whose ports can all be left out needs `absent`, the width of the empty tuple.
         for entry in self.nf_inputs:
             optional = [p for p in entry.ports if not required.get(p, True)]
             if not optional:
@@ -532,15 +534,10 @@ class ModuleContract(BaseModel):
                         "MD0601", f"{self.id}: nf_inputs {entry.ports} declares absent, but "
                         "its inputs are required, so it is never left out"))
                 continue
-            problem = ""
-            if len(optional) != len(entry.ports):
-                problem = "mixes required and optional inputs"
-            elif not entry.absent:
-                problem = "has only optional inputs and no `absent` width"
-            elif len(entry.ports) > 1 and set(entry.ports) not in together:
-                problem = "has several optional inputs that are not one all_or_none group"
-            if problem:
-                raise ValueError(coded("MD0601", f"{self.id}: nf_inputs {entry.ports} {problem}"))
+            if len(optional) == len(entry.ports) and not entry.absent:
+                raise ValueError(coded(
+                    "MD0601", f"{self.id}: nf_inputs {entry.ports} can be left out entirely "
+                    "and has no `absent` width"))
 
     def optional_ports(self) -> list[str]:
         """The inputs the process can run without, in declaration order."""

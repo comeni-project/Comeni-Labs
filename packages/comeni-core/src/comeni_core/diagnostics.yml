@@ -2215,14 +2215,16 @@ MD0601:
   fires_on: [build, upgrade, profile, publish]
   refuses: true
   fix: |
-    Give the entry that holds an optional input `absent: <width>`, the width of the empty tuple
-    the process expects (`2` for `tuple val(meta), path(x)`). Put each optional input in its own
-    entry, or put several together only when they form one `all_or_none` group. Remove `absent`
-    from an entry whose inputs are required.
+    Give an entry whose inputs can all be left out `absent: <width>`, the width of the empty
+    tuple the process expects (`2` for `tuple val(meta), path(x)`). Remove `absent` from an
+    entry whose inputs are all required. An entry that mixes required and optional inputs
+    needs no `absent`: a left-out input gets `[]` in its own position.
   explanation: |
     When an optional input is left out, the compiler still has to fill its slot in the process
-    call, and Nextflow matches tuple arity: `[[:], []]` for a two-element tuple. The width is
-    declared, not guessed, because a tuple's arity is not always one plus its ports (#460).
+    call, and Nextflow matches tuple arity. Inside a tuple that still has other files, the
+    left-out file's position gets `[]` (#464). When every file of the tuple is left out, the
+    whole tuple is an empty one, `[[:], []]` for two elements, and its width is declared, not
+    guessed, because a tuple's arity is not always one plus its ports (#460).
 
 MD0602:
   emitted_by: core

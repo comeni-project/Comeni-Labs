@@ -103,12 +103,58 @@ def _gatk(groups: list[dict]) -> dict:
     }
 
 
-def test_a_multi_port_entry_is_all_required_or_one_all_or_none_group():
-    _refused("MD0601", _gatk([]))
+def test_an_all_optional_entry_may_be_an_all_or_none_group():
     contract = ModuleContract.model_validate(_gatk([
         {"kind": "all_or_none", "members": ["dbsnp", "dbsnp_tbi"],
          "because": "the tabix index is read with the VCF it indexes"}]))
     assert contract.groups[0].kind is GroupKind.ALL_OR_NONE
+
+
+def test_a_slot_may_mix_required_and_optional_ports():
+    """gatk passes optional intervals in the same tuple as its BAM (#464)."""
+    data = _gatk([])
+    data["consumes"].append({"name": "intervals", "type_id": "regions.bed", "required": False})
+    data["nf_inputs"][0] = {"ports": ["input", "intervals"], "join": "broadcast"}
+    data["groups"] = [{"kind": "all_or_none", "members": ["dbsnp", "dbsnp_tbi"],
+                       "because": "the tabix index is read with the VCF it indexes"}]
+    contract = ModuleContract.model_validate(data)
+    assert contract.optional_ports() == ["dbsnp", "dbsnp_tbi", "intervals"]
+
+
+def _spades(**changes: Any) -> dict:
+    contract = {
+        "id": "nf-core/spades@4.1.0", "nf_process": "SPADES",
+        "nf_include": "modules/nf-core/spades/main", "roles": ["assembly"],
+        "consumes": [
+            {"name": "illumina", "type_id": "fastq.reads", "required": False},
+            {"name": "pacbio", "type_id": "pacbio.reads", "required": False},
+            {"name": "nanopore", "type_id": "nanopore.reads", "required": False},
+        ],
+        "nf_inputs": [{"ports": ["illumina", "pacbio", "nanopore"], "join": "by_sample",
+                       "absent": 4}],
+        "groups": [{"kind": "any_of", "members": ["illumina", "pacbio", "nanopore"],
+                    "because": "SPAdes assembles from at least one kind of reads"}],
+        "provenance": PROVENANCE,
+    }
+    contract.update(changes)
+    return contract
+
+
+def test_a_slot_may_hold_independent_optional_ports():
+    """spades takes Illumina, PacBio and Nanopore reads in one tuple, any of them (#464)."""
+    contract = ModuleContract.model_validate(_spades())
+    assert contract.optional_ports() == ["illumina", "pacbio", "nanopore"]
+
+
+def test_an_all_optional_slot_still_needs_absent():
+    _refused("MD0601", _spades(nf_inputs=[{"ports": ["illumina", "pacbio", "nanopore"],
+                                           "join": "by_sample"}]))
+
+
+def test_absent_on_an_all_required_slot_is_still_refused():
+    _refused("MD0601", _quast(nf_inputs=[{"ports": ["consensus"], "absent": 2},
+                                         {"ports": ["fasta"], "absent": 2},
+                                         {"ports": ["gff"], "absent": 2}]))
 
 
 def test_a_group_names_real_ports_or_params():

@@ -68,7 +68,7 @@ Model: `comeni_core.declared.contract.InputPort`
 | `accepts` | [alternative] | `[]` | other types this port will take |
 | `prefer` | {string} | `{}` | which alternative to prefer |
 | `cardinality` | enum | one | whether the port takes one or many |
-| `required` | boolean | `true` | `false` for an input the process can run without. Its `nf_inputs` entry declares `absent` |
+| `required` | boolean | `true` | `false` for an input the process can run without. Left out, it gets `[]` in its tuple position; an `nf_inputs` entry whose ports are all optional declares `absent` |
 
 **The three requirement levels are the point.** `state_required` excludes; `state_preferred`
 ranks; `state_required_conventional` *causes work to happen* — it is why asking for an alignment
@@ -122,7 +122,7 @@ Model: `comeni_core.declared.contract.NfInput`
 | `because` | string | `""` | why. **Required for `empty`** |
 | `empty` | integer | `0` | an empty slot, and **the tuple width** it must have |
 | `join` | object \| null | `null` | how several ports combine into one channel |
-| `absent` | integer | `0` | the tuple width passed when this entry's optional ports are all left out. Required on such an entry, refused on one with a required port (`MD0601`) |
+| `absent` | integer | `0` | the tuple width passed when every port of this entry is left out. Required when all its ports are optional, refused when all are required (`MD0601`). An entry that mixes them needs none |
 
 **A contract port is not a process argument.** Only one of six spine processes matches its port
 count: `featurecounts` takes one channel carrying two ports; `samtools/sort` takes three, of
