@@ -300,7 +300,7 @@ def _inputs(
         else:
             assigned = (
                 assigned_channels.get(f"{node.id}.{port.name}")
-                or default_channels_by_type[port.type_id]
+                or default_channels_by_type[node.entry_type(port.name, port.type_id)]
             )
             inputs.append(StepInput(port=port.name, channel=assigned, gather=gather))
     return inputs
@@ -406,7 +406,7 @@ def _wanted(
             if (node.id, port.name) in incoming_edges or port.name in off:
                 continue
             if f"{node.id}.{port.name}" not in assigned_channels:
-                defaulted.add(port.type_id)
+                defaulted.add(node.entry_type(port.name, port.type_id))
     return [(c.name, c.type_id) for c in ir.channels] + [
         ("", type_id) for type_id in sorted(defaulted)
     ]

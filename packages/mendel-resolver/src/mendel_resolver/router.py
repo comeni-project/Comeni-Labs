@@ -272,14 +272,11 @@ def route(
             )
         chosen, pin = choice.contract, choice.pin
 
-        records = _strongest(seen_inputs.get(chosen.id, []),
-                             _optional_states(goal, chosen,
-                                              _matched_output(chosen, type_id, states)))
-        seen_inputs[chosen.id] = records
-        off = {r.port for r in records if r.state is InputState.OFF}
-        for port in chosen.consumes:
-            if port.name in off:
-                continue
+        # The required inputs first, so the types they were connected with are known when the
+        # optional ones are decided: a row on `type.<input>` can need one (#464).
+        types: dict[str, str] = {}
+
+        def route_port(port: InputPort) -> None:
             try:
                 source = goal.constraints.source_at(chosen.id, port.name)
                 if source is not None:
@@ -290,8 +287,9 @@ def route(
                             because=f"you chose {source.producer} to feed {chosen.id}'s "
                                     f"{port.name}",
                             only=source.producer)
-                    continue
-                _satisfy_port(
+                    types[port.name] = made.type_id
+                    return
+                types[port.name] = _satisfy_port(
                     port,
                     satisfy,
                     depth + 1,
@@ -304,13 +302,25 @@ def route(
                 if _comes_from_outside(port, exc, goal.constraints.source_at(chosen.id, port.name)):
                     # A switched-on optional input nothing here makes comes from outside: the
                     # pipeline gets an input for it, optional or required by its state (#460).
-                    continue
+                    return
                 if choice.pinned is None:
                     raise
                 raise UnroutablePinError(
                     f"{chosen.id} is pinned to produce {type_id}, but its inputs are "
                     f"unreachable from this goal ({exc}). Pinned by {choice.pinned}"
                 ) from exc
+
+        for port in chosen.consumes:
+            if port.required:
+                route_port(port)
+        records = _strongest(seen_inputs.get(chosen.id, []),
+                             _optional_states(goal, chosen,
+                                              _matched_output(chosen, type_id, states), types))
+        seen_inputs[chosen.id] = records
+        off = {r.port for r in records if r.state is InputState.OFF}
+        for port in chosen.consumes:
+            if not port.required and port.name not in off:
+                route_port(port)
         if chosen.id in emitted:
             for step in plan.steps:
                 if step.contract_id == chosen.id:
@@ -439,7 +449,8 @@ def _matched_output(contract: ModuleContract, type_id: str, states: frozenset[st
 _STRENGTH = {InputState.OFF: 0, InputState.OPTIONAL: 1, InputState.REQUIRED: 2}
 
 
-def _optional_states(goal: Goal, contract: ModuleContract, needed) -> list[InputRecord]:
+def _optional_states(goal: Goal, contract: ModuleContract, needed,
+                     types: dict[str, str] | None = None) -> list[InputRecord]:
     """Each optional input's state (#460), sorted by port.
 
     Off unless switched on. The router only ever makes one stronger, and says why:
@@ -479,6 +490,7 @@ def _optional_states(goal: Goal, contract: ModuleContract, needed) -> list[Input
         on = {p.name for p in contract.consumes if p.required}
         on |= {p for p, r in records.items() if r.state is not InputState.OFF}
         facts = {f"given.{p}": _On(True) for p in on}
+        facts.update({f"type.{p}": _On(t) for p, t in (types or {}).items() if p in on})
         for row in rows_of(contract):
             if not matches(row.when, facts):
                 continue
@@ -502,8 +514,9 @@ def _satisfy_port(
     depth: int,
     visiting: frozenset[str],
     because: str = "",
-) -> None:
-    """Try each alternative in declaration order and take the first that routes.
+) -> str:
+    """Try each alternative in declaration order and take the first that routes; return its
+    type, which a row on `type.<port>` reads (#464).
 
     Order is the author's statement of preference between kinds of input — "a BAM, or
     failing that a CRAM" — so it is first-match-wins, exactly like decision-table rows.
@@ -514,7 +527,7 @@ def _satisfy_port(
     for alternative in alternatives:
         try:
             satisfy(alternative.type_id, alternative.states, depth, visiting, because)
-            return
+            return alternative.type_id
         except UnroutableError as exc:
             if len(alternatives) == 1:
                 # One alternative, so its own message is the whole truth. Wrapping it

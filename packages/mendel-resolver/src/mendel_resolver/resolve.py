@@ -30,7 +30,7 @@ from comeni_core.plan.decision import (
     SourceAsked,
     SourceDecision,
 )
-from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue, Tier
+from comeni_core.plan.ir import EntryType, IREdge, IRNode, PipelineIR, ResolvedValue, Tier
 from comeni_core.plan.tiers import ValueSource
 
 from mendel_resolver.goal import Goal
@@ -62,7 +62,8 @@ class ParamContext:
     backed: Mapping[str, object]
 
 
-def _constraints_hold(contract: ModuleContract, node: IRNode) -> Verdict:
+def _constraints_hold(contract: ModuleContract, node: IRNode,
+                      types: dict[str, str] | None = None) -> Verdict:
     """The step's constraints once its parameters are resolved (#460). A connection a row
     forbids, or an input a row requires and cannot have, is refused at build time; a row that
     depends on an input each run may leave empty is left to the run."""
@@ -72,7 +73,8 @@ def _constraints_hold(contract: ModuleContract, node: IRNode) -> Verdict:
     unknown = frozenset(p for p, s in states.items() if s is InputState.OPTIONAL)
     params = {p.name: (node.param(p.name).value if node.param(p.name) else None)
               for p in contract.params}
-    verdict = evaluate(contract, Setup(given=frozenset(given), params=params, unknown=unknown))
+    verdict = evaluate(contract, Setup(given=frozenset(given), params=params, unknown=unknown,
+                                       types=types or {}))
     why = "; ".join(verdict.sentences) or "its constraints"
     if verdict.missing:
         raise ConstraintViolation(coded(
@@ -266,14 +268,30 @@ def resolve(
                 )
             )
 
-        verdict = _constraints_hold(contract, node)
         off = {r.port for r in node.inputs if r.state is InputState.OFF}
+        # Sources first: a row on `type.<input>` reads the type each one connects (#464).
+        sources = {}
+        types: dict[str, str] = {}
         for port in contract.consumes:
             if port.name in off:
                 continue
             pinned = goal.constraints.source_at(contract.id, port.name)
-            source = _source_for(produced, port, node.id, ir.decisions, resolver,
-                                 pinned=_node_of(ir, pinned.producer) if pinned else None)
+            sources[port.name] = _source_for(
+                produced, port, node.id, ir.decisions, resolver,
+                pinned=_node_of(ir, pinned.producer) if pinned else None)
+            held = next((a.type_id for a in port.alternatives()
+                         if _have_satisfies(goal, a.type_id, a.states)), None)
+            if sources[port.name] is not None:
+                types[port.name] = sources[port.name][2]
+            elif held is not None:
+                types[port.name] = held
+                if len(port.alternatives()) > 1 or not port.type_id:
+                    node.entry_types.append(EntryType(port=port.name, type_id=held))
+        verdict = _constraints_hold(contract, node, types)
+        for port in contract.consumes:
+            if port.name in off:
+                continue
+            source = sources[port.name]
             if source is None and not any(_have_satisfies(goal, a.type_id, a.states)
                                           for a in port.alternatives()):
                 _not_withheld(withheld, port, contract.id)

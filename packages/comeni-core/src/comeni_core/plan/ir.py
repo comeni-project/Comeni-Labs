@@ -100,6 +100,15 @@ class InputRecord(BaseModel):
     by: InputDecider
 
 
+class EntryType(BaseModel):
+    """Which accepted type a pipeline input connected to one port (#464)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    port: PortName
+    type_id: TypeId
+
+
 class IRNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -123,6 +132,15 @@ class IRNode(BaseModel):
     """Why the step exists, independently of which contract was selected for it."""
     inputs: list[InputRecord] = Field(default_factory=list, exclude_if=lambda inputs: not inputs)
     """Each optional input's state, sorted by port; omitted when the step has none."""
+    entry_types: list["EntryType"] = Field(default_factory=list,
+                                           exclude_if=lambda types: not types)
+    """The type a pipeline input matched, for each port with `accepts` fed from outside (#464):
+    such a port has no single type of its own, so its channel is chosen by this one. In
+    contract port order."""
+
+    def entry_type(self, port: str, default: str) -> str:
+        """The type the pipeline input feeding `port` matched, or `default`."""
+        return next((e.type_id for e in self.entry_types if e.port == port), default)
 
     @model_validator(mode="before")
     @classmethod
