@@ -382,10 +382,17 @@
                     "$ref": "#/$defs/Join"
                   },
                   {
+                    "additionalProperties": {
+                      "$ref": "#/$defs/Join"
+                    },
+                    "type": "object"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
-                "default": null
+                "default": null,
+                "title": "Join"
               },
               "absent": {
                 "default": 0,
