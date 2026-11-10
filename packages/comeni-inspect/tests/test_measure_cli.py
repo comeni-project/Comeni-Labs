@@ -7,7 +7,7 @@ import textwrap
 from pathlib import Path
 
 from comeni_inspect import run
-from test_core_stdlib import COUNT, FORMAT, _request
+from comeni_inspect_tests import COUNT, FORMAT, _request
 
 PARSER = textwrap.dedent("""
     from comeni_inspect.outcome import Undetermined, Value

@@ -50,11 +50,13 @@ decline to curate one.
 | `MD0026` | a tool's test names a contract nothing declares |
 | `MD0110` | a contract file writes `state`, `state_required` or `states` beside the type |
 | `MD0228` | a type names a param literally in its `entry_channel` |
-| `MD0317` | an inspector piece names a type or measurement no layer declares |
-| `MD0318` | an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
+| `MD0317` | a measurer, format or codec names a type or measurement no layer declares |
+| `MD0318` | a measurer, format or codec cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
 | `MD0323` | a rule row is first for no case, so it never decides |
 | `MD0324` | a rule's rows tell too many cases apart to check |
 | `MD0325` | a rule sets a value the tool's constraints refuse |
+| `MD0326` | a measurer's declaration does not fit how it says it measures: by our code, or by a tool and a parser |
+| `MD0327` | a measurer uses a tool, or an output of it, that no layer declares |
 | `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
 | `MD0602` | a contract's constraint names an input or param it does not declare |
 | `MD0603` | no combination of inputs and params satisfies a contract's constraints |

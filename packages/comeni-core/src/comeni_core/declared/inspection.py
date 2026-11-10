@@ -114,6 +114,12 @@ class Measurer(_Piece):
     """Thresholds recorded with every fact this piece produces."""
     runs: list[Runner]
 
+    @field_validator("runs")
+    @classmethod
+    def _canonical(cls, runs: list[str]) -> list[str]:
+        """Sorted and once each, so one meaning has one spelling in every dump."""
+        return sorted(set(runs), key=["server", "pipeline"].index)
+
     @model_validator(mode="after")
     def _one_way(self) -> "Measurer":
         problems = []

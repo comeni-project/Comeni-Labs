@@ -100,3 +100,8 @@ def test_a_tool_measurer_whose_tool_exists_stays():
     registry = _Registry({"nf-core/samtools/faidx@1.21": _Contract(["fai", "sizes"])})
     usable, refused = _catalogue().check_tools(registry)
     assert list(usable.measurers) == ["genome_length_fai"] and refused == []
+
+
+def test_runs_has_one_spelling():
+    measurer = Measurer.model_validate({**CODE, "runs": ["pipeline", "server", "server"]})
+    assert measurer.runs == ["server", "pipeline"]

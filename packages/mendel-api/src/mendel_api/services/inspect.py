@@ -210,7 +210,8 @@ def inspect_sample(
             format=_ref("formats", fmt),
             codec=_ref("codecs", codec) if codec else None,
             measures=[
-                _ref("measures", m) for m in pieces.measurers.values() if m.record == fmt.record
+                _ref("measures", m)  # the registry folder: `measurers/measures/<id>`
+                for m in pieces.measurers.values() if m.record == fmt.record
             ],
             files=heads,
             cap_bytes=CAP_BYTES,

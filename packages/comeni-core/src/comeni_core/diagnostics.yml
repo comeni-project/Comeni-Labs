@@ -1089,7 +1089,7 @@ MD0316:
 MD0317:
   emitted_by: core
   concern: loading
-  says: "an inspector piece names a type or measurement no layer declares"
+  says: "a measurer, format or codec names a type or measurement no layer declares"
   fires_on: [build, upgrade, profile]
   refuses: true
   fix: |
@@ -1103,7 +1103,7 @@ MD0317:
 MD0318:
   emitted_by: core
   concern: loading
-  says: "an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares"
+  says: "a measurer, format or codec cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares"
   fires_on: [build, upgrade, profile]
   refuses: true
   fix: |
@@ -2932,7 +2932,7 @@ MD0326:
   emitted_by: core
   concern: loading
   says: "a measurer's declaration does not fit how it says it measures: by our code, or by a tool and a parser"
-  fires_on: [build, upgrade]
+  fires_on: [build, upgrade, profile]
   refuses: true
   fix: |
     A `by: code` measurer names the `record:` shape it reads and no tool. A `by: tool` measurer
@@ -2948,7 +2948,7 @@ MD0327:
   emitted_by: core
   concern: loading
   says: "a measurer uses a tool, or an output of it, that no layer declares"
-  fires_on: [build, upgrade]
+  fires_on: [build, upgrade, profile]
   refuses: true
   fix: |
     Name in `uses:` a contract some layer declares, by its full id with version, and in
