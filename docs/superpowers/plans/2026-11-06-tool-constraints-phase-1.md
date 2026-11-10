@@ -657,3 +657,6 @@ Stages 1–4 are done (2026-11-06). Rulings made while executing, from the ledge
   commits. No commit records the browser checks for Tasks 10, 12 or 14, so those steps stay open
   and must be done before the Task 17 walk. #481 (PR #482) also made the builder's gap question
   "I don't have one" leave an optional input out instead of stopping.
+- **Ruling (operator), 2026-11-10:** the Task 17 walk runs before the browser checks of Tasks 10,
+  12 and 14, which move to the end: the deadline has passed and the checks are slow. Cost if
+  wrong: a layout defect found after the walk instead of before it.
