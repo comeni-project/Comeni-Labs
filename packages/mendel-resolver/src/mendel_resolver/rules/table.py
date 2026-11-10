@@ -406,6 +406,20 @@ def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[Prem
     read: list[PremiseRecord] = []
     taken = [row.then.fact] if isinstance(row.then, FactRef) else []
     named = list(dict.fromkeys([*row.when, *taken]))  # once each, in the order written
+    # A derived fact brings the facts it was computed from, so the reason says where its value
+    # came from: `star_sa_index_nbases is 6` from `genome_length is 29903, stated` (#461).
+    expanded: list[str] = []
+
+    def add(fact: str) -> None:
+        if fact in expanded:
+            return
+        expanded.append(fact)
+        for source in getattr(premises.get(fact), "derived_from", None) or ():
+            add(source)
+
+    for fact in named:
+        add(fact)
+    named = expanded
     for fact in named:
         premise = premises.get(fact)
         if premise is None:
