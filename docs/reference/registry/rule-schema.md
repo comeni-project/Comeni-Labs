@@ -108,13 +108,14 @@ declarations. `RuleValidationError` if:
 | `then` naming a contract not in the registry | the row can never be applied |
 | `then` naming a contract that does not fill that role | same |
 | `when` naming an undeclared measurement | the condition can never be evaluated |
+| a fractional boundary on an integer measurement (`MD0310`) | no value can sit on it |
 | a comparison against an enum or boolean | `strandedness >= 70` has no meaning |
 | the same target decided twice in one layer | a copy-paste; resolving by file order would be a silent arbitrary pick |
 | `effect: param` with no `name:` | which parameter is unstated |
 | a case no row matches, over every fact the rows test (`MD0311`) | that profile would silently fall to tier 4 |
 | under `hit: first`, a row that is first for no case (`MD0323`) | it reads as a rule and never decides |
 | more than 4096 cases to try (`MD0324`) | a clean check must mean every case was tried |
-| a literal `then` the tool's constraints refuse with every input (`MD0325`) | the rule would set it and every build would stop |
+| a literal `then` the tool's constraints refuse with every input, its other settings at their defaults (`MD0325`) | the rule would set it and every build would stop |
 | `{fact:}` whose kind does not fit the parameter, or on a non-param decision (`MD0300`) | the tool would receive a value its flag does not accept |
 | `hit: unique` on an `implementation` or `presence` decision (`MD0300`) | a tie there cannot be asked yet |
 

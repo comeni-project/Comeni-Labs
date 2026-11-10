@@ -147,8 +147,9 @@ def _validate_target(
 
 def _allowed_by_constraints(row: DecisionRow, target: DecisionTarget, path: Path,
                             registry: Registry, fillers_by_role: dict[str, list[str]]) -> None:
-    """MD0325 when a tool's constraints (#460) refuse this value in every setup: the rule
-    would set it and the build would then be refused, whichever inputs were given (#461)."""
+    """MD0325 when a tool's constraints (#460) refuse this value with its other settings at
+    their defaults, whichever inputs are given: the rule would set it and the build would then
+    be refused (#461)."""
     for contract_id in target.when_implementation or fillers_by_role[target.of]:
         contract = registry.get(contract_id)
         if not any(p.name == target.name for p in contract.params):
@@ -475,7 +476,14 @@ def _check_when(
             if expected in ("absent", "present") or fact not in measurements.ids():
                 continue
             measurement = measurements.get(fact)
-            if _comparison(expected) is not None and measurement.kind not in _ORDERED:
+            comparison = _comparison(expected)
+            if (comparison is not None and measurement.kind is MeasurementKind.INTEGER
+                    and not float(comparison[1]).is_integer()):
+                raise RuleValidationError(
+                    coded("MD0310", f"{where}\n"
+                    f"  {fact!r} is an integer, so {expected!r} names a boundary no value can "
+                    f"sit on — write a whole number."))
+            if comparison is not None and measurement.kind not in _ORDERED:
                 raise RuleValidationError(
                     coded("MD0310", f"{where}\n"
                     f"  {fact!r} is an {measurement.kind}, so it can only be compared with\n"

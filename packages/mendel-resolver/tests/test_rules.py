@@ -1148,3 +1148,12 @@ def test_an_overlay_value_meets_negation_and_presence(world):
             {"when": {"strandedness": {"not": "reverse"}, "paired": True}, "then": 1},
             {"when": {"paired": False}, "then": 2}]
     assert _check(world, rows) == []
+
+
+def test_a_fractional_boundary_on_an_integer_fact_is_refused(world):
+    """Final review: `>= 69.5` on read_length crashed the check (69 compared with "69.5");
+    no integer lies at 69.5, so the boundary is a typo for 69 or 70."""
+    rows = ('      - {when: {read_length: ">= 69.5"}, then: 0}\n'
+            '      - {when: {read_length: "< 69.5"}, then: 1}\n')
+    with pytest.raises(RuleValidationError, match="(?s)MD0310.*69.5"):
+        _rules(world, _table(rows))
