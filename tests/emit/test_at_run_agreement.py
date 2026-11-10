@@ -26,13 +26,15 @@ pytestmark = pytest.mark.slow
 
 
 def _groovy(lookup: AtRun, cases: list) -> str:
-    """Each case's value, as the emitted closure computes it, printed by Nextflow."""
-    rendered = ", ".join("null" if c is None else repr(c) if not isinstance(c, str) else f"'{c}'"
-                         for c in cases)
+    """Each case's value, as the emitted closure computes it, printed by Nextflow. The cases
+    are parsed from JSON by `JsonSlurper`, as the pipeline parses a measured fact, so a float
+    arrives as a BigDecimal and an integer as an Integer or a Long (Task 7 review)."""
+    import json
+
     expr = closure(lookup)
     script = (
         "workflow {\n"
-        f"    [{rendered}].each {{ value ->\n"
+        f"    new groovy.json.JsonSlurper().parseText('{json.dumps(cases)}').each {{ value ->\n"
         f"        def meta = [{lookup.meta_key}: value]\n"
         f"        println('CASE ' + String.valueOf({expr}))\n"
         "    }\n"
@@ -83,14 +85,14 @@ def test_the_star_index_size_agrees_over_every_power_of_two(tmp_path):
     assert _run(tmp_path, _groovy(lookup, cases)) == expected
 
 
-def _table_case(tmp_path, rows: str, fact: str, fallback):
+def _table_case(tmp_path, rows: str, fact: str, fallback, extra=()):
     stack = layers.load(ROOT / "registry")
     decision = Decision.model_validate(yaml.safe_load(
         "decides: {effect: param, of: quantification, name: strandedness}\nrows:\n" + rows))
     built = rows_of(decision, fact, {}, stack.rules, stack.measurements)
     lookup = AtRun(fact=fact, meta_key=fact, measured_by="comeni/measure/x@1.0.0",
                    rule=decision.key(), rows=built, fallback=fallback, fallback_reason="test")
-    cases = [None, *_points(fact, decision.rows, stack.measurements, {})]
+    cases = [None, *_points(fact, decision.rows, stack.measurements, {}), *extra]
     expected = []
     for value in cases:
         premises = {} if value is None else {
@@ -110,4 +112,10 @@ def test_an_enum_table_agrees(tmp_path):
 def test_a_comparison_agrees_on_both_sides_of_its_boundary(tmp_path):
     _table_case(tmp_path, "  - {when: {read_length: \">= 70\"}, then: star}\n"
                           "  - {when: {read_length: \"< 70\"}, then: hisat2}\n",
-                "read_length", "hisat2")
+                "read_length", "hisat2", extra=(70.0, 69.5, 70.5))
+
+
+def test_membership_agrees_across_integers_and_floats(tmp_path):
+    _table_case(tmp_path, "  - {when: {read_length: {in: [70, 75]}}, then: listed}\n"
+                          "  - {when: {read_length: {not: 80}}, then: other}\n",
+                "read_length", "none", extra=(70.0, 75.0, 80.0, 70.5))

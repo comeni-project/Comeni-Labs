@@ -409,10 +409,13 @@ def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str]]:
             continue
         raw = _channel_name(channel.name)
         name = f"{raw}_measured"
+        # `failOnMismatch`: a sample whose measurement never matches its input must stop the
+        # run, not vanish from it with exit 0 (Task 7 review).
         joins = "".join(
             f".join({_process_of(pipeline, m.measured_at)}.out.{m.measured_port}.map {{ meta, "
             f"report -> [ meta, new groovy.json.JsonSlurper().parseText(report.text)"
-            f".facts?.get('{m.measurement}')?.value ] }})"
+            f".facts?.get('{m.measurement}')?.value ] }}, failOnMismatch: true, "
+            "failOnDuplicate: true)"
             for m in channel.meta_at_run
         )
         values = [f"v{n}" for n in range(len(channel.meta_at_run))]
@@ -425,22 +428,63 @@ def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str]]:
     return names, lines
 
 
+def _meta_root(pipeline: Pipeline, step: Step) -> str | None:
+    """The input channel whose `meta` reaches this step's first input: its own, or, through
+    upstream steps' first inputs, the one they read. nf-core passes `meta` along that way."""
+    by_id = {s.id: s for s in pipeline.steps}
+    seen: set[str] = set()
+    while step.id not in seen and step.call and step.call[0].ports:
+        seen.add(step.id)
+        wiring = next(i for i in step.inputs if i.port == step.call[0].ports[0])
+        if wiring.source is None:
+            return wiring.channel
+        step = by_id[wiring.source.partition(".")[0]]
+    return None
+
+
+def _check_measuring(pipeline: Pipeline, branch: set[str], measured: dict[str, str]) -> None:
+    """What would make a measured fact miss the step it is for, refused at emit (MD0330)."""
+    for step in pipeline.steps:
+        if step.id in branch and any(s.via is Via.META and s.value is not None
+                                     for s in step.settings):
+            raise ValueError(coded(
+                "MD0330", f"{step.id} measures a run-time fact and adds to `meta` itself, so "
+                "its measurement would not match its input's `meta` — `mendel explain MD0330`."))
+        if any(s.at_run is not None for s in step.settings):
+            root = _meta_root(pipeline, step)
+            if root not in measured:
+                raise ValueError(coded(
+                    "MD0330", f"{step.id} is decided at run time, and its first input's `meta` "
+                    "does not come from an input carrying the measured fact, so the setting "
+                    "would read nothing — `mendel explain MD0330`."))
+    seen: dict[tuple[str, str], str] = {}
+    for channel in pipeline.channels:
+        for m in channel.meta_at_run:
+            key = (m.measured_at, m.measurement)
+            if key in seen:
+                raise ValueError(coded(
+                    "MD0330", f"{m.measurement} is measured once, by {m.measured_at}, and two "
+                    f"inputs carry it ({seen[key]}, {channel.name}): one of them could never "
+                    "match its measurement — `mendel explain MD0330`."))
+            seen[key] = channel.name
+
+
 def _decided(pipeline: Pipeline, measured: dict[str, str]) -> list[str]:
     """Every run-time value the run used, per sample, beside its facts: what a setting became
-    is recorded by the run itself, not recomputed afterwards (#217)."""
+    is recorded by the run itself, from the `meta` the step reads, not recomputed afterwards
+    (#217)."""
     lines = []
     for step in pipeline.steps:
         for setting in sorted(step.settings, key=lambda s: s.name):
             if setting.at_run is None:
                 continue
-            channel = next(c for c in pipeline.channels
-                           if any(m.measurement == setting.at_run.fact for m in c.meta_at_run))
+            channel = measured[_meta_root(pipeline, step)]
             expr = closure(setting.at_run, where=f"{step.id}.{setting.name}")
             lines.append(
                 "if (params.outdir) {\n"
-                f"        {measured[channel.name]}.map {{ meta, data -> \"${{meta.id}}\\t\" + "
+                f"        {channel}.map {{ meta, data -> \"${{meta.id}}\\t\" + "
                 f"String.valueOf({expr}) }}.collectFile(name: "
-                f"'{step.process}.{setting.name}.tsv', storeDir: \"${{params.outdir}}/decided\", "
+                f"'{step.id}.{setting.name}.tsv', storeDir: \"${{params.outdir}}/decided\", "
                 "newLine: true, sort: true)\n"
                 "    }"
             )
@@ -456,6 +500,7 @@ def _calls(pipeline: Pipeline) -> list[str]:
     if not branch:
         return [_call(pipeline, step) for step in pipeline.steps]
     measured, joined = _joined(pipeline)
+    _check_measuring(pipeline, branch, measured)
     first = [_call(pipeline, step) for step in pipeline.steps if step.id in branch]
     rest = [_call(pipeline, step, measured) for step in pipeline.steps if step.id not in branch]
     return [*first, *joined, *rest, *_decided(pipeline, measured)]

@@ -45,7 +45,7 @@ def test_the_emitted_pipeline_measures_then_joins_then_builds_the_index(tmp_path
     assert faidx < measure < joined < star
     assert ".facts?.get('genome_length')?.value" in main
     assert "meta + [genome_length: v0]" in main
-    assert "collectFile(name: 'STAR_GENOMEGENERATE.sa_index_nbases.tsv'" in main
+    assert "collectFile(name: 'star_genomegenerate.sa_index_nbases.tsv'" in main
     config = emit_config(pipeline)
     line = next(x for x in config.splitlines() if "STAR_GENOMEGENERATE" in x and "ext.args" in x)
     assert "--genomeSAindexNbases" in line and "meta.genome_length == null" in line
@@ -60,3 +60,16 @@ def test_the_join_is_by_meta_never_combine(tmp_path):
     main = emit(_star(tmp_path))
     line = next(x for x in main.splitlines() if "ch_fasta_measured = " in x)
     assert ".join(MEASURE_GENOME_LENGTH_FAI.out.genome_length" in line and "combine" not in line
+    assert "failOnMismatch: true, failOnDuplicate: true)" in line
+
+
+def test_two_inputs_sharing_one_measurement_are_refused(tmp_path):
+    """One of them could never match its measurement, and the run would stop (Task 7 review)."""
+    import pytest
+    from mendel_compiler.emit import emit
+
+    pipeline = _star(tmp_path)
+    (fasta,) = [c for c in pipeline.channels if c.meta_at_run]
+    twin = fasta.model_copy(update={"name": "fasta_2", "param": "fasta_2"})
+    with pytest.raises(ValueError, match="MD0330"):
+        emit(pipeline.model_copy(update={"channels": [*pipeline.channels, twin]}))

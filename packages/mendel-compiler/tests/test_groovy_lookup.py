@@ -30,7 +30,8 @@ def test_rows_become_a_chain_ending_in_the_fallback():
 def test_a_comparison_reads_the_fact_as_a_number():
     text = closure(_lookup([AtRunRow(test=AtRunTest.GE, operand=[70.0], then="star")],
                            fallback="hisat2", fact="read_length"))
-    assert "((meta.read_length as double) >= 70.0) ? 'star'" in text
+    assert ("((meta.read_length instanceof Number) && (meta.read_length as double) >= 70.0) "
+            "? 'star'") in text
 
 
 def test_the_star_chain():
@@ -45,3 +46,21 @@ def test_a_literal_outside_the_substitutable_class_is_refused():
         closure(_lookup([AtRunRow(test=AtRunTest.ANY, then="x; rm -rf /")]))
     with pytest.raises(ValueError, match="MD0201"):
         closure(_lookup([AtRunRow(test=AtRunTest.EQ, operand=["a'b"], then=1)]))
+
+
+def test_numbers_compare_as_doubles_whatever_json_made_them():
+    """`70.0 in [70]` is false in Groovy and true in Python (Task 7 review)."""
+    text = closure(_lookup([AtRunRow(test=AtRunTest.IN, operand=[70, 75.5], then="x")],
+                           fallback="y", fact="read_length"))
+    assert "[70.0, 75.5].any { it == (meta.read_length as double) }" in text
+
+
+def test_a_chain_ending_in_round_is_a_whole_number():
+    text = closure(_lookup([AtRunRow(test=AtRunTest.ANY, takes_fact=True, integer=False,
+                                     transform=[AtRunStep(op=AtRunOp.ROUND)])], fact="x"))
+    assert text.endswith("as long) : null))")
+
+
+def test_a_non_finite_literal_is_refused():
+    with pytest.raises(ValueError, match="MD0201"):
+        closure(_lookup([AtRunRow(test=AtRunTest.ANY, then=float("inf"))]))
