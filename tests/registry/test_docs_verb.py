@@ -13,7 +13,6 @@ from support.paths import ROOT
 REGISTRY = str(ROOT / "registry")
 
 PAGES = [
-    "comeni/profile.md",
     "nf-core/fastqc.md",
     "nf-core/hisat2.md",
     "nf-core/multiqc.md",

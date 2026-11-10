@@ -349,17 +349,6 @@ class MeasurementRegistry(BaseModel):
         )
 
 
-    def to_measure(self, by_contract: dict[str, str]) -> DataProfile:
-        """Describe pending measurements and their contracts, using `None` for unknown values."""
-        for measurement_id in by_contract:
-            self.get(measurement_id)  # raises naming what is declared
-        return DataProfile(
-            measurements=[
-                Measured(measurement=k, value=None, source=ValueSource.MEASURED, by=v)
-                for k, v in sorted(by_contract.items())
-            ]
-        )
-
 
     def meta_for(self, type_id: str, profile: DataProfile) -> dict[str, ParamValue]:
         """Return metadata values applicable to `type_id` from the supplied profile."""

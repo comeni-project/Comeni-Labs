@@ -35,10 +35,9 @@ def test_a_one_segment_key_is_its_own_page_rather_than_a_refusal():
     assert tool_docs._tool_of("sortmerna@4.3.6") == "sortmerna"
 
 
-def test_the_registry_groups_into_the_eight_pages_the_spec_names():
+def test_the_registry_groups_into_one_page_per_tool():
     tools = tool_docs.tools_of(_layers().registry)
     assert sorted(tools) == [
-        "comeni/profile",
         "nf-core/fastqc",
         "nf-core/hisat2",
         "nf-core/multiqc",

@@ -112,7 +112,8 @@ def builder_types(stack: Layers) -> dict[str, frozenset[str]]:
     """The types a builder want, input, state or pin may name: the declared vocabulary without
     the `measurement.<id>` types `Vocabulary.with_measurements` derives (#346).
 
-    Those route profiling, and the `mendel profile` CLI wants them; nothing in the builder does.
+    Those route the pipeline's measurement steps (#465), which the build adds itself; nothing a
+    person writes names them.
     Offered on the goal card, the walk saw `measurement.read_length` beside `fastq.reads`, and a
     model's `requires measurement.read_length` with no states would have been admitted. **One
     filter for every builder door** — the card, the prompt, each reply and each change — so a

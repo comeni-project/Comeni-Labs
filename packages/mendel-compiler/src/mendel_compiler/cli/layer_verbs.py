@@ -20,18 +20,15 @@ def _pages(registries: list[Path]) -> dict[Path, str]:
     }
 
 
-def _folder_of(root: Path, tool: str) -> Path:
+def _folder_of(tool: str) -> Path:
     """Where a tool's page goes in place: the folder that holds its contracts (#216)."""
-    for base in ("tools", "profilers"):
-        if (root / base / tool).is_dir():
-            return Path(base) / tool
     return Path("tools") / tool
 
 
 def _in_place_pages(root: Path) -> dict[Path, str]:
     """`_pages`, keyed on `<tool folder>/README.md` rather than `<tool>.md`."""
     return {
-        _folder_of(root, page.with_suffix("").as_posix()) / "README.md": content
+        _folder_of(page.with_suffix("").as_posix()) / "README.md": content
         for page, content in _pages([root]).items()
     }
 
@@ -45,9 +42,7 @@ def _generated_readmes(root: Path) -> list[Path]:
     the whole line, so a page an older banner wrote is still found."""
     return sorted(
         page.relative_to(root)
-        for base in ("tools", "profilers")
-        if (root / base).is_dir()
-        for page in (root / base).rglob("README.md")
+        for page in (root / "tools").rglob("README.md")
         if page.read_text().startswith(_GENERATED)
     )
 

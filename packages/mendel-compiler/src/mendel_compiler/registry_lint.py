@@ -304,7 +304,7 @@ def _nothing_reaches_out_of_its_tool(root: Path) -> list[Diagnostic]:
     return found
 
 
-_ID_ROOTS = ("tools", "profilers")
+_ID_ROOTS = ("tools",)
 
 
 def _path_is_the_id(root: Path) -> list[Diagnostic]:

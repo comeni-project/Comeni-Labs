@@ -29,9 +29,8 @@ def test_every_contract_points_at_vendored_module_code(registry):
     `key_of` derives from the contract's own `nf_include` — so a contract whose module nobody
     vendored is `None` here rather than a path that happens not to exist.
 
-    Two of the twelve are `comeni/` wrappers over an nf-core module (`profile/fastqc` includes
-    `modules/nf-core/fastqc/main`), and they resolve to the same key the nf-core contract does.
-    That is the case a per-contract directory of source would have got wrong.
+    A contract that wraps another's module resolves to the same key that contract does, which
+    is the case a per-contract directory of source would have got wrong.
     """
     missing = [c.id for c in registry.all() if module_path(c, MODULES) is None]
     assert missing == [], f"contracts whose module no layer declares: {missing}"

@@ -343,9 +343,9 @@ class MeasurerView(BaseModel):
     model_config = _FROZEN
 
     measurement: str
-    kind: Literal["inspector", "profiler"]
     by: str
-    runs: Literal["server", "lab", "browser"]
+    runs: list[Literal["server", "pipeline"]]
+    """Where it may run: on the server over an upload's head, in the pipeline over all of it."""
     trusted: bool
 
 

@@ -1,15 +1,13 @@
-"""Who measures what, and where it runs: inspector pieces and profilers, side by side (spec §2).
+"""Who measures what, and where it runs: every measurer, with the places it may run (#465).
 
-A measurement can be measured two ways. An **inspector** (a format with a measure) reads an
-uploaded sample's head on this server, during the conversation. A **profiler** (a contract that
-produces `measurement.<id>`) runs inside the lab's pipeline, on all of the data. This index is
+A measurer produces one measurement, by our own code over a format's records or by a tool plus a
+parser for its output, and lists where it runs: the **server**, over an upload's head during the
+conversation, and the **pipeline**, as a step over all the data during the run. This index is
 what the conversation offers an upload from, and what the docs' *where it runs* table lists.
 
-**Trusted layers only run code.** A piece from a layer the operator has not named in
-`MENDEL_TRUSTED_LAYERS` is listed, marked untrusted, and never run.
+**Trusted layers only run code here.** A piece from a layer the operator has not named in
+`MENDEL_TRUSTED_LAYERS` is listed, marked untrusted, and never run on this server.
 """
-
-from typing import Literal
 
 from comeni_core.declared.inspection import InspectionCatalogue
 from pydantic import BaseModel, ConfigDict
@@ -21,10 +19,11 @@ class Measurer(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     measurement: str
-    kind: Literal["inspector", "profiler"]
     by: str
-    """`fastq@1.0.0 + read_length@1.0.0` for an inspector, a contract id for a profiler."""
-    runs: Literal["server", "lab", "browser"]
+    """`fastq@1.1.0 + read_length@1.0.0` for our code through a format, or
+    `genome_length_fai@1.0.0 (nf-core/samtools/faidx@1.21)` for a tool's output parsed."""
+    runs: list[str]
+    """Where it may run, `server` before `pipeline`."""
     trusted: bool
 
 
@@ -33,35 +32,31 @@ def _trusted(catalogue: InspectionCatalogue, key: str) -> bool:
 
 
 def index(stack) -> list[Measurer]:
-    """Every way the stack can measure each measurement, sorted `(measurement, kind, by)`."""
+    """Every way the stack can measure each measurement, sorted `(measurement, by)`."""
     pieces = stack.inspection
-    found = [
-        Measurer(
-            measurement=measure.measures,
-            kind="inspector",
-            by=f"{fmt.id}@{fmt.version} + {measure.id}@{measure.version}",
-            runs=fmt.runs,
-            trusted=_trusted(pieces, f"format:{fmt.id}")
-            and _trusted(pieces, f"measurer:{measure.id}"),
-        )
-        for measure in pieces.measurers.values()
-        if measure.by == "code"
-        for fmt in pieces.formats.values()
-        if fmt.record == measure.record
-    ]
-    found += [
-        Measurer(
-            measurement=port.type_id.removeprefix("measurement."),
-            kind="profiler",
-            by=contract.id,
-            runs="lab",
-            trusted=True,
-        )
-        for contract in stack.registry.all()
-        for port in contract.produces
-        if port.type_id.startswith("measurement.")
-    ]
-    return sorted(set(found), key=lambda m: (m.measurement, m.kind, m.by))
+    found = []
+    for measurer in pieces.measurers.values():
+        mine = _trusted(pieces, f"measurer:{measurer.id}")
+        if measurer.by == "tool":
+            found.append(Measurer(
+                measurement=measurer.measures,
+                by=f"{measurer.id}@{measurer.version} ({measurer.uses})",
+                runs=list(measurer.runs),
+                trusted=mine,
+            ))
+            continue
+        found += [
+            Measurer(
+                measurement=measurer.measures,
+                by=f"{fmt.id}@{fmt.version} + {measurer.id}@{measurer.version}",
+                # A format that cannot run on this server takes the server out for both.
+                runs=[r for r in measurer.runs if r != "server" or fmt.runs == "server"],
+                trusted=mine and _trusted(pieces, f"format:{fmt.id}"),
+            )
+            for fmt in pieces.formats.values()
+            if fmt.record == measurer.record
+        ]
+    return sorted(found, key=lambda m: (m.measurement, m.by))
 
 
 def usable_pieces(stack) -> InspectionCatalogue:

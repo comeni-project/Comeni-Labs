@@ -12,7 +12,6 @@ def parser() -> argparse.ArgumentParser:
         "command",
         choices=[
             "build",
-            "profile",
             "publish",
             "upgrade",
             "emit",
@@ -39,12 +38,6 @@ def parser() -> argparse.ArgumentParser:
             "a separate verb comparing digests would answer a strictly weaker question, "
             "and two answers to 'is this still what it says it is' is how they disagree."
         ),
-    )
-    parser.add_argument(
-        "--have",
-        action="append",
-        default=None,
-        help="a type id the laboratory holds; repeat. `profile` only.",
     )
     # Not `required=True`: `mendel explain MD0104` writes nothing and loads nothing, so
     # demanding an output directory for it would be argparse describing the wrong verb.
