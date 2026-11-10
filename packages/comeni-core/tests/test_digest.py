@@ -377,3 +377,16 @@ def test_contracts_without_constraints_keep_their_digest():
         for field in ("required", "produced_when", "absent", "constraints", "groups"):
             assert f'"{field}"' not in dumped, f"{relative} serialises default {field}"
         assert digest_of(contract) == pinned, relative
+
+
+def test_a_scalar_join_keeps_its_digest():
+    """featureCounts in the released registry writes `join: broadcast`; the per-port join map
+    (#464) must not change that contract's digest, or every lockfile pinning it goes dirty."""
+    import yaml
+    from support.paths import ROOT
+
+    data = yaml.safe_load((ROOT / "registry/tools/nf-core/subread/featurecounts/contract.yml")
+                          .read_text())
+    data.pop("declares", None)
+    assert digest_of(ModuleContract.model_validate(data)) == (
+        "sha256:63b7c986694c2eca4263e98be0f9c6185aedd3747dc8222658693ba44396dcc7")

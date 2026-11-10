@@ -121,8 +121,8 @@ Model: `comeni_core.declared.contract.NfInput`
 | `param` | string | `""` | a parameter's value |
 | `because` | string | `""` | why. **Required for `empty`** |
 | `empty` | integer | `0` | an empty slot, and **the tuple width** it must have |
-| `join` | object \| null | `null` | how several ports combine into one channel |
-| `absent` | integer | `0` | the tuple width passed when every port of this entry is left out. Required when all its ports are optional, refused when all are required (`MD0601`). An entry that mixes them needs none |
+| `join` | string \| object \| null | `null` | how several ports combine into one channel: `broadcast` or `by_sample` for every port after the first, or a map giving each its own |
+| `absent` | integer | `0` | the tuple width passed when every port of this entry is left out. Required when all its ports are optional, refused when any is required (`MD0601`) |
 
 **A contract port is not a process argument.** Only one of six spine processes matches its port
 count: `featurecounts` takes one channel carrying two ports; `samtools/sort` takes three, of

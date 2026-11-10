@@ -232,6 +232,10 @@ checked, no change expected).
   materialised argument must carry which of its ports are off. Add that to the artifact's
   step argument model in `packages/comeni-core/src/comeni_core/artifact/pipeline.py` and
   `materialise.py` if it is not derivable from `Step.input_states`)
+- Modify: `packages/comeni-core/src/comeni_core/artifact/materialise.py` (`_mark_optional_channels`
+  and `CallArg.join`: inside a shared slot an optional-at-run port's width is the per-port
+  empty, 2; the entry's `absent` applies only to an entry whose ports are all optional; the
+  artifact's `CallArg.join` carries the per-port map). Added after Task 1's review.
 - Test: create `packages/mendel-compiler/tests/test_shared_slots_built.py`
 
 **Interfaces:**

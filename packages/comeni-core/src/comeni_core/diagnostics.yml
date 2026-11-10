@@ -2217,8 +2217,9 @@ MD0601:
   fix: |
     Give an entry whose inputs can all be left out `absent: <width>`, the width of the empty
     tuple the process expects (`2` for `tuple val(meta), path(x)`). Remove `absent` from an
-    entry whose inputs are all required. An entry that mixes required and optional inputs
-    needs no `absent`: a left-out input gets `[]` in its own position.
+    entry with any required input: it is never left out whole, and a left-out optional input
+    gets `[]` in its own position. An entry that starts with an optional input needs its later
+    inputs to join the same way.
   explanation: |
     When an optional input is left out, the compiler still has to fill its slot in the process
     call, and Nextflow matches tuple arity. Inside a tuple that still has other files, the

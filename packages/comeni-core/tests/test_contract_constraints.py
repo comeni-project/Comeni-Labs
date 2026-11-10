@@ -166,3 +166,69 @@ def test_a_misspelt_given_value_is_refused():
     """Final review: `presnt` made the row silently never apply."""
     _refused("MD0602", _quast(constraints=[{"when": {"given.gff": "presnt"},
                                             "requires": ["fasta"], "because": "typo"}]))
+
+
+def _gatk_slot(join: Any, *, first_optional: bool = False) -> dict:
+    """gatk's real input tuple: the BAM, its per-sample index, and run-wide intervals (#464)."""
+    data = _gatk([{"kind": "all_or_none", "members": ["dbsnp", "dbsnp_tbi"],
+                   "because": "the tabix index is read with the VCF it indexes"}])
+    data["consumes"][0]["required"] = not first_optional
+    data["consumes"] += [{"name": "input_index", "type_id": "alignment.bai"},
+                         {"name": "intervals", "type_id": "regions.bed", "required": False}]
+    data["nf_inputs"][0] = {"ports": ["input", "input_index", "intervals"], "join": join}
+    if first_optional:
+        data["consumes"][3]["required"] = False
+        data["nf_inputs"][0]["absent"] = 4
+    return data
+
+
+def test_a_slot_may_join_each_port_its_own_way():
+    from comeni_core.spell.routes import Join
+
+    contract = ModuleContract.model_validate(
+        _gatk_slot({"input_index": "by_sample", "intervals": "broadcast"}))
+    slot = contract.nf_inputs[0]
+    assert slot.join_for("input_index") is Join.BY_SAMPLE
+    assert slot.join_for("intervals") is Join.BROADCAST
+
+
+def test_a_scalar_join_applies_to_every_later_port():
+    from comeni_core.spell.routes import Join
+
+    slot = ModuleContract.model_validate(_gatk_slot("by_sample")).nf_inputs[0]
+    assert slot.join_for("input_index") is Join.BY_SAMPLE
+    assert slot.join_for("intervals") is Join.BY_SAMPLE
+
+
+@pytest.mark.parametrize("join", [
+    {"input_index": "by_sample"},                                        # misses intervals
+    {"input": "by_sample", "input_index": "by_sample", "intervals": "broadcast"},  # the head
+    {"input_index": "by_sample", "intervals": "broadcast", "nope": "broadcast"},   # unknown
+])
+def test_a_join_map_names_every_later_port_and_nothing_else(join):
+    with pytest.raises(ValueError, match="join map"):
+        ModuleContract.model_validate(_gatk_slot(join))
+
+
+def test_an_optional_first_port_with_mixed_joins_is_refused():
+    """The first port that is on takes the head's place, which is sound only if every later
+    port joins the same way."""
+    _refused("MD0601", _gatk_slot({"input_index": "by_sample", "intervals": "broadcast"},
+                                  first_optional=True))
+
+
+def test_a_join_map_digests_the_same_in_any_order():
+    from comeni_core.artifact.digest import digest_of
+
+    one = ModuleContract.model_validate(
+        _gatk_slot({"input_index": "by_sample", "intervals": "broadcast"}))
+    other = ModuleContract.model_validate(
+        _gatk_slot({"intervals": "broadcast", "input_index": "by_sample"}))
+    assert digest_of(one) == digest_of(other)
+
+
+def test_absent_on_a_mixed_slot_is_refused():
+    """A slot with a required port is never left out whole, so its `absent` would be dead."""
+    data = _gatk_slot({"input_index": "by_sample", "intervals": "broadcast"})
+    data["nf_inputs"][0]["absent"] = 4
+    _refused("MD0601", data)

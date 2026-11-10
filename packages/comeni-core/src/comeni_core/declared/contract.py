@@ -359,12 +359,24 @@ class NfInput(BaseModel):
     value cannot be null". `samtools/sort` wants 3; most want 2.
     """
 
-    join: Join | None = None
-    """How multiple ports are matched; required because no join policy is universally safe."""
+    join: Join | dict[str, Join] | None = None
+    """How multiple ports are matched; required because no join policy is universally safe.
+
+    One `Join` applies to every port after the first. A map gives each later port its own, for
+    a tuple that pairs a per-sample index with its BAM and shares one intervals file across the
+    run (gatk4/haplotypecaller, #464)."""
 
     absent: int = 0
     """Width of the empty tuple passed when this entry's ports are all left out (#460). The arity
-    rule is `empty`'s. Required on an entry whose ports are optional, forbidden otherwise."""
+    rule is `empty`'s. Required when every port is optional, refused otherwise: an entry with a
+    required port is never left out whole (#464)."""
+
+    @field_serializer("join")
+    def _sorted_join(self, join: "Join | dict[str, Join] | None") -> Any:
+        """A join map in port order, so its digest does not depend on how it was written."""
+        if isinstance(join, dict):
+            return {port: join[port] for port in self.ports if port in join}
+        return join
 
     @model_serializer(mode="wrap")
     def _no_default_absent(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
@@ -384,7 +396,23 @@ class NfInput(BaseModel):
                 f"is paired against, `by_sample` if they are per-sample and must match. There "
                 f"is no default: guessing wrong produces a green run with wrong results."
             )
+        if isinstance(self.join, dict):
+            later = self.ports[1:]
+            missing = [p for p in later if p not in self.join]
+            extra = sorted(p for p in self.join if p not in later)
+            if missing or extra:
+                raise ValueError(
+                    f"the join map of nf_inputs {self.ports} must name each port after the "
+                    f"first exactly once: missing {missing}, not after the first {extra}")
         return self
+
+    def join_for(self, port: str) -> Join:
+        """How `port`, a port after the first, meets the ones before it."""
+        if isinstance(self.join, dict):
+            return self.join[port]
+        if self.join is None:
+            raise ValueError(f"nf_inputs {self.ports} declares no join")
+        return self.join
 
 
 class ConstraintRow(BaseModel):
@@ -528,16 +556,23 @@ class ModuleContract(BaseModel):
         # slot whose ports can all be left out needs `absent`, the width of the empty tuple.
         for entry in self.nf_inputs:
             optional = [p for p in entry.ports if not required.get(p, True)]
+            if len(optional) < len(entry.ports) and entry.absent:
+                raise ValueError(coded(
+                    "MD0601", f"{self.id}: nf_inputs {entry.ports} declares absent, but it has "
+                    "a required input, so it is never left out whole"))
             if not optional:
-                if entry.absent:
-                    raise ValueError(coded(
-                        "MD0601", f"{self.id}: nf_inputs {entry.ports} declares absent, but "
-                        "its inputs are required, so it is never left out"))
                 continue
             if len(optional) == len(entry.ports) and not entry.absent:
                 raise ValueError(coded(
                     "MD0601", f"{self.id}: nf_inputs {entry.ports} can be left out entirely "
                     "and has no `absent` width"))
+            # When the first port is left out, the first one that is on takes its place, and
+            # the later ports' joins are relative to it: sound only if they all join alike.
+            if (entry.ports[0] in optional and isinstance(entry.join, dict)
+                    and len(set(entry.join.values())) > 1):
+                raise ValueError(coded(
+                    "MD0601", f"{self.id}: nf_inputs {entry.ports} starts with an optional "
+                    "input, so its later inputs must all join the same way"))
 
     def optional_ports(self) -> list[str]:
         """The inputs the process can run without, in declaration order."""
