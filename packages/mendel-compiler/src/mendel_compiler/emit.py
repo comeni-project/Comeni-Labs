@@ -10,6 +10,8 @@ from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from mendel_compiler.groovy_lookup import closure
+
 _TEMPLATES = Path(__file__).parent / "templates"
 
 
@@ -96,7 +98,8 @@ def _process_of(pipeline: Pipeline, node_id: str) -> str:
     return next(step.process for step in pipeline.steps if step.id == node_id)
 
 
-def _port_expression(pipeline: Pipeline, step: Step, port_name: str) -> str:
+def _port_expression(pipeline: Pipeline, step: Step, port_name: str,
+                     measured: dict[str, str] | None = None) -> str:
     """Where this port's data comes from: an upstream process, or an entry channel.
 
     **`.collect()` when the port gathers**, which is fan-in: one invocation over the whole
@@ -114,11 +117,13 @@ def _port_expression(pipeline: Pipeline, step: Step, port_name: str) -> str:
         node_id, _, from_port = wiring.source.partition(".")
         expression = f"{_process_of(pipeline, node_id)}.out.{from_port}"
     else:
-        expression = _channel_name(wiring.channel)
+        # An input whose `meta` carries a fact the run measures reads the joined channel; the
+        # steps that measure it read the raw one (#217).
+        expression = (measured or {}).get(wiring.channel) or _channel_name(wiring.channel)
     return f"{expression}.collect()" if wiring.gather else expression
 
 
-def _argument(pipeline: Pipeline, step: Step, arg) -> str:
+def _argument(pipeline: Pipeline, step: Step, arg, measured: dict[str, str] | None = None) -> str:
     if arg.empty_width:
         return _empty(arg.empty_width)
     if arg.from_setting is not None:
@@ -150,7 +155,7 @@ def _argument(pipeline: Pipeline, step: Step, arg) -> str:
     # input block (#464). The first port that is on stands in for the head.
     off = {r.port for r in step.input_states if r.state is InputState.OFF}
     on = [name for name in arg.ports if name not in off]
-    expressions = [_port_expression(pipeline, step, name) for name in on]
+    expressions = [_port_expression(pipeline, step, name, measured) for name in on]
     if len(arg.ports) == 1:
         return expressions[0]
     # Several semantic ports share one channel — featurecounts wants
@@ -372,15 +377,88 @@ def _meta_injection(step: Step) -> str:
     return f".map {{ it -> [ it[0] + [{rendered}] ] + it[1..-1] }}"
 
 
-def _calls(pipeline: Pipeline) -> list[str]:
-    calls = []
+def _call(pipeline: Pipeline, step: Step, measured: dict[str, str] | None = None) -> str:
+    args = [_argument(pipeline, step, arg, measured) for arg in step.call]
+    injection = _meta_injection(step)
+    if injection and args:
+        args[0] = f"({args[0]}){injection}"
+    return f"{step.process}({', '.join(args)})"
+
+
+def _measuring_branch(pipeline: Pipeline) -> set[str]:
+    """The steps that measure a run-time fact, and every step they descend from: they run on
+    the raw inputs, before the measured fact can be joined into anyone's `meta` (#217)."""
+    wanted = {m.measured_at for c in pipeline.channels for m in c.meta_at_run}
+    by_id = {step.id: step for step in pipeline.steps}
+    branch: set[str] = set()
+    while wanted:
+        node = wanted.pop()
+        if node in branch:
+            continue
+        branch.add(node)
+        wanted |= {i.source.partition(".")[0] for i in by_id[node].inputs if i.source}
+    return branch
+
+
+def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str]]:
+    """Each input channel carrying run-measured facts, joined with them by `meta`: its name
+    for the consumers outside the measuring branch, and the lines that define it."""
+    names, lines = {}, []
+    for channel in pipeline.channels:
+        if not channel.meta_at_run:
+            continue
+        raw = _channel_name(channel.name)
+        name = f"{raw}_measured"
+        joins = "".join(
+            f".join({_process_of(pipeline, m.measured_at)}.out.{m.measured_port}.map {{ meta, "
+            f"report -> [ meta, new groovy.json.JsonSlurper().parseText(report.text)"
+            f".facts?.get('{m.measurement}')?.value ] }})"
+            for m in channel.meta_at_run
+        )
+        values = [f"v{n}" for n in range(len(channel.meta_at_run))]
+        merged = ", ".join(f"{m.meta_key}: {v}" for m, v in zip(channel.meta_at_run, values,
+                                                                  strict=True))
+        expression = (f"{raw}{joins}.map {{ meta, data, {', '.join(values)} -> "
+                      f"[ meta + [{merged}], data ] }}")
+        names[channel.name] = name
+        lines.append(f"{name} = {_as_value(expression, channel.scope)}")
+    return names, lines
+
+
+def _decided(pipeline: Pipeline, measured: dict[str, str]) -> list[str]:
+    """Every run-time value the run used, per sample, beside its facts: what a setting became
+    is recorded by the run itself, not recomputed afterwards (#217)."""
+    lines = []
     for step in pipeline.steps:
-        args = [_argument(pipeline, step, arg) for arg in step.call]
-        injection = _meta_injection(step)
-        if injection and args:
-            args[0] = f"({args[0]}){injection}"
-        calls.append(f"{step.process}({', '.join(args)})")
-    return calls
+        for setting in sorted(step.settings, key=lambda s: s.name):
+            if setting.at_run is None:
+                continue
+            channel = next(c for c in pipeline.channels
+                           if any(m.measurement == setting.at_run.fact for m in c.meta_at_run))
+            expr = closure(setting.at_run, where=f"{step.id}.{setting.name}")
+            lines.append(
+                "if (params.outdir) {\n"
+                f"        {measured[channel.name]}.map {{ meta, data -> \"${{meta.id}}\\t\" + "
+                f"String.valueOf({expr}) }}.collectFile(name: "
+                f"'{step.process}.{setting.name}.tsv', storeDir: \"${{params.outdir}}/decided\", "
+                "newLine: true, sort: true)\n"
+                "    }"
+            )
+    return lines
+
+
+def _calls(pipeline: Pipeline) -> list[str]:
+    """Every statement after the entry channels: the measuring branch first, on the raw
+    inputs; then the inputs joined with what it measured; then every other step reading the
+    joined inputs; then the record of each run-time value (#217). A pipeline that measures
+    nothing gets exactly its calls in step order, as before."""
+    branch = _measuring_branch(pipeline)
+    if not branch:
+        return [_call(pipeline, step) for step in pipeline.steps]
+    measured, joined = _joined(pipeline)
+    first = [_call(pipeline, step) for step in pipeline.steps if step.id in branch]
+    rest = [_call(pipeline, step, measured) for step in pipeline.steps if step.id not in branch]
+    return [*first, *joined, *rest, *_decided(pipeline, measured)]
 
 
 def emit(pipeline: Pipeline) -> str:
@@ -496,6 +574,22 @@ def test_samplesheet(pipeline: Pipeline) -> str:
     return ",".join(columns) + "\n" + ",".join(values) + "\n"
 
 
+def _at_run_fragment(step: Step, setting) -> str:
+    """The setting's flag with its value from the lookup over `meta`, or nothing when the
+    lookup gives nothing (an unanswered fallback and an undetermined fact) (#217)."""
+    where = f"{step.id}.{setting.name}"
+    expr = closure(setting.at_run, where=where)
+    template = setting.template or "{value}"
+    if template.count("{value}") != 1 or "${" in template:
+        raise ValueError(coded(
+            "MD0330",
+            f"{where} is decided at run time and its template {template!r} does not hold "
+            "`{value}` once, plainly — `mendel explain MD0330`."))
+    before, _, after = template.partition("{value}")
+    return (f"${{ ({expr}) == null ? '' : {_render_literal(before)} + ({expr}) + "
+            f"{_render_literal(after)} }}")
+
+
 def _ext_scope(step: Step) -> list[str]:
     """Every `ext.<key>` this step needs, composed.
 
@@ -515,6 +609,15 @@ def _ext_scope(step: Step) -> list[str]:
 
     for setting in sorted(step.settings, key=lambda s: s.name):
         if setting.via is not Via.EXT:
+            if setting.at_run is not None:
+                raise ValueError(coded(
+                    "MD0330",
+                    f"{step.id}.{setting.name} is decided at run time and routes through "
+                    f"`{setting.via.value}`; only an `ext` setting can read the measured fact "
+                    "from its task's `meta` — `mendel explain MD0330`."))
+            continue
+        if setting.at_run is not None:
+            fragments.setdefault(setting.key.value, []).append(_at_run_fragment(step, setting))
             continue
         if setting.value is None:
             # An unanswered tier-4 setting contributes nothing, and must not block the build.

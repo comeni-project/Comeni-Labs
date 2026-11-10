@@ -119,3 +119,14 @@ def test_runs_as_a_staged_script_in_isolated_mode(tmp_path):
         capture_output=True, text=True, cwd=tmp_path, env={},
     )
     assert json.loads(done.stdout)["facts"]["g"]["value"] == 15, done.stderr
+
+
+def test_a_fact_is_keyed_by_the_measurement_it_is(tmp_path):
+    """What a pipeline reads: `facts.genome_length`, whoever measured it (#217)."""
+    (tmp_path / "fai.py").write_text(PARSER)
+    fai = tmp_path / "g.fai"
+    fai.write_bytes(b"a\t10\n")
+    report, _ = _cli("--parser", f"genome_length_fai@1.0.0={tmp_path / 'fai.py'}",
+                     "--as", "genome_length_fai=genome_length", str(fai))
+    assert list(report["facts"]) == ["genome_length"]
+    assert report["facts"]["genome_length"]["by"] == ["genome_length_fai@1.0.0"]

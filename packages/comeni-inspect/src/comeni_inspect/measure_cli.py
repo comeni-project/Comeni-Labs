@@ -59,6 +59,15 @@ def _decided(spelled: list[str]) -> dict[str, dict]:
     return found
 
 
+def _renamed(report: dict, named: list[str]) -> dict:
+    """`--as id=measurement`: each fact keyed by the measurement it is, which is what a
+    pipeline reads (`facts.genome_length`), whatever the measurer is called. A pair the report
+    lacks renames nothing; the default key is the piece's id, as on the server."""
+    names = dict(pair.partition("=")[::2] for pair in named)
+    facts = {names.get(key, key): fact for key, fact in report.get("facts", {}).items()}
+    return {**report, "facts": dict(sorted(facts.items()))}
+
+
 def _run(argv: list[str]) -> dict:
     parser = _Parser(prog="measure_cli", add_help=False)
     parser.add_argument("--format")
@@ -66,6 +75,7 @@ def _run(argv: list[str]) -> dict:
     parser.add_argument("--measure", action="append", default=[])
     parser.add_argument("--parser")
     parser.add_argument("--decided", action="append", default=[])
+    parser.add_argument("--as", dest="named", action="append", default=[])
     parser.add_argument("files", nargs="+")
     try:
         args = parser.parse_args(argv)
@@ -91,8 +101,10 @@ def _run(argv: list[str]) -> dict:
         sources = [core.Source(name=Path(n).name, stream=s)
                    for n, s in zip(args.files, opened, strict=True)]
         if args.parser:
-            return core.parse_output(parser_ref, sources[0])
-        return core.inspect_streams(fmt, codec, measures, sources, cap=None)
+            report = core.parse_output(parser_ref, sources[0])
+        else:
+            report = core.inspect_streams(fmt, codec, measures, sources, cap=None)
+        return _renamed(report, args.named)
     except OSError as error:
         return core.unreadable(f"could not be read: {error.strerror}")
     finally:

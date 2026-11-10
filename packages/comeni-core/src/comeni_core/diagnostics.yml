@@ -2985,6 +2985,20 @@ MD0329:
     A setting decided at run time adds the steps that measure its fact by routing the goal
     again with the measurement wanted too (#217). Measuring may add steps and never move one,
     so a second graph that does not hold the first one whole is refused rather than emitted.
+MD0330:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a setting decided at run time cannot be carried: it routes outside `ext`, or its template does not hold `{value}` once"
+  fires_on: [build, upgrade, emit, publish]
+  refuses: true
+  fix: |
+    Route the parameter through `via: ext` with a template holding `{value}` once, plainly, or
+    state the fact the rule waits on in the goal, so the setting is decided at build time.
+  explanation: |
+    A setting decided at run time (#217) reads its measured fact from the task's `meta`, which
+    only an `ext` closure evaluated per task can see. Its value is spliced into the template
+    where `{value}` stands; a template without it, or with Groovy of its own, would put the
+    lookup somewhere nobody can check.
 
 MD0501:
   emitted_by: resolver

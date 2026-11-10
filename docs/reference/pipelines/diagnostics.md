@@ -135,6 +135,7 @@ decline to curate one.
 | `MD0231` | a registry layer has no network source in git, so this pipeline cannot be rebuilt from its file alone |
 | `MD0232` | a registry layer has uncommitted edits, so its commit does not rebuild it |
 | `MD0233` | a starter has nothing resolved to emit or publish |
+| `MD0330` | a setting decided at run time cannot be carried: it routes outside `ext`, or its template does not hold `{value}` once |
 
 ## Routing and resolution
 
