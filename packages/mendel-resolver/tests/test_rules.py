@@ -1018,15 +1018,16 @@ def test_an_extensible_enum_over_several_facts_still_needs_a_catch_all(world):
     world["measurements"] = MeasurementRegistry.load(world["layer"])
     rows = "".join(f"      - {{when: {{strandedness: {v}, read_length: \">= 1\"}}, then: 0}}\n"
                    for v in ("forward", "reverse", "unstranded"))
-    with pytest.raises(RuleValidationError, match="MD0311"):
+    rows += '      - {when: {read_length: "< 1"}, then: 1}\n'
+    with pytest.raises(RuleValidationError, match="(?s)MD0311.*overlay adds"):
         _rules(world, _table(rows))
 
 
 def test_too_many_cases_is_refused(world):
-    """700 boundaries on read_length times three strandedness values: past the 4096 bound,
-    refused before any case is tried."""
+    """700 boundaries two apart on read_length (1401 points) times three strandedness values:
+    past the 4096 bound, refused before any case is tried."""
     rows = "".join(f'      - {{when: {{read_length: "== {n}", strandedness: reverse}}, then: 0}}\n'
-                   for n in range(1, 701))
+                   for n in range(1, 1401, 2))
     rows += '      - {when: {}, then: 1}\n'
     with pytest.raises(RuleValidationError, match="MD0324"):
         _rules(world, _table(rows))
@@ -1095,3 +1096,55 @@ decisions:
       - {when: {}, then: fast, cite: "a fixture"}
 """
     assert len(_rules(world, body).decisions) == 1
+
+
+# ── Task 3 review: the table check's cases are exact ──────────────────────────────────────
+
+
+def _check(world, rows: list[dict], hit: str = "first") -> list[str]:
+    from mendel_resolver.rules.format import Decision
+    from mendel_resolver.rules.validate import check_table
+
+    decision = Decision.model_validate({
+        "decides": {"effect": "param", "of": "quantification", "name": "strandedness"},
+        "hit": hit, "cite": "a fixture", "rows": rows})
+    return [f.split(":")[0] for f in check_table(
+        decision, measurements=world["measurements"], derived={})]
+
+
+def test_no_integer_lies_between_two_adjacent_cuts(world):
+    rows = [{"when": {"read_length": "<= 1", "paired": True}, "then": 0},
+            {"when": {"read_length": ">= 2", "paired": True}, "then": 1},
+            {"when": {"paired": False}, "then": 2}]
+    assert _check(_paired(world), rows) == []
+
+
+def test_membership_and_negation_cut_an_ordered_fact(world):
+    world = _paired(world)
+    reached = [{"when": {"read_length": {"in": [50]}, "paired": True}, "then": 0},
+               {"when": {"read_length": {"not": 50}, "paired": True}, "then": 1},
+               {"when": {"paired": False}, "then": 2}]
+    assert _check(world, reached) == []
+    missing = [{"when": {"read_length": {"not": 50}, "paired": True}, "then": 1},
+               {"when": {"paired": False}, "then": 2}]
+    assert _check(world, missing) == ["MD0311"]
+
+
+def test_a_catch_all_after_a_complete_table_is_not_dead(world):
+    """It decides when the fact is not known, which a profile may well be."""
+    rows = [{"when": {"read_length": ">= 70"}, "then": 0},
+            {"when": {"read_length": "< 70"}, "then": 1},
+            {"when": {}, "then": 2}]
+    assert _check(world, rows) == []
+
+
+def test_an_overlay_value_meets_negation_and_presence(world):
+    (world["layer"] / "measurements" / "strandedness.yml").write_text(_declared(
+        world["layer"] / "measurements" / "strandedness.yml",
+        "kind: enum\nvalues: [forward, reverse, unstranded]\nextensible: true\n"))
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
+    world = _paired(world)
+    rows = [{"when": {"strandedness": "reverse", "paired": True}, "then": 0},
+            {"when": {"strandedness": {"not": "reverse"}, "paired": True}, "then": 1},
+            {"when": {"paired": False}, "then": 2}]
+    assert _check(world, rows) == []

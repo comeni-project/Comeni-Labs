@@ -5,6 +5,7 @@ derived facts. Premise-name and exhaustiveness checks run after stacking because
 read derivations from other files and overlays may extend declared domains.
 """
 
+import math
 import re
 from collections.abc import Sequence
 from itertools import product
@@ -486,8 +487,15 @@ CASE_BOUND = 4096
 """The most cases `check_table` tries; beyond it the table is refused (MD0324), so a clean check
 always means every case was tried."""
 
-_OTHER = object()
-"""A value an extensible enum may gain from an overlay, which no row can name today."""
+class _Other:
+    """A value an extensible enum may gain from an overlay, which no row can name today: it
+    equals nothing a row names, so `{not: x}` and `present` match it and equality does not."""
+
+    def __repr__(self) -> str:
+        return "a value an overlay adds"
+
+
+_OTHER = _Other()
 
 
 class _Seen:
@@ -514,15 +522,26 @@ def _points(fact: str, rows: Sequence[DecisionRow], measurements: MeasurementReg
             comparison = _comparison(expected)
             if comparison is not None:
                 cuts.add(comparison[1])
-            elif isinstance(expected, int | float) and not isinstance(expected, bool):
-                cuts.add(float(expected))
+                continue
+            # `{in: [...]}` and `{not: x}` cut the line at each value they name.
+            named = (expected.get("in", []) if isinstance(expected, dict) and "in" in expected
+                     else [expected.get("not")] if isinstance(expected, dict) else [expected])
+            cuts |= {float(v) for v in named
+                     if isinstance(v, int | float) and not isinstance(v, bool)}
         if not cuts:
             return [1]
         ordered = sorted(cuts)
         # Each cut, a point between neighbouring cuts, and one beyond each end: every interval
-        # the comparisons define is tried once, and every boundary on both sides.
-        between = [(a + b) / 2 for a, b in zip(ordered, ordered[1:], strict=False)]
-        return sorted({*ordered, *between, ordered[0] - 1, ordered[-1] + 1})
+        # the comparisons define is tried once, and every boundary on both sides. An integer
+        # fact has no point between adjacent integers, so none is invented there.
+        if kind is MeasurementKind.INTEGER:
+            between = [math.floor(a) + 1 for a, b in zip(ordered, ordered[1:], strict=False)
+                       if math.floor(a) + 1 < b]
+            ends = [math.ceil(ordered[0]) - 1, math.floor(ordered[-1]) + 1]
+        else:
+            between = [(a + b) / 2 for a, b in zip(ordered, ordered[1:], strict=False)]
+            ends = [ordered[0] - 1, ordered[-1] + 1]
+        return sorted({*ordered, *between, *ends})
     return None
 
 
@@ -549,12 +568,12 @@ def check_table(decision: Decision, *, measurements: MeasurementRegistry,
     first_for: set[int] = set()
     gap = None
     for case in product(*points):
-        seen = {f: _Seen(v) for f, v in zip(facts, case, strict=True) if v is not _OTHER}
+        seen = {f: _Seen(v) for f, v in zip(facts, case, strict=True)}
         hits = [n for n, row in enumerate(decision.rows) if matches(row.when, seen)]
         if hits:
             first_for.add(hits[0])
         elif gap is None:
-            gap = ", ".join(f"{f} = {'a value an overlay adds' if v is _OTHER else v}"
+            gap = ", ".join(f"{f} = {v!r}" if v is _OTHER else f"{f} = {v}"
                             for f, v in zip(facts, case, strict=True))
     if gap is not None and len(facts) > 1:
         findings.append(coded("MD0311", f"{where}\n  no row matches {gap}, so a profile "
@@ -563,7 +582,10 @@ def check_table(decision: Decision, *, measurements: MeasurementRegistry,
                               "`cite:`."))
     if decision.hit == "first":
         for n, row in enumerate(decision.rows):
-            if n in first_for or any(v in ("absent", "present") for v in row.when.values()):
+            # A catch-all decides when a fact is not known, which no case here models; a row
+            # testing presence is about knowing, too. Neither is judged dead.
+            if (n in first_for or not row.when
+                    or any(v in ("absent", "present") for v in row.when.values())):
                 continue
             findings.append(coded("MD0323", f"{where}\n  row {n + 1} is first for no case: "
                                   "the rows above it already match everything it would, so "
