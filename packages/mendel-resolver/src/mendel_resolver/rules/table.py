@@ -259,6 +259,7 @@ class RuleTable(BaseModel):
             # `key()` is the composite; a two-target decision answers for either of them.
             if key not in {target.key() for target in decision.targets()}:
                 continue
+            premises = _visible(decision, premises)
             pins = []
             for row in decision.rows:
                 gives, value = row.value(premises)
@@ -301,7 +302,9 @@ class RuleTable(BaseModel):
         two that happen to agree.
         """
         fired: list[Fired] = []
+        everything = premises
         for decision in self.decisions:
+            premises = _visible(decision, everything)
             fired_rows = [r for r in decision.rows
                           if r.value(premises)[0] and matches(r.when, premises)]
             if not fired_rows:
@@ -393,6 +396,15 @@ class RuleTable(BaseModel):
         return self._for(f"{Effect.PRESENCE}:{role}", premises)
 
 
+def _visible(decision: Decision, premises: "dict[str, object]") -> "dict[str, object]":
+    """The premises this decision may read: under `coverage: all`, none measured on part of
+    the data (#465). A missing premise makes a row not match, so such a decision falls to a
+    lower tier, or is decided in the pipeline where the fact is measured in full."""
+    if decision.coverage != "all":
+        return premises
+    return {k: p for k, p in premises.items() if getattr(p, "coverage", None) != "head"}
+
+
 def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[PremiseRecord]:
     """The facts this row consulted, in `when` order and with their values.
 
@@ -431,6 +443,7 @@ def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[Prem
                 origin=premise.origin,
                 by=premise.by,
                 pieces=premise.pieces,
+                coverage=getattr(premise, "coverage", None),
             )
         )
     return read

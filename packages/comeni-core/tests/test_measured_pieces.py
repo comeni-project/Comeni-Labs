@@ -135,3 +135,17 @@ def test_a_premise_with_no_measurer_reads_as_before_and_dumps_as_before():
 def test_each_non_measured_premise_origin_has_its_public_description(origin, description):
     record = PremiseRecord(id="read_length", value=150, origin=origin)
     assert record.prose() == f"read_length is 150, {description}"
+
+
+def test_a_fact_measured_on_part_of_the_data_says_so():
+    """#465: an estimate reads as one wherever its reason is shown."""
+    from comeni_core.goal.premise import PremiseRecord
+    from comeni_core.plan.tiers import PremiseOrigin
+
+    head = PremiseRecord(id="read_length", value=150, origin=PremiseOrigin.MEASURED,
+                         pieces=["fastq@1.1.0", "read_length@1.0.0"], coverage="head")
+    assert head.prose() == ("read_length is 150, measured on part of the data "
+                            "by fastq@1.1.0 + read_length@1.0.0")
+    whole = head.model_copy(update={"coverage": "all"})
+    assert whole.prose() == "read_length is 150, measured by fastq@1.1.0 + read_length@1.0.0"
+    assert "coverage" not in head.model_copy(update={"coverage": None}).model_dump()

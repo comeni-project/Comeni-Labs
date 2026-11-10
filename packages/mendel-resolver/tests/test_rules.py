@@ -1157,3 +1157,57 @@ def test_a_fractional_boundary_on_an_integer_fact_is_refused(world):
             '      - {when: {read_length: "< 69.5"}, then: 1}\n')
     with pytest.raises(RuleValidationError, match="(?s)MD0310.*69.5"):
         _rules(world, _table(rows))
+
+
+# ── coverage: a decision may require all of the data (#465) ─────────────────────────────
+
+
+def _coverage_table(coverage: str | None) -> str:
+    said = f"    coverage: {coverage}\n" if coverage else ""
+    return ("version: 1\ndecisions:\n"
+            "  - decides: {effect: param, of: quantification, name: strandedness}\n"
+            f"{said}    cite: \"a fixture\"\n    rows:\n"
+            '      - {when: {read_length: ">= 70"}, then: 2}\n'
+            '      - {when: {read_length: "< 70"}, then: 1}\n')
+
+
+def _read(value, coverage: str | None, origin=PremiseOrigin.MEASURED) -> dict[str, Premise]:
+    return {"read_length": Premise(id="read_length", value=value, origin=origin,
+                                   coverage=coverage)}
+
+
+def test_a_head_premise_does_not_satisfy_coverage_all(world):
+    table = _rules(world, _coverage_table("all"))
+    assert table.value_for(["quantification"], "strandedness", _read(150, "head")) is None
+
+
+def test_a_premise_read_in_full_satisfies_coverage_all(world):
+    table = _rules(world, _coverage_table("all"))
+    pin = table.value_for(["quantification"], "strandedness", _read(150, "all"))
+    assert pin is not None and pin.value == 2
+    assert pin.premise[0].coverage == "all"
+
+
+def test_an_asserted_premise_satisfies_coverage_all(world):
+    """A person's word is not an estimate of the data: it is what they say the data is."""
+    table = _rules(world, _coverage_table("all"))
+    pin = table.value_for(["quantification"], "strandedness",
+                          _read(150, None, PremiseOrigin.ASSERTED))
+    assert pin is not None and pin.value == 2
+
+
+def test_without_coverage_a_head_premise_decides(world):
+    table = _rules(world, _coverage_table(None))
+    pin = table.value_for(["quantification"], "strandedness", _read(150, "head"))
+    assert pin is not None and pin.premise[0].coverage == "head"
+
+
+def test_coverage_is_left_out_of_the_dump_when_unset(world):
+    decision = _rules(world, _coverage_table(None)).decisions[0]
+    assert "coverage" not in decision.model_dump()
+    assert _rules(world, _coverage_table("all")).decisions[0].model_dump()["coverage"] == "all"
+
+
+def test_effects_respect_coverage_all(world):
+    table = _rules(world, _coverage_table("all"))
+    assert table.effects_for(_read(150, "head")) == []

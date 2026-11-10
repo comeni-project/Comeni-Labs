@@ -172,6 +172,9 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
       for (const file of input.files) {
         form.append("files", new File([file.slice(0, HEAD_BYTES)], file.name, { type: file.type }));
       }
+      // Each file's real size, so the server can tell a whole small file from a head (#465): a
+      // fact read from the whole file is measured on all of the data, not estimated.
+      form.append("sizes", JSON.stringify(input.files.map((file) => file.size)));
       return postForm<SampleInspected>(`/pipeline/authoring/${sessionId}/samples`, form);
     },
     // **The answer carries the session as it now is** (issue 228): taken as it is, rather than

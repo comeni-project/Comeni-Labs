@@ -146,6 +146,9 @@ class Decision(BaseModel):
     hit: Literal["first", "unique"] = Field(default="first", exclude_if=lambda h: h == "first")
     """`first`: the first matching row decides, as rows always have. `unique`: at most one row
     may match; two matching rows are a tie, asked at tier 4 (#461)."""
+    coverage: Literal["all"] | None = Field(default=None, exclude_if=lambda c: c is None)
+    """`all`: a fact measured on part of the data (`coverage: head`) does not satisfy this
+    decision; a person's statement does, and so does a fact measured on all of it (#465)."""
     rows: list[DecisionRow] = Field(default_factory=list)
     because: str | None = None
     cite: str | None = None

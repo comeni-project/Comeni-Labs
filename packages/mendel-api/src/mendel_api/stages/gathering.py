@@ -211,11 +211,13 @@ def as_goal(stored: dict | None) -> Goal | None:
     return Goal.model_validate(stored) if stored is not None else None
 
 
-def _goal_evidence(evidence: dict | None) -> Evidence | None:
-    """Only the counts the goal's `Evidence` declares. A measure's other evidence (`min`,
-    `max`, `pairs`) stays on the session's fact and the card; the goal is reachable from the
-    doors and carries counts only."""
+def _goal_evidence(evidence: dict | None, coverage: str | None = None) -> Evidence | None:
+    """Only the counts the goal's `Evidence` declares, and how much of the data they cover
+    (#465). A measure's other evidence (`min`, `max`, `pairs`) stays on the session's fact and
+    the card; the goal is reachable from the doors and carries counts only."""
     counts = {k: evidence[k] for k in ("records", "rows", "share") if k in (evidence or {})}
+    if coverage is not None:
+        counts["coverage"] = coverage
     return Evidence(**counts) if counts else None
 
 

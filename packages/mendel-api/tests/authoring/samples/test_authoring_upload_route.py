@@ -98,7 +98,7 @@ def test_only_the_head_is_kept_and_nothing_is_spooled_to_disk(client, clean, mon
     monkeypatch.setattr(
         inspect,
         "inspect_sample",
-        lambda files, stack, claimed=None: (
+        lambda files, stack, claimed=None, sizes=(): (
             seen.extend(len(b) for _, b in files) or real(files, stack, claimed)
         ),
     )
@@ -169,7 +169,7 @@ def test_an_empty_file_input_is_not_a_file(client, clean, monkeypatch):  # noqa:
     monkeypatch.setattr(
         inspect,
         "inspect_sample",
-        lambda files, stack, claimed=None: seen.append(files) or _nothing(),
+        lambda files, stack, claimed=None, sizes=(): seen.append(files) or _nothing(),
     )
     sid, pid = _at("read_length")
     body = _multipart(
@@ -406,3 +406,45 @@ def test_a_hand_back_never_starts_another_reading(client, clean, readable):  # n
     got = _post(client, sid, pid, files)
     assert got.status_code == 200, got.text
     assert got.json()["outcome"] != "reading" and readable == []
+
+
+def _coverage_of(sid, measurement):
+    """As recorded for the draft: the fact the goal will be composed from."""
+    from mendel_api.services import authoring_decisions
+
+    facts = authoring_decisions.facts(facade.read(sid)["draft_id"])
+    (fact,) = [f for f in facts if f.subject == measurement]
+    return fact.coverage
+
+
+@needs_db
+def test_a_whole_file_uploaded_with_its_size_is_measured_on_all_of_it(client, clean):  # noqa: F811
+    """#465: the browser sends each file's real size; a head that long is the whole file."""
+    import json
+
+    sid, pid = _at("paired")
+    paths = sorted(PAIR.glob("*.gz"))
+    files = [("files", (p.name, p.read_bytes())) for p in paths]
+    got = client.post(
+        f"/api/pipeline/authoring/{sid}/samples",
+        data={"proposal_id": pid, "sizes": json.dumps([p.stat().st_size for p in paths])},
+        files=files,
+    )
+    assert got.status_code == 200, got.text
+    assert _coverage_of(sid, "paired") == "all"
+
+
+@needs_db
+def test_an_upload_without_sizes_is_a_head(client, clean):  # noqa: F811
+    sid, pid = _at("paired")
+    files = [("files", (p.name, p.read_bytes())) for p in sorted(PAIR.glob("*.gz"))]
+    assert _post(client, sid, pid, files).status_code == 200
+    assert _coverage_of(sid, "paired") == "head"
+
+
+def test_sizes_that_do_not_fit_are_no_sizes():
+    from mendel_api.services.sample_upload import sizes_of
+
+    assert sizes_of("[10, 20]", 2) == (10, 20)
+    for bad in (None, "", "nope", "[10]", "[10, -1]", "[true, 2]", '{"a": 1}', "[1.5, 2]"):
+        assert sizes_of(bad, 2) == ()

@@ -39,6 +39,7 @@ class Evidence(BaseModel):
     records: int | None
     rows: int | None
     share: float | None
+    coverage: Literal["head", "all"] | None
 
 class Measured(BaseModel):
     measurement: MeasurementId
@@ -47,6 +48,8 @@ class Measured(BaseModel):
     by: ContractId | None
     pieces: list[PieceRef]
     evidence: Evidence | None
+    @property
+    def coverage(self) -> Literal["head", "all"] | None: ...
 
 class DataProfile(BaseModel):
     measurements: list[Measured]

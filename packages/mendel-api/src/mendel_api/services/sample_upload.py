@@ -21,7 +21,7 @@ FIELD_CAP = 256
 """A form field (the proposal id) is an id, never prose: more than this is dropped."""
 FILES = "files"
 """The one field a file is read from."""
-FIELDS = frozenset({"proposal_id"})
+FIELDS = frozenset({"proposal_id", "sizes"})
 """The only form field this route reads. **Any other is refused**, not held: a body of 100,000
 distinct field names held 200 MB before this (review of #134)."""
 
@@ -124,3 +124,18 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
     if part and not part.get("ended"):
         raise BadUpload("the upload stopped before it finished; send it again")
     return heads
+
+
+def sizes_of(field: str | None, files: int) -> tuple[int, ...]:
+    """The `sizes` field: a JSON list of each file's real size, one per file. Anything else is
+    no sizes at all, so the files are heads, which is the safe reading (#465)."""
+    import json
+
+    try:
+        sizes = json.loads(field) if field else None
+    except ValueError:
+        return ()
+    if (not isinstance(sizes, list) or len(sizes) != files
+            or not all(isinstance(n, int) and not isinstance(n, bool) and n >= 0 for n in sizes)):
+        return ()
+    return tuple(sizes)

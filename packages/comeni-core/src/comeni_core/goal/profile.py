@@ -6,6 +6,8 @@ measurement declarations can construct profiles without depending on the resolve
 re-exports them for compatibility.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from comeni_core.plan.tiers import ValueSource
@@ -21,10 +23,16 @@ class Evidence(BaseModel):
     rows: int | None = Field(default=None, ge=0, exclude_if=lambda count: count is None)
     share: float | None = Field(default=None, ge=0, le=1, exclude_if=lambda share: share is None)
     """Each value is serialized only when known."""
+    coverage: Literal["head", "all"] | None = Field(
+        default=None, exclude_if=lambda coverage: coverage is None
+    )
+    """How much of the data was read (#465): `head`, part of it (an upload's first 4 MB, a cut
+    file), or `all`. A rule that needs all of the data does not read a `head` fact."""
 
     @model_validator(mode="after")
     def _says_something(self) -> "Evidence":
-        if self.records is None and self.rows is None and self.share is None:
+        if (self.records is None and self.rows is None and self.share is None
+                and self.coverage is None):
             raise ValueError("evidence with no count says nothing; leave it out instead")
         return self
 
@@ -49,6 +57,11 @@ class Measured(BaseModel):
     A contract uses ``by`` instead. Person-authored assertions use neither.
     """
     evidence: Evidence | None = Field(default=None, exclude_if=lambda evidence: evidence is None)
+
+    @property
+    def coverage(self) -> Literal["head", "all"] | None:
+        """How much of the data the measurer read; `None` for a value nothing measured."""
+        return self.evidence.coverage if self.evidence is not None else None
 
     @model_validator(mode="after")
     def _one_measurer(self) -> "Measured":

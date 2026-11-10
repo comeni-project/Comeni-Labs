@@ -97,6 +97,7 @@ class _Found(NamedTuple):
     value: object
     pieces: list[str] = []
     evidence: dict | None = None
+    coverage: str | None = None
 
 
 def _record_found(
@@ -155,7 +156,7 @@ def _record_found(
             item.value,
             origin=source,
             pieces=item.pieces,
-            evidence=gathering._goal_evidence(item.evidence),
+            evidence=gathering._goal_evidence(item.evidence, item.coverage),
             ingestion_key=ingestion_key,
             invocation_id=invocation_id,
         )
@@ -425,7 +426,7 @@ def record_inspection(
         )
         measured = inspection.outcome == "measured"
         found = [
-            _Found(f.measurement, f.value, f.pieces, f.evidence)
+            _Found(f.measurement, f.value, f.pieces, f.evidence, f.coverage)
             for f in (inspection.facts if measured else [])
             if f.undetermined is None
         ]
@@ -584,7 +585,8 @@ def _upload(ctx: Ctx, cmd: c.UploadSample) -> Uploaded:
         owner = db.get(PipelineAuthoringSession, cmd.session_id)
         version = db.get(PipelineDraft, owner.draft_id).decision_revision
         workflow = owner.row_version
-    inspection = inspect.inspect_sample(list(cmd.files), registry.stack(), claimed)
+    inspection = inspect.inspect_sample(list(cmd.files), registry.stack(), claimed,
+                                        sizes=tuple(cmd.sizes))
     if claimed is not None:
         end_hand_back(cmd.proposal_id, confirmed=inspection.outcome == "measured")
     # **A hand-back never starts another reading** (issue 246): a re-sent file nothing claims,

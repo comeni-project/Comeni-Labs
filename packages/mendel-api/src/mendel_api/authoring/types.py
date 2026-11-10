@@ -186,6 +186,8 @@ class Fact(_Shape):
     evidence: dict[str, int | float] | None = None
     """How much they read, counts only. Session state, not a door payload: the goal gets the
     typed `Evidence`, which holds only the counts it declares."""
+    coverage: Literal["head", "all"] | None = None
+    """How much of the data it was measured on (#465): `head` for part of it."""
     heard: Prose | None = None
     """The person's own words it was taken from, when a model heard it (Part I.0 §5.4): shown on
     the goal card so a misreading (*"not paired-end"*) is caught there. Session state only."""

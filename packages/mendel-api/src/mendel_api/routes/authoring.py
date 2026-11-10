@@ -812,6 +812,8 @@ class InspectedFactView(BaseModel):
     undetermined: str | None = None
     pieces: list[str] = []
     evidence: dict[str, int | float | bool | str] = {}
+    coverage: Literal["head", "all"] | None = None
+    """How much of the file the measurer read (#465): `all` only for a whole file."""
 
 
 class SampleInspected(BaseModel):
@@ -887,7 +889,8 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
     # The rest is one action (plan 1c): refused before a byte is inspected, a hand-back claimed
     # by the recorded type only, and a type nothing here reads handed to the AI.
     done = await session.act(
-        c.UploadSample(session_id, proposal_id, tuple(heads.files), identity.default_author())
+        c.UploadSample(session_id, proposal_id, tuple(heads.files), identity.default_author(),
+                       sizes=sample_upload.sizes_of(heads.fields.get("sizes"), len(heads.files)))
     )
     up = done.result
     view = await run_in_threadpool(_view, session_id)

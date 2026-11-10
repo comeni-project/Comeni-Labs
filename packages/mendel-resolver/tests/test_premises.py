@@ -497,3 +497,24 @@ def test_a_derivation_row_cannot_take_a_fact():
         Derivation.model_validate({"fact": "x", "kind": "integer",
                                    "rows": [{"when": {}, "then": {"fact": "read_length"},
                                              "cite": "a fixture"}]})
+
+
+def test_coverage_reaches_the_premise_and_a_derived_fact_inherits_head():
+    """A fact computed from an estimate is an estimate (#465)."""
+    from comeni_core.declared.measurement import MeasuredEntry
+    from comeni_core.goal.profile import Evidence
+
+    profile = LOADED.measurements.profile_of([
+        MeasuredEntry("read_length", 150, ValueSource.MEASURED, None,
+                      ("fastq@1.1.0", "read_length@1.0.0"),
+                      Evidence(records=1000, coverage="head")),
+    ])
+    goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["counts.matrix"], profile=profile)
+    derived = Derivation.model_validate({
+        "fact": "half_read", "kind": "integer", "source": "read_length",
+        "transform": [{"op": "divide", "by": 2}],
+    })
+    premises = build_premises(goal=goal, derivations=[derived], measurements=LOADED.measurements)
+    assert premises["read_length"].coverage == "head"
+    assert premises["half_read"].coverage == "head"
+    assert profile.measurements[0].coverage == "head"
