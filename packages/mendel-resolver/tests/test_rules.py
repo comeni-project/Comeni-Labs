@@ -1072,3 +1072,26 @@ decisions:
         _rules(world, body)
     careful = body.replace("then: fast", "then: careful")
     assert len(_rules(world, careful).decisions) == 1
+
+
+def test_a_rule_value_is_checked_with_the_other_settings_defaults(world):
+    """Task 4 review: other settings counted as unset, so a row testing one as `absent`
+    matched at load although its default means the build never meets it."""
+    contracts = world["layer"] / "contracts"
+    modal = MODAL.replace(
+        '''  - {when: {param.mode: fast}, forbids: [bam],''',
+        '''  - {when: {param.mode: fast, param.index: absent}, forbids: [bam],''').replace(
+        "constraints:", "  - {name: index, via: ext, key: args, template: '--index {value}',\n"
+                        "     default: auto, because: the tool's default}\nconstraints:")
+    assert modal != MODAL
+    (contracts / "modal.yml").write_text(_declared(contracts / "modal.yml", modal))
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: mode,
+              when_implementation: [lab/modal@1.0.0]}
+    rows:
+      - {when: {}, then: fast, cite: "a fixture"}
+"""
+    assert len(_rules(world, body).decisions) == 1

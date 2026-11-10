@@ -152,10 +152,13 @@ def _allowed_by_constraints(row: DecisionRow, target: DecisionTarget, path: Path
         contract = registry.get(contract_id)
         if not any(p.name == target.name for p in contract.params):
             continue
+        # The other settings at their defaults, as a build starts them; a row on the connected
+        # type (#464) cannot apply here, so it never refuses at load, only at the build.
+        params = {p.name: p.default for p in contract.params} | {target.name: row.then}
         verdict = evaluate(contract, Setup(
             given=frozenset(p.name for p in contract.consumes if p.required),
             unknown=frozenset(contract.optional_ports()),
-            params={target.name: row.then}))
+            params=params))
         if verdict.forbidden:
             raise RuleValidationError(coded(
                 "MD0325", f"{path}, decision {target.key()}\n"
