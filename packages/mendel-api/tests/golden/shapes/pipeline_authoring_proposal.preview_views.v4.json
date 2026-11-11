@@ -24,6 +24,47 @@
       ],
       "type": "object"
     },
+    "AtRunView": {
+      "properties": {
+        "fact": {
+          "type": "string"
+        },
+        "fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fallback_reason": {
+          "type": "string"
+        },
+        "measured_by": {
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "rule": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact",
+        "measured_by",
+        "rule",
+        "rows",
+        "fallback",
+        "fallback_reason"
+      ],
+      "type": "object"
+    },
     "CanvasFrame": {
       "additionalProperties": false,
       "properties": {
@@ -598,6 +639,17 @@
     },
     "SettingView": {
       "properties": {
+        "at_run": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AtRunView"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "axis_reason": {
           "type": "string"
         },
