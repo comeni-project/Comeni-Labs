@@ -76,3 +76,36 @@ def test_too_many_cases_is_refused():
 
     with pytest.raises(ValueError, match="MD0324"):
         module.cases(facts, decision.rows, LOADED.measurements, {}, bound=10)
+
+
+def test_a_fact_that_cannot_be_enumerated_is_not_reported_clean():
+    """No cases is not no gaps (Task 4 review): the caller must not decide at run time."""
+    from comeni_core.declared.measurement import MeasurementKind
+
+    decision = _decision([_row({"x": "a"}, 1)])
+    derived = {"x": MeasurementKind.ENUM}
+    assert uncovered(decision, ["x"], {}, LOADED.measurements, derived) is None
+    assert overlapping(decision, ["x"], {}, LOADED.measurements, derived) is None
+
+
+def test_cases_stay_within_the_declared_bounds():
+    """`read_length` is at least 1, so 0 is no case a sample can be (Task 4 review)."""
+    decision = _decision([_row({"read_length": ">= 1"}, 8)])
+    assert uncovered(decision, ["read_length"], {}, LOADED.measurements, {}) == [
+        {"read_length": UNDETERMINED}]
+
+
+def test_an_integer_fact_gets_whole_points():
+    decision = _decision([_row({"read_length": ">= 70"}, 8)])
+    found = cases(["read_length"], decision.rows, LOADED.measurements, {})
+    assert all(type(c["read_length"]) is int for c in found if c["read_length"] is not UNDETERMINED)
+
+
+def test_a_fact_both_known_and_unknown_is_refused():
+    decision = _decision([_row({"paired": True}, 1)])
+
+    class Known:
+        value = True
+
+    with pytest.raises(ValueError, match="both"):
+        uncovered(decision, ["paired"], {"paired": Known()}, LOADED.measurements, {})

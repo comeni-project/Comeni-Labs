@@ -11,7 +11,7 @@ from itertools import product
 
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.diagnostics import coded
-from comeni_core.logic.when import matches
+from comeni_core.logic.when import Fact, matches
 
 from mendel_resolver.rules.format import Decision, DecisionRow, _comparison
 
@@ -99,7 +99,8 @@ def cases(facts: Sequence[str], rows: Sequence[DecisionRow], measurements: Measu
     points = [_points(fact, rows, measurements, dict(derived)) for fact in facts]
     if any(p is None for p in points):
         return None
-    points = [[*p, UNDETERMINED] for p in points]
+    points = [[*_bounded(fact, p, measurements), UNDETERMINED]
+              for fact, p in zip(facts, points, strict=True)]
     count = math.prod(len(p) for p in points)
     if count > bound:
         raise ValueError(coded("MD0324", f"the rows tell {count} cases apart over "
@@ -108,31 +109,62 @@ def cases(facts: Sequence[str], rows: Sequence[DecisionRow], measurements: Measu
     return [dict(zip(facts, case, strict=True)) for case in product(*points)]
 
 
-def _seen(case: Mapping[str, object], known: Mapping[str, object]) -> dict[str, object]:
+def _bounded(fact: str, points: list[object], measurements: MeasurementRegistry) -> list[object]:
+    """A declared number's points within its `minimum` and `maximum`, whole for an integer: a
+    value no sample can have is no case to cover (Task 4 review)."""
+    if fact not in measurements.ids():
+        return points
+    declared = measurements.get(fact)
+    if declared.kind not in ORDERED:
+        return points
+    low = declared.minimum if declared.minimum is not None else -math.inf
+    high = declared.maximum if declared.maximum is not None else math.inf
+    kept = [p for p in points if low <= p <= high] or [low if low > -math.inf else high]
+    if declared.kind is MeasurementKind.INTEGER:
+        kept = sorted({int(p) for p in kept if float(p).is_integer()})
+    return kept
+
+
+def _seen(case: Mapping[str, object], known: Mapping[str, Fact]) -> dict[str, object]:
     seen = {f: _Seen(v) for f, v in case.items() if v is not UNDETERMINED}
     return {**known, **seen}
 
 
-def _hits(decision: Decision, case: Mapping[str, object], known: Mapping[str, object]
+def _hits(decision: Decision, case: Mapping[str, object], known: Mapping[str, Fact]
           ) -> list[int]:
     seen = _seen(case, known)
     return [n for n, row in enumerate(decision.rows) if matches(row.when, seen)]
 
 
-def uncovered(decision: Decision, unknown: Sequence[str], known: Mapping[str, object],
+def _disjoint(unknown: Sequence[str], known: Mapping[str, Fact]) -> None:
+    both = sorted(set(unknown) & set(known))
+    if both:
+        raise ValueError(f"{', '.join(both)} given both as known and as unknown")
+
+
+def uncovered(decision: Decision, unknown: Sequence[str], known: Mapping[str, Fact],
               measurements: MeasurementRegistry, derived: Mapping[str, MeasurementKind]
-              ) -> list[dict[str, object]]:
-    """The cases over `unknown` no row matches, with `known` facts substituted."""
+              ) -> list[dict[str, object]] | None:
+    """The cases over `unknown` no row matches, with `known` facts substituted; `None` when a
+    fact cannot be enumerated, which is never the same as no gaps. A fact in neither is absent."""
+    _disjoint(unknown, known)
     found = cases(sorted(unknown), decision.rows, measurements, derived)
-    return [c for c in found or [] if not _hits(decision, c, known)]
+    if found is None:
+        return None
+    return [c for c in found if not _hits(decision, c, known)]
 
 
-def overlapping(decision: Decision, unknown: Sequence[str], known: Mapping[str, object],
+def overlapping(decision: Decision, unknown: Sequence[str], known: Mapping[str, Fact],
                 measurements: MeasurementRegistry, derived: Mapping[str, MeasurementKind]
-                ) -> list[tuple[int, int, dict[str, object]]]:
-    """Each pair of rows that match one case, as `(first, second, case)`."""
+                ) -> list[tuple[int, int, dict[str, object]]] | None:
+    """Each pair of rows that match one case, as `(first, second, case)`; `None` when a fact
+    cannot be enumerated."""
+    _disjoint(unknown, known)
+    every = cases(sorted(unknown), decision.rows, measurements, derived)
+    if every is None:
+        return None
     found = []
-    for case in cases(sorted(unknown), decision.rows, measurements, derived) or []:
+    for case in every:
         hits = _hits(decision, case, known)
         found += [(a, b, case) for i, a in enumerate(hits) for b in hits[i + 1:]]
     return found
