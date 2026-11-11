@@ -39,7 +39,8 @@ def _contracts(
     resolved: dict[str, ModuleContract] = {}
     for node in graph.nodes:
         try:
-            resolved[node.id] = layers.registry.get(node.contract_id)
+            # The routing registry: a kept graph may hold generated measuring steps (#465).
+            resolved[node.id] = layers.routing.get(node.contract_id)
         except (KeyError, ValueError):
             # `Registry.get` raises a bare `KeyError(contract_id)`, so interpolating it would
             # repeat the id and explain nothing. The sentence carries the explanation.

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.goal.asked import Constraints, InputChoice, InputState
-from mendel_compiler import orchestrate, pipeline_file
+from mendel_compiler import orchestrate
 from mendel_resolver.goal import Goal, GoalInput
 
 ROOT = Path(__file__).resolve().parents[3]

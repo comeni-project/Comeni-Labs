@@ -48,10 +48,12 @@ def test_building_stores_the_blueprint_and_offers_its_first_step(clean):
     first = authoring_setup.start_building(session_id)
 
     assert _phase(session_id) is Phase.BUILDING
-    assert _proposal(first).payload["node"] == "star_genomegenerate"
+    # The first step in layout order: samtools faidx, which measures the genome's length for
+    # STAR's index in the run (#217).
+    assert _proposal(first).payload["node"] == "samtools_faidx"
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
-        assert row.blueprint["order"][0] == "star_genomegenerate"
+        assert row.blueprint["order"][0] == "samtools_faidx"
         # **The regression.** A digest is seventy-one characters and the column was 64.
         assert len(row.registry_digest) == 71
         from mendel_api.services import decisions
@@ -103,13 +105,15 @@ def test_continuing_every_step_completes_the_session_with_the_whole_spine(clean)
     graph, provenance, revision = _draft(session_id)
 
     assert _phase(session_id) is Phase.COMPLETE
-    assert revision == started + 5
-    assert len(graph.nodes) == 5
+    # The spine's five, and the genome's length measured for STAR's index (#217).
+    assert revision == started + 7
+    assert len(graph.nodes) == 7
     assert {(e.from_node, e.to_node) for e in graph.edges} == {
         ("trimgalore", "star_align"),
         ("star_genomegenerate", "star_align"),
         ("star_align", "samtools_sort"),
         ("samtools_sort", "subread_featurecounts"),
+        ("samtools_faidx", "measure_genome_length_fai"),
     }
     assert provenance.node("star_align").selection.source is ValueSource.RESOLVER
 
@@ -169,14 +173,14 @@ def test_a_registry_that_moved_marks_the_proposal_stale_and_re_resolves(clean, m
     assert "MI0206" in outcome.settlement.refusal
     assert _proposal(proposal_id).state == ProposalState.STALE.value
     assert _draft(session_id)[0].nodes == []
-    assert _proposal(outcome.next_proposal).payload["node"] == "star_genomegenerate"
+    assert _proposal(outcome.next_proposal).payload["node"] == "samtools_faidx"
     with session_scope() as db:
         assert db.get(PipelineAuthoringSession, session_id).registry_digest == moved
 
     _, _, revision = _draft(session_id)
     retried = facade.perform(commands.SettleStep(outcome.next_proposal, revision, "ana")).result
     assert retried.settlement.refusal is None
-    assert [n.id for n in _draft(session_id)[0].nodes] == ["star_genomegenerate"]
+    assert [n.id for n in _draft(session_id)[0].nodes] == ["samtools_faidx"]
 
 
 # ── the audit ─────────────────────────────────────────────────────────────────────────────

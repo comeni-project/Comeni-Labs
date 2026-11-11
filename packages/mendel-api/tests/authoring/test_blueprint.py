@@ -77,9 +77,13 @@ def test_a_one_step_pipeline_is_one_card_with_nothing_else_to_choose():
 def test_the_rnaseq_spine_is_revealed_in_layout_order(spine):
     """A branched blueprint: the index and the trimmer share rank 0, and the order between them
     comes from the layout rather than from dictionary order or which one the router met first."""
+    # samtools faidx and its measuring step measure the genome's length for STAR's index in
+    # the run (#217); nothing feeds STAR from them on the graph, the fact travels on `meta`.
     assert spine.order == [
+        "samtools_faidx",
         "star_genomegenerate",
         "trimgalore",
+        "measure_genome_length_fai",
         "star_align",
         "samtools_sort",
         "subread_featurecounts",
@@ -246,7 +250,7 @@ def test_accepting_every_step_rebuilds_the_blueprint_through_ir_of(spine, contra
     stack = registry.stack()
     ir = ir_of(graph, stack, provenance=provenance)
     rebuilt = Pipeline.of(
-        ir, stack.registry, stack.vocabulary, stack.measurements, stack.paths, goal=goal
+        ir, stack.routing, stack.vocabulary, stack.measurements, stack.paths, goal=goal
     )
 
     def shape(pipeline):

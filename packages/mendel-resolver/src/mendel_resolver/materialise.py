@@ -11,15 +11,22 @@ from typing import NamedTuple
 from comeni_core.artifact.materialise import _stem, _unique
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.goal.asked import Goal, GoalInput
+from comeni_core.plan.at_run import MetaAtRun
 from comeni_core.plan.decision import ParamDecision, ProducerDecision
 from comeni_core.plan.draft import DraftGraph, DraftProvenance, Settled
 from comeni_core.plan.ir import IRChannel, IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import Tier, ValueSource
 
+from mendel_resolver import at_run
 from mendel_resolver.layers import Layers
 from mendel_resolver.ports import FlagOnlyResolver
 from mendel_resolver.premises import build_premises
-from mendel_resolver.resolve import ParamContext, _layer_of, _resolve_param
+from mendel_resolver.resolve import (
+    ParamContext,
+    _layer_of,
+    _name_the_measurers,
+    _resolve_param,
+)
 
 __all__ = ["channels_of", "goal_of", "ir_of"]
 
@@ -27,7 +34,8 @@ __all__ = ["channels_of", "goal_of", "ir_of"]
 def _contracts(graph: DraftGraph, layers: Layers) -> dict[str, ModuleContract]:
     """Every node's contract. Raises rather than reports — `validate` is what reports, and
     materialising an invalid graph is a caller error rather than a user one."""
-    return {n.id: layers.registry.get(n.contract_id) for n in graph.nodes}
+    # The routing registry: a drawn graph may hold generated measuring steps (#465).
+    return {n.id: layers.routing.get(n.contract_id) for n in graph.nodes}
 
 
 def goal_of(graph: DraftGraph, layers: Layers) -> Goal:
@@ -443,7 +451,7 @@ def ir_of(
             )
         )
 
-    return PipelineIR(
+    ir = PipelineIR(
         # **The wiring the drawing decided**, so materialisation does not have to re-derive it
         # and cannot derive it differently. Empty for a goal-driven build, which is one channel
         # per type and needs no map.
@@ -464,3 +472,46 @@ def ir_of(
         profile=graph.profile,
         registry_layers=[p.name for p in layers.paths],
     )
+    _decided_in_the_run(ir, graph, contracts, layers, goal, premises, resolver)
+    return ir
+
+
+def _decided_in_the_run(ir: PipelineIR, graph: DraftGraph, contracts: dict, layers: Layers,
+                        goal: Goal, premises: dict, resolver) -> None:
+    """The settings of a drawn graph decided at run time (#217), as `resolve` decides them: a
+    rule waiting on one fact the graph's own measuring step measures. The drawing holds the
+    steps; this records the lookup and the join. A setting a person answered stays theirs, and
+    a graph without the measuring step keeps the setting as it was resolved."""
+    answered = frozenset(f"{n.id}.{p.name}" for n in graph.nodes for p in n.params)
+    needs = at_run.needed(ir, layers.routing, layers.rules, premises, layers.measurements, goal,
+                          answered)
+    measuring = {}
+    for need in needs:
+        node = next((n for n in ir.nodes if f"measurement.{need.fact}" in
+                     {p.type_id for p in contracts[n.id].produces}), None)
+        if node is not None:
+            measuring[need.fact] = node
+    by_id = {n.id: n for n in ir.nodes}
+    for need in (n for n in needs if n.fact in measuring):
+        node, contract = by_id[need.node_id], contracts[need.node_id]
+        param = next(p for p in contract.params if p.name == need.param)
+        value, _ = _resolve_param(param, ParamContext(
+            node_id=node.id, roles=tuple(contract.roles), implementation=contract.id,
+            from_layer=_layer_of(layers.registry, contract.id), goal=goal, rules=layers.rules,
+            premises=premises, resolver=resolver, backed={},
+            measurements=layers.measurements, at_run={need.param: need}))
+        if value.at_run is not None:
+            # In place: the setting was resolved once already, without the lookup.
+            for binding in node.params:
+                if binding.name == need.param:
+                    binding.value = value
+    _name_the_measurers(ir, {fact: node.contract_id for fact, node in measuring.items()})
+    facts = sorted({n.fact for n in needs if n.fact in measuring and any(
+        b.value.at_run is not None and b.value.at_run.fact == n.fact
+        for node in ir.nodes for b in node.params)})
+    ir.meta_at_run = [
+        MetaAtRun(measurement=fact, meta_key=fact,
+                  type_id=layers.measurements.get(fact).describes,
+                  measured_at=measuring[fact].id, measured_port=fact)
+        for fact in facts
+    ]

@@ -97,7 +97,9 @@ def test_offer_frame_shows_only_visible_steps_and_entry_scopes(authoring_case, m
     monkeypatch.setattr(orchestrate, "build", refuse)
     frame = facade.read(authoring_case.session_id)["canvas"]
     drawn = {n["id"] for n in frame["graph"]["nodes"]}
-    assert drawn == {"star_genomegenerate", "trimgalore", "star_align"}
+    # With samtools faidx and the step measuring the genome's length for STAR's index (#217).
+    assert drawn == {"samtools_faidx", "star_genomegenerate", "trimgalore",
+                     "measure_genome_length_fai", "star_align"}
     assert {s["id"] for s in frame["steps"]} == drawn == set(frame["placement"])
     by_type = {c["type_id"]: c for c in frame["channels"]}
     gtf, reads = by_type["annotation.gtf"], by_type["fastq.reads"]
@@ -132,16 +134,18 @@ def test_a_drawn_graph_keeps_its_recorded_tier(authoring_case):
 def test_progress_counts_the_plan_not_the_proposals(authoring_case):
     picture = facade.read(authoring_case.session_id)
     order = [
+        "samtools_faidx",
         "star_genomegenerate",
         "trimgalore",
+        "measure_genome_length_fai",
         "star_align",
         "samtools_sort",
         "subread_featurecounts",
     ]
-    active = {"position": 3, "total": len(order), "again": False}
-    assert picture["progress"] == {"reviewed": 2, "total": len(order), "active": active,
-                                   "upcoming": [{"node": "samtools_sort", "position": 4},
-                                                {"node": "subread_featurecounts", "position": 5}]}
+    active = {"position": 5, "total": len(order), "again": False}
+    assert picture["progress"] == {"reviewed": 4, "total": len(order), "active": active,
+                                   "upcoming": [{"node": "samtools_sort", "position": 6},
+                                                {"node": "subread_featurecounts", "position": 7}]}
     assert picture["pending_proposal"]["payload"]["progress"] == active
 
 
@@ -151,7 +155,7 @@ def test_a_swap_keeps_the_original_offer_position_in_history(authoring_case):
     )
     picture = facade.read(authoring_case.session_id)
     [swapped] = [h for h in picture["history"] if h["id"] == authoring_case.proposal_id]
-    assert swapped["envelope"]["progress"] == {"position": 3, "total": 5, "again": False}
+    assert swapped["envelope"]["progress"] == {"position": 5, "total": 7, "again": False}
     # HISAT2 brings its own index, offered first; STAR's index review no longer counts.
     assert picture["pending_proposal"]["payload"]["node"] == "hisat2_build"
     assert picture["progress"] == {

@@ -35,6 +35,18 @@ class Unreachable(NamedTuple):
     subject: str
 
 
+def _decided_in_the_run(stack: Layers, measurement: str, decisions: list) -> bool:
+    """Every decision reading it settles a parameter, it describes an input, and a step the
+    build can add measures it: what `mendel_resolver.at_run` decides at run time."""
+    declared = stack.measurements.measurements.get(measurement)
+    return (
+        bool(decisions)
+        and all(target.effect == "param" for d in decisions for target in d.targets())
+        and declared is not None and declared.describes is not None
+        and bool(stack.routing.producers_of(f"measurement.{measurement}", frozenset()))
+    )
+
+
 def _premise_measurements(stack: Layers) -> dict[str, list[Decision]]:
     """Measurement ids a rule reads, in its `when` or as the fact a `then` takes (#461),
     directly or through a derivation, each with the decisions that read it, in table order.
@@ -167,6 +179,13 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers,
     from mendel_api.services import measurers
 
     premises = _premise_measurements(stack)
+    # **Not asked: what the pipeline measures for a setting** (#217). A fact only settings'
+    # rules read, describing an input, and measured by a step the build can add, is decided in
+    # the run, so nobody is stopped for it. A person may still state it; it is just not asked.
+    premises = {
+        m: decisions for m, decisions in premises.items()
+        if not _decided_in_the_run(stack, m, decisions)
+    }
     measurable = {piece.measures for piece in measurers.usable_pieces(stack).measurers.values()}
     # **Not asked: what only a tool reads and no sample can measure** (#338). It is left
     # unknown, and each step whose tool reads it stops for it on the board, as tier 4.

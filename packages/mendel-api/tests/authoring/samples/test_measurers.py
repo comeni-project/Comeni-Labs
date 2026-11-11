@@ -39,7 +39,8 @@ def test_a_tool_measurer_is_listed_with_its_tool(tmp_path):
         "declares: measurer\nid: genome_length_star\nversion: 1.0.0\nmeasures: genome_length\n"
         "by: tool\nuses: nf-core/star/genomegenerate@2.7.11b\noutput: index\n"
         "entry: piece/genome_length_star.py\nruns: [pipeline]\n"))
-    (measurer,) = [m for m in measurers.index(stack) if m.measurement == "genome_length"]
+    # Beside the shipped samtools faidx measurer of the same fact.
+    (measurer,) = [m for m in measurers.index(stack) if m.by.startswith("genome_length_star@")]
     assert measurer.by == "genome_length_star@1.0.0 (nf-core/star/genomegenerate@2.7.11b)"
     assert measurer.runs == ["pipeline"]
 
