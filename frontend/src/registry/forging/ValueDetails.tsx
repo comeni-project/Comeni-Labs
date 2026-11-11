@@ -12,7 +12,7 @@ const LABELS: Record<string, string> = {
   decides: "Decides", effect: "Decision", of: "Job", when_implementation: "For tools",
   description: "Description", describes: "Describes", kind: "Kind", explain: "Meaning", pattern: "Output pattern",
   ports: "Ports", param: "Setting", value: "Value", name: "Name", id: "Identifier",
-  priority: "Fallback priority", priority_because: "Fallback reason", per_sample: "Per sample",
+  priority: "Fallback priority", priority_because: "Fallback reason",
 };
 const label = (key: string) => LABELS[key] ?? key.replaceAll("_", " ");
 

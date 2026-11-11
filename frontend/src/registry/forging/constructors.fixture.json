@@ -851,11 +851,6 @@
             "title": "Extensible",
             "type": "boolean"
           },
-          "per_sample": {
-            "default": false,
-            "title": "Per Sample",
-            "type": "boolean"
-          },
           "assertion_only": {
             "default": false,
             "title": "Assertion Only",

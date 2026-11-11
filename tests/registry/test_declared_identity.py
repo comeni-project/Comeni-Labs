@@ -136,7 +136,7 @@ def test_a_measurement_may_declare_its_own_id(tmp_path):
         _declared(
             layer / "measurements" / "whatever.yml",
             "declares: measurement\nid: read_length\nkind: integer\n"
-        "per_sample: true\nminimum: 1\nunit: bp\ndescription: 'test'\ncite: 'test'\n")
+        "describes: fastq.reads\nminimum: 1\nunit: bp\ndescription: 'test'\ncite: 'test'\n")
     )
     loaded = layers.load(layer)
     # The id comes from the file, not from `whatever.yml`, which is the whole point.

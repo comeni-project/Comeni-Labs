@@ -43,7 +43,8 @@ class Measured(BaseModel):
 
     measurement: MeasurementId
     value: ParamValue | list[ParamValue]
-    """Lists are valid only for declarations marked ``per_sample`` by the registry."""
+    """Lists are valid only for a measurement whose scope is the sample: it describes a type
+    that arrives per sample (`MeasurementRegistry.scope_of`, #466)."""
     source: ValueSource = ValueSource.SAID
     by: ContractId | None = None
     """The contract that produced the value, when a step in a pipeline did."""

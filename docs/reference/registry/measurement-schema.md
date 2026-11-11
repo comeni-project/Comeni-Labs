@@ -12,10 +12,10 @@ Both are closed against this list — an undeclared key is refused, which is wha
 declares: measurement
 id: read_length
 kind: integer
-per_sample: true
 minimum: 1
 unit: bp
 description: "Sequenced read length"
+describes: fastq.reads
 cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
 ```
 
@@ -31,7 +31,6 @@ Model: `comeni_core.declared.measurement.Measurement`
 | `kind` | enum | *required* | `integer`, `number`, `boolean` or `enum` |
 | `values` | [string] | `[]` | for `enum`: the permitted values |
 | `extensible` | boolean | `false` | for `enum`: whether values outside the list are allowed |
-| `per_sample` | boolean | `false` | whether each sample can have its own value |
 | `assertion_only` | boolean | `false` | **no tool can produce this** — see below |
 | `assertion_only_because` | string | `""` | why not. Required when `assertion_only` is set |
 | `minimum` | number \| null | `null` | lower bound, checked on load |
@@ -41,11 +40,19 @@ Model: `comeni_core.declared.measurement.Measurement`
 | `cite` | string \| null | `null` | where the definition comes from |
 | `explain` | string \| null | `null` | what it is and how a person finds it out, one short paragraph shown under a question about it. Read by nothing that builds |
 | `edam` | string \| null | `null` | the EDAM ontology term, when one fits |
-| `describes` | string \| null | `null` | the type this is a fact *about*, e.g. `fastq.reads`. A setting can be [decided at run time](rule-schema.md#decided-at-run-time) from it only when this is set |
+| `describes` | string \| null | `null` | the type this is a fact *about*, e.g. `fastq.reads`. It sets the fact's [scope](#scope). A setting can be [decided at run time](rule-schema.md#decided-at-run-time) from it only when this is set |
 | `meta_key` | string \| null | `null` | the key this becomes in a Nextflow `meta` map |
 | `meta_values` | [string] | `[]` | how its values are spelled in `meta`, when they differ |
 | `deprecated` | boolean | `false` | still loads, should not be used in new rules |
 | `replaced_by` | string \| null | `null` | what to use instead |
+
+## Scope
+
+A fact is one value for the whole study or one per sample, and it takes that from the
+[grain](vocabulary-schema.md#grain-study-or-sample) of the type it `describes`. Read length
+describes reads, which arrive per sample, so a profile may carry one value per sample:
+`read_length: [150, 100]`. Genome length describes the reference, one for the study, so a list
+is refused. A measurement that describes no type, such as `organism`, is the study's.
 
 ## `assertion_only` is the honest field
 

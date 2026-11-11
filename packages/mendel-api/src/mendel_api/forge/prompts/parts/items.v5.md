@@ -100,8 +100,9 @@
   "transform": [{"op": "log2"}, {"op": "divide", "by": 2}, {"op": "subtract", "by": 1},
   {"op": "at_most", "by": 14}, {"op": "round"}], "because": "...", "cite": "STAR manual"}.
 - vocabulary:measurement:<id> — {"id", "kind", "values", "unit", "minimum", "maximum",
-  "per_sample"}: a new measurement, only for ids the lists below lack; kind is boolean, enum
-  (with values), integer or number
+  "describes"}: a new measurement, only for ids the lists below lack; kind is boolean, enum
+  (with values), integer or number; "describes" is the type it is a fact about, which makes it
+  one value per sample for reads and one for the study for a reference
 - tests:test:<name> — {"inputs", "setup", "params", "expect", "unchecked", "types"}: a run on
   nf-core's public test data; "expect" lists {"port", "pattern"} for each output it checks;
   "types" says which type the data is for an input with "accepts", e.g.

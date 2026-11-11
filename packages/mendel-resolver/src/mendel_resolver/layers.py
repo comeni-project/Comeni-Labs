@@ -152,6 +152,8 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     measurements = MeasurementRegistry.of(measured)
     declared_types = stack(stacked, Vocabulary.kind(), buckets=buckets)
     vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
+    # A measurement's scope is its type's grain (#466), so it learns the grains here.
+    measurements = measurements.with_grains(vocabulary.grains)
     declared_families = stack(stacked, FamilyVocabulary.kind(), buckets=buckets)
     families = FamilyVocabulary.of(declared_families)
     declared_tools = stack(stacked, ToolCatalogue.kind(), buckets=buckets)

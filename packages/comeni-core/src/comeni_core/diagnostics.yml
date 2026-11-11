@@ -1283,7 +1283,7 @@ MD0312:
               - when: {cohort_max_read_length: ">= 70"}
                 then: nf-core/star/align@2.7.11b
   explanation: |
-    `read_length` is declared `per_sample`, so a profile may carry `[150, 100, 150]` — one
+    `read_length` describes reads, so it is per sample and a profile may carry `[150, 100, 150]` — one
     value per sample — and `[150, 100, 150] >= 70` has no defined meaning. Python's answer is
     `TypeError`, raised from inside the resolver, naming neither the rule nor the fact.
 
@@ -1541,7 +1541,7 @@ MD0314:
             transform: [{op: subtract, by: 1}]
             cite: "STAR manual 2.2.2"
   explanation: |
-    `read_length` is declared `per_sample`, so a profile may carry `[150, 100, 150]`, and
+    `read_length` describes reads, so it is per sample and a profile may carry `[150, 100, 150]`, and
     arithmetic takes one number. Picking one silently would answer §12's cohort-versus-sample
     question with a coin flip, in a place where the answer changes what the tool receives.
 

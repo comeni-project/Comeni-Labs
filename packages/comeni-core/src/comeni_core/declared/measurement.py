@@ -24,7 +24,7 @@ from comeni_core.declared.layered import (
 )
 from comeni_core.diagnostics import coded
 from comeni_core.goal.profile import DataProfile, Evidence, Measured
-from comeni_core.plan.tiers import ValueSource
+from comeni_core.plan.tiers import Grain, ValueSource
 from comeni_core.spell.marks import MeasurementId, ParamValue, TypeId
 
 
@@ -62,12 +62,6 @@ class Measurement(BaseModel):
     values: list[str] = Field(default_factory=list)
     extensible: bool = False
     """Whether an overlay may extend this declaration with `add_values`."""
-    per_sample: bool = False
-    """Whether the value may be a list with one entry per sample.
-
-    Scalars remain valid for a uniform cohort. This is independent of `describes`, which controls
-    whether the value can be carried into metadata for a particular data type.
-    """
     assertion_only: bool = False
     """Whether a goal must supply this value because no measurer produces it."""
 
@@ -194,6 +188,21 @@ class MeasurementRegistry(BaseModel):
     displaced: list[Displacement] = Field(default_factory=list)
     """Declarations replaced or extended by higher layers."""
 
+    grains: dict[str, Grain] = Field(default_factory=dict)
+    """Each type's grain, from the vocabulary (`with_grains`), which a measurement's scope is
+    read from. Empty in a registry built without one: every described type is then per sample."""
+
+    def with_grains(self, grains: dict[str, Grain]) -> "MeasurementRegistry":
+        return self.model_copy(update={"grains": dict(grains)})
+
+    def scope_of(self, measurement_id: str) -> Grain:
+        """Whether a fact is one value for the study or one per sample (#466): the grain of the
+        type it describes, or the study when it describes no type (organism, purpose)."""
+        describes = self.get(measurement_id).describes
+        if describes is None:
+            return Grain.STUDY
+        return self.grains.get(describes, Grain.SAMPLE)
+
     @staticmethod
     def kind() -> Kind[str, Measurement | MeasurementDelta]:
         """How measurements are found, keyed and stacked. Everything else is `stack()`."""
@@ -267,16 +276,17 @@ class MeasurementRegistry(BaseModel):
     def check(self, measurement_id: str, value: ParamValue | list[ParamValue]) -> None:
         """Raise unless `value` satisfies the declaration for `measurement_id`.
 
-        Lists are accepted only for `per_sample` measurements and are validated element by
-        element. Numeric bounds are inclusive. Booleans are not accepted as integers.
+        Lists are accepted only for a measurement whose scope is the sample (`scope_of`), and
+        are validated element by element. Numeric bounds are inclusive. Booleans are not
+        accepted as integers.
         """
         measurement = self.get(measurement_id)
         if isinstance(value, list):
-            if not measurement.per_sample:
+            if self.scope_of(measurement_id) is not Grain.SAMPLE:
                 raise BadMeasurementValueError(
-                    f"{measurement_id!r} is not declared `per_sample`, so it takes one value "
-                    f"and not a list. Declare `per_sample: true` where it is declared, or "
-                    f"write the one value the whole cohort shares."
+                    f"{measurement_id!r} is one value for the whole study (it describes "
+                    f"{measurement.describes or 'no input'}), so it takes one value and not a "
+                    f"list. Write the one value the study has."
                 )
             for element in value:
                 self.check(measurement_id, element)
@@ -374,6 +384,10 @@ class MeasurementRegistry(BaseModel):
             if measurement.describes not in type_ids or not measurement.meta_key:
                 continue
             value = values.get(measurement_id)
+            if isinstance(value, list):
+                # One value per sample (#466): it is one constant in `meta` only when every
+                # sample has the same. Samples that differ carry it per row instead.
+                value = value[0] if value and all(v == value[0] for v in value) else None
             if value is None:
                 continue
             for translation in measurement.meta_values:

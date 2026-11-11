@@ -325,7 +325,7 @@ def test_a_derivation_declaring_both_rows_and_an_aggregate_is_refused():
 def test_a_list_is_refused_where_the_measurement_is_not_per_sample():
     """`check` is what stands between a goal file and routing. A list reaching a comparison
     predicate raises TypeError at resolution rather than a diagnostic at load."""
-    with pytest.raises(ValueError, match="per_sample"):
+    with pytest.raises(ValueError, match="one value for the whole study"):
         LOADED.measurements.profile({"n_samples": [1, 2, 3]})
 
 
