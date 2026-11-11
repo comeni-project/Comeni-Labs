@@ -357,7 +357,18 @@ def _uncovered_values(rows: Sequence[DecisionRow], measurement) -> str | None:
     """Which of an enum's values no row matches, or `None` if the rows cover them all."""
     if any(not row.when for row in rows):
         return None
-    covered = {next(iter(row.when.values())) for row in rows}
+    covered: set = set()
+    for row in rows:
+        expected = next(iter(row.when.values()))
+        # `{in: [...]}` and `{not: x}` name sets of values, not one (a dict is no set member).
+        if isinstance(expected, dict) and "in" in expected:
+            covered |= set(expected["in"])
+        elif isinstance(expected, dict) and "not" in expected:
+            covered |= {v for v in measurement.values if v != expected["not"]}
+        elif expected == "present":
+            covered |= set(measurement.values)
+        elif not isinstance(expected, dict):
+            covered.add(expected)
     missing = [value for value in measurement.values if value not in covered]
     return ", ".join(missing) if missing else None
 

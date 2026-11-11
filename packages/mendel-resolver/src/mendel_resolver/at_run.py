@@ -157,9 +157,11 @@ def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
             unknown = sorted(f for f in bases if f not in visible)
             if not unknown:
                 continue
+            root = _root(ir, registry, node.id)
             sources = [
                 _source(f, _measurable(f, node.id, lineage, registry, measurements), goal,
-                        measurements) if _reaches(f, node.id, lineage, measurements) else None
+                        measurements) if _reaches(f, node.id, lineage, measurements, root)
+                else None
                 for f in unknown
             ]
             if any(s is None for s in sources):
@@ -173,12 +175,39 @@ def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
 
 
 def _reaches(fact: str, node_id: str, lineage: dict[str, set[str]],
-             measurements: MeasurementRegistry) -> bool:
-    """The fact describes an input whose `meta` reaches the step."""
+             measurements: MeasurementRegistry, root: str | None) -> bool:
+    """The fact describes the input whose `meta` the step reads: the one behind its first
+    input, as nf-core passes `meta` along (Task 5 review: an input reaching the step some other
+    way, as a genome reaches an aligner through its index, carries no `meta` to it)."""
     if fact not in measurements.ids():
         return False
     describes = measurements.get(fact).describes
-    return describes is not None and describes in lineage.get(node_id, set())
+    return (describes is not None and describes in lineage.get(node_id, set())
+            and describes == root)
+
+
+def _root(ir: PipelineIR, registry: Registry, node_id: str) -> str | None:
+    """The goal input type behind a step's first input, following first inputs upstream, as the
+    emitter's `_meta_root` follows them; `None` when it cannot be told."""
+    by_id = {n.id: n for n in ir.nodes}
+    seen: set[str] = set()
+    while node_id not in seen and node_id in by_id:
+        seen.add(node_id)
+        node = by_id[node_id]
+        contract = registry.get(node.contract_id)
+        ports = (contract.nf_inputs[0].ports if contract.nf_inputs
+                 else [p.name for p in contract.consumes][:1])
+        if not ports:
+            return None
+        edge = next((e for e in ir.edges if e.to_node == node_id and e.to_port == ports[0]),
+                    None)
+        if edge is None:
+            port = next((p for p in contract.consumes if p.name == ports[0]), None)
+            if port is None:
+                return None
+            return node.entry_type(port.name, port.type_id)
+        node_id = edge.from_node
+    return None
 
 
 def _measurable(fact: str, node_id: str, lineage: dict[str, set[str]], registry: Registry,

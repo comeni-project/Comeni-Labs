@@ -747,10 +747,13 @@ def _resolve_param(
     return _ask(param, context, [None])
 
 
+IF_NO_ROW = "if_no_row"
+"""The subject prefix of a run-time setting's fallback question: `<step>.if_no_row.<setting>`."""
+
 _SAID = {
     AtRunSource.CELL: "from the samplesheet",
     AtRunSource.MEASURED: "measured in the pipeline",
-    AtRunSource.CELL_OR_MEASURED: "from the samplesheet, measured where left blank",
+    AtRunSource.CELL_OR_MEASURED: "from the samplesheet, measured in the run where left blank",
 }
 
 
@@ -777,7 +780,9 @@ def _at_run(
         return None
 
     def ask():
-        asked, decision = _ask(param, context, [None])
+        # Its own question, beside the setting's (Task 5 review): answering what a sample no
+        # row covers gets never replaces the lookup with one value for every sample.
+        asked, decision = _ask(param, context, [None], subject=f"{IF_NO_ROW}.{param.name}")
         return asked.value, asked.reason, decision
 
     fallback, why, kind, decision = at_run.fallback_of(param, ask)
@@ -800,12 +805,13 @@ def _at_run(
 
 
 def _ask(
-    param: Param, context: ParamContext, candidates: list
+    param: Param, context: ParamContext, candidates: list, subject: str | None = None
 ) -> tuple[ResolvedValue, ParamDecision | None]:
-    """Tier 4: ask the port with these candidates, record the answer, and flag it."""
+    """Tier 4: ask the port with these candidates, record the answer, and flag it. `subject`:
+    a question about the setting other than its value, such as its run-time fallback."""
     ambiguity = ParamAsked(
         node_id=context.node_id,
-        subject=param.name,
+        subject=subject or param.name,
         candidates=candidates,
         tier_hint=param.tier_hint,
     )

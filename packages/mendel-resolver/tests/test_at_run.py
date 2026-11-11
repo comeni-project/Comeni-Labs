@@ -379,3 +379,77 @@ def test_the_fallback_order():
     stopped = fallback_of(_param(), lambda: (AT_RUN_STOP, "a person"))
     assert stopped[0] is None and stopped[2] is AtRunFallback.STOP
     assert fallback_of(_param(), lambda: (None, "nobody"))[2] is AtRunFallback.QUESTION
+
+
+ALIGN_RULE = """declares: rule
+version: 1
+decisions:
+  - decides: {effect: param, of: alignment, name: star_ignore_sjdbgtf,
+              when_implementation: [nf-core/star/align@2.7.11b]}
+    rows:
+      - {when: {strandedness: reverse}, then: true, because: a fixture}
+      - {when: {strandedness: {in: [forward, unstranded]}}, then: false, because: a fixture}
+"""
+
+
+def _aligned(tmp_path, prior=()):
+    """STAR align's positional setting, without its default, ruled from strandedness that
+    varies: only a person can say what a sample with a blank cell gets."""
+    from mendel_resolver.replay import ReplayResolver
+
+    layer = tmp_path / "align"
+    (layer / "rules").mkdir(parents=True)
+    (layer / "rules/align.yml").write_text(ALIGN_RULE)
+    folder = layer / "tools/nf-core/star/align"
+    folder.mkdir(parents=True)
+    contract = (ROOT / "registry/tools/nf-core/star/align/contract.yml").read_text()
+    (folder / "contract.yml").write_text(contract.replace(
+        "  - name: star_ignore_sjdbgtf\n    default: false\n", "  - name: star_ignore_sjdbgtf\n"))
+    stack = layers.load([ROOT / "registry", layer])
+    goal = Goal.model_validate({
+        "have": [{"type_id": t} for t in ("fastq.reads", "genome.fasta", "annotation.gtf")],
+        "want": ["counts.matrix"], "constraints": {"varies": ["strandedness"]},
+        "profile": stack.measurements.profile({"read_length": 150}).model_dump(mode="json")})
+    ir = resolve(goal, stack.routing, stack.rules, stack.measurements,
+                 vocabulary=stack.vocabulary, prior=list(prior),
+                 resolver=ReplayResolver(list(prior)))
+    node = next(n for n in ir.nodes if n.contract_id == "nf-core/star/align@2.7.11b")
+    return node, next(b.value for b in node.params if b.name == "star_ignore_sjdbgtf"), ir
+
+
+def test_a_persons_stop_answer_stops_the_run_and_keeps_the_lookup(tmp_path):
+    """The fallback question is its own (`if_no_row.<setting>`): answering it never replaces
+    the lookup with one value for every sample (Task 5 review, Critical)."""
+    from comeni_core.plan.decision import ParamDecision
+    from mendel_resolver.at_run import AT_RUN_STOP
+
+    node, value, ir = _aligned(tmp_path / "a")
+    asked = [d for d in ir.decisions if d.key == f"{node.id}.if_no_row.star_ignore_sjdbgtf"]
+    assert asked and value.at_run.fallback_is is AtRunFallback.QUESTION
+    stop = ParamDecision(key=asked[0].key, subject=asked[0].subject, reason="a person",
+                         resolved_by="human", chosen=AT_RUN_STOP, human_override=AT_RUN_STOP,
+                         candidates=[None])
+    _, value, _ = _aligned(tmp_path / "b", prior=[stop])
+    assert value.at_run is not None
+    assert value.at_run.fallback_is is AtRunFallback.STOP and value.value is None
+
+
+def test_a_fact_on_another_input_than_the_steps_own_is_not_a_lookup(tmp_path):
+    """Genome length reaches STAR align only through its index, not on the reads' `meta` the
+    step reads, so the setting falls to the lower tiers instead of an emit refusal (Task 5
+    review)."""
+    rule = ALIGN_RULE.replace("strandedness: reverse", "genome_length: \">= 1000\"").replace(
+        "strandedness: {in: [forward, unstranded]}", "genome_length: \"< 1000\"")
+    layer = tmp_path / "align"
+    (layer / "rules").mkdir(parents=True)
+    (layer / "rules/align.yml").write_text(rule)
+    stack = layers.load([ROOT / "registry", layer])
+    goal = Goal.model_validate({
+        "have": [{"type_id": t} for t in ("fastq.reads", "genome.fasta", "annotation.gtf")],
+        "want": ["counts.matrix"],
+        "profile": stack.measurements.profile({"read_length": 150}).model_dump(mode="json")})
+    ir = resolve(goal, stack.routing, stack.rules, stack.measurements,
+                 vocabulary=stack.vocabulary)
+    node = next(n for n in ir.nodes if n.contract_id == "nf-core/star/align@2.7.11b")
+    value = next(b.value for b in node.params if b.name == "star_ignore_sjdbgtf")
+    assert value.at_run is None
