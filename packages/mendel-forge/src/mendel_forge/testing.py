@@ -25,6 +25,7 @@ from comeni_core.plan.ir import (
     ResolvedValue,
 )
 from comeni_core.plan.tiers import Scope, Tier
+from comeni_core.spell.routes import OMITTABLE
 from mendel_compiler import locate
 from mendel_resolver.layers import Layers
 
@@ -48,6 +49,10 @@ def _node(node_id: str, contract: ModuleContract, given: dict) -> IRNode:
 def _setting(contract: ModuleContract, param, given: dict) -> object:
     if param.name in given:
         return given[param.name]
+    # A setting the tool can do without is left out, as a run leaves it: STAR then sizes its
+    # own index (#217). Only one the tool needs must be given.
+    if param.default is None and param.via in OMITTABLE:
+        return None
     if param.default is None and param.tier_hint == Tier.AMBIGUOUS:
         raise ValueError(coded("MF0515", f"{contract.id} needs a value for {param.name}, and "
                                "the test gives none"))
