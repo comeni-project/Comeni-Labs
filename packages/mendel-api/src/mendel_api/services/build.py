@@ -337,7 +337,7 @@ class ChannelView(BaseModel):
     name: str
     """The channel's own id — `gtf`, `gtf_2`. Derived; see `Channel.name`."""
     grain: Literal["study", "sample"] = "sample"
-    """How many times it delivers: once for the run, or once per item. `Channel.grain`, as the
+    """How many times it delivers: once for the study, or once per item. `Channel.grain`, as the
     artifact materialised it — the difference between one stroke and a ribbon on the canvas."""
     count: int | None = None
     """How many items, **only when a measurement said so** — `n_samples` in the goal's profile,

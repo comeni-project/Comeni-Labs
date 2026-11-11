@@ -354,9 +354,9 @@ def _no_duplicate_ids() -> str:
     )
 
 
-def _as_value(expression: str, scope: Grain) -> str:
-    """A run-scoped channel becomes a value channel; a sample-scoped one stays a queue."""
-    return f"({expression}).first()" if scope is Grain.STUDY else expression
+def _as_value(expression: str, grain: Grain) -> str:
+    """A study's channel becomes a value channel; a per-sample one stays a queue."""
+    return f"({expression}).first()" if grain is Grain.STUDY else expression
 
 
 def _meta_injection(step: Step) -> str:

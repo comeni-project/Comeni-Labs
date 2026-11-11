@@ -46,3 +46,13 @@ def test_many_needs_a_finer_grain_to_gather():
         ModuleContract.model_validate(
             _contract({"name": "genome", "type_id": "genome.fasta", "grain": "sample",
                        "many": True}))
+
+
+def test_a_drawn_channel_grain_is_closed_at_the_boundary():
+    """A draft arrives as a request body: an old `run` is refused there, not deep in
+    materialisation as a bare `ValueError` (Task 1 review)."""
+    from comeni_core.plan.draft import DraftChannel
+
+    assert DraftChannel(ports=("a.b",), grain="study").grain is Grain.STUDY
+    with pytest.raises(ValueError, match="grain"):
+        DraftChannel(ports=("a.b",), grain="run")

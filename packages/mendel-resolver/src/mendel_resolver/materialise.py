@@ -15,7 +15,7 @@ from comeni_core.plan.at_run import MetaAtRun
 from comeni_core.plan.decision import ParamDecision, ProducerDecision
 from comeni_core.plan.draft import DraftGraph, DraftProvenance, Settled
 from comeni_core.plan.ir import IRChannel, IREdge, IRNode, PipelineIR, ResolvedValue
-from comeni_core.plan.tiers import Tier, ValueSource
+from comeni_core.plan.tiers import Grain, Tier, ValueSource
 
 from mendel_resolver import at_run
 from mendel_resolver.layers import Layers
@@ -77,14 +77,14 @@ def goal_of(graph: DraftGraph, layers: Layers) -> Goal:
     )
 
 
-_SCOPE_AXIS = (
+_GRAIN_AXIS = (
     "how many times this channel delivers is a judgement about the experiment: one "
-    "reference for the whole run, or one per sample"
+    "reference for the whole study, or one per sample"
 )
 
 
 def _grain_choice(drawn, source: ValueSource, chose: Settled | None = None) -> ResolvedValue:
-    """Why a channel's scope is not its type's default.
+    """Why a channel's grain is not its type's.
 
     **Tier 4, and invariant 6 is why.** Whether two GTF ports are fed by one file or by two is
     not derivable from the drawing — both are legal pipelines and they analyse different
@@ -101,14 +101,14 @@ def _grain_choice(drawn, source: ValueSource, chose: Settled | None = None) -> R
             tier=chose.tier,
             source=chose.source,
             reason=chose.reason,
-            axis_reason=chose.axis_reason or _SCOPE_AXIS,
+            axis_reason=chose.axis_reason or _GRAIN_AXIS,
         )
     return ResolvedValue(
         value=drawn.grain,
         tier=Tier.AMBIGUOUS,
         source=source,
         reason=drawn.why or "no reason was given for this channel's grain",
-        axis_reason=_SCOPE_AXIS,
+        axis_reason=_GRAIN_AXIS,
     )
 
 
@@ -118,7 +118,7 @@ class DrawnChannel(NamedTuple):
     name: str
     type_id: str
     ports: tuple[str, ...]
-    grain: str | None = None
+    grain: Grain | None = None
     """What the drawing said this channel's grain is, or `None` for the type's default."""
     why: str = ""
     """The person's reason for that override."""

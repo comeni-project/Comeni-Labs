@@ -7,7 +7,7 @@ Resolver-derived types, states, tiers, and reasons belong to :mod:`comeni_core.p
 from pydantic import BaseModel, ConfigDict, Field
 
 from comeni_core.goal.profile import DataProfile
-from comeni_core.plan.tiers import Tier
+from comeni_core.plan.tiers import Grain, Tier
 from comeni_core.review.answer import ValueSource
 from comeni_core.spell.marks import (
     ContractId,
@@ -83,8 +83,8 @@ class DraftChannel(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    grain: str | None = None
-    """Optional `run` or `sample` override; `None` keeps the type's declared default."""
+    grain: Grain | None = None
+    """Optional `study` or `sample` override; `None` keeps the type's declared grain."""
 
     why: Line = ""
     """Reason for the grain override; ignored when no override is present."""

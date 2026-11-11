@@ -162,9 +162,9 @@ def test_the_scope_override_added_no_free_text_field():
     channel_fields = {
         (model, field)
         for model, field in FREE_TEXT_FIELDS
-        if "Channel" in model or field in ("scope", "scope_reason")
+        if "Channel" in model or field in ("grain", "grain_reason", "scope", "scope_reason")
     }
     assert channel_fields == set(), (
         f"a channel field reached the egress free-text list: {sorted(channel_fields)}. "
-        "A scope override is a `ResolvedValue` with a `Why`; it needs no field of its own."
+        "A grain override is a `ResolvedValue` with a `Why`; it needs no field of its own."
     )

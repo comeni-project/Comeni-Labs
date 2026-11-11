@@ -246,7 +246,7 @@
         "grain": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/Grain"
             },
             {
               "type": "null"
@@ -454,6 +454,13 @@
         }
       },
       "type": "object"
+    },
+    "Grain": {
+      "enum": [
+        "study",
+        "sample"
+      ],
+      "type": "string"
     },
     "Measured": {
       "additionalProperties": false,
