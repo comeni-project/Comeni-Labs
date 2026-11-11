@@ -32,14 +32,14 @@ from typing import Literal, overload
 
 from pydantic import BaseModel
 
-from comeni_core.plan.tiers import ValueSource
+from comeni_core.plan.tiers import Coverage, ValueSource
 from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue, PieceRef
 
 class Evidence(BaseModel):
     records: int | None
     rows: int | None
     share: float | None
-    coverage: Literal["head", "all"] | None
+    coverage: Coverage | None
 
 class Measured(BaseModel):
     measurement: MeasurementId
@@ -49,7 +49,7 @@ class Measured(BaseModel):
     pieces: list[PieceRef]
     evidence: Evidence | None
     @property
-    def coverage(self) -> Literal["head", "all"] | None: ...
+    def coverage(self) -> Coverage | None: ...
 
 class DataProfile(BaseModel):
     measurements: list[Measured]
