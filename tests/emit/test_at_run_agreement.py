@@ -12,31 +12,33 @@ import subprocess
 import pytest
 import yaml
 from comeni_core.logic.when import matches
-from comeni_core.plan.at_run import AtRun
+from comeni_core.plan.at_run import AtRun, AtRunFact, AtRunFallback, AtRunSource
 from mendel_compiler.groovy_lookup import closure
 from mendel_resolver import layers
 from mendel_resolver.at_run import rows_of
+from mendel_resolver.cases import UNDETERMINED, cases
 from mendel_resolver.goal import Goal, GoalInput
 from mendel_resolver.premises import Premise, PremiseOrigin, build_premises
-from mendel_resolver.rules.format import Decision
-from mendel_resolver.rules.validate import _points
+from mendel_resolver.rules.format import Decision, FactRef
 from support.at_run import ROOT, STAR_ID, overlay
 
 pytestmark = pytest.mark.slow
 
 
 def _groovy(lookup: AtRun, cases: list) -> str:
-    """Each case's value, as the emitted closure computes it, printed by Nextflow. The cases
-    are parsed from JSON by `JsonSlurper`, as the pipeline parses a measured fact, so a float
-    arrives as a BigDecimal and an integer as an Integer or a Long (Task 7 review)."""
+    """Each case's value, as the emitted closure computes it, printed by Nextflow. A case is a
+    map of fact to value, parsed from JSON by `JsonSlurper` as the pipeline parses a measured
+    fact, so a float arrives as a BigDecimal and an integer as an Integer or a Long (Task 7
+    review); a missing value is `null`. A stop prints `STOP`."""
     import json
 
     expr = closure(lookup)
     script = (
         "workflow {\n"
-        f"    new groovy.json.JsonSlurper().parseText('{json.dumps(cases)}').each {{ value ->\n"
-        f"        def meta = [{lookup.meta_key}: value]\n"
-        f"        println('CASE ' + String.valueOf({expr}))\n"
+        f"    new groovy.json.JsonSlurper().parseText('{json.dumps(cases)}').each {{ c ->\n"
+        "        def meta = [id: 'S'] + c\n"
+        f"        try {{ println('CASE ' + String.valueOf({expr})) }}\n"
+        "        catch (IllegalStateException e) { println('CASE STOP') }\n"
         "    }\n"
         "}\n"
     )
@@ -69,9 +71,9 @@ def test_the_star_index_size_agrees_over_every_power_of_two(tmp_path):
                                                        tmp_path / "layer/overlay"]).pipeline
     star = next(s for s in pipeline.steps if s.module.contract_id == STAR_ID)
     lookup = next(s for s in star.settings if s.name == "sa_index_nbases").at_run
-    cases = [None, *(2 ** n for n in range(0, 41)), 3, 5, 29903, 3_100_000_000, 2 ** 40 + 1]
+    values = [None, *(2 ** n for n in range(0, 41)), 3, 5, 29903, 3_100_000_000, 2 ** 40 + 1]
     expected = []
-    for value in cases:
+    for value in values:
         if value is None:
             expected.append(_python(lookup.fallback))
             continue
@@ -82,40 +84,68 @@ def test_the_star_index_size_agrees_over_every_power_of_two(tmp_path):
         pin = stack.rules.value_for(["index_building"], "sa_index_nbases", premises,
                                     implementation=STAR_ID)
         expected.append(_python(pin.value if pin else lookup.fallback))
-    assert _run(tmp_path, _groovy(lookup, cases)) == expected
+    assert _run(tmp_path, _groovy(lookup, [{"genome_length": v} for v in values])) == expected
 
 
-def _table_case(tmp_path, rows: str, fact: str, fallback, extra=()):
+def _table_case(tmp_path, rows: str, facts: list[str], fallback, extra=(),
+                kind=AtRunFallback.VALUE):
+    """Every case of the rows over `facts`, undetermined included, and `extra` values of the
+    first fact, through the resolver's `matches` and through Nextflow."""
     stack = layers.load(ROOT / "registry")
     decision = Decision.model_validate(yaml.safe_load(
         "decides: {effect: param, of: quantification, name: strandedness}\nrows:\n" + rows))
-    built = rows_of(decision, fact, {}, stack.rules, stack.measurements)
-    lookup = AtRun(fact=fact, meta_key=fact, measured_by="comeni/measure/x@1.0.0",
-                   rule=decision.key(), rows=built, fallback=fallback, fallback_reason="test")
-    cases = [None, *_points(fact, decision.rows, stack.measurements, {}), *extra]
+    built = rows_of(decision, set(facts), {}, stack.rules, stack.measurements)
+    lookup = AtRun(facts=[AtRunFact(measurement=f, meta_key=f, source=AtRunSource.MEASURED,
+                                    measured_by="comeni/measure/x@1.0.0") for f in facts],
+                   rule=decision.key(), rows=built, fallback=fallback, fallback_reason="test",
+                   fallback_is=kind)
+    every = cases(facts, decision.rows, stack.measurements, {})
+    every += [{**every[0], facts[0]: v} for v in extra]
     expected = []
-    for value in cases:
-        premises = {} if value is None else {
-            fact: Premise(id=fact, value=value, origin=PremiseOrigin.MEASURED)}
-        row = next((r for r in decision.rows if matches(r.when, premises)), None)
-        expected.append(_python(fallback if value is None or row is None else row.then))
-    assert _run(tmp_path, _groovy(lookup, cases)) == expected
+    for case in every:
+        premises = {f: Premise(id=f, value=v, origin=PremiseOrigin.MEASURED)
+                    for f, v in case.items() if v is not UNDETERMINED}
+        row = next((r for r in decision.rows if matches(r.when, premises)
+                    and not (isinstance(r.then, FactRef) and r.then.fact not in premises)),
+                   None)
+        if row is None:
+            expected.append("STOP" if kind is AtRunFallback.STOP else _python(fallback))
+        elif isinstance(row.then, FactRef):
+            expected.append(_python(premises[row.then.fact].value))
+        else:
+            expected.append(_python(row.then))
+    shown = [{f: (None if v is UNDETERMINED else v) for f, v in case.items()} for case in every]
+    assert _run(tmp_path, _groovy(lookup, shown)) == expected
 
 
 def test_an_enum_table_agrees(tmp_path):
     _table_case(tmp_path, "  - {when: {strandedness: reverse}, then: 2}\n"
                           "  - {when: {strandedness: {in: [forward]}}, then: 1}\n"
                           "  - {when: {strandedness: {not: forward}}, then: 0}\n",
-                "strandedness", 0)
+                ["strandedness"], 0)
 
 
 def test_a_comparison_agrees_on_both_sides_of_its_boundary(tmp_path):
     _table_case(tmp_path, "  - {when: {read_length: \">= 70\"}, then: star}\n"
                           "  - {when: {read_length: \"< 70\"}, then: hisat2}\n",
-                "read_length", "hisat2", extra=(70.0, 69.5, 70.5))
+                ["read_length"], "hisat2", extra=(70.0, 69.5, 70.5))
 
 
 def test_membership_agrees_across_integers_and_floats(tmp_path):
     _table_case(tmp_path, "  - {when: {read_length: {in: [70, 75]}}, then: listed}\n"
                           "  - {when: {read_length: {not: 80}}, then: other}\n",
-                "read_length", "none", extra=(70.0, 75.0, 80.0, 70.5))
+                ["read_length"], "none", extra=(70.0, 75.0, 80.0, 70.5))
+
+
+def test_two_facts_agree_case_by_case(tmp_path):
+    """Several facts, a missing value among them, `absent`, and a row taking a fact (#466)."""
+    _table_case(tmp_path,
+                "  - {when: {strandedness: reverse, read_length: \">= 70\"}, then: 10}\n"
+                "  - {when: {strandedness: {not: reverse}}, then: {fact: read_length}}\n"
+                "  - {when: {strandedness: absent}, then: 4}\n",
+                ["read_length", "strandedness"], 0)
+
+
+def test_a_stop_stops_exactly_where_no_row_applies(tmp_path):
+    _table_case(tmp_path, "  - {when: {strandedness: reverse}, then: 2}\n",
+                ["strandedness"], None, kind=AtRunFallback.STOP)

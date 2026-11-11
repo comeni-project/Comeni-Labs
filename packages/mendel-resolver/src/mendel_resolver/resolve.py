@@ -24,7 +24,7 @@ from comeni_core.goal.asked import (
     SourcePin,
 )
 from comeni_core.goal.premise import PremiseRecord
-from comeni_core.plan.at_run import AtRunFallback, Confirm, MetaAtRun
+from comeni_core.plan.at_run import AtRun, AtRunFallback, AtRunSource, Confirm, MetaAtRun
 from comeni_core.plan.decision import (
     DecisionRecord,
     FactDecision,
@@ -35,7 +35,6 @@ from comeni_core.plan.decision import (
 )
 from comeni_core.plan.ir import EntryType, IREdge, IRNode, PipelineIR, ResolvedValue, Tier
 from comeni_core.plan.tiers import PremiseOrigin, ValueSource
-from comeni_core.spell.routes import OMITTABLE
 
 from mendel_resolver import at_run
 from mendel_resolver.goal import Goal
@@ -159,7 +158,9 @@ def resolve(
 
     if not needs and not estimates:
         return again(goal)
-    facts = sorted({need.fact for need in needs})
+    # Only what a step measures is routed for; a fact from the samplesheet needs no step (#466).
+    facts = sorted({f for need in needs for f in need.facts
+                    if need.source(f) is not AtRunSource.CELL})
     measured = sorted({*facts, *(e.fact for e in estimates)})
     wanted = [f"measurement.{fact}" for fact in measured
               if f"measurement.{fact}" not in goal.want]
@@ -231,8 +232,11 @@ def _say_why_it_measures(ir: PipelineIR, measuring: Mapping[str, IRNode],
     the build added it (Task 8 review)."""
     said: dict[str, list[str]] = {}
     for need in needs:
-        said.setdefault(measuring[need.fact].id, []).append(
-            f"measures {need.fact} in the run, for {need.node_id}.{need.param}")
+        for fact in need.facts:
+            if need.source(fact) is AtRunSource.CELL:
+                continue
+            said.setdefault(measuring[fact].id, []).append(
+                f"measures {fact} in the run, for {need.node_id}.{need.param}")
     for estimate in estimates:
         said.setdefault(measuring[estimate.fact].id, []).append(
             f"confirms {estimate.fact}, estimated on part of the data, on all of it: "
@@ -250,11 +254,14 @@ def _name_the_measurers(ir: PipelineIR, measured_by: Mapping[str, str]) -> None:
             lookup = binding.value.at_run
             if lookup is None:
                 continue
-            by = measured_by[lookup.fact]
+            facts = [f.model_copy(update={"measured_by": measured_by[f.measurement]})
+                     if f.source is not AtRunSource.CELL else f for f in lookup.facts]
+            named = lookup.model_copy(update={"facts": facts})
+            by = {f.measurement: f.measured_by for f in facts}
             binding.value = binding.value.model_copy(update={
-                "at_run": lookup.model_copy(update={"measured_by": by}),
-                "reason": _at_run_reason(lookup.rule, lookup.fact, by, lookup.fallback),
-                "premise": [p.model_copy(update={"by": by}) if p.id == lookup.fact else p
+                "at_run": named,
+                "reason": _at_run_reason(named),
+                "premise": [p.model_copy(update={"by": by[p.id]}) if by.get(p.id) else p
                             for p in binding.value.premise],
             })
 
@@ -740,45 +747,53 @@ def _resolve_param(
     return _ask(param, context, [None])
 
 
-def _at_run_reason(rule: str, fact: str, measured_by: str, fallback) -> str:
-    return (f"decided at run time by rule {rule} from {fact}, measured in the pipeline by "
-            f"{measured_by}; if it cannot be measured, {fallback}")
+_SAID = {
+    AtRunSource.CELL: "from the samplesheet",
+    AtRunSource.MEASURED: "measured in the pipeline",
+    AtRunSource.CELL_OR_MEASURED: "from the samplesheet, measured where left blank",
+}
+
+
+def _at_run_reason(lookup: AtRun) -> str:
+    facts = "; ".join(
+        f"{f.measurement} {_SAID[f.source]}" + (f" by {f.measured_by}" if f.measured_by else "")
+        for f in lookup.facts)
+    otherwise = {
+        AtRunFallback.TOOL: "the tool's own value",
+        AtRunFallback.STOP: "the run stops and names the sample",
+        AtRunFallback.QUESTION: "a question still open",
+    }.get(lookup.fallback_is, str(lookup.fallback))
+    return (f"decided at run time by rule {lookup.rule} from {facts}; where no "
+            f"row applies, {otherwise}")
 
 
 def _at_run(
     param: Param, context: ParamContext, need: "at_run.Needed"
 ) -> tuple[ResolvedValue, ParamDecision | None] | None:
-    """The setting as a lookup over a measured fact, or `None` when its rows cannot be one."""
-    rows = at_run.rows_of(need.decision, need.fact, context.premises, context.rules,
+    """The setting as a lookup over facts from the run, or `None` when its rows cannot be one."""
+    rows = at_run.rows_of(need.decision, set(need.facts), context.premises, context.rules,
                           context.measurements)
     if rows is None:
         return None
-    # The fallback: what the setting is without the rule, used when the fact comes back
-    # undetermined or no row matches. A default; else, for a setting the tool can do without,
-    # nothing at all, so the tool's own behaviour stands (STAR then sizes the index itself);
-    # else a question a person answers now.
-    if param.default is not None:
-        fallback, why, decision = param.default, param.because or "the contract's default", None
-        kind = "value"
-    elif param.via in OMITTABLE:
-        fallback, decision = None, None
-        why = "left to the tool: without a value it uses its own"
-        kind = "tool"
-    else:
+
+    def ask():
         asked, decision = _ask(param, context, [None])
-        fallback, why = asked.value, asked.reason
-        kind = "value" if fallback is not None else "question"
-    # Named once the graph exists (`_name_the_measurers`): the router picks the step.
-    measured_by = "comeni/measure/pending@0.0.0"
-    lookup = at_run.lookup(need, rows, measured_by, fallback, why).model_copy(
-        update={"fallback_is": AtRunFallback(kind)})
+        return asked.value, asked.reason, decision
+
+    fallback, why, kind, decision = at_run.fallback_of(param, ask)
+    # Named once the graph exists (`_name_the_measurers`): the router picks the steps.
+    pending = {f: "comeni/measure/pending@0.0.0" for f in need.facts}
+    lookup = at_run.lookup(need, rows, pending, fallback, why).model_copy(
+        update={"fallback_is": kind})
     return ResolvedValue(
         value=fallback,
         tier=Tier.DATA_PROFILED,
         source=ValueSource.RESOLVER,
-        reason=_at_run_reason(need.decision.key(), need.fact, measured_by, fallback),
-        premise=[PremiseRecord(id=need.fact, value=None, origin=PremiseOrigin.UNMEASURED,
-                               by=measured_by)],
+        reason=_at_run_reason(lookup),
+        premise=[PremiseRecord(id=f, value=None, origin=PremiseOrigin.UNMEASURED,
+                               by=pending[f] if need.source(f) is not AtRunSource.CELL
+                               else None)
+                 for f in need.facts],
         axis_reason=need.decision.because or "",
         at_run=lookup,
     ), decision

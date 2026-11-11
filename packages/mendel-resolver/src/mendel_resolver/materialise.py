@@ -11,7 +11,7 @@ from typing import NamedTuple
 from comeni_core.artifact.materialise import _stem, _unique
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.goal.asked import Goal, GoalInput
-from comeni_core.plan.at_run import MetaAtRun
+from comeni_core.plan.at_run import AtRunSource, MetaAtRun
 from comeni_core.plan.decision import ParamDecision, ProducerDecision
 from comeni_core.plan.draft import DraftGraph, DraftProvenance, Settled
 from comeni_core.plan.ir import IRChannel, IREdge, IRNode, PipelineIR, ResolvedValue
@@ -478,8 +478,9 @@ def ir_of(
 
 def _decided_in_the_run(ir: PipelineIR, graph: DraftGraph, contracts: dict, layers: Layers,
                         goal: Goal, premises: dict, resolver) -> None:
-    """The settings of a drawn graph decided at run time (#217), as `resolve` decides them: a
-    rule waiting on one fact the graph's own measuring step measures. The drawing holds the
+    """The settings of a drawn graph decided at run time (#217, #466), as `resolve` decides
+    them: a rule waiting on facts each of which the graph's own measuring step measures or the
+    samplesheet carries. The drawing holds the
     steps; this records the lookup and the join. A setting a person answered stays theirs, and
     a graph without the measuring step keeps the setting as it was resolved."""
     answered = frozenset(f"{n.id}.{p.name}" for n in graph.nodes for p in n.params)
@@ -487,12 +488,19 @@ def _decided_in_the_run(ir: PipelineIR, graph: DraftGraph, contracts: dict, laye
                           answered)
     measuring = {}
     for need in needs:
-        node = next((n for n in ir.nodes if f"measurement.{need.fact}" in
-                     {p.type_id for p in contracts[n.id].produces}), None)
-        if node is not None:
-            measuring[need.fact] = node
+        for fact in need.facts:
+            node = next((n for n in ir.nodes if f"measurement.{fact}" in
+                         {p.type_id for p in contracts[n.id].produces}), None)
+            if node is not None:
+                measuring[fact] = node
+
+    def met(need) -> bool:
+        """Every fact a step measures has that step in the drawing; a cell needs none."""
+        return all(f in measuring for f in need.facts
+                   if need.source(f) is not AtRunSource.CELL)
+
     by_id = {n.id: n for n in ir.nodes}
-    for need in (n for n in needs if n.fact in measuring):
+    for need in (n for n in needs if met(n)):
         node, contract = by_id[need.node_id], contracts[need.node_id]
         param = next(p for p in contract.params if p.name == need.param)
         value, decision = _resolve_param(param, ParamContext(
@@ -511,9 +519,10 @@ def _decided_in_the_run(ir: PipelineIR, graph: DraftGraph, contracts: dict, laye
             if decision is not None:
                 ir.decisions.append(decision)
     _name_the_measurers(ir, {fact: node.contract_id for fact, node in measuring.items()})
-    facts = sorted({n.fact for n in needs if n.fact in measuring and any(
-        b.value.at_run is not None and b.value.at_run.fact == n.fact
-        for node in ir.nodes for b in node.params)})
+    read = {f.measurement for node in ir.nodes for b in node.params
+            if b.value.at_run is not None for f in b.value.at_run.facts
+            if f.source is not AtRunSource.CELL}
+    facts = sorted(f for f in read if f in measuring)
     ir.meta_at_run = [
         MetaAtRun(measurement=fact, meta_key=fact,
                   type_id=layers.measurements.get(fact).describes,

@@ -275,10 +275,10 @@ describe("a setting decided at run time", () => {
         ...setting("sa_index_nbases", 3, null),
         reason: "decided at run time by rule param:index_building:sa_index_nbases",
         at_run: {
-          fact: "genome_length",
-          measured_by: "comeni/measure/genome_length_fai@1.0.0",
+          facts: [{ fact: "genome_length", source: "measured", said: "measured in the run",
+                    measured_by: "comeni/measure/genome_length_fai@1.0.0" }],
           rule: "param:index_building:sa_index_nbases",
-          rows: ["any genome_length → genome_length → log2 → ÷ 2 → − 1 → at most 14 → round"],
+          rows: ["any sample → genome_length → log2 → ÷ 2 → − 1 → at most 14 → round"],
           fallback: null,
           fallback_is: "tool",
           fallback_reason: "left to the tool: without a value it uses its own",
@@ -286,13 +286,44 @@ describe("a setting decided at run time", () => {
       }],
     });
     const block = await screen.findByTestId("setting-at-run");
-    expect(block.textContent).toContain("decided at run time from genome_length");
-    expect(block.textContent).toContain("comeni/measure/genome_length_fai@1.0.0");
+    expect(block.textContent).toContain("decided at run time, for each sample, from");
+    expect(screen.getByTestId("at-run-fact").textContent).toBe(
+      "genome_length, measured in the run by comeni/measure/genome_length_fai@1.0.0");
     expect(screen.getAllByTestId("at-run-row").map((r) => r.textContent)).toEqual([
-      "any genome_length → genome_length → log2 → ÷ 2 → − 1 → at most 14 → round",
+      "any sample → genome_length → log2 → ÷ 2 → − 1 → at most 14 → round",
     ]);
     // STAR sizes its own index when the genome cannot be measured: not a question (final review).
     expect(screen.getByTestId("at-run-fallback").textContent).toBe(
-      "if it cannot be measured: the tool's own value");
+      "if no row applies: the tool's own value");
+  });
+
+  it("says where each fact comes from, and that a stop names the sample (issue 466)", async () => {
+    show({
+      ...STEP,
+      id: "subread_featurecounts",
+      settings: [{
+        ...setting("min_mqs", 3, null),
+        reason: "decided at run time by rule param:quantification:min_mqs",
+        at_run: {
+          facts: [
+            { fact: "read_length", source: "cell_or_measured", measured_by: "comeni/measure/fastq@1.0.0",
+              said: "from the samplesheet, measured in the run where left blank" },
+            { fact: "strandedness", source: "cell", said: "from the samplesheet", measured_by: null },
+          ],
+          rule: "param:quantification:min_mqs",
+          rows: ["read_length >= 70 and strandedness is reverse → 10"],
+          fallback: null,
+          fallback_is: "stop",
+          fallback_reason: "a person",
+        },
+      }],
+    });
+    await screen.findByTestId("setting-at-run");
+    expect(screen.getAllByTestId("at-run-fact").map((f) => f.textContent)).toEqual([
+      "read_length, from the samplesheet, measured in the run where left blank",
+      "strandedness, from the samplesheet",
+    ]);
+    expect(screen.getByTestId("at-run-fallback").textContent).toBe(
+      "if no row applies: the run stops and names the sample (a person)");
   });
 });

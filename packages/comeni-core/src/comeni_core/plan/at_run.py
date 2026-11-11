@@ -29,10 +29,13 @@ from comeni_core.spell.marks import (
 
 
 class AtRunTest(StrEnum):
-    """What a row asks of the measured fact."""
+    """What a row's condition asks of one fact. A fact with no value (undetermined, or a
+    samplesheet cell left blank) passes only `absent`."""
 
-    ANY = "any"
-    """No condition on the fact: the row matches whenever a value was measured."""
+    PRESENT = "present"
+    """The fact has a value."""
+    ABSENT = "absent"
+    """The fact has none."""
     EQ = "=="
     NE = "!="
     IN = "in"
@@ -63,6 +66,42 @@ class AtRunFallback(StrEnum):
     """Left unset: the tool uses its own."""
     QUESTION = "question"
     """A question still open."""
+    STOP = "stop"
+    """The run stops and names the sample: a person's answer when no value suits (#466)."""
+
+
+class AtRunSource(StrEnum):
+    """Where each sample's value of a fact comes from in the run (#466)."""
+
+    CELL = "cell"
+    """The samplesheet: a person said it differs between samples and nothing measures it."""
+    MEASURED = "measured"
+    """A step the build added measures it on every sample."""
+    CELL_OR_MEASURED = "cell_or_measured"
+    """The samplesheet where the cell is filled in; measured where it is blank or `auto`."""
+
+
+class AtRunFact(BaseModel):
+    """One fact a lookup reads, and how it reaches the sample's `meta`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    measurement: MeasurementId
+    meta_key: NfIdentifier
+    source: AtRunSource
+    measured_by: ContractId | None = Field(default=None, exclude_if=lambda by: by is None)
+    """The generated step that measures it, when a measurement is among its sources."""
+
+
+class AtRunCondition(BaseModel):
+    """One condition of a row on one fact."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    fact: MeasurementId
+    test: AtRunTest
+    operand: list[ParamValue] = Field(default_factory=list, exclude_if=lambda o: not o)
+    """One value for a comparison, several for `in`, none for `present` and `absent`."""
 
 
 class AtRunStep(BaseModel):
@@ -77,17 +116,17 @@ class AtRunRow(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    test: AtRunTest
-    operand: list[ParamValue] = Field(default_factory=list, exclude_if=lambda o: not o)
-    """One value for a comparison, several for `in`, none for `any`."""
+    when: list[AtRunCondition] = Field(default_factory=list, exclude_if=lambda w: not w)
+    """Every condition holds for the row to match; none is a row that always matches."""
     then: ParamValue = None
     """The literal the row gives, when it gives one."""
-    takes_fact: bool = Field(default=False, exclude_if=lambda taken: not taken)
-    """The row gives the measured value itself, through `transform` (`then: {fact: ...}`)."""
+    takes: MeasurementId | None = Field(default=None, exclude_if=lambda taken: taken is None)
+    """The fact the row gives, through `transform` (`then: {fact: ...}`). A sample whose value
+    of it is missing skips the row."""
     transform: list[AtRunStep] = Field(default_factory=list, exclude_if=lambda t: not t)
-    """For `takes_fact`: the derived fact's chain over the measured one, left to right."""
+    """For `takes`: the derived fact's chain over that fact, left to right."""
     integer: bool = Field(default=False, exclude_if=lambda integer: not integer)
-    """For `takes_fact`: the result is a whole number, truncated as the resolver truncates an
+    """For `takes`: the result is a whole number, truncated as the resolver truncates an
     `integer` fact whose chain does not round it."""
 
 
@@ -96,24 +135,23 @@ class AtRun(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    fact: MeasurementId
-    """The measurement the pipeline takes."""
-    meta_key: NfIdentifier
-    """Where the measured value sits on the sample's `meta`, read by the setting's closure."""
-    measured_by: ContractId
-    """The generated step that measures it."""
+    facts: list[AtRunFact]
+    """Every fact the rows read, sorted by measurement, each on the sample's `meta`."""
     rule: Line
     """The decision compiled: `param:index_building.sa_index_nbases`."""
     rows: list[AtRunRow]
     """Tried in order; the first that matches decides."""
     fallback: ParamValue
-    """The value when the fact comes back undetermined, or no row matches: what the setting
+    """The value when no row matches, a fact being undetermined included: what the setting
     would have been without the rule."""
     fallback_reason: Line
     fallback_is: "AtRunFallback" = Field(default="value",
                                          exclude_if=lambda kind: kind == "value")
     """What the fallback is: a value (a default or a person's answer), the tool's own (an
-    omittable setting left unset), or a question still open."""
+    omittable setting left unset), a stop naming the sample, or a question still open."""
+
+    def fact(self, measurement: str) -> AtRunFact:
+        return next(f for f in self.facts if f.measurement == measurement)
 
 
 class MetaAtRun(BaseModel):

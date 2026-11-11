@@ -1,18 +1,19 @@
 """Which settings are decided at run time, and the lookup each compiles into (#217).
 
 A `param` decision is decided at run time when, once every fact known before the build is
-substituted, it still needs exactly one fact that nobody knew, and that fact:
+substituted, the facts it still needs nobody knew, and each of them:
 
-- is measured by a step a pipeline measurer makes (`measure_steps`);
-- describes an input of the goal, so its value can travel on that input's `meta`;
-- reaches the step through its lineage: the step consumes that input, or descends from a step
-  that does.
+- describes an input of the goal, so its value can travel on that input's `meta`, and reaches
+  the step through its lineage: the step consumes that input, or descends from a step that does;
+- comes from the run: a step a pipeline measurer makes measures it (`measure_steps`), or a
+  person said it differs between samples (`constraints.varies`), so each sample's samplesheet
+  cell carries it (#466), or both.
 
-The resolver resolves once; if any setting is like this, it routes again with the measurements
+The resolver resolves once; if any setting is like this, it routes again with the measured facts
 added to what is wanted, so the measuring steps join the graph, and records the lookup.
-Implementation and presence decisions are never decided at run time: the graph is fixed when the
-pipeline is built, so they stay questions, as before. A decision under `hit: unique` stays one
-too: an overlap at run time has nobody to ask.
+Implementation and presence decisions are never decided at run time here: the graph is fixed
+when the pipeline is built, so they stay questions. A decision under `hit: unique` is decided in
+the run only when its rows cannot overlap: a tie there has nobody to ask.
 """
 
 from dataclasses import dataclass
@@ -20,28 +21,46 @@ from dataclasses import dataclass
 from comeni_core.declared.inspection import InspectionCatalogue
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
-from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal
 from comeni_core.logic.when import ABSENT, PRESENT, matches
-from comeni_core.plan.at_run import AtRun, AtRunOp, AtRunRow, AtRunStep, AtRunTest
+from comeni_core.plan.at_run import (
+    AtRun,
+    AtRunCondition,
+    AtRunFact,
+    AtRunFallback,
+    AtRunOp,
+    AtRunRow,
+    AtRunSource,
+    AtRunStep,
+    AtRunTest,
+)
 from comeni_core.plan.ir import PipelineIR
+from comeni_core.plan.tiers import Grain
 
+from mendel_resolver.cases import overlapping
 from mendel_resolver.measure_steps import steps_for
 from mendel_resolver.rules import Derivation, RuleTable
 from mendel_resolver.rules.format import Decision, FactRef, _comparison
 from mendel_resolver.rules.table import _visible
 
+AT_RUN_STOP = "!stop"
+"""A person's answer to a run-time setting's fallback question: stop the run and name the sample
+no row covers (#466). Not a value any setting can take (`!` is outside the substitutable class)."""
+
 
 @dataclass(frozen=True)
 class Needed:
-    """One setting to decide at run time, and the fact it waits for."""
+    """One setting to decide at run time, and the facts it waits for, sorted."""
 
     node_id: str
     param: str
-    fact: str
+    facts: tuple[str, ...]
     decision: Decision
-    type_id: str
-    """The input the fact describes."""
+    sources: tuple[AtRunSource, ...]
+    """Where each of `facts` comes from in the run, in the same order."""
+
+    def source(self, fact: str) -> AtRunSource:
+        return self.sources[self.facts.index(fact)]
 
 
 def _lineage(ir: PipelineIR, registry: Registry, goal: Goal) -> dict[str, set[str]]:
@@ -83,16 +102,38 @@ def _read(decision: Decision) -> set[str]:
     }
 
 
+def _source(fact: str, measurable: bool, goal: Goal,
+            measurements: MeasurementRegistry) -> AtRunSource | None:
+    """Where a fact nobody stated comes from in the run, or `None` when nothing there has it."""
+    cell = (fact in goal.constraints.varies and fact in measurements.ids()
+            and measurements.scope_of(fact) is Grain.SAMPLE)
+    if cell and measurable:
+        return AtRunSource.CELL_OR_MEASURED
+    if cell:
+        return AtRunSource.CELL
+    if measurable:
+        return AtRunSource.MEASURED
+    return None
+
+
+def _tie_free(decision: Decision, unknown: list[str], visible: dict,
+              measurements: MeasurementRegistry, derived: dict[str, Derivation]) -> bool:
+    """`hit: first` never ties; `unique` is decided in the run only when no case matches two
+    rows, which must be shown, not assumed (an unenumerable fact is not tie-free)."""
+    if decision.hit != "unique":
+        return True
+    found = overlapping(decision, unknown, visible, measurements,
+                        {f: d.kind for f, d in derived.items()})
+    return found == []
+
+
 def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
            measurements: MeasurementRegistry, goal: Goal,
            answered: frozenset[str] = frozenset()) -> list[Needed]:
     """Every setting of `ir` to decide at run time, in node then parameter order.
 
     `answered`: settings a person has answered (`<node>.<param>`), which stay theirs: a rule
-    decided later never displaces a person's answer (Task 6 review).
-
-    Refuses (`MD0328`) a decision that waits on two facts the pipeline could measure and that
-    would otherwise compile: one lookup reads one measured fact."""
+    decided later never displaces a person's answer (Task 6 review)."""
     derived = {d.fact: d for d in rules.derivations}
     lineage = _lineage(ir, registry, goal)
     overridden = {o.name for o in goal.constraints.params}
@@ -103,7 +144,7 @@ def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
             if param.name in overridden or f"{node.id}.{param.name}" in answered:
                 continue
             decision = rules.decision_for(contract.roles, param.name, contract.id)
-            if decision is None or decision.hit == "unique":
+            if decision is None:
                 continue
             if rules.value_for(contract.roles, param.name, premises,
                                implementation=contract.id) is not None:
@@ -116,36 +157,28 @@ def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
             unknown = sorted(f for f in bases if f not in visible)
             if not unknown:
                 continue
-            reachable = [f for f in unknown if _measurable(f, node.id, lineage, registry,
-                                                           measurements)]
-            if (len(unknown) > 1 and len(reachable) == len(unknown)
-                    and _compilable(decision, set(unknown), visible, derived)):
-                raise ValueError(coded(
-                    "MD0328",
-                    f"{contract.id}.{param.name} is decided by a rule that waits on "
-                    f"{', '.join(unknown)}, and the pipeline could measure each, but a setting "
-                    "decided at run time reads one measured fact. State all but one in the "
-                    "goal, or split the rule — `mendel explain MD0328`."))
-            if (len(unknown) == 1 and reachable
-                    and rows_of(decision, unknown[0], premises, rules, measurements) is not None):
-                found.append(Needed(node.id, param.name, unknown[0], decision,
-                                    measurements.get(unknown[0]).describes))
+            sources = [
+                _source(f, _measurable(f, node.id, lineage, registry, measurements), goal,
+                        measurements) if _reaches(f, node.id, lineage, measurements) else None
+                for f in unknown
+            ]
+            if any(s is None for s in sources):
+                continue
+            if not _tie_free(decision, unknown, visible, measurements, derived):
+                continue
+            if rows_of(decision, set(unknown), premises, rules, measurements) is not None:
+                found.append(Needed(node.id, param.name, tuple(unknown), decision,
+                                    tuple(sources)))
     return found
 
 
-def _compilable(decision: Decision, facts: set[str], visible: dict,
-                derived: dict[str, Derivation]) -> bool:
-    """Would the rows compile into a lookup if every one of `facts` were measured? Only then
-    is waiting on several of them refused rather than left a question."""
-    for row in decision.rows:
-        if any(key not in visible and key not in facts for key in row.when):
-            return False
-        then = row.then
-        if isinstance(then, FactRef) and then.fact not in visible and then.fact not in facts:
-            chain = derived.get(then.fact)
-            if chain is None or chain.source not in facts or not chain.transform:
-                return False
-    return True
+def _reaches(fact: str, node_id: str, lineage: dict[str, set[str]],
+             measurements: MeasurementRegistry) -> bool:
+    """The fact describes an input whose `meta` reaches the step."""
+    if fact not in measurements.ids():
+        return False
+    describes = measurements.get(fact).describes
+    return describes is not None and describes in lineage.get(node_id, set())
 
 
 def _measurable(fact: str, node_id: str, lineage: dict[str, set[str]], registry: Registry,
@@ -157,13 +190,12 @@ def _measurable(fact: str, node_id: str, lineage: dict[str, set[str]], registry:
             and bool(registry.producers_of(f"measurement.{fact}", frozenset())))
 
 
-def _spelled(expected) -> tuple[AtRunTest, list] | None:
-    """A row's expectation on the measured fact, in the closed tests; `None` for one that never
-    decides once a value was measured (`absent`)."""
+def _spelled(expected) -> tuple[AtRunTest, list]:
+    """A row's expectation on one fact, in the closed tests."""
     if expected == ABSENT:
-        return None
+        return AtRunTest.ABSENT, []
     if expected == PRESENT:
-        return AtRunTest.ANY, []
+        return AtRunTest.PRESENT, []
     if isinstance(expected, dict):
         if "not" in expected:
             return AtRunTest.NE, [expected["not"]]
@@ -175,23 +207,20 @@ def _spelled(expected) -> tuple[AtRunTest, list] | None:
     return AtRunTest.EQ, [expected]
 
 
-def rows_of(decision: Decision, fact: str, premises: dict, rules: RuleTable,
+def rows_of(decision: Decision, facts: set[str], premises: dict, rules: RuleTable,
             measurements: MeasurementRegistry) -> list[AtRunRow] | None:
-    """The decision's rows with every known fact substituted, or `None` when a row reads
-    something only the measured fact could decide and the lookup cannot say (a derived fact in
-    `when`): such a setting falls to a lower tier instead."""
+    """The decision's rows with every known fact substituted and a condition kept on each of
+    `facts`, or `None` when a row reads something neither known nor among `facts` (a derived
+    fact in `when`, say): such a setting falls to a lower tier instead."""
     derived = {d.fact: d for d in rules.derivations}
     visible = _visible(decision, premises)
     rows = []
     for row in decision.rows:
-        test, operand, keep = AtRunTest.ANY, [], True
+        conditions, keep = [], True
         for key, expected in row.when.items():
-            if key == fact:
-                spelled = _spelled(expected)
-                if spelled is None:
-                    keep = False
-                    break
-                test, operand = spelled
+            if key in facts:
+                test, operand = _spelled(expected)
+                conditions.append(AtRunCondition(fact=key, test=test, operand=operand))
             elif key in visible:
                 if not matches({key: expected}, visible):
                     keep = False
@@ -200,35 +229,60 @@ def rows_of(decision: Decision, fact: str, premises: dict, rules: RuleTable,
                 return None
         if not keep:
             continue
+        conditions.sort(key=lambda c: c.fact)
         then = row.then
         if isinstance(then, FactRef):
-            if then.fact == fact:
-                kind = measurements.get(fact).kind
-                rows.append(AtRunRow(test=test, operand=operand, takes_fact=True,
+            if then.fact in facts:
+                kind = measurements.get(then.fact).kind
+                rows.append(AtRunRow(when=conditions, takes=then.fact,
                                      integer=kind is MeasurementKind.INTEGER))
-            elif then.fact in derived and derived[then.fact].source == fact \
+            elif then.fact in derived and derived[then.fact].source in facts \
                     and derived[then.fact].transform:
                 chain = derived[then.fact]
                 rows.append(AtRunRow(
-                    test=test, operand=operand, takes_fact=True,
+                    when=conditions, takes=chain.source,
                     transform=[AtRunStep(op=AtRunOp(s.op), by=s.by) for s in chain.transform],
                     integer=chain.kind is MeasurementKind.INTEGER,
                 ))
             elif then.fact in visible:
-                rows.append(AtRunRow(test=test, operand=operand, then=visible[then.fact].value))
+                rows.append(AtRunRow(when=conditions, then=visible[then.fact].value))
             else:
                 return None
         else:
-            rows.append(AtRunRow(test=test, operand=operand, then=then))
+            rows.append(AtRunRow(when=conditions, then=then))
     return rows
 
 
-def lookup(need: Needed, rows: list[AtRunRow], measured_by: str, fallback, fallback_reason: str
-           ) -> AtRun:
+def fallback_of(param, ask) -> tuple[object, str, AtRunFallback, object]:
+    """What a run-time setting is when no row matches: `(value, why, kind, decision)`.
+
+    A default; else, for a setting the tool can do without, nothing, so the tool's own behaviour
+    stands; else the person's answer to `ask()`, which returns `(value, reason)` or
+    `(value, reason, decision)`: a value, `AT_RUN_STOP` to stop the run naming the sample, or
+    nothing yet, an open question (#466)."""
+    from comeni_core.spell.routes import OMITTABLE
+
+    if param.default is not None:
+        return param.default, param.because or "the contract's default", AtRunFallback.VALUE, None
+    if param.via in OMITTABLE:
+        return (None, "left to the tool: without a value it uses its own", AtRunFallback.TOOL,
+                None)
+    value, why, *rest = ask()
+    decision = rest[0] if rest else None
+    if value == AT_RUN_STOP:
+        return None, why, AtRunFallback.STOP, decision
+    return value, why, AtRunFallback.VALUE if value is not None else AtRunFallback.QUESTION, \
+        decision
+
+
+def lookup(need: Needed, rows: list[AtRunRow], measured_by: dict[str, str], fallback,
+           fallback_reason: str) -> AtRun:
+    """`measured_by`: the step measuring each measured fact, by fact."""
     return AtRun(
-        fact=need.fact,
-        meta_key=need.fact,
-        measured_by=measured_by,
+        facts=[AtRunFact(measurement=f, meta_key=f, source=need.source(f),
+                         measured_by=(measured_by.get(f) if need.source(f) is not AtRunSource.CELL
+                                      else None))
+               for f in need.facts],
         rule=need.decision.key(),
         rows=rows,
         fallback=fallback,
@@ -284,9 +338,10 @@ def deferrable(registry: Registry, rules: RuleTable, premises: dict,
                measurements: MeasurementRegistry, goal: Goal,
                answered: frozenset[str] = frozenset()) -> frozenset[tuple[str, str]]:
     """`(contract id, param)` for every setting that may be decided at run time, judged before
-    any route exists: its rule waits only on facts that describe an input of the goal and that a
-    pipeline measurer measures. The first pass asks nobody about these; the pass that follows
-    either decides them at run time or asks, once (final review)."""
+    any route exists: its rule waits only on facts that describe an input of the goal and that
+    the run has, measured by a pipeline measurer or carried by the samplesheet because they vary
+    (#466). The first pass asks nobody about these; the pass that follows either decides them at
+    run time or asks, once (final review)."""
     have = {given.type_id for given in goal.have}
     derived = {d.fact: d for d in rules.derivations}
     overridden = {o.name for o in goal.constraints.params}
@@ -296,7 +351,7 @@ def deferrable(registry: Registry, rules: RuleTable, premises: dict,
             if param.name in overridden:
                 continue
             decision = rules.decision_for(contract.roles, param.name, contract.id)
-            if decision is None or decision.hit == "unique":
+            if decision is None:
                 continue
             if rules.value_for(contract.roles, param.name, premises,
                                implementation=contract.id) is not None:
@@ -304,10 +359,12 @@ def deferrable(registry: Registry, rules: RuleTable, premises: dict,
             visible = _visible(decision, premises)
             bases = set().union(set(), *(_bases(f, derived) for f in _read(decision)
                                          if f not in visible))
-            unknown = [f for f in bases if f not in visible]
+            unknown = sorted(f for f in bases if f not in visible)
             if unknown and all(
                 f in measurements.ids() and measurements.get(f).describes in have
-                and registry.producers_of(f"measurement.{f}", frozenset()) for f in unknown
-            ):
+                and _source(f, bool(registry.producers_of(f"measurement.{f}", frozenset())),
+                            goal, measurements) is not None
+                for f in unknown
+            ) and _tie_free(decision, unknown, visible, measurements, derived):
                 found.add((contract.id, param.name))
     return frozenset(found)

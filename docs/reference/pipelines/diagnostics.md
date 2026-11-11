@@ -163,7 +163,6 @@ decline to curate one.
 | `MD0319` | a role you switched off is one this goal needs, so nothing can make what it wants |
 | `MD0320` | a tool you excluded was the only one that can make this step's output |
 | `MD0321` | a tool you chose to feed a step's input makes nothing that input accepts |
-| `MD0328` | a setting's rule waits on two facts only the pipeline could measure, and a setting decided at run time reads one |
 | `MD0329` | routing again to add the steps that measure a run-time fact changed the pipeline instead of only adding to it |
 | `MD0331` | a port gathers (`many: true`) at a grain with nothing finer to gather |
 | `MD0332` | a fact is said to differ between samples, and it is the study's or is also stated |

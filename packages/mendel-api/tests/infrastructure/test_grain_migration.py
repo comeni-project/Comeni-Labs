@@ -68,3 +68,22 @@ def test_a_forged_type_and_port_take_grain():
     assert second.upgrade_forge_revision_1_to_2(
         {"name": "reads", "type_id": "fastq.reads", "cardinality": "1"}) == {
         "name": "reads", "type_id": "fastq.reads"}
+
+
+_PATH_3 = (ROOT / "packages/mendel-api/migrations/versions" / "d8f2b6c4a917_at_run_facts.py")
+_spec_3 = importlib.util.spec_from_file_location("at_run_facts", _PATH_3)
+third = importlib.util.module_from_spec(_spec_3)
+_spec_3.loader.exec_module(third)
+
+
+def test_a_preview_of_one_measured_fact_becomes_a_list_of_one():
+    old = [{"frame": {"steps": [{"settings": [{"name": "sa_index_nbases", "at_run": {
+        "fact": "genome_length", "measured_by": "comeni/measure/x@1.0.0", "rule": "r",
+        "rows": ["any genome_length → genome_length"], "fallback": None,
+        "fallback_is": "tool", "fallback_reason": "left"}}]}]}}]
+    (setting,) = third.upgrade_pipeline_authoring_proposal_5_to_6(old)[0]["frame"]["steps"][0][
+        "settings"]
+    assert setting["at_run"]["facts"] == [{"fact": "genome_length", "source": "measured",
+                                           "said": "measured in the run",
+                                           "measured_by": "comeni/measure/x@1.0.0"}]
+    assert "fact" not in setting["at_run"] and setting["at_run"]["rule"] == "r"

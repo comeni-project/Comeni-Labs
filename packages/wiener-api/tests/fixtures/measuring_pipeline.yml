@@ -210,14 +210,15 @@ steps:
       displaced_layer: null
       review_level: advisory
     at_run:
-      fact: genome_length
-      meta_key: genome_length
-      measured_by: comeni/measure/genome_length_fai@1.0.0
+      facts:
+      - measurement: genome_length
+        meta_key: genome_length
+        source: measured
+        measured_by: comeni/measure/genome_length_fai@1.0.0
       rule: param:index_building:sa_index_nbases
       rows:
-      - test: any
-        then: null
-        takes_fact: true
+      - then: null
+        takes: genome_length
         transform:
         - op: log2
         - op: divide

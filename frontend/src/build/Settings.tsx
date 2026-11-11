@@ -192,14 +192,20 @@ function Row({
   );
 }
 
-/** **Decided at run time** (issue 217): the pipeline measures the fact and looks the value up, and
- * every value it can take is listed here before the run, beside what it is when nothing matches. */
+/** **Decided at run time** (issues 217, 466): each sample's facts come from its samplesheet row or a
+ * measurement in the run, and the value is looked up from them. Every value it can take is listed
+ * here before the run, beside what it is when no row applies. */
 function AtRun({ lookup }: { lookup: NonNullable<Setting["at_run"]> }) {
   return (
     <div data-testid="setting-at-run" className="pt-[7px]">
-      <div className="text-label font-data text-ink-2">
-        decided at run time from {lookup.fact}, measured by {lookup.measured_by}
-      </div>
+      <div className="text-label font-data text-ink-2">decided at run time, for each sample, from</div>
+      <ul>
+        {lookup.facts.map((f) => (
+          <li key={f.fact} data-testid="at-run-fact" className="font-data text-secondary text-ink-2">
+            {f.fact}, {f.said}{f.measured_by && f.source === "measured" ? ` by ${f.measured_by}` : ""}
+          </li>
+        ))}
+      </ul>
       <ul className="pt-[4px]">
         {lookup.rows.map((row) => (
           <li key={row} data-testid="at-run-row" className="font-data text-secondary text-ink-2">
@@ -208,12 +214,14 @@ function AtRun({ lookup }: { lookup: NonNullable<Setting["at_run"]> }) {
         ))}
       </ul>
       <div data-testid="at-run-fallback" className="text-secondary text-ink-3 pt-[4px]">
-        if it cannot be measured:{" "}
+        if no row applies:{" "}
         {lookup.fallback_is === "tool"
           ? "the tool's own value"
           : lookup.fallback_is === "question"
             ? "an open question"
-            : lookup.fallback}
+            : lookup.fallback_is === "stop"
+              ? "the run stops and names the sample"
+              : lookup.fallback}
         {lookup.fallback_is !== "tool" && ` (${lookup.fallback_reason})`}
       </div>
     </div>

@@ -28,6 +28,6 @@ workflow {
     SAMTOOLS_SORT(STAR_ALIGN.out.bam, Channel.value([[:], [], []]), 'bai')
     SUBREAD_FEATURECOUNTS(SAMTOOLS_SORT.out.bam.combine(ch_gtf.map { it[1] }))
     if (params.outdir) {
-        ch_fasta_measured.map { meta, data -> "${meta.id}\t" + String.valueOf((meta.genome_length == null ? null : (true ? (Math.rint(Math.min((((Math.abs((Math.log((meta.genome_length as double)) / Math.log(2.0d)) - Math.rint((Math.log((meta.genome_length as double)) / Math.log(2.0d)))) < 1e-9 ? Math.rint((Math.log((meta.genome_length as double)) / Math.log(2.0d))) : (Math.log((meta.genome_length as double)) / Math.log(2.0d))) / 2.0) - 1.0), 14.0)) as long) : null))) }.collectFile(name: 'star_genomegenerate.sa_index_nbases.tsv', storeDir: "${params.outdir}/decided", newLine: true, sort: true)
+        ch_fasta_measured.map { meta, data -> "${meta.id}\t" + String.valueOf(((meta.genome_length != null) ? (Math.rint(Math.min((((Math.abs((Math.log((meta.genome_length as double)) / Math.log(2.0d)) - Math.rint((Math.log((meta.genome_length as double)) / Math.log(2.0d)))) < 1e-9 ? Math.rint((Math.log((meta.genome_length as double)) / Math.log(2.0d))) : (Math.log((meta.genome_length as double)) / Math.log(2.0d))) / 2.0) - 1.0), 14.0)) as long) : null)) }.collectFile(name: 'star_genomegenerate.sa_index_nbases.tsv', storeDir: "${params.outdir}/decided", newLine: true, sort: true)
     }
 }

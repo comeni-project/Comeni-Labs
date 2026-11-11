@@ -1553,15 +1553,31 @@ export interface components {
             files: string[];
         };
         /**
-         * AtRunView
-         * @description A setting decided at run time, as the card shows it before the run (#217): the fact it
-         *     waits for, what measures it, every row as a line, and what it is when nothing matches.
+         * AtRunFactView
+         * @description One fact a run-time setting reads, and where each sample's value comes from (#466).
          */
-        AtRunView: {
+        AtRunFactView: {
             /** Fact */
             fact: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "cell" | "measured" | "cell_or_measured";
+            /** Said */
+            said: string;
             /** Measured By */
-            measured_by: string;
+            measured_by: string | null;
+        };
+        /**
+         * AtRunView
+         * @description A setting decided at run time, as the card shows it before the run (#217, #466): the
+         *     facts it reads and where they come from, every row as a line, and what it is when no row
+         *     applies.
+         */
+        AtRunView: {
+            /** Facts */
+            facts: components["schemas"]["AtRunFactView"][];
             /** Rule */
             rule: string;
             /** Rows */
@@ -1572,7 +1588,7 @@ export interface components {
              * Fallback Is
              * @enum {string}
              */
-            fallback_is: "value" | "tool" | "question";
+            fallback_is: "value" | "tool" | "question" | "stop";
             /** Fallback Reason */
             fallback_reason: string;
         };

@@ -19,7 +19,15 @@ the table check's cases, parsed from JSON as the pipeline parses them.
 import math
 
 from comeni_core.diagnostics import coded
-from comeni_core.plan.at_run import AtRun, AtRunOp, AtRunRow, AtRunStep, AtRunTest
+from comeni_core.plan.at_run import (
+    AtRun,
+    AtRunCondition,
+    AtRunFallback,
+    AtRunOp,
+    AtRunRow,
+    AtRunStep,
+    AtRunTest,
+)
 from comeni_core.spell.marks import substitutable
 
 
@@ -82,37 +90,62 @@ def _numeric(value: object) -> bool:
     return isinstance(value, int | float) and not isinstance(value, bool)
 
 
-def _condition(row: AtRunRow, var: str, where: str) -> str:
-    if row.test is AtRunTest.ANY:
-        return "true"
+def _condition(condition: AtRunCondition, where: str) -> str:
+    """One condition over `meta.<fact>`. A fact with no value passes only `absent`, as
+    `matches` has it: every other test is guarded on a value being there."""
+    var = f"meta.{condition.fact}"
+    if condition.test is AtRunTest.ABSENT:
+        return f"({var} == null)"
+    if condition.test is AtRunTest.PRESENT:
+        return f"({var} != null)"
     number = f"({var} instanceof Number)"
-    if row.test is AtRunTest.IN:
-        if all(_numeric(o) for o in row.operand):
-            listed = ", ".join(_number(o, where) for o in row.operand)
+    if condition.test is AtRunTest.IN:
+        if all(_numeric(o) for o in condition.operand):
+            listed = ", ".join(_number(o, where) for o in condition.operand)
             return f"({number} && [{listed}].any {{ it == ({var} as double) }})"
-        return f"({var} in [{', '.join(literal(o, where) for o in row.operand)}])"
-    (operand,) = row.operand
-    if row.test in (AtRunTest.EQ, AtRunTest.NE) and _numeric(operand):
-        equal = f"({number} && ({var} as double) == {_number(operand, where)})"
-        return equal if row.test is AtRunTest.EQ else f"!{equal}"
-    if row.test in (AtRunTest.EQ, AtRunTest.NE):
-        return f"({var} {row.test.value} {literal(operand, where)})"
+        listed = ", ".join(literal(o, where) for o in condition.operand)
+        return f"({var} != null && {var} in [{listed}])"
+    (operand,) = condition.operand
+    if condition.test in (AtRunTest.EQ, AtRunTest.NE) and _numeric(operand):
+        equal = f"(({var} as double) == {_number(operand, where)})"
+        test = equal if condition.test is AtRunTest.EQ else f"!{equal}"
+        return f"({number} && {test})"
+    if condition.test in (AtRunTest.EQ, AtRunTest.NE):
+        return f"({var} != null && {var} {condition.test.value} {literal(operand, where)})"
     # A comparison on something that is not a number does not match, as `matches` has it.
-    return f"({number} && ({var} as double) {row.test.value} {_number(operand, where)})"
+    return f"({number} && ({var} as double) {condition.test.value} {_number(operand, where)})"
 
 
-def _value(row: AtRunRow, var: str, where: str) -> str:
-    if row.takes_fact:
-        return transform(row.transform, var, integer=row.integer, where=where)
+def _row(row: AtRunRow, where: str) -> str:
+    """Every condition of the row, and a value for the fact it takes."""
+    parts = [_condition(c, where) for c in row.when]
+    if row.takes is not None:
+        parts.append(f"(meta.{row.takes} != null)")
+    return " && ".join(parts) if parts else "true"
+
+
+def _value(row: AtRunRow, where: str) -> str:
+    if row.takes is not None:
+        return transform(row.transform, f"meta.{row.takes}", integer=row.integer, where=where)
     return literal(row.then, where)
 
 
+def _fallback(at_run: AtRun, where: str) -> str:
+    if at_run.fallback_is is AtRunFallback.STOP:
+        names = [at_run.rule, *(f.measurement for f in at_run.facts)]
+        if not all(substitutable(n) for n in names):
+            raise ValueError(coded("MD0201", f"{where}: {names!r} cannot be written as Groovy"))
+        said = (f"no row of {at_run.rule} applies to its "
+                + ", ".join(f.measurement for f in at_run.facts))
+        return ("({ -> throw new IllegalStateException('sample ' + meta.id + ': "
+                f"{said}') }}())")
+    return literal(at_run.fallback, where)
+
+
 def closure(at_run: AtRun, *, where: str = "a run-time setting") -> str:
-    """The lookup as one expression over `meta.<key>`: the fallback when the fact is null
-    (undetermined) or no row matches, else the first matching row's value."""
-    var = f"meta.{at_run.meta_key}"
-    fallback = literal(at_run.fallback, where)
-    expression = fallback
+    """The lookup as one expression over the sample's `meta`: the first row whose conditions
+    all hold gives its value; when none does, the fallback (which may stop the run)."""
+    expression = _fallback(at_run, where)
     for row in reversed(at_run.rows):
-        expression = f"({_condition(row, var, where)} ? {_value(row, var, where)} : {expression})"
-    return f"({var} == null ? {fallback} : {expression})"
+        expression = f"({_row(row, where)} ? {_value(row, where)} : {expression})"
+    return expression

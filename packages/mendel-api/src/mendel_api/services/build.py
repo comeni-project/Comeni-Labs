@@ -107,19 +107,30 @@ class DomainView(BaseModel):
     maximum: float | None = None
 
 
-class AtRunView(BaseModel):
-    """A setting decided at run time, as the card shows it before the run (#217): the fact it
-    waits for, what measures it, every row as a line, and what it is when nothing matches."""
+class AtRunFactView(BaseModel):
+    """One fact a run-time setting reads, and where each sample's value comes from (#466)."""
 
     fact: str
-    measured_by: str
+    source: Literal["cell", "measured", "cell_or_measured"]
+    said: str
+    """`from the samplesheet`, `measured in the run`, or `from the samplesheet, measured in the
+    run where left blank`."""
+    measured_by: str | None
+
+
+class AtRunView(BaseModel):
+    """A setting decided at run time, as the card shows it before the run (#217, #466): the
+    facts it reads and where they come from, every row as a line, and what it is when no row
+    applies."""
+
+    facts: list[AtRunFactView]
     rule: str
     rows: list[str]
-    """`strandedness is reverse → 2`, or `genome_length → log2 → ÷ 2 → − 1 → at most 14 →
-    round`."""
+    """`strandedness is reverse and read_length >= 70 → 10`, or `genome_length → log2 → ÷ 2 →
+    − 1 → at most 14 → round`."""
     fallback: str | None
-    """Rendered; `None` when there is no value: the tool's own, or a question still open."""
-    fallback_is: Literal["value", "tool", "question"]
+    """Rendered; `None` when there is no value: the tool's own, a stop, or a question open."""
+    fallback_is: Literal["value", "tool", "question", "stop"]
     fallback_reason: str
 
 
@@ -127,29 +138,38 @@ _STEP_WORDS = {"add": "+ {}", "subtract": "− {}", "multiply": "× {}", "divide
                "at_most": "at most {}", "at_least": "at least {}", "log2": "log2",
                "round": "round"}
 
+_SAID = {"cell": "from the samplesheet", "measured": "measured in the run",
+         "cell_or_measured": "from the samplesheet, measured in the run where left blank"}
+
 
 def _number(value) -> str:
     return str(int(value)) if isinstance(value, float) and value.is_integer() else str(value)
 
 
-def _row_line(fact: str, row) -> str:
-    test = row.test.value
-    shown = ", ".join(_number(o) for o in row.operand)
-    when = (f"any {fact}" if test == "any" else f"{fact} in {shown}" if test == "in"
-            else f"{fact} is {shown}" if test == "==" else f"{fact} is not {shown}"
-            if test == "!=" else f"{fact} {test} {shown}")
-    if not row.takes_fact:
+def _condition_words(condition) -> str:
+    fact, test = condition.fact, condition.test.value
+    shown = ", ".join(_number(o) for o in condition.operand)
+    return {"present": f"{fact} is known", "absent": f"{fact} is not known",
+            "in": f"{fact} in {shown}", "==": f"{fact} is {shown}",
+            "!=": f"{fact} is not {shown}"}.get(test, f"{fact} {test} {shown}")
+
+
+def _row_line(row) -> str:
+    when = " and ".join(_condition_words(c) for c in row.when) or "any sample"
+    if row.takes is None:
         return f"{when} → {_number(row.then)}"
     chain = " → ".join(_STEP_WORDS[s.op.value].format(_number(s.by)) for s in row.transform)
-    return f"{when} → {fact}" + (f" → {chain}" if chain else "")
+    return f"{when} → {row.takes}" + (f" → {chain}" if chain else "")
 
 
 def at_run_view(at_run) -> AtRunView | None:
     if at_run is None:
         return None
     return AtRunView(
-        fact=at_run.fact, measured_by=at_run.measured_by, rule=at_run.rule,
-        rows=[_row_line(at_run.fact, row) for row in at_run.rows],
+        facts=[AtRunFactView(fact=f.measurement, source=f.source.value, said=_SAID[f.source.value],
+                             measured_by=f.measured_by) for f in at_run.facts],
+        rule=at_run.rule,
+        rows=[_row_line(row) for row in at_run.rows],
         fallback=None if at_run.fallback is None else str(at_run.fallback),
         fallback_is=at_run.fallback_is,
         fallback_reason=at_run.fallback_reason,

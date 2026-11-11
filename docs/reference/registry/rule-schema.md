@@ -218,7 +218,6 @@ samtools faidx and decides in the run: 8 for nf-core's 230,218 bp test genome.
 
 | Code | When |
 |---|---|
-| `MD0328` | a setting's rows wait on two facts the pipeline could measure; state all but one |
 | `MD0329` | routing again to add the measuring steps moved the pipeline; a defect, report it |
 | `MD0330` | a run-time setting routes outside `ext`, or its template does not hold `{value}` once |
 

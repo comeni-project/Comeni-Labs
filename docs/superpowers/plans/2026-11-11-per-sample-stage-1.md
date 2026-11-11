@@ -175,23 +175,23 @@ A, B, C, D, with the parts of I that stage 1 shows).
     - The fallback applies when no row matches.
     - `STOP` emits `error("sample ${meta.id}: <rule> has no row for its <facts>")`.
 
-- [ ] **Step 1: Write the failing tests** in `tests/resolver/test_at_run.py`:
+- [x] **Step 1: Write the failing tests** in `tests/resolver/test_at_run.py`:
   - `test_a_setting_waits_on_two_facts`: a fixture rule with `param` rows over `read_length` (measured) and `strandedness` (in `varies`) gives one `Needed` with `facts == ("read_length", "strandedness")`. Its `AtRun.facts` sources are `MEASURED` and `CELL`.
   - `test_varies_without_a_measurer_is_a_cell`: `strandedness` in `varies`, read by a param rule, gives `source is AtRunSource.CELL` and `measured_by is None`.
   - `test_a_varying_fact_with_a_measurer_is_cell_or_measured`: `read_length` in `varies` gives `CELL_OR_MEASURED`.
   - `test_the_fallback_order`, for a setting whose rows leave cases uncovered: with a default, `fallback_is VALUE`; omittable with no default, `TOOL`; neither, `QUESTION`. A recorded answer of `"stop"` gives `STOP`.
   - `test_star_index_unchanged`: the shipped rnaseq goal with no genome length gives the same rows as before (one fact, `genome_length`, `MEASURED`).
-- [ ] **Step 2: Extend the agreement test** (`tests/emit/test_at_run_agreement.py`). For every shipped run-time rule and the two-fact fixture, run every case from `cases()` through the resolver and through Nextflow. Pass `UNDETERMINED` to Groovy as `null`. Assert equal results, including `69.5` for an integer fact.
-- [ ] **Step 3: Run** the pure tests. Expected: FAIL. Run the agreement test after Step 4.
-- [ ] **Step 4: Implement.**
+- [x] **Step 2: Extend the agreement test** (`tests/emit/test_at_run_agreement.py`). For every shipped run-time rule and the two-fact fixture, run every case from `cases()` through the resolver and through Nextflow. Pass `UNDETERMINED` to Groovy as `null`. Assert equal results, including `69.5` for an integer fact.
+- [x] **Step 3: Run** the pure tests. Expected: FAIL. Run the agreement test after Step 4.
+- [x] **Step 4: Implement.**
   - `needed` accepts any number of unknown facts. Each must be reachable from a cell (in `varies`) or a measurer through lineage (part 4's `_measurable`). A fact reachable by neither leaves the setting to the lower tiers, as today.
   - `rows_of` substitutes known facts and keeps conditions on the unknown ones. A `then: {fact}` chain may read any one unknown fact.
   - The fallback follows the spec's order. The setting's existing tier-4 question gains the legal answer `"stop"` ("Stop the run and name the sample"), which is validated where answers are received.
   - `closure` reads several `meta` keys.
   - Retire `MD0328`.
   - The view and `Settings.tsx` list every fact with its source: "from the samplesheet", "measured in the run", or "from the samplesheet, measured where left blank".
-- [ ] **Step 5: Run** `uv run pytest tests/resolver -q`, `uv run pytest tests/emit/test_at_run_agreement.py tests/emit/test_star_index_at_run_gate.py -q` (slow, Docker and Nextflow), `make check`, and the frontend tests, each separately. Expected: all pass.
-- [ ] **Step 6: Commit** `feat: a run-time setting reads several facts, from cells or measurements (#466, #217)`.
+- [x] **Step 5: Run** `uv run pytest tests/resolver -q`, `uv run pytest tests/emit/test_at_run_agreement.py tests/emit/test_star_index_at_run_gate.py -q` (slow, Docker and Nextflow), `make check`, and the frontend tests, each separately. Expected: all pass.
+- [x] **Step 6: Commit** `feat: a run-time setting reads several facts, from cells or measurements (#466, #217)`.
 
 ### Task 6: The samplesheet's fact columns
 

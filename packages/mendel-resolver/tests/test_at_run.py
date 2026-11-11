@@ -1,7 +1,13 @@
 """Settings decided at run time from a fact the pipeline measures (#217)."""
 
 import pytest
-from comeni_core.plan.at_run import AtRunOp, AtRunTest
+from comeni_core.plan.at_run import (
+    AtRunCondition,
+    AtRunFallback,
+    AtRunOp,
+    AtRunSource,
+    AtRunTest,
+)
 from comeni_core.plan.tiers import PremiseOrigin, Tier
 from mendel_resolver import layers
 from mendel_resolver.goal import Goal, GoalInput
@@ -26,11 +32,13 @@ def _setting(ir):
 def test_an_unknown_genome_length_is_decided_at_run_time(tmp_path):
     ir, _ = _resolved(tmp_path)
     value = _setting(ir)
-    assert value.at_run is not None and value.at_run.fact == "genome_length"
-    assert value.at_run.meta_key == "genome_length"
-    assert value.at_run.measured_by == "comeni/measure/genome_length_fai@1.0.0"
+    assert value.at_run is not None
+    (fact,) = value.at_run.facts
+    assert (fact.measurement, fact.meta_key, fact.source, fact.measured_by) == (
+        "genome_length", "genome_length", AtRunSource.MEASURED,
+        "comeni/measure/genome_length_fai@1.0.0")
     (row,) = value.at_run.rows
-    assert row.test is AtRunTest.ANY and row.takes_fact and row.integer
+    assert row.when == [] and row.takes == "genome_length" and row.integer
     assert [s.op for s in row.transform] == [AtRunOp.LOG2, AtRunOp.DIVIDE, AtRunOp.SUBTRACT,
                                              AtRunOp.AT_MOST, AtRunOp.ROUND]
     assert value.tier is Tier.DATA_PROFILED and value.value is None
@@ -106,8 +114,8 @@ runs: [pipeline]
 """
 
 
-def test_two_run_time_facts_in_one_decision_are_refused(tmp_path):
-    """One lookup reads one measured fact (MD0328)."""
+def test_a_setting_waits_on_two_measured_facts(tmp_path):
+    """A lookup may read several facts (#466); part 4 refused this as MD0328."""
     layer = overlay(tmp_path)
     (layer / "vocabulary/measurements/genome_sequences.yml").write_text(SEQUENCES)
     folder = layer / "measurers/measures/genome_sequences_fai"
@@ -123,20 +131,46 @@ def test_two_run_time_facts_in_one_decision_are_refused(tmp_path):
     stack = layers.load([ROOT / "registry", layer])
     goal = Goal(have=[GoalInput(type_id="genome.fasta"), GoalInput(type_id="annotation.gtf")],
                 want=["genome.index.star"], profile=stack.measurements.profile({}))
-    with pytest.raises(ValueError, match="MD0328"):
-        resolve(goal, stack.routing, stack.rules, stack.measurements,
-                vocabulary=stack.vocabulary)
+    ir = resolve(goal, stack.routing, stack.rules, stack.measurements,
+                 vocabulary=stack.vocabulary)
+    lookup = _setting(ir).at_run
+    assert [(f.measurement, f.source) for f in lookup.facts] == [
+        ("genome_length", AtRunSource.MEASURED), ("genome_sequences", AtRunSource.MEASURED)]
+    assert [c.fact for c in lookup.rows[0].when] == ["genome_sequences"]
+    assert lookup.rows[0].takes == "genome_length"
+    assert {m.measurement for m in ir.meta_at_run} == {"genome_length", "genome_sequences"}
 
 
 
-def test_a_unique_decision_is_not_decided_at_run_time(tmp_path):
-    """An overlap at run time would have nobody to ask, so it stays a question."""
+def test_a_unique_decision_without_overlaps_is_decided_at_run_time(tmp_path):
+    """One row cannot tie, so nobody needs asking in the run (operator, 11-11)."""
     layer = overlay(tmp_path)
     rule = layer / "rules/star_index.yml"
     rule.write_text(rule.read_text().replace(
         "              when_implementation: [nf-core/star/genomegenerate@2.7.11b]}\n",
         "              when_implementation: [nf-core/star/genomegenerate@2.7.11b]}\n"
         "    hit: unique\n"))
+    stack = layers.load([ROOT / "registry", layer])
+    goal = Goal(have=[GoalInput(type_id="genome.fasta"), GoalInput(type_id="annotation.gtf")],
+                want=["genome.index.star"], profile=stack.measurements.profile({}))
+    ir = resolve(goal, stack.routing, stack.rules, stack.measurements,
+                 vocabulary=stack.vocabulary)
+    assert _setting(ir).at_run is not None
+
+
+def test_a_unique_decision_that_can_tie_stays_a_question(tmp_path):
+    """Over the study's genome length, a tie is a question the build asks, never the run."""
+    layer = overlay(tmp_path)
+    rule = layer / "rules/star_index.yml"
+    rule.write_text(rule.read_text().replace(
+        "              when_implementation: [nf-core/star/genomegenerate@2.7.11b]}\n",
+        "              when_implementation: [nf-core/star/genomegenerate@2.7.11b]}\n"
+        "    hit: unique\n").replace(
+        "      - when: {}\n        then: {fact: star_sa_index_nbases}\n",
+        "      - when: {genome_length: \">= 100\"}\n        then: 8\n        because: a fixture\n"
+        "      - when: {genome_length: \">= 10\"}\n        then: {fact: star_sa_index_nbases}\n"
+        "        because: a fixture\n"
+        "      - when: {genome_length: \"< 10\"}\n        then: 4\n"))
     stack = layers.load([ROOT / "registry", layer])
     goal = Goal(have=[GoalInput(type_id="genome.fasta"), GoalInput(type_id="annotation.gtf")],
                 want=["genome.index.star"], profile=stack.measurements.profile({}))
@@ -182,7 +216,7 @@ def _rows(rows: str, known: dict | None = None):
     stack = layers.load(ROOT / "registry")
     premises = {k: Premise(id=k, value=v, origin=PremiseOrigin.ASSERTED)
                 for k, v in (known or {}).items()}
-    return rows_of(_decision(rows), "strandedness", premises, stack.rules, stack.measurements)
+    return rows_of(_decision(rows), {"strandedness"}, premises, stack.rules, stack.measurements)
 
 
 def test_rows_spell_every_test_on_the_measured_fact():
@@ -192,9 +226,14 @@ def test_rows_spell_every_test_on_the_measured_fact():
         "  - {when: {strandedness: {not: reverse}}, then: 0}\n"
         "  - {when: {strandedness: present}, then: 3}\n"
         "  - {when: {strandedness: absent}, then: 4}\n")
-    assert [(r.test, r.operand, r.then) for r in rows] == [
+    def one(row):
+        (condition,) = row.when
+        assert condition.fact == "strandedness"
+        return condition.test, condition.operand, row.then
+
+    assert [one(r) for r in rows] == [
         (AtRunTest.EQ, ["reverse"], 2), (AtRunTest.IN, ["forward", "unstranded"], 1),
-        (AtRunTest.NE, ["reverse"], 0), (AtRunTest.ANY, [], 3),
+        (AtRunTest.NE, ["reverse"], 0), (AtRunTest.PRESENT, [], 3), (AtRunTest.ABSENT, [], 4),
     ]
 
 
@@ -204,7 +243,9 @@ def test_a_known_fact_is_substituted_and_a_false_row_dropped():
         "  - {when: {paired: true, strandedness: reverse}, then: 2}\n"
         "  - {when: {read_length: \">= 70\"}, then: {fact: read_length}}\n",
         known={"paired": True, "read_length": 150})
-    assert [(r.test, r.then) for r in rows] == [(AtRunTest.EQ, 2), (AtRunTest.ANY, 150)]
+    assert [(r.when, r.then) for r in rows] == [
+        ([AtRunCondition(fact="strandedness", test=AtRunTest.EQ, operand=["reverse"])], 2),
+        ([], 150)]
 
 
 def test_a_row_reading_an_unknown_other_fact_cannot_be_a_lookup():
@@ -253,3 +294,88 @@ def test_each_question_is_asked_once_on_every_path():
             vocabulary=stack.vocabulary, resolver=resolver)
     assert resolver.asked and len(resolver.asked) == len(set(resolver.asked))
     assert not [k for k in resolver.asked if k.endswith(".sa_index_nbases")]
+
+
+# ── #466: facts from the samplesheet, and the fallback ─────────────────────────────────
+
+
+QUANT_RULE = """declares: rule
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: min_mqs}
+    rows:
+      - {when: {strandedness: reverse, read_length: ">= 70"}, then: 10, because: a fixture}
+      - {when: {strandedness: reverse, read_length: "< 70"}, then: 7, because: a fixture}
+      - {when: {strandedness: forward}, then: 5, because: a fixture}
+      - {when: {strandedness: unstranded}, then: 0, because: a fixture}
+"""
+
+
+def _counted(tmp_path, *, varies: list[str], rule: str = QUANT_RULE, default: bool = True):
+    layer = tmp_path / "quant"
+    (layer / "rules").mkdir(parents=True)
+    (layer / "rules/quant.yml").write_text(rule)
+    if not default:
+        contract = (ROOT / "registry/tools/nf-core/subread/featurecounts/contract.yml").read_text()
+        folder = layer / "tools/nf-core/subread/featurecounts"
+        folder.mkdir(parents=True)
+        (folder / "contract.yml").write_text(contract)
+    stack = layers.load([ROOT / "registry", layer])
+    goal = Goal.model_validate({
+        "have": [{"type_id": t} for t in ("fastq.reads", "genome.fasta", "annotation.gtf")],
+        "want": ["counts.matrix"], "constraints": {"varies": varies},
+        "profile": stack.measurements.profile({}).model_dump(mode="json")})
+    ir = resolve(goal, stack.routing, stack.rules, stack.measurements,
+                 vocabulary=stack.vocabulary)
+    node = next(n for n in ir.nodes if n.contract_id.startswith("nf-core/subread/"))
+    return next(b.value for b in node.params if b.name == "min_mqs"), ir
+
+
+def test_a_fact_that_varies_without_a_measurer_comes_from_its_cell(tmp_path):
+    value, _ = _counted(tmp_path, varies=["read_length", "strandedness"])
+    sources = {f.measurement: f.source for f in value.at_run.facts}
+    assert sources == {"read_length": AtRunSource.CELL_OR_MEASURED,
+                       "strandedness": AtRunSource.CELL}
+    by = {f.measurement: f.measured_by for f in value.at_run.facts}
+    assert by["strandedness"] is None and by["read_length"]
+
+
+def test_a_measured_fact_nobody_said_varies_is_measured(tmp_path):
+    value, ir = _counted(tmp_path, varies=["strandedness"])
+    sources = {f.measurement: f.source for f in value.at_run.facts}
+    assert sources == {"read_length": AtRunSource.MEASURED, "strandedness": AtRunSource.CELL}
+    assert [m.measurement for m in ir.meta_at_run] == ["genome_length", "read_length"]
+
+
+def test_a_fact_neither_stated_nor_varying_leaves_the_setting_to_lower_tiers(tmp_path):
+    """Strandedness has no measurer: without its cell nothing in the run can decide it."""
+    value, _ = _counted(tmp_path, varies=[])
+    assert value.at_run is None
+
+
+def test_the_fallback_is_the_default_first(tmp_path):
+    value, _ = _counted(tmp_path, varies=["read_length", "strandedness"])
+    assert value.at_run.fallback_is is AtRunFallback.VALUE and value.at_run.fallback == 0
+
+
+def _param(**kw):
+    from comeni_core.declared.contract import Param
+
+    return Param.model_validate({"name": "x", "via": "positional", **kw})
+
+
+def test_the_fallback_order():
+    """A default; else the tool's own for a setting it can do without; else the person's
+    answer, which may be to stop the run and name the sample (#466)."""
+    from mendel_resolver.at_run import AT_RUN_STOP, fallback_of
+
+    never = lambda: pytest.fail("asked when it needed not be")  # noqa: E731
+    assert fallback_of(_param(default=3), never)[2] is AtRunFallback.VALUE
+    omittable = _param(via="ext", key="args", template="--x {value}")
+    assert fallback_of(omittable, never)[:3] == (None, "left to the tool: without a value it "
+                                                 "uses its own", AtRunFallback.TOOL)
+    assert fallback_of(_param(), lambda: (7, "a person"))[:3] == (7, "a person",
+                                                                  AtRunFallback.VALUE)
+    stopped = fallback_of(_param(), lambda: (AT_RUN_STOP, "a person"))
+    assert stopped[0] is None and stopped[2] is AtRunFallback.STOP
+    assert fallback_of(_param(), lambda: (None, "nobody"))[2] is AtRunFallback.QUESTION

@@ -31,7 +31,7 @@ def _allowed(pipeline) -> tuple[set[str], set[str], set[tuple[str, str]]]:
     for step in pipeline.steps:
         for setting in step.settings:
             if setting.at_run is not None:
-                facts.add(setting.at_run.fact)
+                facts |= {f.measurement for f in setting.at_run.facts}
                 decided.add((step.id, setting.name))
     return processes, facts, decided
 

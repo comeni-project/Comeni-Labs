@@ -16,7 +16,8 @@ def test_the_saved_pipeline_carries_the_lookup_and_the_join(tmp_path):
     pipeline = orchestrate.build(goal, registry_roots=roots).pipeline
     star = next(s for s in pipeline.steps if s.module.contract_id == STAR_ID)
     setting = next(s for s in star.settings if s.name == "sa_index_nbases")
-    assert setting.at_run is not None and setting.at_run.fact == "genome_length"
+    assert setting.at_run is not None and [f.measurement for f in setting.at_run.facts] == [
+        "genome_length"]
     (genome,) = [c for c in pipeline.channels if c.type_id == "genome.fasta"]
     assert [m.measurement for m in genome.meta_at_run] == ["genome_length"]
     assert pipeline.intent.want == ["genome.index.star"]
@@ -48,7 +49,7 @@ def test_the_emitted_pipeline_measures_then_joins_then_builds_the_index(tmp_path
     assert "collectFile(name: 'star_genomegenerate.sa_index_nbases.tsv'" in main
     config = emit_config(pipeline)
     line = next(x for x in config.splitlines() if "STAR_GENOMEGENERATE" in x and "ext.args" in x)
-    assert "--genomeSAindexNbases" in line and "meta.genome_length == null" in line
+    assert "--genomeSAindexNbases" in line and "(meta.genome_length != null)" in line
     assert line.strip().startswith("withName: STAR_GENOMEGENERATE { ext.args = {")
 
 
@@ -97,7 +98,8 @@ def test_a_kept_draft_decides_in_the_run_and_keeps_no_stale_question(tmp_path):
     ir = ir_of(graph, stack)
     star = next(n for n in ir.nodes if n.contract_id == STAR_ID)
     value = next(b.value for b in star.params if b.name == "sa_index_nbases")
-    assert value.at_run is not None and value.at_run.fact == "genome_length"
+    assert value.at_run is not None and [f.measurement for f in value.at_run.facts] == [
+        "genome_length"]
     assert [m.measurement for m in ir.meta_at_run] == ["genome_length"]
     assert not [d for d in ir.decisions if d.key == f"{star.id}.sa_index_nbases"]
     assert len([b for b in star.params if b.name == "sa_index_nbases"]) == 1

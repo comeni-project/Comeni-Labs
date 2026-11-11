@@ -108,10 +108,11 @@ def test_the_values_run_time_settings_took_are_read(client, a_run, session, tmp_
         "name": "sa_index_nbases", "value": None, "via": "ext", "key": "args",
         "template": "--genomeSAindexNbases {value}",
         "why": {"tier": 3, "source": "resolver", "reason": "decided at run time"},
-        "at_run": {"fact": "genome_length", "meta_key": "genome_length",
-                   "measured_by": "comeni/measure/genome_length_fai@1.0.0",
+        "at_run": {"facts": [{"measurement": "genome_length", "meta_key": "genome_length",
+                              "source": "measured",
+                              "measured_by": "comeni/measure/genome_length_fai@1.0.0"}],
                    "rule": "param:index_building:sa_index_nbases",
-                   "rows": [{"test": "any", "takes_fact": True}], "fallback": None,
+                   "rows": [{"takes": "genome_length"}], "fallback": None,
                    "fallback_reason": "asked"}}]
     path.write_text(yaml.safe_dump(data))
     decided = launcher.results_dir(a_run.id) / "decided"

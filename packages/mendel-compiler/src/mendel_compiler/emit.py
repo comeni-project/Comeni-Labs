@@ -6,6 +6,7 @@ from typing import NamedTuple
 from comeni_core.artifact.pipeline import Grain, InputForm, Pipeline, Step
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import InputState
+from comeni_core.plan.at_run import AtRunSource
 from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -450,13 +451,19 @@ def _check_measuring(pipeline: Pipeline, branch: set[str], measured: dict[str, s
             raise ValueError(coded(
                 "MD0330", f"{step.id} measures a run-time fact and adds to `meta` itself, so "
                 "its measurement would not match its input's `meta` — `mendel explain MD0330`."))
-        if any(s.at_run is not None for s in step.settings):
+        for setting in (s for s in step.settings if s.at_run is not None):
             root = _meta_root(pipeline, step)
-            if root not in measured:
+            channel = next((c for c in pipeline.channels if c.name == root), None)
+            carried = {m.measurement for m in channel.meta_at_run} if channel else set()
+            # Every fact a step measures must be joined into the `meta` this step reads; a fact
+            # from the samplesheet arrives on the row itself (#466).
+            missing = [f.measurement for f in setting.at_run.facts
+                       if f.source is not AtRunSource.CELL and f.measurement not in carried]
+            if root is None or missing:
                 raise ValueError(coded(
                     "MD0330", f"{step.id} is decided at run time, and its first input's `meta` "
-                    "does not come from an input carrying the measured fact, so the setting "
-                    "would read nothing — `mendel explain MD0330`."))
+                    f"does not carry {', '.join(missing) or 'its facts'}, so the setting would "
+                    "read nothing — `mendel explain MD0330`."))
     seen: dict[tuple[str, str], str] = {}
     for channel in pipeline.channels:
         for m in channel.meta_at_run:
@@ -478,7 +485,8 @@ def _decided(pipeline: Pipeline, measured: dict[str, str]) -> list[str]:
         for setting in sorted(step.settings, key=lambda s: s.name):
             if setting.at_run is None:
                 continue
-            channel = measured[_meta_root(pipeline, step)]
+            root = _meta_root(pipeline, step)
+            channel = measured.get(root, _channel_name(root))
             expr = closure(setting.at_run, where=f"{step.id}.{setting.name}")
             lines.append(
                 "if (params.outdir) {\n"

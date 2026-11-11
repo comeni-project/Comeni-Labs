@@ -54,9 +54,9 @@ facts:
 registry:
   layers:
   - name: comeni-registry-examples
-    digest: sha256:2ee805d2d8e61ee1099d9162c9c9aef00d07f52abd8e14042ab093a5f304fe36
+    digest: sha256:2c81b12562c37b7e36d6bdeb60916c52b4f0820aa57fc71986e28c61f172d4cb
     source: https://github.com/comeni-project/comeni-registry
-    commit: aca7152cd0c5d5e688b678b668b06534091c41c3
+    commit: 86ab69b7c37f69c5be587edbd623f0579f7cd4fb
     dirty: false
   displaced: []
   unverified: []
@@ -192,9 +192,9 @@ steps:
     why:
       tier: 3
       source: resolver
-      reason: decided at run time by rule param:index_building:sa_index_nbases from genome_length,
-        measured in the pipeline by comeni/measure/genome_length_fai@1.0.0; if it cannot be measured,
-        None
+      reason: decided at run time by rule param:index_building:sa_index_nbases from genome_length
+        measured in the pipeline by comeni/measure/genome_length_fai@1.0.0; where no row applies,
+        the tool's own value
       premise:
       - id: genome_length
         value: null
@@ -206,14 +206,15 @@ steps:
       displaced_layer: null
       review_level: advisory
     at_run:
-      fact: genome_length
-      meta_key: genome_length
-      measured_by: comeni/measure/genome_length_fai@1.0.0
+      facts:
+      - measurement: genome_length
+        meta_key: genome_length
+        source: measured
+        measured_by: comeni/measure/genome_length_fai@1.0.0
       rule: param:index_building:sa_index_nbases
       rows:
-      - test: any
-        then: null
-        takes_fact: true
+      - then: null
+        takes: genome_length
         transform:
         - op: log2
         - op: divide
@@ -764,7 +765,7 @@ emitted:
   schema_version: 9
   files:
   - name: main.nf
-    digest: sha256:56bc1399fa180fdaf58e052e6a708510286998a7c19cd46117156485dd397c6e
+    digest: sha256:5d49e4729cacbda0c96f863b74efd706f7b8a1ea4e9f606dcaf9b9f6745f6d4f
   - name: modules/comeni/measure/genome_length_fai/main.nf
     digest: sha256:49485b740430c45c4875919c2403e8dea1115d3782644621aafb35560726cd58
   - name: modules/comeni/measure/genome_length_fai/resources/usr/bin/comeni-measure-genome-length-fai
@@ -784,7 +785,7 @@ emitted:
   - name: modules/comeni/measure/genome_length_fai/resources/usr/bin/comeni_measure/pieces/measures/genome_length_fai/fai.py
     digest: sha256:84ca06b02950cd0e9ae063704879962755c8c2b807da2911940a9ce6da21392a
   - name: nextflow.config
-    digest: sha256:e77a8bf168c3e94d0f46f5000e06f76e6b802e88154864986a53048fa26bd028
-  from_digest: sha256:c38ef3c97aca2df51459c5a00e530c9ba96f3e80e14b933ed91c1dd145268cdd
+    digest: sha256:133e2d35ae49ecf7912f24c4e4ec2296576389dc4cc2f4a279e4fc960e21c5a6
+  from_digest: sha256:67803422d0142ff268b3d639f25c6854953824b9079f718c1cb0dd6c89a39a6a
 gate: null
 input_form: direct

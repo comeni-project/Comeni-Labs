@@ -46,6 +46,8 @@ _PIPELINE_MODELS = frozenset(
         "Step",
         "AtRun",
         "Confirm",
+        "AtRunCondition",
+        "AtRunFact",
         "AtRunRow",
         "AtRunStep",
         "MetaAtRun",

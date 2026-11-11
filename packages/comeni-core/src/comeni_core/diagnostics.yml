@@ -2958,21 +2958,6 @@ MD0327:
     A `by: tool` measurer's tool runs as an ordinary step and its parser reads one of its
     outputs, so both must exist in the stack. **The measurer is not loaded; the others are**,
     as for MD0317.
-MD0328:
-  emitted_by: resolver
-  concern: routing
-  says: "a setting's rule waits on two facts only the pipeline could measure, and a setting decided at run time reads one"
-  fires_on: [build, upgrade]
-  refuses: true
-  fix: |
-    State all but one of the facts in the goal (a person's word decides at build time), or
-    split the decision so each setting it settles waits on one measured fact.
-  explanation: |
-    A setting whose rule needs a fact nobody knew before the build is compiled into the
-    pipeline as a lookup over that fact, measured by a step the build adds (#217). One lookup
-    reads one measured value from its input's `meta`; two would need the values of two steps
-    joined first, which the pipeline does not do. Refused rather than guessed, so the build
-    never chooses which fact to wait for.
 MD0329:
   emitted_by: resolver
   concern: routing
