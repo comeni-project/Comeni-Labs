@@ -48,7 +48,7 @@ resolves differently as it changes.
 ## The file
 
 ```yaml
-version: 8
+version: 9
 
 intent:                        # what was wanted
   want: [counts.matrix]
@@ -110,6 +110,7 @@ steps:
 
 channels:                      # what the laboratory supplies
   - type_id: fastq.reads
+    grain: sample               # or study: one file for the whole analysis
     params: [input]
     expression: "Channel.fromFilePairs(params.input, checkIfExists: true)…"
     meta: [{key: single_end, value: false}, {key: strandedness, value: reverse}]

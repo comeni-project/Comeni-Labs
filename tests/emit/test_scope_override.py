@@ -17,7 +17,7 @@ choice nobody made would owe `mendel explain` an answer to a question that was n
 import pytest
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.plan.draft import DraftChannel, DraftEdge, DraftGraph, DraftNode
-from comeni_core.plan.tiers import Scope, Tier, ValueSource
+from comeni_core.plan.tiers import Grain, Tier, ValueSource
 from mendel_compiler.emit import emit
 from mendel_resolver import layers
 from mendel_resolver.materialise import goal_of, ir_of
@@ -61,14 +61,14 @@ def _gtf(pipeline: Pipeline):
 
 
 def test_the_default_is_taken_and_recorded_as_nothing(stack):
-    """**The half that is easy to get wrong.** `annotation.gtf` declares `scope: run`, so the
+    """**The half that is easy to get wrong.** `annotation.gtf` declares `grain: study`, so the
     channel is run-scoped — and no `Why` appears, because nobody decided anything.
 
     A `Why` here would put a decision nobody made into the artifact and make `upgrade` replay
     it forever, which is §12.2's failure mode arriving from the other side.
     """
     channel = _gtf(_built(_graph(), stack))
-    assert channel.scope is Scope.RUN
+    assert channel.grain is Grain.STUDY
     assert channel.why is None
 
 
@@ -79,7 +79,7 @@ def test_an_override_carries_the_person_s_reason_at_tier_four(stack):
         _graph(
             DraftChannel(
                 ports=("align.gtf",),
-                scope="sample",
+                grain="sample",
                 why="each biopsy has its own liver-specific annotation",
             )
         ),
@@ -87,7 +87,7 @@ def test_an_override_carries_the_person_s_reason_at_tier_four(stack):
     )
     split = next(c for c in pipeline.channels if "liver" in (c.why.reason if c.why else ""))
 
-    assert split.scope is Scope.SAMPLE
+    assert split.grain is Grain.SAMPLE
     assert split.why is not None
     assert split.why.tier is Tier.AMBIGUOUS, "invariant 6 — a person's decision is flagged"
     assert split.why.source is ValueSource.HUMAN
@@ -99,10 +99,10 @@ def test_an_override_with_no_reason_says_so_rather_than_inventing_one(stack):
     """A77 and A111. Boilerplate would replace what somebody wrote with what the resolver would
     have said — which is how `upgrade` came to overwrite a reviewer's own words with *"selected
     the first of 1 candidates without judgement"*."""
-    pipeline = _built(_graph(DraftChannel(ports=("align.gtf",), scope="sample")), stack)
+    pipeline = _built(_graph(DraftChannel(ports=("align.gtf",), grain="sample")), stack)
     split = next(c for c in pipeline.channels if c.why is not None)
     assert split.why is not None
-    assert split.why.reason == "no reason was given for this channel's scope"
+    assert split.why.reason == "no reason was given for this channel's grain"
 
 
 def test_the_override_changes_what_is_emitted(stack):
@@ -114,7 +114,7 @@ def test_the_override_changes_what_is_emitted(stack):
     shared = emit(_built(_graph(), stack))
     assert ".first()" in next(one for one in shared.splitlines() if "ch_gtf =" in one)
 
-    split = emit(_built(_graph(DraftChannel(ports=("align.gtf",), scope="sample")), stack))
+    split = emit(_built(_graph(DraftChannel(ports=("align.gtf",), grain="sample")), stack))
     # Two gtf channels now — the override *split* it, which is phase 3's mechanism doing the
     # work: `ch_gtf` is the overridden one and stays a queue, `ch_gtf_2` keeps the type's
     # default and is a value channel. That both appear is the point: a person said these two
@@ -133,7 +133,7 @@ def test_the_override_reaches_the_artifact_on_disk(stack, tmp_path):
     """It has to survive YAML, or `mendel emit` years later reads a pipeline that lost the
     reason it was built the way it was."""
     pipeline = _built(
-        _graph(DraftChannel(ports=("align.gtf",), scope="sample", why="per-biopsy")), stack
+        _graph(DraftChannel(ports=("align.gtf",), grain="sample", why="per-biopsy")), stack
     )
     again = Pipeline.model_validate_json(pipeline.model_dump_json())
     reasons = [c.why.reason for c in again.channels if c.why is not None]
@@ -144,7 +144,7 @@ def test_the_scope_override_added_no_free_text_field():
     """**The design constraint, as a test.** A scope override is a value somebody settled at a
     tier for a reason — which is what `ResolvedValue` is — so it needed no field of its own.
 
-    The first version gave `IRChannel` a `Scope` and a bare `Line`, and the egress guard refused
+    The first version gave `IRChannel` a `Grain` and a bare `Line`, and the egress guard refused
     both: a plain `str` on a payload is how a closed vocabulary stops being closed, and the
     `Line` would have been a new free-text field on the egress surface.
 

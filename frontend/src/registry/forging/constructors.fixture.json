@@ -180,13 +180,13 @@
             "title": "Alternative",
             "type": "object"
           },
-          "Cardinality": {
-            "description": "Whether a process invocation consumes one item or the complete channel.",
+          "Grain": {
+            "description": "How many items a channel carries relative to the analysis, and what a fact is about\n(#466): one for the whole study, or one per sample. `group`, `unit` and `part` join with the\nstages that give them meaning (per-sample design, Goal A).",
             "enum": [
-              "1",
-              "*"
+              "study",
+              "sample"
             ],
-            "title": "Cardinality",
+            "title": "Grain",
             "type": "string"
           }
         },
@@ -249,9 +249,21 @@
             "type": "array",
             "uniqueItems": true
           },
-          "cardinality": {
-            "$ref": "#/$defs/Cardinality",
-            "default": "1"
+          "grain": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Grain"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "many": {
+            "default": false,
+            "title": "Many",
+            "type": "boolean"
           },
           "required": {
             "default": true,
@@ -602,6 +614,15 @@
       "named": true,
       "fields": {
         "$defs": {
+          "Grain": {
+            "description": "How many items a channel carries relative to the analysis, and what a fact is about\n(#466): one for the whole study, or one per sample. `group`, `unit` and `part` join with the\nstages that give them meaning (per-sample design, Goal A).",
+            "enum": [
+              "study",
+              "sample"
+            ],
+            "title": "Grain",
+            "type": "string"
+          },
           "TypeDeclaration": {
             "additionalProperties": false,
             "description": "One data type, including its closed states and default pipeline-entry settings.",
@@ -624,10 +645,9 @@
                 "title": "Sample Columns",
                 "type": "integer"
               },
-              "scope": {
-                "default": "sample",
-                "title": "Scope",
-                "type": "string"
+              "grain": {
+                "$ref": "#/$defs/Grain",
+                "default": "sample"
               },
               "entry_channel": {
                 "anyOf": [

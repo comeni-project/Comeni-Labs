@@ -16,7 +16,7 @@ class Starter(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    version: Literal[8] = 8
+    version: Literal[9] = 9
     intent: Intent
     facts: Facts
 

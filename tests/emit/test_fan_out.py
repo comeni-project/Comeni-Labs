@@ -108,7 +108,7 @@ def test_a_run_scoped_channel_is_emitted_as_a_value_channel(spine):
 
     `.first()` rather than `.collect()`: `first()` takes the one item and makes it a *value*
     channel, consumable any number of times. `collect()` gathers a whole channel into a single
-    list item, which is fan-in — a different question, and `InputPort.cardinality`'s.
+    list item, which is fan-in — a different question, and `InputPort.many`'s.
     """
     workflow = (spine / "main.nf").read_text()
     for name in ("ch_gtf", "ch_fasta"):

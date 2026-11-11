@@ -13,9 +13,9 @@ QUAST = (ROOT / "packages/comeni-core/tests/fixtures/constraints/quast.yml").rea
 QUAST_ID = "nf-core/quast@5.3.0"
 OVERLAY = {
     "assembly.family.yml": "declares: family\nid: assembly\ndescription: assemblies\n",
-    "assembly.fasta.yml": "declares: vocabulary\nid: assembly.fasta\nstates: []\nscope: sample\n",
-    "assembly.qc.yml": "declares: vocabulary\nid: assembly.qc\nstates: []\nscope: sample\n",
-    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\nscope: run\n",
+    "assembly.fasta.yml": "declares: vocabulary\nid: assembly.fasta\nstates: []\ngrain: sample\n",
+    "assembly.qc.yml": "declares: vocabulary\nid: assembly.qc\nstates: []\ngrain: sample\n",
+    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\ngrain: study\n",
     "quast.contract.yml": "declares: contract\n" + QUAST.replace("type_id: qc.report",
                                                                  "type_id: assembly.qc"),
 }

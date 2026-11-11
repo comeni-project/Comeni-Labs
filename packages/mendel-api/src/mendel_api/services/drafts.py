@@ -375,7 +375,7 @@ def _restamped(new: DraftGraph, old: DraftGraph, prior: DraftProvenance) -> Draf
         ports = tuple(sorted(channel.ports))
         before = was_channel.get(ports)
         kept = prior.channel(ports)
-        if before is not None and before.scope == channel.scope and before.why == channel.why:
+        if before is not None and before.grain == channel.grain and before.why == channel.why:
             if kept is not None:
                 channels.append(ChannelSettled(ports=ports, settled=kept))
             continue

@@ -30,7 +30,7 @@ def _artifact(tmp_path, body: str) -> str:
 
 
 def _pipeline(form: str, channels: str) -> str:
-    return f"""version: 8
+    return f"""version: 9
 intent: {{want: [], constraints: {{}}}}
 facts: {{inputs: [], measurements: []}}
 registry: {{layers: [], displaced: [], unverified: []}}
@@ -48,7 +48,7 @@ gate: null
 def _channel(name: str, param: str, scope: str, columns: list[str]) -> str:
     cols = "".join(f"\n    - {c}" for c in columns) or " []"
     return (
-        f"- name: {name}\n  param: {param}\n  scope: {scope}\n"
+        f"- name: {name}\n  param: {param}\n  grain: {scope}\n"
         f"  columns:{cols}\n  type_id: a.b\n  params: [{param}]\n"
         f"  expression: \"Channel.of(params.{param})\"\n  meta: []\n  test_data: []\n"
     )
@@ -79,7 +79,7 @@ def test_a_run_scoped_channel_contributes_no_column(tmp_path):
         "samplesheet",
         _channel("reads", "input", "sample", ["reads_1", "reads_2"])
         + _channel("gtf", "gtf", "sample", ["gtf"])
-        + _channel("fasta", "fasta", "run", ["fasta"]),
+        + _channel("fasta", "fasta", "study", ["fasta"]),
     )
     _, columns = input_shape(_artifact(tmp_path, body))
     assert "fasta" not in columns

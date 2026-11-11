@@ -1,4 +1,4 @@
-"""Closed planning vocabularies for resolution tier, evidence, scope, and input form."""
+"""Closed planning vocabularies for resolution tier, evidence, grain, and input form."""
 
 from enum import IntEnum, StrEnum
 from typing import NamedTuple
@@ -104,14 +104,17 @@ def review_level_for(tier: Tier) -> ReviewLevel:
     return _REVIEW_BY_TIER[tier]
 
 
-class Scope(StrEnum):
-    """Channel delivery cardinality relative to one pipeline run."""
+class Grain(StrEnum):
+    """How many items a channel carries relative to the analysis, and what a fact is about
+    (#466): one for the whole study, or one per sample. `group`, `unit` and `part` join with the
+    stages that give them meaning (per-sample design, Goal A)."""
 
-    RUN = "run"
-    """One reusable value for the run, such as a reference genome or annotation."""
+    STUDY = "study"
+    """One item for the analysis, such as a reference genome or annotation, emitted as a value
+    channel and reused by every sample."""
 
     SAMPLE = "sample"
-    """One queued value per sample."""
+    """One queued item per sample."""
 
 
 class InputForm(StrEnum):

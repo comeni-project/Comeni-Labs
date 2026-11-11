@@ -244,7 +244,7 @@ def _check_ports(
                             port=port.name,
                         )
                     )
-            elif port.cardinality == "1" and count > 1:
+            elif not port.many and count > 1:
                 findings.append(
                     Finding(
                         code="MD0505",

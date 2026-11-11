@@ -190,8 +190,8 @@ class IRChannel(BaseModel):
     name: ChannelName
     type_id: TypeId
 
-    scope: ResolvedValue | None = None
-    """Resolved scope override, or `None` when the type's declared default applies."""
+    grain: ResolvedValue | None = None
+    """Resolved grain override, or `None` when the type's declared default applies."""
 
     ports: list[SocketKey] = Field(default_factory=list)
     """Sorted `<node>.<port>` sockets fed by this channel."""

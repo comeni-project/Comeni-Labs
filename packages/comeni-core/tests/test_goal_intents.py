@@ -61,7 +61,7 @@ def test_the_roles_switched_off_are_a_set():
     assert constraints.roles_absent() == frozenset({"trimming"})
 
 
-def test_the_pipeline_file_is_version_8_and_7_is_refused():
-    assert SCHEMA_VERSION == 8
-    with pytest.raises(ValidationError, match="8"):
-        Pipeline.model_validate({"version": 7})
+def test_the_pipeline_file_is_version_9_and_8_is_refused():
+    assert SCHEMA_VERSION == 9
+    with pytest.raises(ValidationError, match="9"):
+        Pipeline.model_validate({"version": 8})

@@ -12,7 +12,7 @@ from wiener_api.settings import settings
 def _artifact(tmp_path, channels: str, steps: str = " []") -> str:
     settings.artifact_root = tmp_path
     (tmp_path / "a1").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "a1" / "pipeline.yml").write_text(f"""version: 8
+    (tmp_path / "a1" / "pipeline.yml").write_text(f"""version: 9
 intent: {{want: [], constraints: {{}}}}
 facts: {{inputs: [], measurements: []}}
 registry: {{layers: [], displaced: [], unverified: []}}
@@ -30,7 +30,7 @@ gate: null
 
 def _channel(name: str, param: str, optional: bool) -> str:
     extra = "  optional: true\n  absent_width: 2\n" if optional else ""
-    return (f"- name: {name}\n  param: {param}\n  scope: run\n  columns: [{name}]\n"
+    return (f"- name: {name}\n  param: {param}\n  grain: study\n  columns: [{name}]\n"
             f"  type_id: a.b\n  params: [{param}]\n"
             f"  expression: \"Channel.of(params.{param})\"\n  meta: []\n  test_data: []\n{extra}")
 

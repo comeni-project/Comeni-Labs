@@ -24,7 +24,7 @@ from comeni_core.plan.ir import (
     PipelineIR,
     ResolvedValue,
 )
-from comeni_core.plan.tiers import Scope, Tier
+from comeni_core.plan.tiers import Grain, Tier
 from comeni_core.spell.routes import OMITTABLE
 from mendel_compiler import locate
 from mendel_resolver.layers import Layers
@@ -132,7 +132,7 @@ def params_for(test: ToolTest, pipeline: Pipeline) -> dict[str, str | list[str] 
         files = [base + path for path in urls.get(channel.name, [])]
         if not files:
             raise ValueError(coded("MF0515", f"nothing feeds {channel.name}"))
-        if channel.scope is Scope.SAMPLE and len(_per_sample(pipeline)) > 1:
+        if channel.grain is Grain.SAMPLE and len(_per_sample(pipeline)) > 1:
             row |= dict(zip(channel.columns, files, strict=False))
         else:
             params[channel.param] = files[0] if len(files) == 1 else files
@@ -142,7 +142,7 @@ def params_for(test: ToolTest, pipeline: Pipeline) -> dict[str, str | list[str] 
 
 
 def _per_sample(pipeline: Pipeline) -> list[str]:
-    return [c.name for c in pipeline.channels if c.scope is Scope.SAMPLE]
+    return [c.name for c in pipeline.channels if c.grain is Grain.SAMPLE]
 
 
 def module_files(pipeline: Pipeline, stack: Layers) -> Iterable[tuple[str, Path]]:

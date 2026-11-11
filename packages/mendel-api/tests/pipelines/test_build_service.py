@@ -227,9 +227,9 @@ def test_a_reference_is_run_scoped_and_reads_are_counted_only_because_a_measurem
     built = build.example()
     by_name = {channel.name: channel for channel in built.channels}
 
-    assert by_name["reads"].scope == "sample"
+    assert by_name["reads"].grain == "sample"
     assert by_name["reads"].count == 12
-    assert by_name["fasta"].scope == "run" and by_name["fasta"].count is None
+    assert by_name["fasta"].grain == "study" and by_name["fasta"].count is None
 
 
 def test_a_step_runs_per_item_exactly_when_something_it_does_not_gather_does():

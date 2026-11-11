@@ -13,7 +13,7 @@
 # `emitted.from_digest` is the digest of everything above it. Nextflow runs `main.nf`, not
 # this file — that digest is what notices if you edit here and forget to re-emit.
 
-version: 8
+version: 9
 intent:
   want:
   - counts.matrix
@@ -54,9 +54,9 @@ facts:
 registry:
   layers:
   - name: comeni-registry-examples
-    digest: sha256:2275a9e7d0052e0b1ed9b5c2e4cbc863c360133618b26f0b7fe2133d230db3f0
+    digest: sha256:2ee805d2d8e61ee1099d9162c9c9aef00d07f52abd8e14042ab093a5f304fe36
     source: https://github.com/comeni-project/comeni-registry
-    commit: 7b51a223b3ab0296f6092ac2d19051aa07982781
+    commit: aca7152cd0c5d5e688b678b668b06534091c41c3
     dirty: false
   displaced: []
   unverified: []
@@ -67,7 +67,7 @@ steps:
 - id: trimgalore
   module:
     contract_id: nf-core/trimgalore@2.3.0
-    digest: sha256:807ca62ffc86e5d1ab346865d828412f7ab4e1356cfae74b6778f320b15df934
+    digest: sha256:d493ce4b88ba13c30f76a6a22a1cf563469bd6e0495c24d0f1fff57db75ccd67
     container: community.wave.seqera.io/library/trim-galore:2.3.0--6a38a479b4972363
   process: TRIMGALORE
   include: modules/nf-core/trimgalore/main
@@ -121,7 +121,7 @@ steps:
 - id: star_genomegenerate
   module:
     contract_id: nf-core/star/genomegenerate@2.7.11b
-    digest: sha256:5bd40facd15de2fabe02da8a48a33f15d79eb5d018a0063e5e7f78ab88b2b55f
+    digest: sha256:791c6998225473554128b88484adfa32e6c99e8755060bb7703a6e287464588e
     container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
   process: STAR_GENOMEGENERATE
   include: modules/nf-core/star/genomegenerate/main
@@ -230,7 +230,7 @@ steps:
 - id: star_align
   module:
     contract_id: nf-core/star/align@2.7.11b
-    digest: sha256:671970d4391500a79270d9e67493738e36b8b9ab52c2e422650fee427304ba11
+    digest: sha256:f02b3bfd10410432155b5ac9a93522e422050a649ca41564e23275a8e357bb70
     container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
   process: STAR_ALIGN
   include: modules/nf-core/star/align/main
@@ -361,7 +361,7 @@ steps:
 - id: samtools_sort
   module:
     contract_id: nf-core/samtools/sort@1.24
-    digest: sha256:d4c294027e7805fe8ad3a912fcf511c6361401cb7dffdaa433935af9ea89ecff
+    digest: sha256:25aaeb1cbe7d405d7323cab4de012a3f34e4eee6da6aea0a3ada92f0b33c8eeb
     container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
   process: SAMTOOLS_SORT
   include: modules/nf-core/samtools/sort/main
@@ -454,7 +454,7 @@ steps:
 - id: subread_featurecounts
   module:
     contract_id: nf-core/subread/featurecounts@2.1.1
-    digest: sha256:63b7c986694c2eca4263e98be0f9c6185aedd3747dc8222658693ba44396dcc7
+    digest: sha256:7c46f2bd2d608742a16408f8451ba6bb7f839fd2315ce826f7bea7053cc67c54
     container: quay.io/biocontainers/subread:2.1.1--h577a1d6_0
   process: SUBREAD_FEATURECOUNTS
   include: modules/nf-core/subread/featurecounts/main
@@ -533,7 +533,7 @@ steps:
 - id: samtools_faidx
   module:
     contract_id: nf-core/samtools/faidx@1.24
-    digest: sha256:16856429017c16a95cd524749731dfd37611bf6a27d556153004d32436f20e0c
+    digest: sha256:efd05e1c8a1e3de4b3e8e790d707577dd429c60d1262bae92c0737554ef71041
     container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
   process: SAMTOOLS_FAIDX
   include: modules/nf-core/samtools/faidx/main
@@ -615,7 +615,7 @@ steps:
 - id: measure_genome_length_fai
   module:
     contract_id: comeni/measure/genome_length_fai@1.0.0
-    digest: sha256:34a6d02b32eb508a5f2b1ad1c7b15b39c580964336ea45ec893140e3e0d30816
+    digest: sha256:0fd68d338eb7d9083e314f03c5af1d61d32e0bbb6dc9a099ee5effe6fbc5b5fb
     container: python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
   process: MEASURE_GENOME_LENGTH_FAI
   include: modules/comeni/measure/genome_length_fai/main
@@ -670,7 +670,7 @@ channels:
 - name: gtf
   param: gtf
   why: null
-  scope: run
+  grain: study
   columns:
   - gtf
   type_id: annotation.gtf
@@ -684,7 +684,7 @@ channels:
 - name: reads
   param: input
   why: null
-  scope: sample
+  grain: sample
   columns:
   - reads_1
   - reads_2
@@ -727,7 +727,7 @@ channels:
 - name: fasta
   param: fasta
   why: null
-  scope: run
+  grain: study
   columns:
   - fasta
   type_id: genome.fasta
@@ -761,7 +761,7 @@ decisions:
   human_override: null
   override_reason: ''
 emitted:
-  schema_version: 8
+  schema_version: 9
   files:
   - name: main.nf
     digest: sha256:56bc1399fa180fdaf58e052e6a708510286998a7c19cd46117156485dd397c6e
@@ -785,6 +785,6 @@ emitted:
     digest: sha256:84ca06b02950cd0e9ae063704879962755c8c2b807da2911940a9ce6da21392a
   - name: nextflow.config
     digest: sha256:e77a8bf168c3e94d0f46f5000e06f76e6b802e88154864986a53048fa26bd028
-  from_digest: sha256:b46452419053edbbad758c6ca469060a3802a9e5ded994c56d74b9bf6811e5e0
+  from_digest: sha256:c38ef3c97aca2df51459c5a00e530c9ba96f3e80e14b933ed91c1dd145268cdd
 gate: null
 input_form: direct

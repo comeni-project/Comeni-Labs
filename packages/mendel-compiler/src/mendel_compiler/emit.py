@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from comeni_core.artifact.pipeline import InputForm, Pipeline, Scope, Step
+from comeni_core.artifact.pipeline import Grain, InputForm, Pipeline, Step
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import InputState
 from comeni_core.spell.marks import substitutable
@@ -226,7 +226,7 @@ def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
         (
             _channel_name(channel.name),
             _optional(channel, _as_value(_with_meta(channel.expression, channel.meta),
-                                         channel.scope)),
+                                         channel.grain)),
         )
         for channel in pipeline.channels
     ]
@@ -297,12 +297,12 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
         )
     ]
     for channel in pipeline.channels:
-        if channel.scope is not Scope.SAMPLE:
+        if channel.grain is not Grain.SAMPLE:
             lines.append(
                 (
                     _channel_name(channel.name),
                     _optional(channel, _as_value(_with_meta(channel.expression, channel.meta),
-                                                 channel.scope)),
+                                                 channel.grain)),
                 )
             )
             continue
@@ -354,9 +354,9 @@ def _no_duplicate_ids() -> str:
     )
 
 
-def _as_value(expression: str, scope: Scope) -> str:
+def _as_value(expression: str, scope: Grain) -> str:
     """A run-scoped channel becomes a value channel; a sample-scoped one stays a queue."""
-    return f"({expression}).first()" if scope is Scope.RUN else expression
+    return f"({expression}).first()" if scope is Grain.STUDY else expression
 
 
 def _meta_injection(step: Step) -> str:
@@ -424,7 +424,7 @@ def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str]]:
         expression = (f"{raw}{joins}.map {{ meta, data, {', '.join(values)} -> "
                       f"[ meta + [{merged}], data ] }}")
         names[channel.name] = name
-        lines.append(f"{name} = {_as_value(expression, channel.scope)}")
+        lines.append(f"{name} = {_as_value(expression, channel.grain)}")
     return names, lines
 
 
@@ -611,7 +611,7 @@ def test_samplesheet(pipeline: Pipeline) -> str:
     columns: list[str] = [SAMPLE_COLUMN]
     values: list[str] = ["test"]
     for channel in pipeline.channels:
-        if channel.scope is not Scope.SAMPLE:
+        if channel.grain is not Grain.SAMPLE:
             continue
         for column, url in zip(channel.columns, by_param[channel.param].test_data, strict=False):
             columns.append(column)

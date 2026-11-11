@@ -103,9 +103,9 @@ def test_offer_frame_shows_only_visible_steps_and_entry_scopes(authoring_case, m
     assert {s["id"] for s in frame["steps"]} == drawn == set(frame["placement"])
     by_type = {c["type_id"]: c for c in frame["channels"]}
     gtf, reads = by_type["annotation.gtf"], by_type["fastq.reads"]
-    assert gtf["scope"] == "run" and gtf["count"] is None
+    assert gtf["grain"] == "study" and gtf["count"] is None
     assert sorted(gtf["ports"]) == ["star_align.gtf", "star_genomegenerate.gtf"]
-    assert reads["scope"] == "sample" and reads["count"]
+    assert reads["grain"] == "sample" and reads["count"]
 
 
 def test_a_drawn_graph_keeps_its_recorded_tier(authoring_case):

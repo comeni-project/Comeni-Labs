@@ -83,11 +83,11 @@ class DraftChannel(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    scope: str | None = None
+    grain: str | None = None
     """Optional `run` or `sample` override; `None` keeps the type's declared default."""
 
     why: Line = ""
-    """Reason for the scope override; ignored when no override is present."""
+    """Reason for the grain override; ignored when no override is present."""
 
     ports: tuple[SocketKey, ...]
     """Frozen tuple of `<node>.<port>` sockets fed by this channel."""
@@ -147,7 +147,7 @@ class ParamSettled(BaseModel):
 
 
 class ChannelSettled(BaseModel):
-    """Provenance for a scope override, keyed by its stable input sockets."""
+    """Provenance for a grain override, keyed by its stable input sockets."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 

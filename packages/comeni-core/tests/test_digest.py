@@ -352,15 +352,16 @@ def test_the_file_tag_separates_entry_kinds():
     )
 
 
-# Computed on 2026-11-06, before contracts gained constraints (#460). A contract that declares
-# none of the new fields must keep the digest a lockfile already pins.
+# Computed on 2026-11-06, before contracts gained constraints (#460), and again on 2026-11-11, when
+# `grain` replaced `cardinality` (#466): the old field was always written, so every digest moved
+# once. A contract that declares none of the newer fields must keep the digest a lockfile pins.
 _PINNED = {
     "registry/tools/nf-core/fastqc/contract.yml":
-        "sha256:0043a19e49a846acbaf37734c002c3da1d0981cbe42f04b43f5f044e074ac860",
+        "sha256:fef99c535dfd5a2e8d711315a35ba3a95772eb24e6fa082df2bbfe7825592556",
     "registry/tools/nf-core/hisat2/align/contract.yml":
-        "sha256:d810c4a98b903c8c0615a9f81cb19c0c4cbbc387f5855356f92180fc2461b3bc",
+        "sha256:efba5fcf6546c07fe9976bda71c6537b54bfb1108c7dd0fb6a2c3f2b762c8eef",
     "registry/tools/nf-core/hisat2/build/contract.yml":
-        "sha256:dbea70ab98853f5636b51c878b24d506ffdc0dddb3584b658f154a368c50201e",
+        "sha256:22408b423aeb4f4fced40a2de34e9ec94928b114fcbbcccbb0f20eb699d3ec4a",
 }
 
 
@@ -374,7 +375,8 @@ def test_contracts_without_constraints_keep_their_digest():
         data.pop("declares", None)
         contract = ModuleContract.model_validate(data)
         dumped = contract.model_dump_json()
-        for field in ("required", "produced_when", "absent", "constraints", "groups"):
+        for field in ("required", "produced_when", "absent", "constraints", "groups", "grain",
+                      "many", "cardinality"):
             assert f'"{field}"' not in dumped, f"{relative} serialises default {field}"
         assert digest_of(contract) == pinned, relative
 
@@ -389,4 +391,4 @@ def test_a_scalar_join_keeps_its_digest():
                           .read_text())
     data.pop("declares", None)
     assert digest_of(ModuleContract.model_validate(data)) == (
-        "sha256:63b7c986694c2eca4263e98be0f9c6185aedd3747dc8222658693ba44396dcc7")
+        "sha256:7c46f2bd2d608742a16408f8451ba6bb7f839fd2315ce826f7bea7053cc67c54")

@@ -11,7 +11,7 @@ from support.paths import ROOT
 
 pytestmark = pytest.mark.slow
 
-STARTER = """version: 8
+STARTER = """version: 9
 intent:
   want: [genome.index.star]
 facts:

@@ -2181,11 +2181,11 @@ export interface components {
             /** Name */
             name: string;
             /**
-             * Scope
+             * Grain
              * @default sample
              * @enum {string}
              */
-            scope: "run" | "sample";
+            grain: "study" | "sample";
             /** Count */
             count?: number | null;
             /** Param */
@@ -2365,8 +2365,8 @@ export interface components {
             name?: string | null;
             /** Explain */
             explain?: string | null;
-            /** Scope */
-            scope?: string | null;
+            /** Grain */
+            grain?: string | null;
             /**
              * Tools
              * @default []
@@ -2596,8 +2596,8 @@ export interface components {
          *     Unlisted ports retain the default one-channel-per-type behavior.
          */
         DraftChannel: {
-            /** Scope */
-            scope?: string | null;
+            /** Grain */
+            grain?: string | null;
             /**
              * Why
              * @default

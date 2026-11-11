@@ -21,12 +21,12 @@ SALMON = (ROOT / "packages/comeni-core/tests/fixtures/constraints/salmon_quant.y
 SALMON_ID = "nf-core/salmon/quant@1.10.3"
 
 TYPES = {
-    "fastq.reads": "scope: sample\n",
-    "alignment.bam": "scope: sample\n",
-    "salmon.index": "scope: run\n",
-    "annotation.gtf": "scope: run\n",
-    "transcripts.fasta": "scope: run\n",
-    "salmon.quant": "scope: sample\n",
+    "fastq.reads": "grain: sample\n",
+    "alignment.bam": "grain: sample\n",
+    "salmon.index": "grain: study\n",
+    "annotation.gtf": "grain: study\n",
+    "transcripts.fasta": "grain: study\n",
+    "salmon.quant": "grain: sample\n",
 }
 
 
@@ -121,7 +121,7 @@ def test_a_held_earlier_alternative_wins_over_a_produced_later_one(tmp_path):
     (tmp_path / "contracts" / "aligner.yml").write_text("declares: contract\n" + ALIGNER)
     (tmp_path / "contracts" / "bamqc.yml").write_text("declares: contract\n" + BAMQC)
     (tmp_path / "vocabularies" / "qc.report.yml").write_text(
-        "declares: vocabulary\nid: qc.report\nstates: []\nscope: sample\n")
+        "declares: vocabulary\nid: qc.report\nstates: []\ngrain: sample\n")
     _roles(tmp_path, "quantification", "alignment", "qc_per_sample")
     vocabulary = Vocabulary.load(tmp_path)
     registry = Registry.load(tmp_path, vocabulary)
@@ -133,7 +133,7 @@ def test_a_held_earlier_alternative_wins_over_a_produced_later_one(tmp_path):
     assert {r.port: r.state for r in salmon.inputs}["index"] is InputState.REQUIRED
 
 
-ORPHAN_TYPES = {"h.one": "sample", "m.mid": "sample", "q.opt": "run", "t.one": "sample",
+ORPHAN_TYPES = {"h.one": "sample", "m.mid": "sample", "q.opt": "study", "t.one": "sample",
                 "t.two": "sample", "w.want": "sample"}
 MAKER = """id: lab/maker@1.0.0
 nf_process: MAKER
@@ -174,7 +174,7 @@ def test_a_failed_alternative_leaves_no_steps_behind(tmp_path):
     for type_id, scope in ORPHAN_TYPES.items():
         family = type_id.split(".")[0]
         (vocab_dir / f"{type_id}.yml").write_text(
-            f"declares: vocabulary\nid: {type_id}\nstates: []\nscope: {scope}\n")
+            f"declares: vocabulary\nid: {type_id}\nstates: []\ngrain: {scope}\n")
         (vocab_dir / f"{family}.family.yml").write_text(
             f"declares: family\nid: {family}\ndescription: {family}\n")
     contracts = tmp_path / "contracts"
@@ -191,8 +191,8 @@ def test_a_failed_alternative_leaves_no_steps_behind(tmp_path):
     assert [s.contract_id for s in plan.steps] == ["lab/wants@1.0.0"]
 
 
-REVISIT_TYPES = {"h.one": "sample", "c.out": "sample", "c.extra": "sample", "o.opt": "run",
-                 "g.raw": "run", "e.two": "sample", "t.one": "sample", "t.two": "sample",
+REVISIT_TYPES = {"h.one": "sample", "c.out": "sample", "c.extra": "sample", "o.opt": "study",
+                 "g.raw": "study", "e.two": "sample", "t.one": "sample", "t.two": "sample",
                  "w.want": "sample"}
 
 
@@ -211,7 +211,7 @@ def test_a_failed_alternative_undoes_a_revisit_that_switched_an_input_on(tmp_pat
     for type_id, scope in REVISIT_TYPES.items():
         family = type_id.split(".")[0]
         (vocab_dir / f"{type_id}.yml").write_text(
-            f"declares: vocabulary\nid: {type_id}\nstates: []\nscope: {scope}\n")
+            f"declares: vocabulary\nid: {type_id}\nstates: []\ngrain: {scope}\n")
         (vocab_dir / f"{family}.family.yml").write_text(
             f"declares: family\nid: {family}\ndescription: {family}\n")
     contracts = tmp_path / "contracts"

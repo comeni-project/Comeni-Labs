@@ -48,7 +48,7 @@ def _two_sample_channels() -> DraftGraph:
         channels=[
             DraftChannel(
                 ports=("align.gtf",),
-                scope="sample",
+                grain="sample",
                 why="each biopsy has its own liver-specific annotation",
             )
         ],
@@ -216,7 +216,7 @@ def _runnable() -> DraftGraph:
         channels=[
             DraftChannel(
                 ports=("align.gtf",),
-                scope="sample",
+                grain="sample",
                 why="each biopsy carries its own annotation",
             )
         ],

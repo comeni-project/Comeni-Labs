@@ -33,7 +33,7 @@ const STEPS = [
 
 /** The file as the server writes it (the v8 layout `fileLines` reads). */
 const READY: AuthoringPreview = { revision: 4, state: "ready", findings: [], text: [
-  "version: 8", "steps:",
+  "version: 9", "steps:",
   "- id: star_align", "  settings:",
   "  - name: sjdbOverhang", "    value: '150'", "    why:", "      tier: 3",
   "  - name: twopassMode", "    value: None", "    why:", "      tier: 2",

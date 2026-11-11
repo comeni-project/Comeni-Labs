@@ -38,10 +38,10 @@ from comeni_core.plan.at_run import AtRun, Confirm, MetaAtRun
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.ir import InputRecord
 from comeni_core.plan.tiers import (
+    Grain,
     InputForm,
     PremiseOrigin,
     ReviewLevel,
-    Scope,
     Tier,
     ValueSource,
     review_level_for,
@@ -70,7 +70,7 @@ from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
 # ---------------- CONSTANTS ----------------
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 """The schema version written and the only one read.
 
 Bump when the serialized shape changes; content digests depend on that shape.
@@ -392,7 +392,7 @@ class Step(BaseModel):
 
 
 class Channel(BaseModel):
-    """External pipeline input, including its expression, scope, metadata, and test data."""
+    """External pipeline input, including its expression, grain, metadata, and test data."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -401,10 +401,10 @@ class Channel(BaseModel):
     param: NfIdentifier
     """Input parameter name used as params.<param>; independent of the channel name."""
     why: "Why | None" = None
-    """Reason for an explicit scope override; None when the default scope is used."""
+    """Reason for an explicit grain override; None when the type's grain is used."""
 
-    scope: Scope = Scope.SAMPLE
-    """Whether the input is shared across the run or supplied per sample."""
+    grain: Grain = Grain.SAMPLE
+    """Whether the input is one item for the study or one per sample."""
 
     columns: list[PortName] = Field(default_factory=list)
     """Column names used when this channel is supplied through a samplesheet."""
@@ -595,7 +595,7 @@ class Pipeline(EgressPayload):
                     f"names `annotation.gtf` where it now means `gtf`. `mendel explain MD0227`.",
                 )
             )
-        per_sample = [c.name for c in self.channels if c.scope is Scope.SAMPLE]
+        per_sample = [c.name for c in self.channels if c.grain is Grain.SAMPLE]
         wants_table = self.input_form is InputForm.SAMPLESHEET
         if wants_table and len(per_sample) < 2:
             raise ValueError(

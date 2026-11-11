@@ -26,8 +26,8 @@ def _family(name: str, says: str) -> str:
     return f"declares: family\nid: {name}\ndescription: {says}\n"
 
 
-def _type(type_id: str, scope: str) -> str:
-    return f"declares: vocabulary\nid: {type_id}\nstates: []\nscope: {scope}\n"
+def _type(type_id: str, grain: str) -> str:
+    return f"declares: vocabulary\nid: {type_id}\nstates: []\ngrain: {grain}\n"
 
 
 OVERLAY = {
@@ -37,10 +37,10 @@ OVERLAY = {
     "pacbio.family.yml": _family("pacbio", "PacBio long reads"),
     "nanopore.family.yml": _family("nanopore", "Nanopore long reads"),
     "assembly.family.yml": _family("assembly", "Genomes assembled from reads"),
-    "regions.bed.yml": _type("regions.bed", "run"),
+    "regions.bed.yml": _type("regions.bed", "study"),
     "dragstr.model.yml": _type("dragstr.model", "sample"),
     "variants.vcf.yml": _type("variants.vcf", "sample"),
-    "variants.tbi.yml": _type("variants.tbi", "run"),
+    "variants.tbi.yml": _type("variants.tbi", "study"),
     "pacbio.reads.yml": _type("pacbio.reads", "sample"),
     "nanopore.reads.yml": _type("nanopore.reads", "sample"),
     "assembly.fasta.yml": _type("assembly.fasta", "sample"),

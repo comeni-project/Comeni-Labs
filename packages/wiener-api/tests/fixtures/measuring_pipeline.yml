@@ -15,7 +15,7 @@
 # `emitted.from_digest` is the digest of everything above it. Nextflow runs `main.nf`, not
 # this file — that digest is what notices if you edit here and forget to re-emit.
 
-version: 8
+version: 9
 intent:
   want:
   - counts.matrix
@@ -741,7 +741,7 @@ channels:
 - name: gtf
   param: gtf
   why: null
-  scope: run
+  grain: study
   columns:
   - gtf
   type_id: annotation.gtf
@@ -755,7 +755,7 @@ channels:
 - name: reads
   param: input
   why: null
-  scope: sample
+  grain: sample
   columns:
   - reads_1
   - reads_2
@@ -798,7 +798,7 @@ channels:
 - name: fasta
   param: fasta
   why: null
-  scope: run
+  grain: study
   columns:
   - fasta
   type_id: genome.fasta

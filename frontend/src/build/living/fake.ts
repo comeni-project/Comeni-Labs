@@ -173,11 +173,11 @@ export const FAKE_VOCABULARY: Record<string, string[]> = {
 
 /** The fixture's entry channels, in the drawn view's shape. `reads` was measured at 12 samples. */
 export const FAKE_CHANNELS = [
-  { name: "reads", param: "input", type_id: "fastq.reads", scope: "sample", count: 12, states: [],
+  { name: "reads", param: "input", type_id: "fastq.reads", grain: "sample", count: 12, states: [],
     ports: ["trimgalore.reads"] },
-  { name: "fasta", param: "fasta", type_id: "genome.fasta", scope: "run", count: null, states: [],
+  { name: "fasta", param: "fasta", type_id: "genome.fasta", grain: "study", count: null, states: [],
     ports: ["star_genomegenerate.fasta"] },
-  { name: "gtf", param: "gtf", type_id: "annotation.gtf", scope: "run", count: null, states: [],
+  { name: "gtf", param: "gtf", type_id: "annotation.gtf", grain: "study", count: null, states: [],
     ports: ["star_genomegenerate.gtf"] },
 ] as unknown as import("../../api/schema").components["schemas"]["ChannelView"][];
 
@@ -225,9 +225,9 @@ export const COLLECT_STEPS = {
 } as unknown as Record<string, Step>;
 
 export const COLLECT_CHANNELS = [
-  { name: "reference", param: "index", type_id: "genome.index.star", scope: "run", count: null,
+  { name: "reference", param: "index", type_id: "genome.index.star", grain: "study", count: null,
     states: [], ports: ["star_align.index"] },
-  { name: "reads", param: "input", type_id: "fastq.reads", scope: "sample", count: 12,
+  { name: "reads", param: "input", type_id: "fastq.reads", grain: "sample", count: 12,
     states: ["paired"], ports: ["trimgalore.reads"] },
 ] as unknown as import("../../api/schema").components["schemas"]["ChannelView"][];
 

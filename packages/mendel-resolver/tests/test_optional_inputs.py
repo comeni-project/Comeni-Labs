@@ -17,9 +17,9 @@ from support.paths import ROOT
 QUAST = (ROOT / "packages/comeni-core/tests/fixtures/constraints/quast.yml").read_text()
 
 TYPES = {
-    "assembly.fasta": "scope: sample\n",
-    "genome.fasta": "scope: run\n",
-    "annotation.gff": "scope: run\n",
+    "assembly.fasta": "grain: sample\n",
+    "genome.fasta": "grain: study\n",
+    "annotation.gff": "grain: study\n",
     "qc.report": "",
 }
 

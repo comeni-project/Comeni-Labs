@@ -38,7 +38,7 @@ from comeni_core.artifact.pipeline import (
     _no_flags_why,
 )
 from comeni_core.declared.constraints import Setup, evaluate, rows_of, sentence
-from comeni_core.declared.contract import Cardinality, ModuleContract
+from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.measurement import Measurement, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
@@ -46,7 +46,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal, InputState
 from comeni_core.goal.profile import DataProfile, Measured
 from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
-from comeni_core.plan.tiers import InputForm, Scope, Tier, ValueSource
+from comeni_core.plan.tiers import Grain, InputForm, Tier, ValueSource
 from comeni_core.spell.marks import LayerName, ParamValue
 
 # ---------------- PIPELINE CONSTRUCTION ----------------
@@ -292,7 +292,7 @@ def _inputs(
             continue
         edge = incoming_edges.get((node.id, port.name))
         # Multi-item ports gather both upstream outputs and external inputs.
-        gather = port.cardinality is Cardinality.MANY
+        gather = port.many
         if edge is not None:
             inputs.append(
                 StepInput(
@@ -391,7 +391,7 @@ def _form(channels: Sequence[Channel]) -> InputForm:
     """Use a samplesheet for multiple sample-scoped channels, otherwise direct input."""
     return (
         InputForm.SAMPLESHEET
-        if sum(1 for c in channels if c.scope is Scope.SAMPLE) > 1
+        if sum(1 for c in channels if c.grain is Grain.SAMPLE) > 1
         else InputForm.DIRECT
     )
 
@@ -462,13 +462,13 @@ def _channels(
         expression = _substitute(template, param)
         declared = vocab.test_data.get(type_id)
         declared_channel = declared_channels.get(name)
-        chosen = declared_channel.scope if declared_channel is not None else None
+        chosen = declared_channel.grain if declared_channel is not None else None
         wide = vocab.columns.get(type_id, 1)
         channels.append(
             Channel(
                 columns=[name] if wide == 1 else [f"{name}_{n}" for n in range(1, wide + 1)],
-                scope=Scope(chosen.value) if chosen else Scope(
-                    vocab.scopes.get(type_id, Scope.SAMPLE)
+                grain=Grain(chosen.value) if chosen else Grain(
+                    vocab.grains.get(type_id, Grain.SAMPLE)
                 ),
                 why=_why(chosen) if chosen else None,
                 name=name,

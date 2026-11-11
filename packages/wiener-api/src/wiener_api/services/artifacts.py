@@ -153,7 +153,7 @@ def input_shape(artifact_id: str) -> tuple[str, list[str]]:
     columns = sorted(
         column
         for channel in pipeline.channels
-        if channel.scope.value == "sample"
+        if channel.grain.value == "sample"
         for column in channel.columns
     )
     return (pipeline.input_form.value, columns)

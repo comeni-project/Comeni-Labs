@@ -56,7 +56,7 @@ describes: genome.fasta
 FAI_TYPE = """declares: vocabulary
 id: genome.fai
 states: []
-scope: run
+grain: study
 """
 
 FAIDX = f"""declares: contract

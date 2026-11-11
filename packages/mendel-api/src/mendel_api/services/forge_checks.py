@@ -80,7 +80,7 @@ def _module_findings(source: str, path: str, state: Adaptation,
     found: dict[str, list[QuestionFinding]] = {}
     if asked:
         channels = {c.name: c for c in parse_module(folder, path, source).inputs}
-        found.update(findings(items, dict(registry.stack().vocabulary.scopes), spec, channels,
+        found.update(findings(items, dict(registry.stack().vocabulary.grains), spec, channels,
                               asked))
     if drafted:
         for key, more in contract_findings(items, spec, main_nf.read_text()).items():

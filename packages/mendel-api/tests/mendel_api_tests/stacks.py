@@ -6,8 +6,8 @@ from support.paths import ROOT
 QUAST = (ROOT / "packages/comeni-core/tests/fixtures/constraints/quast.yml").read_text()
 ASSEMBLY_OVERLAY = {
     "assembly.family.yml": "declares: family\nid: assembly\ndescription: Assembled genomes\n",
-    "assembly.fasta.yml": "declares: vocabulary\nid: assembly.fasta\nstates: []\nscope: sample\n",
-    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\nscope: run\n",
+    "assembly.fasta.yml": "declares: vocabulary\nid: assembly.fasta\nstates: []\ngrain: sample\n",
+    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\ngrain: study\n",
     "qc.report.yml": "declares: vocabulary\nid: qc.report\nstates: [aggregated, assembly]\n",
     "quast.contract.yml": "declares: contract\n" + QUAST.replace(
         "type_id: qc.report", "type_id: qc.report::assembly"),

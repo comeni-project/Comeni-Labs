@@ -336,8 +336,8 @@ class ChannelView(BaseModel):
 
     name: str
     """The channel's own id — `gtf`, `gtf_2`. Derived; see `Channel.name`."""
-    scope: Literal["run", "sample"] = "sample"
-    """How many times it delivers: once for the run, or once per item. `Channel.scope`, as the
+    grain: Literal["study", "sample"] = "sample"
+    """How many times it delivers: once for the run, or once per item. `Channel.grain`, as the
     artifact materialised it — the difference between one stroke and a ribbon on the canvas."""
     count: int | None = None
     """How many items, **only when a measurement said so** — `n_samples` in the goal's profile,
@@ -562,8 +562,8 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
     channels = [
         ChannelView(
             name=channel.name,
-            scope=channel.scope.value,
-            count=_counted(pipeline) if channel.scope.value == "sample" else None,
+            grain=channel.grain.value,
+            count=_counted(pipeline) if channel.grain.value == "sample" else None,
             param=channel.param,
             type_id=channel.type_id,
             states=port_states.get(feeds[channel.name][0], []) if feeds[channel.name] else [],
@@ -674,7 +674,7 @@ def _runs(pipeline) -> dict[str, str]:
     topological and a wrong order would silently under-count — a step seen before its producer
     reads `once` and never learns otherwise. A handful of passes over a handful of steps.
     """
-    sample = {channel.name for channel in pipeline.channels if channel.scope.value == "sample"}
+    sample = {channel.name for channel in pipeline.channels if channel.grain.value == "sample"}
     per_item: set[str] = set()
     moved = True
     while moved:

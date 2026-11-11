@@ -28,7 +28,7 @@ from comeni_core.egress.forge import (
     KnownIds,
     KnownType,
     ModuleFacts,
-    TypeScope,
+    TypeGrain,
 )
 from comeni_flow.interpret import Refused
 from mendel_compiler.modulespec import ModuleSpec
@@ -52,7 +52,7 @@ from mendel_api.services import forge_checks, forging, registry
 from mendel_api.settings import model_access
 
 PROMPTS = Path(__file__).parent.parent / "forge" / "prompts"
-ITEM_SHAPES = PROMPTS / "parts" / "items.v4.md"
+ITEM_SHAPES = PROMPTS / "parts" / "items.v5.md"
 """Every item kind and its value's shape, in one place, for each prompt that writes items
 (#468). A prompt shown only the adaptation's items cannot add the first item of a new kind."""
 CHAT_TAIL = 12
@@ -132,7 +132,7 @@ def compose(adaptation: ForgeAdaptation, state: Adaptation, piece: Piece, prompt
                        pending=sorted(seen.pending), families=sorted(seen.families),
                        pending_families=sorted(seen.pending_families),
                        described=[KnownType(id=t, name=vocabulary.names.get(t, ""),
-                                            scope=TypeScope(vocabulary.scopes.get(t, "sample")),
+                                            grain=TypeGrain(vocabulary.grains.get(t, "sample")),
                                             explain=vocabulary.explains.get(t, ""))
                                   for t in sorted(vocabulary.types)]),
         items=[ForgeItemText(key=key, value=json.dumps(item.value, sort_keys=True),
@@ -195,7 +195,7 @@ def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
         and isinstance(json.loads(i.value), dict) and "choice" in json.loads(i.value)) or "(none)"
     turns_text = "\n".join(f"{t.role.value}: {t.content}" for t in request.turns) or "(none)"
     described_text = "\n".join(
-        f"- {t.id} — {t.name or '(no name)'} — one per {t.scope.value}"
+        f"- {t.id} — {t.name or '(no name)'} — one per {t.grain.value}"
         + (f" — {_short(t.explain)}" if t.explain else "")
         for t in request.known.described) or "(none)"
     inputs_text = _arrivals(request.module.main_nf)

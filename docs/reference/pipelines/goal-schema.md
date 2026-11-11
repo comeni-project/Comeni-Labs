@@ -6,7 +6,7 @@ its top half, `intent` and `facts`; building it writes the rest.
 
 ```yaml
 # examples/rnaseq.yml
-version: 8
+version: 9
 intent:
   want: [counts.matrix]
   constraints:

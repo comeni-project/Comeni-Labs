@@ -20,6 +20,7 @@ from comeni_core.declared.measurement import MeasurementKind
 from comeni_core.declared.signature import states_in_type
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
+from comeni_core.plan.tiers import Grain
 from comeni_core.spell.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
 from comeni_core.spell.marks import (
     ContainerRef,
@@ -56,17 +57,6 @@ class Alternative(BaseModel):
         return sorted(states)
 
 
-class Cardinality(StrEnum):
-    """Whether a process invocation consumes one item or the complete channel."""
-
-    ONE = "1"
-    """One item per invocation. The process runs once per item on its channel — the default,
-    and what every port was before this field was read by anything."""
-
-    MANY = "*"
-    """The whole channel in one invocation, emitted with ``.collect()``."""
-
-
 class InputPort(BaseModel):
     model_config = _NO_EXTRAS
 
@@ -98,8 +88,13 @@ class InputPort(BaseModel):
     author's statement of preference between kinds of input, the same way decision-table
     rows are ordered and first-match-wins.
     """
-    cardinality: Cardinality = Cardinality.ONE
-    """How many channel items each process invocation receives."""
+    grain: Grain | None = None
+    """What one invocation of the process reads (#466): one item per `study` or per `sample`.
+    `None` is the type's own grain."""
+    many: bool = False
+    """One invocation takes every item of a finer grain at once, gathered with `.collect()`:
+    MultiQC reads every sample's report in one run. Declared with `grain: study`, since a sample
+    has nothing finer to gather until units and parts arrive (per-sample design, Goal A)."""
     required: bool = True
     """Whether the process can run without this input (#460). An optional input is left out
     unless switched on, and its `nf_inputs` entry says what to pass instead (`absent`)."""
@@ -117,6 +112,15 @@ class InputPort(BaseModel):
         return sorted(states)
 
     @model_validator(mode="after")
+    def _gathers_something(self) -> "InputPort":
+        if self.many and self.grain is not Grain.STUDY:
+            raise ValueError(coded(
+                "MD0331", f"port {self.name!r} gathers (`many: true`) at grain "
+                f"{self.grain.value if self.grain else 'of its type'}, which has nothing finer to "
+                "gather. Declare `grain: study` beside it to read every sample at once."))
+        return self
+
+    @model_validator(mode="after")
     def _one_form(self) -> "InputPort":
         if self.type_id and self.accepts:
             raise ValueError(f"port {self.name!r} declares both `type_id` and `accepts`; use one")
@@ -128,10 +132,15 @@ class InputPort(BaseModel):
 
     @model_serializer(mode="wrap")
     def _no_default_required(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        """Left out when required, so a contract that says nothing keeps its digest."""
+        """Left out when required, and grain and many when unset, so a contract that says
+        nothing keeps its digest."""
         data = handler(self)
         if self.required:
             data.pop("required", None)
+        if self.grain is None:
+            data.pop("grain", None)
+        if not self.many:
+            data.pop("many", None)
         return data
 
     def alternatives(self) -> list[Alternative]:

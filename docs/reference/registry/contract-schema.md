@@ -67,7 +67,8 @@ Model: `comeni_core.declared.contract.InputPort`
 | `state_preferred` | {string} | `{}` | states that rank a candidate higher without excluding others |
 | `accepts` | [alternative] | `[]` | other types this port will take |
 | `prefer` | {string} | `{}` | which alternative to prefer |
-| `cardinality` | enum | one | whether the port takes one or many |
+| `grain` | `study` \| `sample` | the type's | what one invocation reads: one item for the study or one per sample |
+| `many` | boolean | `false` | `true` gathers every item of a finer grain into one invocation, with `grain: study`: MultiQC reads every sample's report at once. Without `grain: study` it is refused (`MD0331`) |
 | `required` | boolean | `true` | `false` for an input the process can run without. Left out, it gets `[]` in its tuple position; an `nf_inputs` entry whose ports are all optional declares `absent` |
 
 **The three requirement levels are the point.** `state_required` excludes; `state_preferred`

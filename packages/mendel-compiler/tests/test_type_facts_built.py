@@ -20,10 +20,10 @@ OVERLAY = {
                          "description: Salmon's index and its per-sample quantifications\n",
     "transcripts.family.yml": "declares: family\nid: transcripts\n"
                               "description: Transcript sequences of a genome\n",
-    "salmon.index.yml": "declares: vocabulary\nid: salmon.index\nstates: []\nscope: run\n",
-    "salmon.quant.yml": "declares: vocabulary\nid: salmon.quant\nstates: []\nscope: sample\n",
+    "salmon.index.yml": "declares: vocabulary\nid: salmon.index\nstates: []\ngrain: study\n",
+    "salmon.quant.yml": "declares: vocabulary\nid: salmon.quant\nstates: []\ngrain: sample\n",
     "transcripts.fasta.yml": "declares: vocabulary\nid: transcripts.fasta\nstates: []\n"
-                             "scope: run\n",
+                             "grain: study\n",
     "salmon.contract.yml": "declares: contract\n" + SALMON,
 }
 
@@ -74,7 +74,7 @@ def test_an_optional_accepts_port_from_outside_gets_a_channel(tmp_path):
     assert salmon != SALMON
     extra = {"salmon.contract.yml": "declares: contract\n" + salmon,
              "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\n"
-                                   "scope: run\n"}
+                                   "grain: study\n"}
     for name, body in {**OVERLAY, **extra}.items():
         (layer / name).write_text(body)
     goal = Goal(have=[GoalInput(type_id="alignment.bam"), GoalInput(type_id="transcripts.fasta")],

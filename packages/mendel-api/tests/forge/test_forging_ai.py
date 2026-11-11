@@ -710,7 +710,7 @@ def test_quasts_walk_suggestions_show_engine_findings(quast):
     assert [f.code for f in context.findings] == ["MF0520", "MF0521"]
     request = forging_ai.compose(forging.row(quast), forging.load(quast), Piece.QUESTIONS,
                                  prompt="forge.questions.v4")
-    assert any(t.id == "genome.fasta" and t.scope == "run" for t in request.known.described)
+    assert any(t.id == "genome.fasta" and t.grain == "study" for t in request.known.described)
     assert {f.code for f in request.findings} == {"MF0520", "MF0521", "MF0522"}
 
 
@@ -821,7 +821,7 @@ def test_the_guide_spells_out_a_new_type():
     """#468 walk: drafted types were bare ids, so a run-wide annotation arrived per sample
     and outputs were named "null"."""
     guide = forging_ai.ITEM_SHAPES.read_text()
-    for field in ('"scope"', '"name"', '"explain"', '"entry_channel"', "[id: f.baseName]"):
+    for field in ('"grain"', '"name"', '"explain"', '"entry_channel"', "[id: f.baseName]"):
         assert field in guide, field
 
 
@@ -838,7 +838,7 @@ def test_the_guide_teaches_shared_slots_joins_and_types():
     """#464: an optional file inside a tuple, a join per port, an input of several types, and a
     row on the connected type, each spelled out with a module from the survey."""
     guide = forging_ai.ITEM_SHAPES.read_text()
-    assert forging_ai.ITEM_SHAPES.name == "items.v4.md"
+    assert forging_ai.ITEM_SHAPES.name == "items.v5.md"
     for shape in ('"accepts": [{"type_id"', '"join": {"input_index": "by_sample"',
                   '"type.reads": "alignment.bam"', '"types": {', "[]"):
         assert shape in guide, shape

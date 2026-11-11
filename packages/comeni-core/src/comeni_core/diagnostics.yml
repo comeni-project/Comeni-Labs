@@ -2609,15 +2609,16 @@ MF0519:
 MF0520:
   emitted_by: forge
   concern: catalogue
-  says: "an input arrives at a different scope than its type"
+  says: "an input arrives at a different grain than its type"
   fires_on: [forging]
   refuses: false
   fix: |
-    Pick a type whose scope matches how the input arrives, or propose one. nf-core names the
+    Pick a type whose grain matches how the input arrives, or propose one. nf-core names the
     per-sample map `meta` and a reference's map `meta2`, `meta3` and so on.
   explanation: |
-    A type says whether it arrives once per run (a reference) or once per sample. An input whose
-    module tuple suggests the other scope is probably the wrong type. Advisory: the person decides.
+    A type says whether it arrives once for the study (a reference) or once per sample. An input
+    whose module tuple suggests the other grain is probably the wrong type. Advisory: the person
+    decides.
 MF0521:
   emitted_by: forge
   concern: catalogue
@@ -3000,6 +3001,20 @@ MD0330:
     where `{value}` stands; a template without it, or with Groovy of its own, would put the
     lookup somewhere nobody can check.
 
+MD0331:
+  emitted_by: core
+  concern: routing
+  says: "a port gathers (`many: true`) at a grain with nothing finer to gather"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Declare `grain: study` beside `many: true`, so the process reads every sample's item in one
+    invocation, as MultiQC reads every sample's report. Or drop `many` if it reads one item.
+  explanation: |
+    A port's `grain` is what one invocation reads (#466). `many` gathers every item of a finer
+    grain into one list, with `.collect()`. Only the study has a finer grain to gather today:
+    the sample's lanes and pieces arrive with later stages of the per-sample design.
+
 MD0501:
   emitted_by: resolver
   concern: validation
@@ -3069,14 +3084,14 @@ MD0505:
   fires_on: [validate]
   refuses: false
   fix: |
-    The message names the port's declared `cardinality`. Remove the extra wires, or wire
+    The port reads one item (it does not declare `many: true`). Remove the extra wires, or wire
     through a step that collects them.
   explanation: |
     Nextflow matches arity, and a channel carrying two things where one is expected does not
     fail at lint — it fails at run, late, with a message about a null path.
 
-    This is the FIRST reader `InputPort.cardinality` has ever had. The field was declared and
-    nothing consumed it, so no contract's value for it has been checked against reality.
+    `InputPort.many` says whether a port gathers. A port that does not reads one item per
+    invocation, so a second wire is a second channel it has no slot for.
 
 MD0506:
   emitted_by: resolver

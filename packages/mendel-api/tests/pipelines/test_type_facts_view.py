@@ -15,8 +15,8 @@ def _family(name: str) -> str:
     return f"declares: family\nid: {name}\ndescription: {name}\n"
 
 
-def _type(type_id: str, scope: str = "run") -> str:
-    return f"declares: vocabulary\nid: {type_id}\nstates: []\nscope: {scope}\n"
+def _type(type_id: str, grain: str = "study") -> str:
+    return f"declares: vocabulary\nid: {type_id}\nstates: []\ngrain: {grain}\n"
 
 
 OVERLAY = {

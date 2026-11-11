@@ -83,7 +83,7 @@ QUAST = (REGISTRY.parent / "packages/comeni-core/tests/fixtures/constraints/quas
 OVERLAY = {
     "assembly.family.yml": "declares: family\nid: assembly\ndescription: Genome assemblies\n",
     "assembly.fasta.yml": "declares: vocabulary\nid: assembly.fasta\nstates: []\n",
-    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\nscope: run\n",
+    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\ngrain: study\n",
     "quast.contract.yml": "declares: contract\n" + QUAST,
 }
 
@@ -121,8 +121,8 @@ def _family(name: str) -> str:
     return f"declares: family\nid: {name}\ndescription: {name}\n"
 
 
-def _type(type_id: str, scope: str = "run") -> str:
-    return f"declares: vocabulary\nid: {type_id}\nstates: []\nscope: {scope}\n"
+def _type(type_id: str, grain: str = "study") -> str:
+    return f"declares: vocabulary\nid: {type_id}\nstates: []\ngrain: {grain}\n"
 
 
 SALMON_TYPES = {"salmon.family.yml": _family("salmon"),
