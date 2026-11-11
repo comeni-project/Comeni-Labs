@@ -16,7 +16,7 @@ from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistr
 from comeni_core.declared.registry import Registry
 from comeni_core.diagnostics import coded
 from comeni_core.logic.when import matches, tier_of_row
-from comeni_core.plan.tiers import Tier
+from comeni_core.plan.tiers import Grain, Tier
 
 from mendel_resolver.cases import _OTHER, CASE_BOUND, _points, _Seen
 from mendel_resolver.rules.format import (
@@ -513,9 +513,19 @@ def check_table(decision: Decision, *, measurements: MeasurementRegistry,
     findings: list[str] = []
     first_for: set[int] = set()
     gap = None
+    # Over a fact that can differ between samples, a tie has nobody to answer it in the run, so
+    # `unique` may not overlap there at all (operator, 11-11; per-sample design, D).
+    per_sample = decision.hit == "unique" and any(
+        f in measurements.ids() and measurements.scope_of(f) is Grain.SAMPLE for f in facts)
     for case in product(*points):
         seen = {f: _Seen(v) for f, v in zip(facts, case, strict=True)}
         hits = [n for n, row in enumerate(decision.rows) if matches(row.when, seen)]
+        if per_sample and len(hits) > 1:
+            named = ", ".join(f"{f} = {v}" for f, v in zip(facts, case, strict=True))
+            return [coded("MD0333", f"{where}\n  rows {hits[0] + 1} and {hits[1] + 1} both "
+                          f"match {named}, and `hit: unique` over a fact that differs between "
+                          "samples cannot be asked per sample in the run. Make the rows "
+                          "exclusive, or use `hit: first`.")]
         if hits:
             first_for.add(hits[0])
         elif gap is None:

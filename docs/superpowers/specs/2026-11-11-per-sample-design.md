@@ -146,9 +146,12 @@ A decision's grain is the finest grain of the facts it reads. A decision at `sam
 grain whose outcome is not folded compiles into the pipeline:
 
 - **A setting** (`param`): part 4's lookup, generalised. Its `when` may read any number of
-  per-sample facts. `hit: first` is evaluated in row order. `hit: unique` is checked at build
-  over every combination of declared values: an overlap is refused at load, so the run never
-  meets one. The result for each sample is recorded in `decided/<step>.<setting>.tsv` with the
+  per-sample facts. `hit: first` is evaluated in row order. `hit: unique` over a fact that
+  can differ between samples is checked at load over every case of its facts: an overlap is
+  refused there (`MD0333`), naming the rows and the case, so the run never meets one. Over
+  study-wide facts an overlap stays a tie the build asks once, as rules v2 has it (operator,
+  11-11: the registry author fixes a per-sample overlap, since no person can answer it per
+  sample in the run). The result for each sample is recorded in `decided/<step>.<setting>.tsv` with the
   source of every fact it read.
 - **A tool rule** (#460 constraints: `requires`, `forbids`, `produced_when`, groups) whose `when`
   reads a per-sample fact is evaluated per sample. fastp's `save_merged` is set only for paired

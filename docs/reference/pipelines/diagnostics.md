@@ -57,6 +57,7 @@ decline to curate one.
 | `MD0325` | a rule sets a value the tool's constraints refuse |
 | `MD0326` | a measurer's declaration does not fit how it says it measures: by our code, or by a tool and a parser |
 | `MD0327` | a measurer uses a tool, or an output of it, that no layer declares |
+| `MD0333` | a `hit: unique` decision over a fact that differs between samples has overlapping rows |
 | `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
 | `MD0602` | a contract's constraint names an input or param it does not declare |
 | `MD0603` | no combination of inputs and params satisfies a contract's constraints |
@@ -164,6 +165,7 @@ decline to curate one.
 | `MD0328` | a setting's rule waits on two facts only the pipeline could measure, and a setting decided at run time reads one |
 | `MD0329` | routing again to add the steps that measure a run-time fact changed the pipeline instead of only adding to it |
 | `MD0331` | a port gathers (`many: true`) at a grain with nothing finer to gather |
+| `MD0332` | a fact is said to differ between samples, and it is the study's or is also stated |
 | `MD0608` | an output a later step needs is not written with this step's settings |
 | `MD0609` | a tool's input is needed, but it was switched off or cannot be connected |
 | `MD0610` | a connection or setting is forbidden by the tool's constraints |

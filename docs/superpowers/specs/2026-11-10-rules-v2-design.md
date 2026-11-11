@@ -56,7 +56,8 @@ then the decision reads a stated fact and says so.
 - **B. A declared hit policy.** A decision may say `hit: first` (the default, today's
   behaviour) or `hit: unique` (at most one row may match). Under `unique`, two matching rows at
   build time is a tie, and a tie becomes a tier-4 question (invariant: a tier-3 miss or tie
-  becomes tier 4).
+  becomes tier 4). A `unique` decision reading a fact that can differ between samples may not
+  overlap at all: that is refused at load (per-sample design, D; operator, 11-11).
 - **C. Table checks over several facts.** Load tries representative cases built from the
   rows' own conditions (each enum value and boolean; for an ordered fact, a point below, at
   and above each boundary), bounded like the constraint check:

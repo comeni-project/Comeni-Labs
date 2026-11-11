@@ -109,3 +109,23 @@ def test_a_fact_both_known_and_unknown_is_refused():
 
     with pytest.raises(ValueError, match="both"):
         uncovered(decision, ["paired"], {"paired": Known()}, LOADED.measurements, {})
+
+
+def test_a_unique_rule_over_a_per_sample_fact_may_not_overlap():
+    """Nobody can answer a tie per sample in the run, so the author fixes it (operator, 11-11)."""
+    from mendel_resolver.rules.validate import check_table
+
+    decision = _decision([_row({"read_length": ">= 70"}, 8), _row({"read_length": ">= 50"}, 4)],
+                         hit="unique")
+    findings = check_table(decision, measurements=LOADED.measurements, derived={})
+    assert findings and findings[0].startswith("MD0333")
+    assert "rows 1 and 2" in findings[0] and "read_length = 70" in findings[0]
+
+
+def test_a_unique_rule_over_a_study_fact_may_still_tie():
+    """A tie over the study's facts is the build's question, as rules v2 has it."""
+    from mendel_resolver.rules.validate import check_table
+
+    decision = _decision([_row({"genome_length": ">= 70"}, 8),
+                          _row({"genome_length": ">= 50"}, 4)], hit="unique")
+    assert check_table(decision, measurements=LOADED.measurements, derived={}) == []

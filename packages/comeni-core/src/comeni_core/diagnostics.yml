@@ -3015,6 +3015,36 @@ MD0331:
     grain into one list, with `.collect()`. Only the study has a finer grain to gather today:
     the sample's lanes and pieces arrive with later stages of the per-sample design.
 
+MD0332:
+  emitted_by: core
+  concern: routing
+  says: "a fact is said to differ between samples, and it is the study's or is also stated"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Keep one answer. A fact that differs between samples is left out of the profile and listed
+    under `constraints.varies`; one that is the same for every sample is stated in the profile.
+    A fact about the study, such as a genome's length, has one value and cannot vary.
+  explanation: |
+    A sample-scoped fact (one that describes reads) may be the same for every sample or differ
+    between them (#466). Said to differ, each sample's value comes from its samplesheet cell or
+    a measurement in the run. Both answers at once would leave the build two values to use.
+
+MD0333:
+  emitted_by: resolver
+  concern: loading
+  says: "a `hit: unique` decision over a fact that differs between samples has overlapping rows"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Make the rows exclusive, so at most one matches any case, or use `hit: first` if the order
+    of the rows is the choice. The message names the two rows and a case both match.
+  explanation: |
+    Under `hit: unique` two matching rows are a tie, and a tie over study-wide facts is a
+    question the build asks once (#461). A fact that can differ between samples is decided per
+    sample in the run (#466), where nobody can be asked, so the overlap is refused at load and
+    the registry's author resolves it.
+
 MD0501:
   emitted_by: resolver
   concern: validation
