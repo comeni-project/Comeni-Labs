@@ -280,7 +280,8 @@ describe("a setting decided at run time", () => {
           rule: "param:index_building:sa_index_nbases",
           rows: ["any genome_length → genome_length → log2 → ÷ 2 → − 1 → at most 14 → round"],
           fallback: null,
-          fallback_reason: "asked",
+          fallback_is: "tool",
+          fallback_reason: "left to the tool: without a value it uses its own",
         },
       }],
     });
@@ -290,6 +291,8 @@ describe("a setting decided at run time", () => {
     expect(screen.getAllByTestId("at-run-row").map((r) => r.textContent)).toEqual([
       "any genome_length → genome_length → log2 → ÷ 2 → − 1 → at most 14 → round",
     ]);
-    expect(screen.getByTestId("at-run-fallback").textContent).toContain("an open question");
+    // STAR sizes its own index when the genome cannot be measured: not a question (final review).
+    expect(screen.getByTestId("at-run-fallback").textContent).toBe(
+      "if it cannot be measured: the tool's own value");
   });
 });

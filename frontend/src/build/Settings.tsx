@@ -104,7 +104,7 @@ function Row({
           <span
             data-testid="setting-value"
             className={`font-data text-secondary ${
-              setting.value === null ? "text-ink-3" : "text-ink"
+              setting.value === null && !setting.at_run ? "text-ink-3" : "text-ink"
             }`}
           >
             {setting.at_run ? "at run time" : (setting.value ?? "—")}
@@ -208,7 +208,13 @@ function AtRun({ lookup }: { lookup: NonNullable<Setting["at_run"]> }) {
         ))}
       </ul>
       <div data-testid="at-run-fallback" className="text-secondary text-ink-3 pt-[4px]">
-        if it cannot be measured: {lookup.fallback ?? "an open question"} ({lookup.fallback_reason})
+        if it cannot be measured:{" "}
+        {lookup.fallback_is === "tool"
+          ? "the tool's own value"
+          : lookup.fallback_is === "question"
+            ? "an open question"
+            : lookup.fallback}
+        {lookup.fallback_is !== "tool" && ` (${lookup.fallback_reason})`}
       </div>
     </div>
   );

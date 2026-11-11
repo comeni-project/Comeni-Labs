@@ -131,6 +131,7 @@ nav:
           - Rule schema: reference/registry/rule-schema.md
           - Vocabulary schema: reference/registry/vocabulary-schema.md
           - Measurement schema: reference/registry/measurement-schema.md
+          - Measurer schema: reference/registry/measurer-schema.md
       - Available tools:
           - reference/tools.md
           - reference/tools/catalogue.md

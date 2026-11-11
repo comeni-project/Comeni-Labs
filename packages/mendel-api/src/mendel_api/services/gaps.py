@@ -35,14 +35,16 @@ class Unreachable(NamedTuple):
     subject: str
 
 
-def _decided_in_the_run(stack: Layers, measurement: str, decisions: list) -> bool:
-    """Every decision reading it settles a parameter, it describes an input, and a step the
-    build can add measures it: what `mendel_resolver.at_run` decides at run time."""
+def _decided_in_the_run(stack: Layers, measurement: str, decisions: list,
+                        inputs: set[str]) -> bool:
+    """Every decision reading it settles a parameter, it describes one of this goal's inputs,
+    and a step the build can add measures it: what `mendel_resolver.at_run` decides at run
+    time. Without the input, nothing measures it, so it is asked (final review)."""
     declared = stack.measurements.measurements.get(measurement)
     return (
         bool(decisions)
         and all(target.effect == "param" for d in decisions for target in d.targets())
-        and declared is not None and declared.describes is not None
+        and declared is not None and declared.describes in inputs
         and bool(stack.routing.producers_of(f"measurement.{measurement}", frozenset()))
     )
 
@@ -184,7 +186,7 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers,
     # the run, so nobody is stopped for it. A person may still state it; it is just not asked.
     premises = {
         m: decisions for m, decisions in premises.items()
-        if not _decided_in_the_run(stack, m, decisions)
+        if not _decided_in_the_run(stack, m, decisions, set(leaves))
     }
     measurable = {piece.measures for piece in measurers.usable_pieces(stack).measurers.values()}
     # **Not asked: what only a tool reads and no sample can measure** (#338). It is left

@@ -24,7 +24,7 @@ from comeni_core.goal.asked import (
     SourcePin,
 )
 from comeni_core.goal.premise import PremiseRecord
-from comeni_core.plan.at_run import Confirm, MetaAtRun
+from comeni_core.plan.at_run import AtRunFallback, Confirm, MetaAtRun
 from comeni_core.plan.decision import (
     DecisionRecord,
     FactDecision,
@@ -68,6 +68,9 @@ class ParamContext:
     measurements: MeasurementRegistry | None = None
     at_run: "Mapping[str, at_run.Needed]" = None  # type: ignore[assignment]
     """This node's settings to decide at run time, by parameter name (#217)."""
+    deferring: frozenset = frozenset()
+    """`(contract id, param)` settings this pass asks nobody about: they may be decided at run
+    time, which the next pass settles."""
 
 
 def _constraints_hold(contract: ModuleContract, node: IRNode,
@@ -128,27 +131,33 @@ def resolve(
     """
     args = dict(vocabulary=vocabulary, resolver=resolver, layer_names=layer_names,
                 prior=prior, facts_read=facts_read)
-    # **Discovery asks nobody.** It finds the settings to decide at run time and the estimates
-    # to confirm with the flag-only resolver, so the real resolver is asked each question
-    # once, in the pass that is returned, and a question about a setting that turns out to be
-    # decided in the run is never asked at all (Task 11: `upgrade` counted it as newly asked).
-    # Exactly the flag-only resolver: a subclass may record what it is asked.
-    plain = resolver is None or type(resolver) is FlagOnlyResolver
-    first = _resolve_once(goal, registry, rules, measurements,
-                          **{**args, "resolver": FlagOnlyResolver()})
     premises = build_premises(goal=goal, derivations=rules.derivations,
                               measurements=measurements)
     answered = frozenset(record.key for record in prior
                          if getattr(record, "human_override", None) is not None)
+    # **The real resolver routes; settings that may be decided in the run wait.** The first
+    # pass asks every question but those, so the route it makes is the one that will be
+    # measured; the pass after replays its answers and either decides each waiting setting in
+    # the run or asks it, once (final review: a discovery pass that guessed the route moved
+    # whenever a model broke a tie differently).
+    deferring = at_run.deferrable(registry, rules, premises, measurements, goal, answered)
+    # Every pass asks through this, so a question reaches the real resolver once, and a later
+    # pass gets the very answer the first did: its value, its reason and who gave it.
+    remembering = _Remembering(resolver or FlagOnlyResolver())
+    args["resolver"] = remembering
+    first = _resolve_once(goal, registry, rules, measurements, deferring=deferring, **args)
     needs = at_run.needed(first, registry, rules, premises, measurements, goal, answered)
     # `inspection`: the measurers, for confirming estimates; without it nothing is confirmed.
     estimates = at_run.estimates(first, registry, goal, inspection)
+    if not deferring and not needs and not estimates:
+        return first
 
-    def unmeasured() -> PipelineIR:
-        return first if plain else _resolve_once(goal, registry, rules, measurements, **args)
+    def again(which: Goal, plan=None) -> PipelineIR:
+        """Another pass, through the same remembering resolver: no question is asked twice."""
+        return _resolve_once(which, registry, rules, measurements, at_run_plan=plan, **args)
 
     if not needs and not estimates:
-        return unmeasured()
+        return again(goal)
     facts = sorted({need.fact for need in needs})
     measured = sorted({*facts, *(e.fact for e in estimates)})
     wanted = [f"measurement.{fact}" for fact in measured
@@ -158,25 +167,24 @@ def resolve(
     for need in needs:
         plan.setdefault(need.node_id, {})[need.param] = need
     try:
-        second = _resolve_once(widened, registry, rules, measurements, at_run_plan=plan, **args)
+        second = again(widened, plan)
     except UnroutableError:
-        # A measurer this goal cannot feed: the settings stay what they were before measuring
+        # A measurer this goal cannot feed: the settings are what they were before measuring
         # existed, questions included.
-        return unmeasured()
-    # Measuring adds steps and never moves one. Compared over what discovery settled without a
-    # resolver: a step a person or a model chose may differ from discovery's flag-only pick.
+        return again(goal)
     kept = {node.id: node.contract_id for node in second.nodes}
-    moved = [n.id for n in first.nodes
-             if n.selection.tier is not Tier.AMBIGUOUS and kept.get(n.id) != n.contract_id]
-    if moved:
+    moved = [n.id for n in first.nodes if kept.get(n.id) != n.contract_id]
+    edges = {edge.model_dump_json() for edge in second.edges}
+    if moved or not {edge.model_dump_json() for edge in first.edges} <= edges:
         if not needs:
             # Only confirmations asked for the second route, and they are optional: a build
             # that stood before them is never refused because of them (Task 8 review).
-            return unmeasured()
+            return again(goal)
         raise ValueError(coded(
             "MD0329",
-            f"routing again to measure {', '.join(measured)} moved {moved}: measuring may add "
-            "steps to a pipeline and never change one — `mendel explain MD0329`."))
+            f"routing again to measure {', '.join(measured)} moved {moved or 'an edge'}: "
+            "measuring may add steps to a pipeline and never change one — "
+            "`mendel explain MD0329`."))
     # Which step measures each fact is read off the graph the router made, never guessed.
     measuring = {
         fact: next(node for node in second.nodes
@@ -197,6 +205,22 @@ def resolve(
         for fact in facts
     ]
     return second
+
+
+class _Remembering:
+    """The resolver a build asks through: each question once, its answer kept for any later
+    pass, so every pass of one build sees the same answers and the real resolver, a model or a
+    replay of a person's record, is never asked twice."""
+
+    def __init__(self, inner: AmbiguityResolver) -> None:
+        self.inner = inner
+        self._said: dict[str, object] = {}
+
+    def resolve(self, ambiguity):
+        key = ambiguity.key()
+        if key not in self._said:
+            self._said[key] = self.inner.resolve(ambiguity)
+        return self._said[key]
 
 
 def _say_why_it_measures(ir: PipelineIR, measuring: Mapping[str, IRNode],
@@ -246,6 +270,7 @@ def _resolve_once(
     prior: Sequence[DecisionRecord] = (),
     facts_read: Mapping[str, frozenset[str] | None] | None = None,
     at_run_plan: Mapping[str, Mapping[str, "at_run.Needed"]] | None = None,
+    deferring: frozenset = frozenset(),
 ) -> PipelineIR:
     """Resolve ``goal`` against one loaded registry stack.
 
@@ -383,6 +408,7 @@ def _resolve_once(
             backed=backed,
             measurements=measurements,
             at_run=(at_run_plan or {}).get(step.node_id, {}),
+            deferring=deferring,
         )
         for param in contract.params:
             value, decision = _resolve_param(param, context)
@@ -674,6 +700,15 @@ def _resolve_param(
             displaced_layer=pin.displaced_layer,
         ), None
 
+    # Deferred: perhaps decided at run time. Nobody is asked yet; the next pass decides it in
+    # the run or asks, once (final review).
+    if (context.implementation, param.name) in context.deferring and not (
+            context.at_run or {}).get(param.name):
+        return ResolvedValue(
+            value=None, tier=Tier.AMBIGUOUS,
+            reason="not yet settled: it may be decided in the run",
+        ), None
+
     # Decided at run time (#217): the rule waits on a fact the pipeline measures, and is
     # compiled into a lookup over it. Between tier 3 and tier 2, because it *is* the rule,
     # decided later; the lower tiers become its fallback.
@@ -723,15 +758,19 @@ def _at_run(
     # else a question a person answers now.
     if param.default is not None:
         fallback, why, decision = param.default, param.because or "the contract's default", None
+        kind = "value"
     elif param.via in OMITTABLE:
         fallback, decision = None, None
         why = "left to the tool: without a value it uses its own"
+        kind = "tool"
     else:
         asked, decision = _ask(param, context, [None])
         fallback, why = asked.value, asked.reason
+        kind = "value" if fallback is not None else "question"
     # Named once the graph exists (`_name_the_measurers`): the router picks the step.
     measured_by = "comeni/measure/pending@0.0.0"
-    lookup = at_run.lookup(need, rows, measured_by, fallback, why)
+    lookup = at_run.lookup(need, rows, measured_by, fallback, why).model_copy(
+        update={"fallback_is": AtRunFallback(kind)})
     return ResolvedValue(
         value=fallback,
         tier=Tier.DATA_PROFILED,

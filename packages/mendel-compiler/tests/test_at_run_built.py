@@ -73,3 +73,31 @@ def test_two_inputs_sharing_one_measurement_are_refused(tmp_path):
     twin = fasta.model_copy(update={"name": "fasta_2", "param": "fasta_2"})
     with pytest.raises(ValueError, match="MD0330"):
         emit(pipeline.model_copy(update={"channels": [*pipeline.channels, twin]}))
+
+
+def test_a_kept_draft_decides_in_the_run_and_keeps_no_stale_question(tmp_path):
+    """Final review: `ir_of` gives a drawn graph holding the measuring step the same lookup
+    `resolve` does, and drops the question it first recorded for the setting."""
+    from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
+    from mendel_resolver.materialise import ir_of
+    from mendel_resolver.resolve import resolve
+
+    roots = [ROOT / "registry"]
+    stack = layers.load(roots)
+    goal = Goal(have=[GoalInput(type_id="genome.fasta"), GoalInput(type_id="annotation.gtf")],
+                want=["genome.index.star"], profile=stack.measurements.profile({}))
+    built = resolve(goal, stack.routing, stack.rules, stack.measurements,
+                    vocabulary=stack.vocabulary)
+    graph = DraftGraph(
+        nodes=[DraftNode(id=n.id, contract_id=n.contract_id) for n in built.nodes],
+        edges=[DraftEdge(from_node=e.from_node, from_port=e.from_port, to_node=e.to_node,
+                         to_port=e.to_port) for e in built.edges],
+        profile=goal.profile,
+    )
+    ir = ir_of(graph, stack)
+    star = next(n for n in ir.nodes if n.contract_id == STAR_ID)
+    value = next(b.value for b in star.params if b.name == "sa_index_nbases")
+    assert value.at_run is not None and value.at_run.fact == "genome_length"
+    assert [m.measurement for m in ir.meta_at_run] == ["genome_length"]
+    assert not [d for d in ir.decisions if d.key == f"{star.id}.sa_index_nbases"]
+    assert len([b for b in star.params if b.name == "sa_index_nbases"]) == 1

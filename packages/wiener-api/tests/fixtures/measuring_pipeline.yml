@@ -58,9 +58,9 @@ facts:
 registry:
   layers:
   - name: comeni-registry-examples
-    digest: sha256:883dc52336dda7d12a2dbda7250b602e923b04d0f6924286707994a9105a76a0
+    digest: sha256:2275a9e7d0052e0b1ed9b5c2e4cbc863c360133618b26f0b7fe2133d230db3f0
     source: https://github.com/comeni-project/comeni-registry
-    commit: 5623829b341dc2e31470d5cc52462024daa32b3d
+    commit: 7b51a223b3ab0296f6092ac2d19051aa07982781
     dirty: false
   displaced: []
   unverified: []
@@ -125,7 +125,7 @@ steps:
 - id: star_genomegenerate
   module:
     contract_id: nf-core/star/genomegenerate@2.7.11b
-    digest: sha256:4c20990b60c2f42a8e41f13e2d26d30431911371cb8f8a9212c98b9036054dd6
+    digest: sha256:5bd40facd15de2fabe02da8a48a33f15d79eb5d018a0063e5e7f78ab88b2b55f
     container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
   process: STAR_GENOMEGENERATE
   include: modules/nf-core/star/genomegenerate/main
@@ -187,7 +187,50 @@ steps:
     from_setting: null
     join: null
     why: null
-  settings: []
+  settings:
+  - name: sa_index_nbases
+    value: null
+    via: ext
+    key: args
+    template: --genomeSAindexNbases {value}
+    why:
+      tier: 3
+      source: resolver
+      reason: decided at run time by rule param:index_building:sa_index_nbases from genome_length,
+        measured in the pipeline by comeni/measure/genome_length_fai@1.0.0; if it cannot be measured,
+        None
+      premise:
+      - id: genome_length
+        value: null
+        origin: unmeasured
+        by: comeni/measure/genome_length_fai@1.0.0
+      for_value: null
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: advisory
+    at_run:
+      fact: genome_length
+      meta_key: genome_length
+      measured_by: comeni/measure/genome_length_fai@1.0.0
+      rule: param:index_building:sa_index_nbases
+      rows:
+      - test: any
+        then: null
+        takes_fact: true
+        transform:
+        - op: log2
+        - op: divide
+          by: 2.0
+        - op: subtract
+          by: 1.0
+        - op: at_most
+          by: 14.0
+        - op: round
+        integer: true
+      fallback: null
+      fallback_reason: 'left to the tool: without a value it uses its own'
+      fallback_is: tool
 - id: star_align
   module:
     contract_id: nf-core/star/align@2.7.11b
@@ -496,6 +539,142 @@ steps:
       from_layer: comeni-registry-examples
       displaced_layer: null
       review_level: none
+- id: samtools_faidx
+  module:
+    contract_id: nf-core/samtools/faidx@1.24
+    digest: sha256:16856429017c16a95cd524749731dfd37611bf6a27d556153004d32436f20e0c
+    container: community.wave.seqera.io/library/htslib_samtools:1.24--d697cfb9dce007cd
+  process: SAMTOOLS_FAIDX
+  include: modules/nf-core/samtools/faidx/main
+  why:
+    tier: 2
+    source: resolver
+    reason: uncontested — nothing else in this stack fills fasta_indexing
+    premise: []
+    for_value: nf-core/samtools/faidx@1.24
+    axis_reason: ''
+    from_layer: comeni-registry-examples
+    displaced_layer: null
+    review_level: none
+  presence:
+    tier: 1
+    source: resolver
+    reason: comeni/measure/genome_length_fai@1.0.0 requires 'genome.fai' here
+    premise: []
+    for_value: null
+    axis_reason: ''
+    from_layer: null
+    displaced_layer: null
+    review_level: none
+  ext_args:
+    template: ''
+    why:
+      tier: 1
+      source: resolver
+      reason: this contract declares no flags its module always needs
+      premise: []
+      for_value: ''
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: none
+  inputs:
+  - port: fasta
+    source: null
+    channel: fasta
+    gather: false
+    states: []
+  call:
+  - ports:
+    - fasta
+    - fai
+    literal: null
+    empty_width: null
+    from_setting: null
+    join: broadcast
+    why: null
+  - ports: []
+    literal: null
+    empty_width: null
+    from_setting: get_sizes
+    join: null
+    why: null
+  settings:
+  - name: get_sizes
+    value: false
+    via: positional
+    key: null
+    template: null
+    why:
+      tier: 2
+      source: resolver
+      reason: The chromosome sizes file is a by-product nothing in this registry reads; the .fai carries
+        the same lengths in its second column.
+      premise: []
+      for_value: false
+      axis_reason: ''
+      from_layer: comeni-registry-examples
+      displaced_layer: null
+      review_level: none
+  input_states:
+  - port: fai
+    state: 'off'
+    reason: 'off: not switched on'
+    by: router
+- id: measure_genome_length_fai
+  module:
+    contract_id: comeni/measure/genome_length_fai@1.0.0
+    digest: sha256:34a6d02b32eb508a5f2b1ad1c7b15b39c580964336ea45ec893140e3e0d30816
+    container: python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+  process: MEASURE_GENOME_LENGTH_FAI
+  include: modules/comeni/measure/genome_length_fai/main
+  why:
+    tier: 2
+    source: resolver
+    reason: uncontested — nothing else in this stack fills measurement
+    premise: []
+    for_value: comeni/measure/genome_length_fai@1.0.0
+    axis_reason: ''
+    from_layer: null
+    displaced_layer: null
+    review_level: none
+  presence:
+    tier: 1
+    source: resolver
+    reason: measures genome_length in the run, for star_genomegenerate.sa_index_nbases
+    premise: []
+    for_value: null
+    axis_reason: ''
+    from_layer: null
+    displaced_layer: null
+    review_level: none
+  ext_args:
+    template: ''
+    why:
+      tier: 1
+      source: resolver
+      reason: this contract declares no flags its module always needs
+      premise: []
+      for_value: ''
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: none
+  inputs:
+  - port: data
+    source: samtools_faidx.fai
+    channel: null
+    gather: false
+    states: []
+  call:
+  - ports:
+    - data
+    literal: null
+    empty_width: null
+    from_setting: null
+    join: null
+    why: null
+  settings: []
 - id: measure_fastq
   module:
     contract_id: comeni/measure/fastq@1.1.0
@@ -630,13 +809,19 @@ channels:
   meta: []
   test_data:
   - https://raw.githubusercontent.com/nf-core/test-datasets/72a702d346833d5523bc40d032323ea548603b00/reference/genome.fasta
+  meta_at_run:
+  - measurement: genome_length
+    meta_key: genome_length
+    type_id: genome.fasta
+    measured_at: measure_genome_length_fai
+    measured_port: genome_length
 decisions:
 - key: star_align.seq_platform
   subject: seq_platform
   reason: nothing decided 'seq_platform'; selected the first of 1 candidates without judgement — please
     review
   confidence: 0.0
-  resolved_by: replay
+  resolved_by: flag-only
   tier: 4
   model_override_by: ''
   kind: param

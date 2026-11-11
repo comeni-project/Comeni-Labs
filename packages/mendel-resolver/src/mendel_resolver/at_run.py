@@ -278,3 +278,36 @@ def estimates(ir: PipelineIR, registry: Registry, goal: Goal,
             note(binding.value.premise, f"setting:{node.id}.{binding.name}")
     return [Estimate(fact, value, tuple(sorted(where)))
             for fact, (value, where) in sorted(used.items())]
+
+
+def deferrable(registry: Registry, rules: RuleTable, premises: dict,
+               measurements: MeasurementRegistry, goal: Goal,
+               answered: frozenset[str] = frozenset()) -> frozenset[tuple[str, str]]:
+    """`(contract id, param)` for every setting that may be decided at run time, judged before
+    any route exists: its rule waits only on facts that describe an input of the goal and that a
+    pipeline measurer measures. The first pass asks nobody about these; the pass that follows
+    either decides them at run time or asks, once (final review)."""
+    have = {given.type_id for given in goal.have}
+    derived = {d.fact: d for d in rules.derivations}
+    overridden = {o.name for o in goal.constraints.params}
+    found = set()
+    for contract in registry.all():
+        for param in contract.params:
+            if param.name in overridden:
+                continue
+            decision = rules.decision_for(contract.roles, param.name, contract.id)
+            if decision is None or decision.hit == "unique":
+                continue
+            if rules.value_for(contract.roles, param.name, premises,
+                               implementation=contract.id) is not None:
+                continue
+            visible = _visible(decision, premises)
+            bases = set().union(set(), *(_bases(f, derived) for f in _read(decision)
+                                         if f not in visible))
+            unknown = [f for f in bases if f not in visible]
+            if unknown and all(
+                f in measurements.ids() and measurements.get(f).describes in have
+                and registry.producers_of(f"measurement.{f}", frozenset()) for f in unknown
+            ):
+                found.add((contract.id, param.name))
+    return frozenset(found)

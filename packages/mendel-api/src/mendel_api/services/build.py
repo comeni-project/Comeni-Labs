@@ -118,7 +118,8 @@ class AtRunView(BaseModel):
     """`strandedness is reverse → 2`, or `genome_length → log2 → ÷ 2 → − 1 → at most 14 →
     round`."""
     fallback: str | None
-    """Rendered; `None` when the fallback is itself an open question."""
+    """Rendered; `None` when there is no value: the tool's own, or a question still open."""
+    fallback_is: Literal["value", "tool", "question"]
     fallback_reason: str
 
 
@@ -150,6 +151,7 @@ def at_run_view(at_run) -> AtRunView | None:
         fact=at_run.fact, measured_by=at_run.measured_by, rule=at_run.rule,
         rows=[_row_line(at_run.fact, row) for row in at_run.rows],
         fallback=None if at_run.fallback is None else str(at_run.fallback),
+        fallback_is=at_run.fallback_is,
         fallback_reason=at_run.fallback_reason,
     )
 

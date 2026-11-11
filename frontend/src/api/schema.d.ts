@@ -1568,6 +1568,11 @@ export interface components {
             rows: string[];
             /** Fallback */
             fallback: string | null;
+            /**
+             * Fallback Is
+             * @enum {string}
+             */
+            fallback_is: "value" | "tool" | "question";
             /** Fallback Reason */
             fallback_reason: string;
         };

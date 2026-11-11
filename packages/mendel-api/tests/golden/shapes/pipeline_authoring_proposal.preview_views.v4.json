@@ -39,6 +39,14 @@
             }
           ]
         },
+        "fallback_is": {
+          "enum": [
+            "value",
+            "tool",
+            "question"
+          ],
+          "type": "string"
+        },
         "fallback_reason": {
           "type": "string"
         },
@@ -61,6 +69,7 @@
         "rule",
         "rows",
         "fallback",
+        "fallback_is",
         "fallback_reason"
       ],
       "type": "object"

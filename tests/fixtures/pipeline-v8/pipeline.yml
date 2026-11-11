@@ -56,7 +56,7 @@ registry:
   - name: comeni-registry-examples
     digest: sha256:2275a9e7d0052e0b1ed9b5c2e4cbc863c360133618b26f0b7fe2133d230db3f0
     source: https://github.com/comeni-project/comeni-registry
-    commit: a6bf97e34974dc606af5cbb841097d888bcad480
+    commit: 7b51a223b3ab0296f6092ac2d19051aa07982781
     dirty: false
   displaced: []
   unverified: []
@@ -226,6 +226,7 @@ steps:
         integer: true
       fallback: null
       fallback_reason: 'left to the tool: without a value it uses its own'
+      fallback_is: tool
 - id: star_align
   module:
     contract_id: nf-core/star/align@2.7.11b
@@ -784,6 +785,6 @@ emitted:
     digest: sha256:84ca06b02950cd0e9ae063704879962755c8c2b807da2911940a9ce6da21392a
   - name: nextflow.config
     digest: sha256:e77a8bf168c3e94d0f46f5000e06f76e6b802e88154864986a53048fa26bd028
-  from_digest: sha256:decb3d0fe60a0697cd0bed6898d56c92d6f725542b0d6d5c9423ee8696572fa6
+  from_digest: sha256:b46452419053edbbad758c6ca469060a3802a9e5ded994c56d74b9bf6811e5e0
 gate: null
 input_form: direct

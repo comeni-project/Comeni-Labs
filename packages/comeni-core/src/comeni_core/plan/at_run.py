@@ -55,6 +55,16 @@ class AtRunOp(StrEnum):
     ROUND = "round"
 
 
+class AtRunFallback(StrEnum):
+    """What a run-time setting is when the lookup gives nothing."""
+
+    VALUE = "value"
+    TOOL = "tool"
+    """Left unset: the tool uses its own."""
+    QUESTION = "question"
+    """A question still open."""
+
+
 class AtRunStep(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -100,6 +110,10 @@ class AtRun(BaseModel):
     """The value when the fact comes back undetermined, or no row matches: what the setting
     would have been without the rule."""
     fallback_reason: Line
+    fallback_is: "AtRunFallback" = Field(default="value",
+                                         exclude_if=lambda kind: kind == "value")
+    """What the fallback is: a value (a default or a person's answer), the tool's own (an
+    omittable setting left unset), or a question still open."""
 
 
 class MetaAtRun(BaseModel):

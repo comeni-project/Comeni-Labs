@@ -28,3 +28,13 @@ def test_a_table_reads_row_by_row():
         fallback=0, fallback_reason="the default"))
     assert view.rows == ["strandedness is reverse → 2", "strandedness >= 70 → 1"]
     assert view.fallback == "0"
+
+
+def test_a_fact_is_left_unasked_only_when_this_goal_can_measure_it():
+    """Final review: no genome among the inputs, nothing measures its length, so it is asked."""
+    from mendel_api.services import gaps, registry
+
+    stack = registry.stack()
+    decisions = gaps._premise_measurements(stack)["genome_length"]
+    assert gaps._decided_in_the_run(stack, "genome_length", decisions, {"genome.fasta"})
+    assert not gaps._decided_in_the_run(stack, "genome_length", decisions, {"fastq.reads"})

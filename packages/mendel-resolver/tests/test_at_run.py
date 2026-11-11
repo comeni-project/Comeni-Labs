@@ -209,3 +209,47 @@ def test_a_known_fact_is_substituted_and_a_false_row_dropped():
 
 def test_a_row_reading_an_unknown_other_fact_cannot_be_a_lookup():
     assert _rows("  - {when: {paired: true, strandedness: reverse}, then: 2}\n") is None
+
+
+# ── final review: the resolver is asked once, and the route its answers make is measured ─
+
+
+class _Last:
+    """A resolver that answers every question with its last candidate, as a model might."""
+
+    def __init__(self):
+        self.asked: list[str] = []
+
+    def resolve(self, ambiguity):
+        from comeni_core.plan.decision import Resolution
+
+        self.asked.append(ambiguity.key())
+        return Resolution(value=ambiguity.candidates[-1], why="a model", confidence=0.5,
+                          by="model")
+
+
+def test_a_resolver_that_breaks_a_tie_differently_still_gets_its_pipeline_measured():
+    """Final review, Critical: discovery must follow the real resolver's route."""
+    stack = layers.load(ROOT / "registry")
+    goal = Goal(have=[GoalInput(type_id=t) for t in ("fastq.reads", "genome.fasta",
+                                                      "annotation.gtf")],
+                want=["counts.matrix"], profile=stack.measurements.profile({}))
+    resolver = _Last()
+    ir = resolve(goal, stack.routing, stack.rules, stack.measurements,
+                 vocabulary=stack.vocabulary, resolver=resolver)
+    assert len(resolver.asked) == len(set(resolver.asked)), "a question was asked twice"
+    if any(n.contract_id == STAR_ID for n in ir.nodes):
+        assert _setting(ir).at_run is not None
+
+
+def test_each_question_is_asked_once_on_every_path():
+    stack = layers.load(ROOT / "registry")
+    goal = Goal(have=[GoalInput(type_id=t) for t in ("fastq.reads", "genome.fasta",
+                                                      "annotation.gtf")],
+                want=["counts.matrix"],
+                profile=stack.measurements.profile({"read_length": 150}))
+    resolver = _Last()
+    resolve(goal, stack.routing, stack.rules, stack.measurements,
+            vocabulary=stack.vocabulary, resolver=resolver)
+    assert resolver.asked and len(resolver.asked) == len(set(resolver.asked))
+    assert not [k for k in resolver.asked if k.endswith(".sa_index_nbases")]

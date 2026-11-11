@@ -495,16 +495,21 @@ def _decided_in_the_run(ir: PipelineIR, graph: DraftGraph, contracts: dict, laye
     for need in (n for n in needs if n.fact in measuring):
         node, contract = by_id[need.node_id], contracts[need.node_id]
         param = next(p for p in contract.params if p.name == need.param)
-        value, _ = _resolve_param(param, ParamContext(
+        value, decision = _resolve_param(param, ParamContext(
             node_id=node.id, roles=tuple(contract.roles), implementation=contract.id,
             from_layer=_layer_of(layers.registry, contract.id), goal=goal, rules=layers.rules,
             premises=premises, resolver=resolver, backed={},
             measurements=layers.measurements, at_run={need.param: need}))
         if value.at_run is not None:
-            # In place: the setting was resolved once already, without the lookup.
+            # In place: the setting was resolved once already, without the lookup, and its
+            # question then recorded is no longer one (final review).
             for binding in node.params:
                 if binding.name == need.param:
                     binding.value = value
+            key = f"{node.id}.{need.param}"
+            ir.decisions = [d for d in ir.decisions if d.key != key]
+            if decision is not None:
+                ir.decisions.append(decision)
     _name_the_measurers(ir, {fact: node.contract_id for fact, node in measuring.items()})
     facts = sorted({n.fact for n in needs if n.fact in measuring and any(
         b.value.at_run is not None and b.value.at_run.fact == n.fact
