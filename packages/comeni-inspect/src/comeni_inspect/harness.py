@@ -61,7 +61,8 @@ def request_for(
     chosen = [
         folder
         for folder in _pieces(registry, "measures")
-        if _declaration(folder)["record"] == record
+        # A tool's parser reads a tool's output, not a format's records (#465).
+        if _declaration(folder).get("record") == record
         and (measures is None or folder.name in measures)
     ]
     request = wire.Request(

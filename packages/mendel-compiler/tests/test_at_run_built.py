@@ -38,7 +38,7 @@ def test_the_emitted_pipeline_measures_then_joins_then_builds_the_index(tmp_path
 
     pipeline = _star(tmp_path)
     main = emit(pipeline)
-    faidx = main.index("SAMTOOLS_FAIDX(ch_fasta)")
+    faidx = main.index("SAMTOOLS_FAIDX(ch_fasta.map { meta, a -> [ meta, a, [] ] }, false)")
     measure = main.index("MEASURE_GENOME_LENGTH_FAI(SAMTOOLS_FAIDX.out.fai)")
     joined = main.index("ch_fasta_measured = ")
     star = main.index("STAR_GENOMEGENERATE(ch_fasta_measured")

@@ -48,7 +48,8 @@ def test_a_head_read_length_that_chose_the_aligner_is_confirmed():
 def test_a_stated_fact_is_never_measured_again():
     ir = _ir(_goal(MeasuredEntry("read_length", 150, ValueSource.SAID)))
     assert ir.confirms == []
-    assert not [n for n in ir.nodes if n.contract_id.startswith("comeni/measure/")]
+    # The genome's length may still be measured, for STAR's index (#217); the reads are not.
+    assert not [n for n in ir.nodes if n.contract_id == "comeni/measure/fastq@1.1.0"]
 
 
 def test_a_fact_read_in_full_is_not_measured_again():

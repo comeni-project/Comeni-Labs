@@ -148,6 +148,8 @@ def test_every_shipped_rule_can_fire(registry):
     a dead rule can no longer be shipped to be recorded.
     """
     table = layers.load(ROOT / "registry").rules
-    # One decision, and it is a real one. `param:strandedness` used to sit beside it and
-    # was a translation the module already performs — see Plan 1.5.
-    assert [d.decides.key() for d in table.decisions] == ["implementation:alignment"]
+    # Two decisions, and both are real. `param:strandedness` used to sit beside the aligner and
+    # was a translation the module already performs — see Plan 1.5. STAR's index size is
+    # decided from the genome's length (#461), in the run when nobody states it (#217).
+    assert sorted(d.decides.key() for d in table.decisions) == [
+        "implementation:alignment", "param:index_building:sa_index_nbases"]

@@ -35,12 +35,12 @@ from comeni_core.plan.decision import (
 )
 from comeni_core.plan.ir import EntryType, IREdge, IRNode, PipelineIR, ResolvedValue, Tier
 from comeni_core.plan.tiers import PremiseOrigin, ValueSource
+from comeni_core.spell.routes import OMITTABLE
 
 from mendel_resolver import at_run
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import AmbiguityResolver, FlagOnlyResolver
 from mendel_resolver.premises import Premise, build_premises
-from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.router import (
     ConstraintViolation,
     IntentConflict,
@@ -128,7 +128,14 @@ def resolve(
     """
     args = dict(vocabulary=vocabulary, resolver=resolver, layer_names=layer_names,
                 prior=prior, facts_read=facts_read)
-    first = _resolve_once(goal, registry, rules, measurements, **args)
+    # **Discovery asks nobody.** It finds the settings to decide at run time and the estimates
+    # to confirm with the flag-only resolver, so the real resolver is asked each question
+    # once, in the pass that is returned, and a question about a setting that turns out to be
+    # decided in the run is never asked at all (Task 11: `upgrade` counted it as newly asked).
+    # Exactly the flag-only resolver: a subclass may record what it is asked.
+    plain = resolver is None or type(resolver) is FlagOnlyResolver
+    first = _resolve_once(goal, registry, rules, measurements,
+                          **{**args, "resolver": FlagOnlyResolver()})
     premises = build_premises(goal=goal, derivations=rules.derivations,
                               measurements=measurements)
     answered = frozenset(record.key for record in prior
@@ -136,8 +143,12 @@ def resolve(
     needs = at_run.needed(first, registry, rules, premises, measurements, goal, answered)
     # `inspection`: the measurers, for confirming estimates; without it nothing is confirmed.
     estimates = at_run.estimates(first, registry, goal, inspection)
+
+    def unmeasured() -> PipelineIR:
+        return first if plain else _resolve_once(goal, registry, rules, measurements, **args)
+
     if not needs and not estimates:
-        return first
+        return unmeasured()
     facts = sorted({need.fact for need in needs})
     measured = sorted({*facts, *(e.fact for e in estimates)})
     wanted = [f"measurement.{fact}" for fact in measured
@@ -146,28 +157,26 @@ def resolve(
     plan: dict[str, dict[str, at_run.Needed]] = {}
     for need in needs:
         plan.setdefault(need.node_id, {})[need.param] = need
-    # The second pass replays the first's answers: a question is asked once, and a model's
-    # choice cannot change between the passes and move the graph (Task 6 review).
-    replay = ReplayResolver(first.decisions, fallback=resolver or FlagOnlyResolver())
     try:
-        second = _resolve_once(widened, registry, rules, measurements, at_run_plan=plan,
-                               **{**args, "resolver": replay})
+        second = _resolve_once(widened, registry, rules, measurements, at_run_plan=plan, **args)
     except UnroutableError:
-        # A measurer this goal cannot feed: the settings stay what the first pass made them,
-        # questions included, as before measuring existed.
-        return first
+        # A measurer this goal cannot feed: the settings stay what they were before measuring
+        # existed, questions included.
+        return unmeasured()
+    # Measuring adds steps and never moves one. Compared over what discovery settled without a
+    # resolver: a step a person or a model chose may differ from discovery's flag-only pick.
     kept = {node.id: node.contract_id for node in second.nodes}
-    moved = [n.id for n in first.nodes if kept.get(n.id) != n.contract_id]
-    edges = {edge.model_dump_json() for edge in second.edges}
-    if moved or not {edge.model_dump_json() for edge in first.edges} <= edges:
+    moved = [n.id for n in first.nodes
+             if n.selection.tier is not Tier.AMBIGUOUS and kept.get(n.id) != n.contract_id]
+    if moved:
         if not needs:
             # Only confirmations asked for the second route, and they are optional: a build
             # that stood before them is never refused because of them (Task 8 review).
-            return first
+            return unmeasured()
         raise ValueError(coded(
             "MD0329",
-            f"routing again to measure {', '.join(measured)} moved {moved or 'an edge'}: measuring "
-            "may add steps to a pipeline and never change one — `mendel explain MD0329`."))
+            f"routing again to measure {', '.join(measured)} moved {moved}: measuring may add "
+            "steps to a pipeline and never change one — `mendel explain MD0329`."))
     # Which step measures each fact is read off the graph the router made, never guessed.
     measuring = {
         fact: next(node for node in second.nodes
@@ -709,9 +718,14 @@ def _at_run(
     if rows is None:
         return None
     # The fallback: what the setting is without the rule, used when the fact comes back
-    # undetermined or no row matches. A default, or a question a person answers now.
+    # undetermined or no row matches. A default; else, for a setting the tool can do without,
+    # nothing at all, so the tool's own behaviour stands (STAR then sizes the index itself);
+    # else a question a person answers now.
     if param.default is not None:
         fallback, why, decision = param.default, param.because or "the contract's default", None
+    elif param.via in OMITTABLE:
+        fallback, decision = None, None
+        why = "left to the tool: without a value it uses its own"
     else:
         asked, decision = _ask(param, context, [None])
         fallback, why = asked.value, asked.reason

@@ -99,7 +99,17 @@ def test_input_records_round_trip_sorted(tmp_path):
 
 
 def test_a_pipeline_saved_before_this_change_still_loads():
-    pipeline = pipeline_file.load(ROOT / "tests/fixtures/pipeline-v8/pipeline.yml")
+    """A file written before optional inputs existed: the fixture with their fields taken out
+    (it now holds one optional input itself, samtools faidx's index, #465)."""
+    import yaml
+
+    raw = yaml.safe_load((ROOT / "tests/fixtures/pipeline-v8/pipeline.yml").read_text())
+    for step in raw["steps"]:
+        step.pop("input_states", None)
+    for channel in raw["channels"]:
+        channel.pop("optional", None)
+        channel.pop("absent_width", None)
+    pipeline = Pipeline.model_validate(raw)
     assert pipeline.steps, "the fixture has no steps — this test is measuring nothing"
     assert all(not c.optional for c in pipeline.channels)
     assert all(s.input_states == [] for s in pipeline.steps)

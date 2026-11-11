@@ -37,7 +37,7 @@ def test_an_unknown_genome_length_is_decided_at_run_time(tmp_path):
     assert "decided at run time" in value.reason and "genome_length" in value.reason
     (premise,) = [p for p in value.premise if p.id == "genome_length"]
     assert premise.origin is PremiseOrigin.UNMEASURED
-    assert {n.contract_id for n in ir.nodes} >= {"nf-core/samtools/faidx@1.21",
+    assert {n.contract_id for n in ir.nodes} >= {"nf-core/samtools/faidx@1.24",
                                                  "comeni/measure/genome_length_fai@1.0.0"}
     (meta,) = ir.meta_at_run
     assert (meta.measurement, meta.type_id, meta.meta_key) == (
@@ -63,7 +63,7 @@ def test_a_fact_that_describes_no_input_falls_back(tmp_path):
     from support.at_run import GENOME_LENGTH
 
     ir, _ = _resolved(tmp_path, genome_length=GENOME_LENGTH.replace(
-        "describes: genome.fasta\nmeta_key: genome_length\n", ""))
+        "describes: genome.fasta\n", ""))
     assert _setting(ir).at_run is None
 
 
@@ -99,7 +99,7 @@ id: genome_sequences_fai
 version: 1.0.0
 measures: genome_sequences
 by: tool
-uses: nf-core/samtools/faidx@1.21
+uses: nf-core/samtools/faidx@1.24
 output: fai
 entry: piece/fai.py
 runs: [pipeline]

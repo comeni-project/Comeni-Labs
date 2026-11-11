@@ -136,7 +136,8 @@ def test_the_pipeline_file_carries_every_part_a_recipient_needs(tmp_path):
         "gate",
     }
     assert doc["intent"]["want"] == ["counts.matrix"]
-    assert len(doc["steps"]) == 5
+    # The spine's five, and the genome's length measured for STAR's index (#217).
+    assert len(doc["steps"]) == 7
     assert doc["registry"]["layers"]
     assert doc["decisions"]
     # No gate was asked for, so the honest record is "no evidence", not a weak gate.
@@ -156,11 +157,15 @@ def test_the_pipeline_file_records_the_artifact_it_produced(tmp_path):
     out = _publish(tmp_path)
     doc = yaml.safe_load((out / "pipeline.yml").read_text())
     files = doc["emitted"]["files"]
-    assert [f["name"] for f in files] == ["main.nf", "nextflow.config"], "sorted, read one way"
+    names = [f["name"] for f in files]
+    assert names == sorted(names), "sorted, read one way"
+    assert {"main.nf", "nextflow.config"} <= set(names)
     for recorded in files:
         assert recorded["digest"] == digest_of_bytes((out / recorded["name"]).read_bytes())
-    # Never the vendored tree: `modules/` is copied, not emitted.
-    assert not any("modules" in f["name"] for f in files)
+    # Never the vendored tree: `modules/` is copied, not emitted. The generated measuring
+    # steps are written by this compiler, so they are recorded (#465).
+    assert all(n in {"main.nf", "nextflow.config"} or n.startswith("modules/comeni/measure/")
+               for n in names)
     assert doc["emitted"]["from_digest"].startswith("sha256:")
 
 

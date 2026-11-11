@@ -1,7 +1,7 @@
 {
   "nodes": [
     {
-      "id": "star_genomegenerate",
+      "id": "samtools_faidx",
       "rank": 0,
       "order": 0,
       "x": 0,
@@ -11,7 +11,7 @@
       "tier": 2
     },
     {
-      "id": "trimgalore",
+      "id": "star_genomegenerate",
       "rank": 0,
       "order": 1,
       "x": 0,
@@ -21,11 +21,31 @@
       "tier": 2
     },
     {
-      "id": "star_align",
+      "id": "trimgalore",
+      "rank": 0,
+      "order": 2,
+      "x": 0,
+      "y": 340,
+      "w": 172,
+      "h": 112,
+      "tier": 2
+    },
+    {
+      "id": "measure_genome_length_fai",
       "rank": 1,
       "order": 0,
       "x": 224,
-      "y": 85,
+      "y": 0,
+      "w": 172,
+      "h": 112,
+      "tier": 2
+    },
+    {
+      "id": "star_align",
+      "rank": 1,
+      "order": 1,
+      "x": 224,
+      "y": 255,
       "w": 172,
       "h": 112,
       "tier": 3
@@ -35,7 +55,7 @@
       "rank": 2,
       "order": 0,
       "x": 448,
-      "y": 85,
+      "y": 255,
       "w": 172,
       "h": 112,
       "tier": 2
@@ -45,7 +65,7 @@
       "rank": 3,
       "order": 0,
       "x": 672,
-      "y": 85,
+      "y": 255,
       "w": 172,
       "h": 112,
       "tier": 2
@@ -53,17 +73,32 @@
   ],
   "wires": [
     {
+      "from": "samtools_faidx.fai",
+      "to": "measure_genome_length_fai.data",
+      "type": "genome.fai",
+      "points": [
+        [
+          172,
+          56
+        ],
+        [
+          224,
+          56
+        ]
+      ]
+    },
+    {
       "from": "samtools_sort.bam",
       "to": "subread_featurecounts.bam",
       "type": "alignment.bam",
       "points": [
         [
           620,
-          141
+          311
         ],
         [
           672,
-          141
+          311
         ]
       ]
     },
@@ -74,11 +109,11 @@
       "points": [
         [
           396,
-          141
+          311
         ],
         [
           448,
-          141
+          311
         ]
       ]
     },
@@ -89,19 +124,19 @@
       "points": [
         [
           172,
-          56
+          226
         ],
         [
           198,
-          56
+          226
         ],
         [
           198,
-          141
+          311
         ],
         [
           224,
-          141
+          311
         ]
       ]
     },
@@ -112,19 +147,19 @@
       "points": [
         [
           172,
-          226
+          396
         ],
         [
           198,
-          226
+          396
         ],
         [
           198,
-          163
+          333
         ],
         [
           224,
-          163
+          333
         ]
       ]
     }

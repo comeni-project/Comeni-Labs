@@ -66,7 +66,8 @@ def _goal(loaded) -> Goal:
 
 def _build(loaded):
     return resolve(
-        _goal(loaded), loaded.registry, loaded.rules, loaded.measurements,
+        # The registry builds route with: the layers' contracts and the measuring steps (#465).
+        _goal(loaded), loaded.routing, loaded.rules, loaded.measurements,
         vocabulary=loaded.vocabulary,
     )
 
@@ -148,7 +149,7 @@ def test_the_artifact_states_the_review_level_beside_the_tier(loaded, tmp_path):
     goal = _goal(loaded)
     pipeline = Pipeline.of(
         _build(loaded),
-        loaded.registry,
+        loaded.routing,
         loaded.vocabulary,
         loaded.measurements,
         loaded.paths,

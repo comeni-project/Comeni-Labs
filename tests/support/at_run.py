@@ -1,13 +1,14 @@
-"""The overlay the run-time decision tests build with: STAR's index size ruled from the genome's
-length (part 3, #461), a genome length nobody states, and samtools faidx with a parser of its
-`.fai` that measures it in the run (#217, #465)."""
+"""The overlay the run-time decision tests build with. The shipped registry holds the demo itself:
+STAR's index size ruled from the genome's length (#461), samtools faidx and the `.fai` parser
+that measures it in the run (#217, #465). The overlay holds only what a test varies: a copy of
+the rule for a test to edit, a genome_length declared otherwise, or no usable measurer."""
 
 import pathlib
 
 ROOT = pathlib.Path(__file__).parents[2]
 STAR = ROOT / "registry/tools/nf-core/star/genomegenerate"
 STAR_ID = "nf-core/star/genomegenerate@2.7.11b"
-FAIDX_ID = "nf-core/samtools/faidx@1.21"
+FAIDX_ID = "nf-core/samtools/faidx@1.24"
 
 PARAM = """params:
   - name: sa_index_nbases
@@ -50,7 +51,6 @@ unit: bp
 description: "Total length of the reference genome"
 cite: "Ensembl 112 assembly reports"
 describes: genome.fasta
-meta_key: genome_length
 """
 
 FAI_TYPE = """declares: vocabulary
@@ -108,20 +108,29 @@ def parse(stream, decided):
 '''
 
 
+UNUSABLE = """declares: measurer
+id: genome_length_fai
+version: 1.0.0
+measures: genome_length
+by: tool
+uses: nf-core/samtools/faidx@0.0.0
+output: fai
+entry: piece/fai.py
+runs: [pipeline]
+"""
+"""Replaces the shipped measurer with one whose tool no layer declares: dropped at load
+(MD0327), so the stack has no pipeline measurer for genome_length."""
+
+
 def overlay(root: pathlib.Path, *, with_measurer: bool = True,
             genome_length: str = GENOME_LENGTH) -> pathlib.Path:
     layer = root / "overlay"
     files = {
-        "tools/nf-core/star/genomegenerate/contract.yml":
-            (STAR / "contract.yml").read_text().replace("params: []\n", PARAM),
         "rules/star_index.yml": RULE,
         "vocabulary/measurements/genome_length.yml": genome_length,
-        "vocabulary/types/genome.fai.yml": FAI_TYPE,
-        "vocabulary/roles/fasta_indexing.yml": ROLE,
-        "tools/nf-core/samtools/faidx/contract.yml": FAIDX,
     }
-    if with_measurer:
-        files["measurers/measures/genome_length_fai/measurer.yml"] = MEASURER
+    if not with_measurer:
+        files["measurers/measures/genome_length_fai/measurer.yml"] = UNUSABLE
         files["measurers/measures/genome_length_fai/piece/fai.py"] = PARSER
     for name, text in files.items():
         path = layer / name
