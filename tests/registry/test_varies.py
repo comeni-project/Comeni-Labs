@@ -63,3 +63,14 @@ def test_describes_must_name_a_declared_type(tmp_path):
     path.write_text(path.read_text().replace("describes: genome.fasta", "describes: genome.fasat"))
     with pytest.raises(ValueError, match="MD0334.*genome.fasat"):
         layers.load(layer)
+
+
+def test_the_goals_required_states_keep_their_plain_meaning():
+    """`required_states` is a list by shape, not several samples (Task 3 review): a rule
+    reading it is not refused."""
+    from comeni_core.logic.when import matches
+
+    class States:
+        value = ["gene_level"]
+
+    assert matches({"required_states": "transcript_level"}, {"required_states": States()}) is False

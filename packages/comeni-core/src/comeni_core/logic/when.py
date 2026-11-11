@@ -33,6 +33,10 @@ _MAPPING_PREDICATES = ("not", "in")
 ABSENT = "absent"
 PRESENT = "present"
 
+GOAL_SHAPED = frozenset({"required_states"})
+"""Premises that are lists by shape, the goal's own (`required_states`), not several samples'
+values: a test on one keeps its plain meaning rather than MD0312's refusal."""
+
 
 class PredicateError(ValueError):
     """A `when` clause could not be evaluated. Always a defect in the rule, never in the data."""
@@ -68,7 +72,7 @@ def _one(fact: str, expected: Any, premise: Fact | None) -> bool:
     if premise is None:
         return False
     actual = premise.value
-    if isinstance(actual, list):
+    if isinstance(actual, list) and fact not in GOAL_SHAPED:
         # Several samples' values: no test on one value has a single answer over them, so the
         # rule must say how to reduce them first (Task 2 review: equality, `not` and `in` too).
         raise PredicateError(
@@ -110,7 +114,7 @@ def _comparable(fact: str, actual: Any, literal: str, expected: str) -> tuple[An
     from load-time validation over rules whose facts may be derived and have no declaration to
     consult. `"< beta"` comparing two strings is legitimate and rare; `"< 70"` is the case.
     """
-    if isinstance(actual, list):
+    if isinstance(actual, list) and fact not in GOAL_SHAPED:
         raise PredicateError(
             coded(
                 "MD0312",

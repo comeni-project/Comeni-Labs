@@ -16,7 +16,7 @@ class KnownItem(BaseModel):
     """What it is, by name: *sequencing reads (FASTQ)*, *read length*."""
     value: str | None = None
     """*yes*, *150 bp*; none for an input held or a want."""
-    source: Literal["said", "measured", "read_by_ai", "open", "model"]
+    source: Literal["said", "measured", "read_by_ai", "open", "model", "varies"]
     heard: str | None = None
     """The person's own words it was taken from, when it was heard."""
 
@@ -40,6 +40,7 @@ _SOURCE = {
     "read_by_ai": "read by AI from your sample",
     "open": "unknown",
     "model": "the model's reading",
+    "varies": "you said it differs between samples",
 }
 
 

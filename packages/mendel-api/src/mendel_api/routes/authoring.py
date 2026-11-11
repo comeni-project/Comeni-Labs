@@ -419,7 +419,7 @@ class FactHistoryEntry(BaseModel):
     model_config = _FROZEN
     seq: int
     value: HumanParamValue | list[HumanParamValue] | None = None
-    origin: Literal["person_said", "measured", "model_read", "open"]
+    origin: Literal["person_said", "measured", "model_read", "open", "varies"]
     selected: bool
     current: bool
     revision_id: str | None = None

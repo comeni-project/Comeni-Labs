@@ -38,6 +38,12 @@ def upgrade():
 
 def downgrade():
     _stamp(6)
+    # A varies observation is referenced by its fact's revision and its access row: the
+    # revision goes back to unknown, and the access rows go with the observations.
+    varies = "SELECT id FROM pipeline_observation WHERE origin = 'varies'"
+    op.execute(f"UPDATE pipeline_fact_revision SET observation_id = NULL "
+               f"WHERE observation_id IN ({varies})")
+    op.execute(f"DELETE FROM pipeline_evidence_access WHERE observation_id IN ({varies})")
     op.execute("DELETE FROM pipeline_observation WHERE origin = 'varies'")
     for table in _TABLES:
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT ck_{table}_origin")

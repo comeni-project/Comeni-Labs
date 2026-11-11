@@ -160,6 +160,14 @@ def _record_found(
             ingestion_key=ingestion_key,
             invocation_id=invocation_id,
         )
+        if item.measurement in known and known[item.measurement]["source"] == "varies":
+            # One sample's value neither confirms nor contradicts *it differs between samples*
+            # (#466): the person's answer stands, and the sample's is kept, not reported against
+            # it.
+            kept.append(item.measurement)
+            decisions.acknowledge_observation(row.draft_id, observation, "retained",
+                                              who="resolver", actor_kind=ActorKind.RESOLVER)
+            continue
         if item.measurement in known:
             kept.append(item.measurement)
             if known[item.measurement].get("value") != item.value:

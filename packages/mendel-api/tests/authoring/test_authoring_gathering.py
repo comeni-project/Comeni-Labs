@@ -489,3 +489,14 @@ def test_the_gap_offers_varies_for_a_fact_each_sample_can_carry(clean):
     goal = gathering.compose_goal(sid)
     assert goal.constraints.varies == ["paired"]
     assert goal.profile.get("paired") is None
+
+
+def test_a_fact_that_varies_reaches_the_models_memory(clean):
+    """Every model call renders what is known; a varies fact must render, not crash (Task 3
+    review, Critical)."""
+    from mendel_api.services import known
+
+    sid = _gathering(want=["counts.matrix"])
+    _answer_until(sid, "paired", "varies")
+    text = known.text(sid)
+    assert "paired" in text and "differs between samples" in text

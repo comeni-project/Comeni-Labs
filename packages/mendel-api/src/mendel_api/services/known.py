@@ -14,6 +14,7 @@ _SOURCE = {
     FactOrigin.MEASURED: "measured",
     FactOrigin.MODEL_READ: "read_by_ai",
     FactOrigin.OPEN: "open",
+    FactOrigin.VARIES: "varies",
 }
 
 

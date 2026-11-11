@@ -2916,7 +2916,7 @@ export interface components {
              * Origin
              * @enum {string}
              */
-            origin: "person_said" | "measured" | "model_read" | "open";
+            origin: "person_said" | "measured" | "model_read" | "open" | "varies";
             /** Selected */
             selected: boolean;
             /** Current */
