@@ -192,6 +192,31 @@ class MeasurementRegistry(BaseModel):
     """Each type's grain, from the vocabulary (`with_grains`), which a measurement's scope is
     read from. Empty in a registry built without one: every described type is then per sample."""
 
+    def check_varies(self, goal) -> None:
+        """Refuse (`MD0332`) a fact said to vary that is the study's, or that the goal also
+        states: one value for every sample and one per sample cannot both be the answer."""
+        stated = {m.measurement for m in goal.profile.measurements}
+        for m in goal.profile.measurements:
+            # Samples that disagree on a fact a module reads from `meta` have no one value to
+            # carry; said to vary, each sample carries its own (Task 2 review).
+            values = m.value if isinstance(m.value, list) else None
+            if (values and any(v != values[0] for v in values)
+                    and self.get(m.measurement).meta_key):
+                raise ValueError(coded(
+                    "MD0332", f"{m.measurement} differs between the samples stated "
+                    f"({', '.join(map(str, values))}), and each module reads one value from "
+                    "`meta`: say it varies instead, and each sample's comes from its "
+                    "samplesheet — `mendel explain MD0332`."))
+        for fact in goal.constraints.varies:
+            if self.scope_of(fact) is not Grain.SAMPLE:
+                raise ValueError(coded(
+                    "MD0332", f"{fact} is said to differ between samples, and it is one value "
+                    "for the whole study — `mendel explain MD0332`."))
+            if fact in stated:
+                raise ValueError(coded(
+                    "MD0332", f"{fact} is said to differ between samples and is also stated "
+                    "for all of them; keep one — `mendel explain MD0332`."))
+
     def with_grains(self, grains: dict[str, Grain]) -> "MeasurementRegistry":
         return self.model_copy(update={"grains": dict(grains)})
 

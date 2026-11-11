@@ -21,7 +21,7 @@ VERSIONS: dict[str, int] = {
     "pipeline_authoring_proposal": 5,
     "pipeline_authoring_session": 2,
     "pipeline_authoring_suggestion": 3,
-    "pipeline_authoring_turn": 6,
+    "pipeline_authoring_turn": 7,
     "pipeline_decision_migration": 1,
     "pipeline_draft": 3,
     "pipeline_exclusion_revision": 1,

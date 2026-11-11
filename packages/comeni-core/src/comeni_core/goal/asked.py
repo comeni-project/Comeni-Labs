@@ -18,6 +18,7 @@ from comeni_core.spell.marks import (
     ChannelName,
     ContractId,
     HumanParamValue,
+    MeasurementId,
     PortName,
     RoleName,
     StateName,
@@ -186,6 +187,14 @@ class Constraints(BaseModel):
     """Pinned port sources, omitted from serialized output when empty."""
     inputs: list[InputChoice] = Field(default_factory=list, exclude_if=lambda inputs: not inputs)
     """Optional inputs a person switched on or off, omitted from serialized output when empty."""
+    varies: list[MeasurementId] = Field(default_factory=list, exclude_if=lambda varies: not varies)
+    """Per-sample facts a person said differ between samples (#466): each sample's value comes
+    from its samplesheet cell or a measurement in the run, never one value for all. Sorted."""
+
+    @model_validator(mode="after")
+    def _varies_sorted(self) -> "Constraints":
+        object.__setattr__(self, "varies", sorted(set(self.varies)))
+        return self
 
     @model_validator(mode="before")
     @classmethod

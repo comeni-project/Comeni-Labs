@@ -152,7 +152,13 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     measurements = MeasurementRegistry.of(measured)
     declared_types = stack(stacked, Vocabulary.kind(), buckets=buckets)
     vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
-    # A measurement's scope is its type's grain (#466), so it learns the grains here.
+    # A measurement's scope is its type's grain (#466), so it learns the grains here, and a
+    # `describes` naming no type would silently read as per sample.
+    for measurement in measurements.measurements.values():
+        if measurement.describes is not None and measurement.describes not in vocabulary.types:
+            raise ValueError(coded(
+                "MD0334", f"measurement {measurement.id} describes {measurement.describes}, "
+                "which no layer declares as a type — `mendel explain MD0334`."))
     measurements = measurements.with_grains(vocabulary.grains)
     declared_families = stack(stacked, FamilyVocabulary.kind(), buckets=buckets)
     families = FamilyVocabulary.of(declared_families)

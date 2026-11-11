@@ -49,6 +49,9 @@ class FactOrigin(StrEnum):
     MEASURED = "measured"
     MODEL_READ = "model_read"
     OPEN = "open"
+    VARIES = "varies"
+    """A person said it differs between samples (#466): no value, and each sample's comes from
+    its samplesheet cell or a measurement in the run. A fact's origin only."""
 
 
 class _Value(BaseModel):
@@ -93,9 +96,9 @@ class FactDecision(_Value):
 
     @model_validator(mode="after")
     def _unknown_has_no_value(self) -> Self:
-        if self.origin is FactOrigin.OPEN and self.value is not None:
-            raise ValueError("an unknown fact cannot carry a value")
-        if self.origin is not FactOrigin.OPEN and self.value is None:
+        if self.origin in (FactOrigin.OPEN, FactOrigin.VARIES) and self.value is not None:
+            raise ValueError("an unknown fact, or one that varies, cannot carry a value")
+        if self.origin not in (FactOrigin.OPEN, FactOrigin.VARIES) and self.value is None:
             raise ValueError("a known fact needs a value; select unknown to retract it")
         return self
 
@@ -211,6 +214,7 @@ class Decisions(_Value):
                     for c in self.optional_inputs
                     if c.state is not None
                 ],
+                varies=[f.subject for f in self.facts if f.origin is FactOrigin.VARIES],
             ),
             profile=measurements.profile_of(
                 [
@@ -218,7 +222,7 @@ class Decisions(_Value):
                         f.subject, f.value, _SOURCE[f.origin], f.by, tuple(f.pieces), f.evidence
                     )
                     for f in self.facts
-                    if f.origin is not FactOrigin.OPEN
+                    if f.origin not in (FactOrigin.OPEN, FactOrigin.VARIES)
                 ]
             ),
         )
@@ -271,7 +275,8 @@ class Decisions(_Value):
                     evidence=f.evidence,
                 )
                 for f in goal.profile.measurements
-            ],
+            ] + [FactDecision(subject=m, origin=FactOrigin.VARIES)
+                 for m in goal.constraints.varies],
             producers=[
                 ProducerChoice(site=p.site, contract=p.contract) for p in goal.constraints.producers
             ],

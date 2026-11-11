@@ -131,6 +131,7 @@ def resolve(
     """
     args = dict(vocabulary=vocabulary, resolver=resolver, layer_names=layer_names,
                 prior=prior, facts_read=facts_read)
+    measurements.check_varies(goal)
     premises = build_premises(goal=goal, derivations=rules.derivations,
                               measurements=measurements)
     answered = frozenset(record.key for record in prior

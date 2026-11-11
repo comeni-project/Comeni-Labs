@@ -72,6 +72,8 @@ _INPUT_OPTIONS = {
 
 
 _UNSURE = {"not_sure": "Not sure", "cant_share": "I can't share it"}
+VARIES = "varies"
+"""The answer that a fact differs between samples (#466), offered where it can (`gaps`)."""
 
 
 _SOURCE = {
@@ -166,12 +168,16 @@ def _gap_options(gap: gaps.Gap, stack, facts: list[Fact]) -> dict[str, str]:
         # have it measured, so *not sure* is offered as that (spec §1). **Only when what they
         # have is something an inspector reads** (issue 227, decided A): an upload of a BAM
         # would end in *nothing reads this type yet*, and *not sure* stays.
-        return {
+        options = {
             **options,
             UPLOAD: "Not sure — measure it from a sample",
             "cant_share": _UNSURE["cant_share"],
         }
-    return {**options, **_UNSURE}
+    else:
+        options = {**options, **_UNSURE}
+    if gaps.can_vary(stack, gap):
+        options[VARIES] = "It differs between samples"
+    return options
 
 
 def _gap_question(gap: gaps.Gap, options: dict[str, str], stack, seq: int) -> Question:
@@ -587,6 +593,8 @@ def _fact_for(kind: FactKind, subject: str, option: str, value) -> Fact:
         return Fact(kind=kind, subject=subject, source=FactSource.PERSON_SAID)
     if option in _UNSURE:
         return Fact(kind=kind, subject=subject, source=FactSource.OPEN)
+    if option == VARIES:
+        return Fact(kind=kind, subject=subject, source=FactSource.VARIES)
     said = {"yes": True, "no": False, "value": value}.get(option, option)
     return Fact(kind=kind, subject=subject, value=said, source=FactSource.PERSON_SAID)
 

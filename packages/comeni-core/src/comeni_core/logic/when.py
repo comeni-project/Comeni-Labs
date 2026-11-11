@@ -68,6 +68,16 @@ def _one(fact: str, expected: Any, premise: Fact | None) -> bool:
     if premise is None:
         return False
     actual = premise.value
+    if isinstance(actual, list):
+        # Several samples' values: no test on one value has a single answer over them, so the
+        # rule must say how to reduce them first (Task 2 review: equality, `not` and `in` too).
+        raise PredicateError(
+            coded(
+                "MD0312",
+                f"{fact!r} is a cohort of {len(actual)} values and {expected!r} tests one. "
+                f"Reduce it first with a `derives:` aggregate and test the derived fact, so the "
+                f"file says which sample the rule meant.")
+        )
 
     if isinstance(expected, dict):
         if "not" in expected:

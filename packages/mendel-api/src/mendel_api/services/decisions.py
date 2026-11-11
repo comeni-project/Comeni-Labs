@@ -201,7 +201,8 @@ def _fact(observation, subject):
 
 def _observe(db, draft, fact, *, invocation_id=None, ingestion_key=None, heard=None,
              heard_seq=None):
-    registry.stack().measurements.check(fact.subject, fact.value)
+    if fact.origin is not FactOrigin.VARIES:
+        registry.stack().measurements.check(fact.subject, fact.value)
     if ingestion_key is not None:
         previous = db.scalar(
             select(PipelineObservation).where(
@@ -271,11 +272,15 @@ def set_fact(
     proposal_id=None,
     heard=None,
     heard_seq=None,
+    varies=False,
 ):
+    """`varies`: the person said it differs between samples (#466), which is recorded like a
+    value, with none."""
     fact = FactDecision(
         subject=subject,
         value=value,
-        origin=FactOrigin.OPEN if value is None else FactOrigin.PERSON_SAID,
+        origin=(FactOrigin.VARIES if varies
+                else FactOrigin.OPEN if value is None else FactOrigin.PERSON_SAID),
     )
     registry.stack().measurements.get(subject)
     with session_scope() as db:
@@ -298,7 +303,7 @@ def set_fact(
                     ).id
         observation = (
             _observe(db, draft, fact, heard=heard, heard_seq=heard_seq)
-            if value is not None else None
+            if value is not None or varies else None
         )
         return _write(
             db,

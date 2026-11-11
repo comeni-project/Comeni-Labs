@@ -9,6 +9,7 @@ from collections.abc import Iterable, Mapping
 from typing import NamedTuple
 
 from comeni_core.goal.asked import Constraints
+from comeni_core.plan.tiers import Grain
 from mendel_resolver.layers import Layers
 from mendel_resolver.rules.format import Decision, FactRef
 
@@ -47,6 +48,21 @@ def _decided_in_the_run(stack: Layers, measurement: str, decisions: list,
         and declared is not None and declared.describes in inputs
         and bool(stack.routing.producers_of(f"measurement.{measurement}", frozenset()))
     )
+
+
+def can_vary(stack: Layers, gap: Gap) -> bool:
+    """Whether *it differs between samples* is an answer to this gap (#466): the fact is about
+    each sample, and everything reading it can take a value per sample, a setting's rule or a
+    module's `meta`. A tool chosen from it is one tool for the whole pipeline, so it cannot."""
+    if gap.kind is not FactKind.MEASUREMENT:
+        return False
+    measurements = stack.measurements
+    if measurements.scope_of(gap.subject) is not Grain.SAMPLE:
+        return False
+    declared = measurements.get(gap.subject)
+    if not gap.decides:
+        return bool(declared.meta_key and declared.describes)
+    return all(target.effect == "param" for d in gap.decides for target in d.targets())
 
 
 def _premise_measurements(stack: Layers) -> dict[str, list[Decision]]:

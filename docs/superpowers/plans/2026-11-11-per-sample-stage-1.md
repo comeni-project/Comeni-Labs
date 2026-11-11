@@ -58,16 +58,16 @@ A, B, C, D, with the parts of I that stage 1 shows).
 **Interfaces:**
 - Produces: `class Grain(StrEnum): STUDY = "study"; SAMPLE = "sample"` in `comeni_core.plan.tiers`. Ruling: `group`, `unit` and `part` are added by the stages that give them meaning. `InputPort.grain: Grain | None = None` (None = the type's grain). `InputPort.many: bool = False`: one invocation takes every item of a finer grain, gathered with `.collect()`; serialised only when true. `Channel.grain: Grain`. `Vocabulary.grains: dict[TypeId, Grain]`. `TypeScope` → `TypeGrain` with the same two values.
 
-- [ ] **Step 1: Write the failing tests** in `tests/registry/test_grain.py`:
+- [x] **Step 1: Write the failing tests** in `tests/registry/test_grain.py`:
   - `test_a_reference_type_is_study_grain`: `layers.load(ROOT/"registry").vocabulary.grains["genome.fasta"] is Grain.STUDY`, and `"fastq.reads"` is absent, so it defaults to `SAMPLE`.
   - `test_multiqc_gathers_the_study`: the multiqc contract's `reports` port has `grain is Grain.STUDY and many is True`.
   - `test_cardinality_is_gone`: `ModuleContract.model_validate` of a contract whose port says `cardinality: "*"` raises with `extra` forbidden.
   - `test_many_on_a_study_type_is_refused`: `many: true` on a port whose type is already study grain raises `MD0331` ("nothing finer to gather").
-- [ ] **Step 2: Run** `uv run pytest tests/registry/test_grain.py -q`. Expected: FAIL, because `Grain` does not exist.
-- [ ] **Step 3: Implement the rename everywhere the grep lists.** Materialise's `gather` becomes `port.many`. `_as_value` keys on `Grain.STUDY`. `_form` and the samplesheet validator count `Grain.SAMPLE` channels. Declare `MD0331` ("a port gathers a type that is already study-wide"). Move the registry edits on the `measurers` branch and the submodule pointer.
-- [ ] **Step 4: Write the migration.** Each upgrader rewrites `scope: run|sample` → `grain: study|sample` and `cardinality: "*"` → `grain: study, many: true` wherever the bumped shapes store them, and leaves everything else untouched. Add a test beside the existing migration tests (`grep -rln d4a7c2e9b815 tests`) running each upgrader on one old payload.
-- [ ] **Step 5: Run** `uv run pytest tests/registry/test_grain.py tests/emit -q -m "not slow"`, `make check`, `make guards`, and `cd frontend && npx vitest run && npx tsc -b`, each separately. Expected: all pass. `make static` builds the example with `grain` in `pipeline.yml`.
-- [ ] **Step 6: Commit** `refactor: grain replaces scope and cardinality (#466)`.
+- [x] **Step 2: Run** `uv run pytest tests/registry/test_grain.py -q`. Expected: FAIL, because `Grain` does not exist.
+- [x] **Step 3: Implement the rename everywhere the grep lists.** Materialise's `gather` becomes `port.many`. `_as_value` keys on `Grain.STUDY`. `_form` and the samplesheet validator count `Grain.SAMPLE` channels. Declare `MD0331` ("a port gathers a type that is already study-wide"). Move the registry edits on the `measurers` branch and the submodule pointer.
+- [x] **Step 4: Write the migration.** Each upgrader rewrites `scope: run|sample` → `grain: study|sample` and `cardinality: "*"` → `grain: study, many: true` wherever the bumped shapes store them, and leaves everything else untouched. Add a test beside the existing migration tests (`grep -rln d4a7c2e9b815 tests`) running each upgrader on one old payload.
+- [x] **Step 5: Run** `uv run pytest tests/registry/test_grain.py tests/emit -q -m "not slow"`, `make check`, `make guards`, and `cd frontend && npx vitest run && npx tsc -b`, each separately. Expected: all pass. `make static` builds the example with `grain` in `pipeline.yml`.
+- [x] **Step 6: Commit** `refactor: grain replaces scope and cardinality (#466)`.
 
 ### Task 2: A measurement's scope comes from what it describes
 
@@ -83,16 +83,16 @@ A, B, C, D, with the parts of I that stage 1 shows).
 - Consumes: `Grain`, `Vocabulary.grains` (Task 1).
 - Produces: `MeasurementRegistry.scope_of(measurement_id: str) -> Grain`. It is the grain of the measurement's `describes` type, defaulting to `SAMPLE` for a type with no declared grain, and `STUDY` when it describes nothing. A profile list is valid iff `scope_of` is `SAMPLE`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `test_read_length_is_per_sample`: `scope_of("read_length") is Grain.SAMPLE`.
   - `test_genome_length_is_study`: `scope_of("genome_length") is Grain.STUDY`, because `genome.fasta` is study grain.
   - `test_organism_is_study`: it describes nothing, so `scope_of("organism") is Grain.STUDY`.
   - `test_a_list_for_a_study_fact_is_refused`: `measurements.profile({"genome_length": [1, 2]})` raises and names `genome_length`.
   - `test_per_sample_is_gone`: a measurement declaring `per_sample: true` fails to load.
-- [ ] **Step 2: Run** `uv run pytest tests/registry/test_measurement_scope.py -q`. Expected: FAIL.
-- [ ] **Step 3: Implement.** The registry learns the grains at `layers.load`. A registry built without them (tests constructing it directly) treats every `describes` type as `SAMPLE`. Delete `per_sample` from the model, the registry file and the prompts.
-- [ ] **Step 4: Run** the new tests, then `make check`, separately. Expected: pass.
-- [ ] **Step 5: Commit** `refactor: a measurement's scope is its type's grain (#466)`.
+- [x] **Step 2: Run** `uv run pytest tests/registry/test_measurement_scope.py -q`. Expected: FAIL.
+- [x] **Step 3: Implement.** The registry learns the grains at `layers.load`. A registry built without them (tests constructing it directly) treats every `describes` type as `SAMPLE`. Delete `per_sample` from the model, the registry file and the prompts.
+- [x] **Step 4: Run** the new tests, then `make check`, separately. Expected: pass.
+- [x] **Step 5: Commit** `refactor: a measurement's scope is its type's grain (#466)`.
 
 ### Task 3: "It varies" — a person says a fact differs between samples
 
@@ -112,15 +112,15 @@ A, B, C, D, with the parts of I that stage 1 shows).
   - The gap option id `"varies"`.
   - `MeasurementRegistry.check_varies(goal) -> None`, which raises `MD0332` naming the fact when a fact in `varies` is study-scoped or also has a value in `goal.profile`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `test_a_fact_cannot_be_stated_and_vary`: a goal with `profile: {strandedness: reverse}` and `varies: [strandedness]` raises `MD0332`, naming `strandedness`.
   - `test_a_study_fact_cannot_vary`: `varies: [genome_length]` raises `MD0332`.
   - `test_the_gap_offers_varies_for_a_sample_fact`: the strandedness gap for the rnaseq want, from `gaps.gaps`, lists an option `"varies"`. The genome_length gap does not.
   - `test_answering_varies_composes_it`: after `_answer_gap` with `option="varies"` on strandedness, `compose_goal(session).constraints.varies == ["strandedness"]` and `profile.get("strandedness") is None`.
-- [ ] **Step 2: Run** them. Expected: FAIL.
-- [ ] **Step 3: Implement.** Offer `"varies"` when the measurement is sample-scoped and every reader of it can take a per-sample value: a `param` decision, a `meta_key` carried on the type it describes, or a contract `fact.` condition (Task 7; until then, the first two). Its label is "It differs between samples". The resolver calls `check_varies` where it validates the profile.
-- [ ] **Step 4: Run** the tests, then `make test`, separately. Expected: pass.
-- [ ] **Step 5: Commit** `feat: a person can say a fact varies between samples (#466)`.
+- [x] **Step 2: Run** them. Expected: FAIL.
+- [x] **Step 3: Implement.** Offer `"varies"` when the measurement is sample-scoped and every reader of it can take a per-sample value: a `param` decision, a `meta_key` carried on the type it describes, or a contract `fact.` condition (Task 7; until then, the first two). Its label is "It differs between samples". The resolver calls `check_varies` where it validates the profile.
+- [x] **Step 4: Run** the tests, then `make test`, separately. Expected: pass.
+- [x] **Step 5: Commit** `feat: a person can say a fact varies between samples (#466)`.
 
 ### Task 4: The cases of a rule — coverage and overlap
 
@@ -137,17 +137,17 @@ A, B, C, D, with the parts of I that stage 1 shows).
   - `uncovered(decision: Decision, unknown: dict[str, Measurement], known: dict) -> list[dict]`: the cases no row matches, evaluated with `matches` after substituting `known`.
   - `overlapping(decision, unknown, known) -> list[tuple[int, int, dict]]`: pairs of row indexes that match one case.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `test_numeric_cases_straddle_each_threshold`: for `read_length` (integer, minimum 1) with literals `[70]`, the cases are exactly `[1, 69, 70, 71, UNDETERMINED]` in that order.
   - `test_alignment_rows_leave_only_undetermined_uncovered`: `uncovered` of `registry/rules/alignment.yml`'s decision over `{read_length}` is `[{"read_length": UNDETERMINED}]`.
   - `test_a_gap_between_rows_is_uncovered`: rows `>= 70` and `< 50` leave `{read_length: 50}` and `{read_length: 69}` (and undetermined) uncovered.
   - `test_overlapping_unique_rows_are_refused_at_load`: a `hit: unique` table with rows `>= 70` and `>= 50` fails `RuleTable.load` with `MD0333`, naming rows 1 and 2 and the case `read_length: 70`.
   - `test_two_facts_take_their_product`: an enum of three values and a boolean give `(3 + 1) * (2 + 1) = 12` cases.
   - `test_too_many_cases_is_refused`: seven enum facts of four values each raise `MD0334`, since 5^7 > 4096.
-- [ ] **Step 2: Run** `uv run pytest tests/resolver/test_cases.py -q`. Expected: FAIL, because the module does not exist.
-- [ ] **Step 3: Implement `cases.py`.** Call `overlapping` from the `hit: unique` validation, with every fact the decision reads that is not a derived fact unknown.
-- [ ] **Step 4: Run** the new tests and `make check`, separately. Expected: pass. Any shipped `unique` table that now fails is a real overlap: report it, don't loosen the check.
-- [ ] **Step 5: Commit** `feat: a rule's cases, its coverage and its overlaps (#466)`.
+- [x] **Step 2: Run** `uv run pytest tests/resolver/test_cases.py -q`. Expected: FAIL, because the module does not exist.
+- [x] **Step 3: Implement `cases.py`.** Call `overlapping` from the `hit: unique` validation, with every fact the decision reads that is not a derived fact unknown.
+- [x] **Step 4: Run** the new tests and `make check`, separately. Expected: pass. Any shipped `unique` table that now fails is a real overlap: report it, don't loosen the check.
+- [x] **Step 5: Commit** `feat: a rule's cases, its coverage and its overlaps (#466)`.
 
 ### Task 5: A run-time lookup over several facts, each from a cell or a measurement
 

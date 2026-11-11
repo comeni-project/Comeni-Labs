@@ -3045,6 +3045,19 @@ MD0333:
     sample in the run (#466), where nobody can be asked, so the overlap is refused at load and
     the registry's author resolves it.
 
+MD0334:
+  emitted_by: resolver
+  concern: loading
+  says: "a measurement describes a type no layer declares"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Correct the type id in `describes:`, or declare the type in a layer.
+  explanation: |
+    A measurement's scope comes from the grain of the type it describes (#466): a fact about
+    reads is per sample, a fact about the reference is the study's. A `describes` naming no type
+    has no grain, so a typo would make a reference's fact per sample without a word.
+
 MD0501:
   emitted_by: resolver
   concern: validation

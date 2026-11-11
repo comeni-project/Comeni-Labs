@@ -168,6 +168,7 @@ class FactSource(StrEnum):
     MODEL_READ = "model_read"  # the characteriser read it (14.7.7)
     PERSON_SAID = "person_said"  # the person stated it
     OPEN = "open"  # nobody knows; the tiers carry it as tier 4
+    VARIES = "varies"  # the person said it differs between samples (#466)
 
 
 class Fact(_Shape):
@@ -196,6 +197,8 @@ class Fact(_Shape):
     def _open_has_no_value(self) -> Self:
         if self.source is FactSource.OPEN and self.value is not None:
             raise ValueError("an open fact has no value: nobody knows it")
+        if self.source is FactSource.VARIES and self.value is not None:
+            raise ValueError("a fact that differs between samples has no one value")
         return self
 
 

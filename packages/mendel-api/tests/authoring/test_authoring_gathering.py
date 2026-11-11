@@ -467,3 +467,25 @@ def test_dont_have_an_optional_input_leaves_it_out_and_goes_on(clean, monkeypatc
     assert "genome.fasta" not in {f["subject"] for f in _facts(sid)}, "not something you have"
     assert facade.pending_id(sid) and _payload(facade.pending_id(sid)).get("subject") != \
         "genome.fasta", "asked again"
+
+
+def test_the_gap_offers_varies_for_a_fact_each_sample_can_carry(clean):
+    """Pairing reaches every module on each sample's `meta` (`single_end`), so it can differ
+    between samples (#466). Read length chooses the aligner, one for the whole pipeline, so it
+    cannot yet."""
+    sid = _gathering(want=["counts.matrix"])
+    seen = {}
+    while (pid := facade.pending_id(sid)) and "subject" in _payload(pid):
+        payload = _payload(pid)
+        seen[payload["subject"]] = payload["options"]
+        if payload["subject"] == "paired":
+            option = "varies"
+        else:
+            option = next(o for o in payload["options"]
+                          if o not in ("dont_have", "upload", "varies"))
+        facade.perform(commands.AnswerGap(pid, option, 150 if option == "value" else None, "ana"))
+    assert "varies" in seen["paired"]
+    assert "varies" not in seen["read_length"]
+    goal = gathering.compose_goal(sid)
+    assert goal.constraints.varies == ["paired"]
+    assert goal.profile.get("paired") is None

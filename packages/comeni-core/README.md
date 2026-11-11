@@ -14,8 +14,11 @@ from comeni_core import MeasurementRegistry, Registry, Vocabulary
 
 measurements = MeasurementRegistry.load("registry")  # a layer root, not a slice of one
 vocabulary = Vocabulary.load("registry").with_measurements(measurements)
+measurements = measurements.with_grains(vocabulary.grains)  # a fact's scope is its type's grain
 registry = Registry.load("registry", vocabulary)
 ```
+
+`mendel_resolver.layers.load` does all of this, with the checks between the steps.
 
 Load order matters — a measurement derives a `measurement.<id>` type that contracts are
 validated against. Use `mendel_resolver.layers.load()` rather than assembling it by hand.

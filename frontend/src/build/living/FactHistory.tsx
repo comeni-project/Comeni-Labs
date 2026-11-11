@@ -3,7 +3,7 @@ import { get } from "../../api/client";
 import type { components } from "../../api/schema";
 
 export const sourceWords: Record<string, string> = {
-  person_said: "you said", measured: "measured", model_read: "read by AI", open: "unknown",
+  person_said: "you said", measured: "measured", model_read: "read by AI", open: "unknown", varies: "differs between samples",
 };
 export function factWords(value: unknown): string {
   return value == null ? "unknown" : Array.isArray(value) ? value.map(factWords).join(", ") :

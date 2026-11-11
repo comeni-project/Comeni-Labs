@@ -2308,6 +2308,8 @@ export interface components {
             sources?: components["schemas"]["SourcePin"][];
             /** Inputs */
             inputs?: components["schemas"]["InputChoice"][];
+            /** Varies */
+            varies?: string[];
         };
         /**
          * Constraints
@@ -2328,6 +2330,8 @@ export interface components {
             sources?: components["schemas"]["SourcePin"][];
             /** Inputs */
             inputs?: components["schemas"]["InputChoice"][];
+            /** Varies */
+            varies?: string[];
         };
         /** Constructor */
         Constructor: {
@@ -2596,8 +2600,7 @@ export interface components {
          *     Unlisted ports retain the default one-channel-per-type behavior.
          */
         DraftChannel: {
-            /** Grain */
-            grain?: string | null;
+            grain?: components["schemas"]["Grain"] | null;
             /**
              * Why
              * @default
@@ -2974,13 +2977,13 @@ export interface components {
          * FactOrigin
          * @enum {string}
          */
-        FactOrigin: "person_said" | "measured" | "model_read" | "open";
+        FactOrigin: "person_said" | "measured" | "model_read" | "open" | "varies";
         /**
          * FactSource
          * @description Where a fact came from, which is what the goal card and the tier-3 premise show.
          * @enum {string}
          */
-        FactSource: "measured" | "model_read" | "person_said" | "open";
+        FactSource: "measured" | "model_read" | "person_said" | "open" | "varies";
         /**
          * Finding
          * @description One declared diagnostic with optional node, port, and edge-endpoint context.
@@ -3246,6 +3249,14 @@ export interface components {
              */
             suggested: components["schemas"]["RequiredStates"][];
         };
+        /**
+         * Grain
+         * @description How many items a channel carries relative to the analysis, and what a fact is about
+         *     (#466): one for the whole study, or one per sample. `group`, `unit` and `part` join with the
+         *     stages that give them meaning (per-sample design, Goal A).
+         * @enum {string}
+         */
+        Grain: "study" | "sample";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -3419,11 +3430,6 @@ export interface components {
              * @default false
              */
             extensible: boolean;
-            /**
-             * Per Sample
-             * @default false
-             */
-            per_sample: boolean;
             /**
              * Assertion Only
              * @default false
