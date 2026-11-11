@@ -36,6 +36,7 @@ Model: `mendel_resolver.rules.format.Decision`
 | `rows` | [DecisionRow] | `[]` | branches, tried in order |
 | `because` | string \| null | `null` | why this decision exists, in prose |
 | `cite` | string \| null | `null` | the citation — reaches `selection.reason` and the generated `main.nf` |
+| `coverage` | `all` \| null | `null` | `all`: a fact read from part of the data does not satisfy it; see [Coverage](#coverage) |
 
 One block per target. Deciding the same target twice **in one layer** is an error; a higher
 layer replaces the whole block.
@@ -171,6 +172,58 @@ decisions:
 ```
 
 A genome length of 29,903 bp gives 6; 3.1 Gb gives 14.
+
+## Coverage
+
+A decision may say `coverage: all`. A fact the server read from part of an upload
+(`coverage: head`) then does not satisfy it: the rows are tried as if the fact were unknown. A
+person's statement satisfies it, and so does a fact measured on all the data.
+
+```yaml
+decisions:
+  - decides: {effect: implementation, of: alignment}
+    coverage: all
+    rows:
+      - {when: {read_length: ">= 70"}, then: nf-core/star/align@2.7.11b}
+      - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2}
+```
+
+A fact derived from a `head` fact is `head` too. Without `coverage:`, an estimate decides like any
+fact, and the pipeline measures it again over all the data to confirm it.
+
+## Decided at run time
+
+When a `param` decision waits on a fact nobody stated, the build can decide it in the run
+instead. This happens when all of the following hold:
+
+- once every known fact is substituted, the rows wait on exactly one fact;
+- a [measurer](measurer-schema.md) that runs in the pipeline measures that fact;
+- the fact `describes` one of the goal's inputs, and the step reads that input or descends from
+  a step that does;
+- the decision is `hit: first`;
+- nobody has answered the setting.
+
+The build then adds the measuring step. The fact joins the input's `meta`, and the setting is
+emitted as a lookup over it. Every row the lookup can take is listed in `pipeline.yml` and on the
+step card before the run. So is the fallback, used when the measurement comes back undetermined
+or no row matches. The fallback is the setting's default, or nothing for a setting the tool can
+do without, or else a question. Each value the run used is recorded per sample in
+`<outdir>/decided/<step>.<setting>.tsv`. No model runs at run time, and the same goal gives the
+same pipeline.
+
+A row's `then: {fact: ...}` over a derived fact becomes its chain, written in Groovy from the
+same closed operations: `round` is half to even, as here. STAR's index size is the example. With
+29,903 bp stated, the build decides 6. With nothing stated, the pipeline measures the genome with
+samtools faidx and decides in the run: 8 for nf-core's 230,218 bp test genome.
+
+| Code | When |
+|---|---|
+| `MD0328` | a setting's rows wait on two facts the pipeline could measure; state all but one |
+| `MD0329` | routing again to add the measuring steps moved the pipeline; a defect, report it |
+| `MD0330` | a run-time setting routes outside `ext`, or its template does not hold `{value}` once |
+
+Implementation and presence decisions are never decided at run time: the graph is fixed when the
+pipeline is built, so they stay questions.
 
 ## Layer composition
 

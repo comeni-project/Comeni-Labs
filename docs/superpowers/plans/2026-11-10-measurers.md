@@ -276,7 +276,7 @@ React with TypeScript.
   - `RUNNER_IMAGE`, a constant in `emit.py`: `python:3.12-slim@sha256:…`. Get the digest with
     `docker buildx imagetools inspect python:3.12-slim`, and record the date in the comment.
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - `test_code_measurer_contract`: the `fastq` format → `comeni/measure/fastq@1.1.0`, consuming
     `fastq.reads` and producing `measurement.read_length`, `measurement.paired` and
     `measurement.quality_encoding`.
@@ -287,11 +287,11 @@ React with TypeScript.
   - `test_emit_stages_runner`: the emitted directory has `measurers/fastq/…` and the
     runner. `pipeline.yml` records their digest, and emitting twice is byte-identical.
   - `test_emit_measure_process`: `main.nf` contains `MEASURE_FASTQ` with the pinned image.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.** The staged runner is `comeni_inspect/{core,outcome,records,stream,measure_cli}.py`, copied from the installed package, plus the measurer folder and its format/codec. Their digest is over the sorted (path, sha256) pairs (`digest_of_directory`). `conformance.py` must accept the generated module: its ports match by construction. Add the measurer to conformance's "generated" path rather than skipping it.
-- [ ] **Step 4: Run** `uv run pytest packages/mendel-resolver packages/mendel-compiler -q`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.** The staged runner is `comeni_inspect/{core,outcome,records,stream,measure_cli}.py`, copied from the installed package, plus the measurer folder and its format/codec. Their digest is over the sorted (path, sha256) pairs (`digest_of_directory`). `conformance.py` must accept the generated module: its ports match by construction. Add the measurer to conformance's "generated" path rather than skipping it.
+- [x] **Step 4: Run** `uv run pytest packages/mendel-resolver packages/mendel-compiler -q`.
   Expected: PASS. The golden examples are unchanged because nothing wants a measurement yet.
-- [ ] **Step 5: Commit:** `feat: pipeline measurers route as generated steps (#465)`.
+- [x] **Step 5: Commit:** `feat: pipeline measurers route as generated steps (#465)`.
 
 ### Task 6: Run-time decisions in the resolver
 
@@ -346,7 +346,7 @@ React with TypeScript.
   - premise: the fact with origin `UNMEASURED` and `by` set to the measurer;
   - value: the fallback.
 
-- [ ] **Step 1: Write the failing tests.** Use an overlay: STAR genomegenerate with
+- [x] **Step 1: Write the failing tests.** Use an overlay: STAR genomegenerate with
   `sa_index_nbases`, the part 3 STAR rule, `genome_length` with `describes: genome.fasta` and
   `meta_key`, a fixture faidx contract, and a `genome_length_fai` measurer.
   - `test_unknown_genome_length_decides_at_run`: the setting has `at_run.fact == "genome_length"`
@@ -362,15 +362,15 @@ React with TypeScript.
     why.
   - `test_unique_overlap_not_at_run`.
   - `test_same_goal_same_ir`: build twice, and the dumps are equal.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.** `resolve()` calls `route` once. If `facts_needed` is non-empty, it
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.** `resolve()` calls `route` once. If `facts_needed` is non-empty, it
   calls `route` again with `goal.want + [measurement.<f>…]`, then asserts the first plan's steps
   are a subset of the second's (by contract and inputs). The measurement output is a side want:
   check that `route` does not treat it as a final output that later code requires. Exclude it
   from `intent.want` in `pipeline.yml`.
-- [ ] **Step 4: Run** `uv run pytest packages/mendel-resolver packages/comeni-core -q`.
+- [x] **Step 4: Run** `uv run pytest packages/mendel-resolver packages/comeni-core -q`.
   Expected: PASS, and the golden examples are unchanged.
-- [ ] **Step 5: Commit:** `feat(resolver): settings decided at run time from a pipeline measurement (#217)`.
+- [x] **Step 5: Commit:** `feat(resolver): settings decided at run time from a pipeline measurement (#217)`.
 
 ### Task 7: Emitting the run-time lookup
 
@@ -405,7 +405,7 @@ React with TypeScript.
   `measurements/decided/<step>.<setting>.csv` through `collectFile`, holding `meta.id` and the
   value, computed with the same closure text. Sort before writing (`sort: true`).
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - `test_closure_rows_enum`: strandedness rows → `meta.strandedness == 'reverse' ? 2 : …` with
     the fallback last.
   - `test_closure_transform_star`: the exact text for the STAR chain.
@@ -420,12 +420,12 @@ React with TypeScript.
     export it if private. Include `null`, 29903, 3.1e9, exact powers of two and .5 points. Run
     `nextflow run`, parse the printed results, and compare them with the resolver's
     `RuleTable.value_for` (or the fallback) on the same cases. Assert the two are equal.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the pure tests, `uv run pytest tests/execution/test_at_run_agreement.py -q`
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the pure tests, `uv run pytest tests/execution/test_at_run_agreement.py -q`
   (with Nextflow), and `make static`. Expected: PASS, and the Nextflow lint is clean on the
   emitted overlay pipeline.
-- [ ] **Step 5: Commit:** `feat(compiler): run-time settings emitted as a lookup over meta (#217)`.
+- [x] **Step 5: Commit:** `feat(compiler): run-time settings emitted as a lookup over meta (#217)`.
 
 ### Task 8: Estimates confirmed in the pipeline
 
@@ -442,19 +442,19 @@ React with TypeScript.
   - `Confirm(measurement, estimate: ParamValue, from_node: NodeId, used_by: list[str])`, where
     `used_by` holds sorted keys like `selection:align` and `setting:quant.strandedness`.
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - `test_head_read_length_confirmed`: a goal with `read_length` 150 at `head` coverage → a
     `MEASURE_FASTQ` node, with a `Confirm` naming the aligner selection.
   - `test_asserted_not_confirmed`: a said fact → no node.
   - `test_all_not_confirmed`: coverage `all` → no node.
   - `test_one_step_per_input`: two head facts on `fastq.reads` (`read_length`, `paired`) → one
     `MEASURE_FASTQ` node (Task 5's per-format contract), with both of its ports wired.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement**, through the same second route as Task 6.
-- [ ] **Step 4: Run** the pure tests, then `make test` once. Expected: PASS. The golden examples
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement**, through the same second route as Task 6.
+- [x] **Step 4: Run** the pure tests, then `make test` once. Expected: PASS. The golden examples
   change only if their goals carry `head` facts. They state `said` facts, so they should not
   change: check this.
-- [ ] **Step 5: Commit:** `feat(resolver): estimates are confirmed on all the data in the run (#465)`.
+- [x] **Step 5: Commit:** `feat(resolver): estimates are confirmed on all the data in the run (#465)`.
 
 ### Task 9: Wiener reads the run's measurements
 
@@ -482,17 +482,17 @@ React with TypeScript.
   - `<id>` must be a measurement in the artifact's `confirms` or `at_run`;
   - payloads over 64 KiB, or that fail validation, are skipped with a logged reason.
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - The fold keeps and sorts facts.
   - A Nextflow-authored `MEASURED` is refused (not `FROM_NEXTFLOW`).
   - Ingest reads a fixture results directory. An unexpected id is ignored, and a 100 KiB file
     is skipped.
   - In the projection, 150 against 150 is `confirmed`, and 150 against 100 is `disagrees`, with
     `used_by == ["selection:align"]`.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the pure tests, then `make test` once. Expected: PASS.
-- [ ] **Step 5: Commit:** `feat(wiener): the run's measurements, confirmed or disagreeing (#465)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the pure tests, then `make test` once. Expected: PASS.
+- [x] **Step 5: Commit:** `feat(wiener): the run's measurements, confirmed or disagreeing (#465)`.
 
 ### Task 10: The step card and the run page
 
@@ -502,16 +502,16 @@ React with TypeScript.
   `grep -rln "for_value\|axis_reason" frontend/src/components`); the run view (`frontend/src/…/Run*`)
 - Test: vitest beside each component.
 
-- [ ] **Step 1: Write the failing vitest tests.**
+- [x] **Step 1: Write the failing vitest tests.**
   - `StepSetting`, with `at_run`, shows "Decided at run time", the rule, the measurer, the
     outcome rows (or the transform as `log2 → ÷ 2 → − 1 → at most 14 → round`) and the fallback.
   - The run page's "Measured in this run" lists each fact with its status. A `disagrees` row
     shows the estimate, the measured value and the linked settings or selections.
-- [ ] **Step 2: Run** `cd frontend && npx vitest run <files>`. Expected: FAIL.
-- [ ] **Step 3: Implement**, using the existing components' patterns and the voice guide's
+- [x] **Step 2: Run** `cd frontend && npx vitest run <files>`. Expected: FAIL.
+- [x] **Step 3: Implement**, using the existing components' patterns and the voice guide's
   words.
-- [ ] **Step 4: Run** `npx vitest run && npx tsc -b`. Expected: PASS.
-- [ ] **Step 5: Commit:** `feat(frontend): run-time settings and measured facts shown (#217, #465)`.
+- [x] **Step 4: Run** `npx vitest run && npx tsc -b`. Expected: PASS.
+- [x] **Step 5: Commit:** `feat(frontend): run-time settings and measured facts shown (#217, #465)`.
 
 ### Task 11: The registry demo (samtools faidx, the fai parser, STAR)
 
@@ -527,7 +527,7 @@ React with TypeScript.
 Engine test: `packages/mendel-compiler/tests/test_star_index_at_run.py`, and slow
 `tests/execution/test_star_index_at_run_gate.py`.
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - `test_star_index_at_run`: a goal shaped like `examples/rnaseq.yml` without `genome_length`,
     built against the registry. It has `SAMTOOLS_FAIDX`, `MEASURE_GENOME_LENGTH_FAI`, the join
     and the closure.
@@ -536,11 +536,11 @@ Engine test: `packages/mendel-compiler/tests/test_star_index_at_run.py`, and slo
     `--genomeSAindexNbases 6` and that `results/measurements/genome_length/*.json` has 29903.
   - `fai.py`'s tests: the sum of column 2; an empty file is undetermined; a malformed line is
     undetermined, and the test says which line.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.** Do the registry commits on the branch, then move the submodule.
-- [ ] **Step 4: Run** the pure tests, the gate test, `make static` and `make verify`. Expected:
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.** Do the registry commits on the branch, then move the submodule.
+- [x] **Step 4: Run** the pure tests, the gate test, `make static` and `make verify`. Expected:
   PASS.
-- [ ] **Step 5: Commit:** `feat: STAR's index sized from the genome measured in the run (#217, #465)`.
+- [x] **Step 5: Commit:** `feat: STAR's index sized from the genome measured in the run (#217, #465)`.
 
 ### Task 12: Documentation and records
 
@@ -554,9 +554,9 @@ Engine test: `packages/mendel-compiler/tests/test_star_index_at_run.py`, and slo
 
 Close #465 and #217 with their commits.
 
-- [ ] **Step 1:** Write the pages, then run `make check` (doc sizes and links). Expected: PASS.
-- [ ] **Step 2:** Tick this plan and record its deviations.
-- [ ] **Step 3: Commit:** `docs: measurers and run-time decisions (#465, #217)`.
+- [x] **Step 1:** Write the pages, then run `make check` (doc sizes and links). Expected: PASS.
+- [x] **Step 2:** Tick this plan and record its deviations.
+- [x] **Step 3: Commit:** `docs: measurers and run-time decisions (#465, #217)`.
 
 ## Deviations
 
@@ -580,3 +580,31 @@ Close #465 and #217 with their commits.
   Ruling: a `head` fact read only by `coverage: all` implementation or presence decisions is not
   reopened as a gap; that decision misses and is asked at tier 4, and a param decision is decided
   at run time from Task 6.
+- **Task 5.** Generated contracts join only the routing registry (`Layers.routing`), never the
+  loaded one, so the docs, conformance and the registry browser list what a layer declares. No
+  `Pipeline.measurers` field: the contract's provenance names its pieces, the layer digest pins
+  them, and the stamp records each staged file. The runner is a Nextflow module binary, run
+  through `python3 -I` so a zip that drops the mode bit cannot break it (review). Facts publish
+  to `{outdir}/<process>/<sample>.measured.json`. The pure compiler finds the runner through
+  `importlib.metadata`, never importing the impure inspector.
+- **Task 6.** Implementation and presence decisions waiting on a measurable fact are not refused;
+  they stay questions. A `hit: unique` decision is never run-time. A run-time fact joins `meta`
+  under its own id, so only `describes` is needed. A person's answer is never displaced; the
+  measuring step is read off the graph (review).
+- **Task 7.** The join fails on a mismatch instead of dropping a sample with exit 0, and numbers
+  compare as doubles (review). The agreement test lives in `tests/emit/`. MD0330.
+- **Task 8.** Confirmations come from the premises recorded on selections and settings; a route
+  moved only by them leaves the build as it was.
+- **Task 9.** Measurements are Wiener's own events in the record, and the view is derived on
+  read; the run table gained no columns. A malformed report can never lose the run's end, and
+  `collect` read a generator twice and dropped every decided value (both found by review).
+- **Task 10.** The API renders the lookup's rows as lines. The token test reads `#217` as a
+  colour, so frontend files write "issue 217". Browser check deferred to the end of parts 2–5.
+- **Task 11.** Discovery of run-time settings asks nobody, so the real resolver is asked once.
+  An omittable setting's fallback is the tool's own value, not a question. faidx's `.fai` is
+  declared always written: the router cannot switch an optional input off to meet
+  `{given.fai: absent}`. A fact only settings read and the pipeline can measure is not asked as a
+  gap. `ir_of` decides run-time settings for kept drafts. The conversation offers faidx and the
+  measuring step as steps of their own.
+- **Task 12.** #465 and #217 stay open until the branch merges; deferred minors are in one
+  checklist issue.

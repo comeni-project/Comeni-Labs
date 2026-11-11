@@ -41,7 +41,7 @@ Model: `comeni_core.declared.measurement.Measurement`
 | `cite` | string \| null | `null` | where the definition comes from |
 | `explain` | string \| null | `null` | what it is and how a person finds it out, one short paragraph shown under a question about it. Read by nothing that builds |
 | `edam` | string \| null | `null` | the EDAM ontology term, when one fits |
-| `describes` | string \| null | `null` | the type this is a fact *about*, e.g. `fastq.reads` |
+| `describes` | string \| null | `null` | the type this is a fact *about*, e.g. `fastq.reads`. A setting can be [decided at run time](rule-schema.md#decided-at-run-time) from it only when this is set |
 | `meta_key` | string \| null | `null` | the key this becomes in a Nextflow `meta` map |
 | `meta_values` | [string] | `[]` | how its values are spelled in `meta`, when they differ |
 | `deprecated` | boolean | `false` | still loads, should not be used in new rules |

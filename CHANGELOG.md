@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- Measurers (#465): one `declares: measurer` replaces `declares: measure`, by our code (`by: code`, a format's records) or by a tool and a parser of its output (`by: tool`), with where it runs (`runs: [server, pipeline]`); MD0326/MD0327. `Evidence.coverage` and `PremiseRecord.coverage` (`Coverage`: head or all) say how much of the data a fact was read from. Run-time decisions (#217): `plan.at_run` (`AtRun`, `MetaAtRun`, `Confirm`), carried as `Setting.at_run`, `Channel.meta_at_run` and `Pipeline.confirms`.
+
 - Tool constraints, phase 2 (#464): an `nf_inputs` entry may mix required and optional ports and hold independent optional ones; `join` may be a map giving each later port its own (`NfInput.join_for`); conditions may test `type.<input>`, the type connected to an input with `accepts`; the constraint check tries each accepted type (MD0612). `ToolTest.types` says which accepted type a test's data is. The artifact's `CallArg.joins` carries a per-port join.
 - A contract param routed to `ext` with no template is refused when it loads if its default
   is outside the substitutable class (MD0221). QUAST's `prefix: ${meta.id}` passed every check
@@ -103,6 +105,8 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- Settings decided at run time (#217): a param rule waiting on one fact a pipeline measurer can measure, describing an input in the step's lineage, compiles into a lookup; discovery asks nobody, the build routes again with the measurement wanted (MD0328, MD0329). Estimates a decision used are measured again over all the data (`confirms`). `measure_steps` builds the generated measuring steps; `Layers.routing` is the registry builds route with. A decision may require `coverage: all`. An omittable setting's run-time fallback is the tool's own value.
+
 - Rules v2 (#461): a setting can take a fact's value (`then: {fact: <id>}`); `round` joins the transform chain; a decision declares `hit: first | unique`, and a tie under `unique` is asked at tier 4; load checks every case a table's rows tell apart for gaps (MD0311), dead rows (MD0323) and too many cases (MD0324), and a literal value against the tool's constraints (MD0325). A row reading a derived fact records the facts it came from. mendel-resolver needs pydantic 2.12.
 - Constraints are checked with the types routing connected (#464): a step's required inputs are routed first, its optional ones decided with their types; resolution follows the router's first matching alternative; a refused alternative leaves no steps behind; a pipeline input feeding an `accepts` input gets a channel of the type it matched.
 - Optional inputs are routed off unless switched on, made required when a later step needs what they add, and brought along by constraint rows; constraints are re-checked once parameters resolve (MD0608–MD0610) (#460).
@@ -129,6 +133,8 @@ or a complete commit history.
 - Profile validation occurs at the resolver boundary, not only in the CLI.
 
 ### mendel-compiler
+
+- A run-time setting is emitted as a Groovy lookup over `meta`, from the closed operations only; the measuring branch runs first and its fact is joined into the input by `meta` (`failOnMismatch`); each value used is recorded under `{outdir}/decided/` (#217). The generated measuring step's module (a launcher, the stdlib runner and the pieces) is staged and recorded in `pipeline.yml` (#465). MD0330. `mendel profile` is removed.
 
 - A shared slot passes `[]` in the position of each optional port that is off, and joins each later port its own way (#464).
 - An optional channel is emitted as `params.x ? … : <empty tuple>`, and run rules as guards at the workflow's start. `ModuleSpec.optional_emits`; MD0611 reports an optional emit a contract says is always written. Builds stop only on codes `diagnostics.yml` declares refusing (#460).
@@ -206,6 +212,8 @@ or a complete commit history.
   questions are not asked again. Build and Spawn are consolidated into one authoring flow.
 
 ### mendel-api
+
+- The measurer index lists each measurer with where it runs; the browser sends each file's real size, so a whole small file is measured on all of it (#465). A fact only settings read and the pipeline can measure is not asked (#217).
 
 - Forge drafts read item guide v4 (`forge.draft.v9`): settings from facts, hit policies and derived facts (#461); drafted rules show table findings. The builder asks for a measurement a setting's fact is derived from.
 - Forge drafts read item guide v3 (`forge.draft.v8`): shared slots, joins per port, `accepts` inputs and rows on the connected type (#464); the forge shows MD0612. A step card shows the type connected to an `accepts` input and words a condition on a type.
@@ -391,6 +399,10 @@ or a complete commit history.
 
 ### comeni-inspect
 
+#### Changed
+
+- The inspection core runs on the standard library alone, and `measure_cli` runs it over whole files in a pipeline step (#465). Every fact carries `coverage`; codecs open a stream; `--as` keys a report by measurement.
+
 #### Added
 
 - A separate inspection package processes bounded uploaded samples in subprocesses, producing
@@ -403,6 +415,8 @@ or a complete commit history.
   its final 20 records to buffered reads.
 
 ### mendel-forge
+
+- A tool test leaves out a setting the tool can do without (#217).
 
 - Derived facts are drafted as `rules:derive:<fact>` items and assembled into the layer's `rules/derived/<fact>.yml` (#461).
 - Forge tests may leave out a port in a shared slot and name the type of their data for an `accepts` input (#464); an `accepts` input round-trips through forging's items.
@@ -457,12 +471,18 @@ or a complete commit history.
 
 #### Added
 
+- `MEASURED` events, Wiener's own: what a run measured and the values its run-time settings took (`wiener_core.measured`), compared with what the pipeline was built on (#465).
+
+#### Added
+
 - A pure event fold models run state. Ingress admits declared Nextflow fields and drops
   undeclared fields; heartbeat time arrives as an internally constructed event.
 - Laboratory-authored strings are identified separately from other structured fields.
   Telemetry mapping stays pure, with export handled outside the package.
 
 ### wiener-api
+
+- When a run completes, what its measuring steps published is read into its record, closed to what its `pipeline.yml` declares; `GET /runs/{id}/measured` says whether each estimate was confirmed (#465).
 
 - A stored artifact says which inputs a run may leave empty and the run rules between them, read from its `pipeline.yml` (#460).
 - The image pins Nextflow (26.10.2) and installs `nf-weblog@1.2.0`, which the site config loads: Nextflow 26 has no built-in weblog, so no run reported its end (#471).
@@ -487,6 +507,8 @@ or a complete commit history.
 - Shared pure graph layout supports the build and run canvases.
 
 ### frontend
+
+- The step card shows a setting decided at run time with every value it can take; the run page shows what the run measured and flags a disagreement (#217, #465).
 
 #### Added
 

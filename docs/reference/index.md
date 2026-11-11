@@ -28,6 +28,7 @@ through a task, use the [how-to guides](../how-to/index.md).
 | Decision tables | [Rule schema](registry/rule-schema.md) |
 | Types and states | [Vocabulary schema](registry/vocabulary-schema.md) |
 | Data facts | [Measurement schema](registry/measurement-schema.md) |
+| What measures them | [Measurer schema](registry/measurer-schema.md) |
 | Available tools | [Tool catalogue](tools.md) |
 
 The [documentation status](status.md) lists pages with explicit future-feature
