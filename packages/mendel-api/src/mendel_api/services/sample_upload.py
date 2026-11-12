@@ -143,7 +143,24 @@ def sizes_of(field: str | None, files: int) -> tuple[int, ...]:
     return tuple(sizes)
 
 
-_MATE = re.compile(r"^(?P<stem>.+?)(?P<sep>[._])(?P<mate>R?[12])(?P<rest>(\.[^.]+)+)$")
+_MATE = re.compile(
+    r"^(?P<stem>.+?)(?P<sep>[._])(?P<mate>[Rr]?[12])(?P<tail>_\d+)?(?P<rest>(\.[^.]+)*)$")
+"""A mate's name: a stem, `_` or `.`, `R1`/`R2` or `1`/`2` (any case), Illumina's `_001` if
+there, then any extension (stage 2 review: bcl2fastq names, lowercase, none at all)."""
+
+_COMPRESSED = (".gz", ".bz2", ".zst")
+
+
+def _mate_key(name: str):
+    """What two mates share: stem, separator, `R` or not, Illumina tail, and extension without
+    its compression; `None` for a name with no mate token."""
+    found = _MATE.match(name)
+    if found is None:
+        return None
+    rest = found["rest"].lower()
+    for suffix in _COMPRESSED:
+        rest = rest.removesuffix(suffix)
+    return (found["stem"], found["sep"], found["mate"][0] in "Rr", found["tail"] or "", rest)
 
 
 @dataclass(frozen=True)
@@ -157,38 +174,43 @@ class Sample:
 
 def samples_of(files: list[tuple[str, bytes]], sizes: tuple[int, ...]) -> list[Sample]:
     """The upload's files as samples, in the order they came: two files whose names differ
-    only in a mate token (`_R1`/`_R2`, `_1`/`_2`, `.1`/`.2`) before the extension are one sample
-    named by their shared stem; any other file is a sample of its own, named by its stem. A name
-    given twice is numbered (`a#2`)."""
+    only in a mate token (`_R1`/`_R2`, `_1`/`_2`, `.R1`/`.R2`, any case, Illumina's `_001`
+    after it, compression aside) are one sample named by their shared stem; any other file is a
+    sample of its own, named by its stem. Two files alone are one sample, as an upload of two
+    always was. A name given twice is numbered (`a#2`)."""
     known = len(sizes) == len(files)
+    if len(files) == 2 and _mate_key(files[0][0]) is None and _mate_key(files[1][0]) is None:
+        return [_sample(_stem(files[0][0]), files, sizes, [0, 1], known)]
     keyed: dict[tuple, list[int]] = {}
     order: list[tuple] = []
     for index, (name, _) in enumerate(files):
-        found = _MATE.match(name)
-        # Mates share their stem, separator, `R` or not, and extension; only `1`/`2` differs.
-        key = ((found["stem"], found["sep"], found["mate"].startswith("R"), found["rest"])
-               if found else ("file", index))
+        key = _mate_key(name) or ("file", index)
         if key not in keyed:
             keyed[key] = []
             order.append(key)
         keyed[key].append(index)
     samples: list[Sample] = []
-    seen: dict[str, int] = {}
+    taken: set[str] = set()
     for key in order:
         indexes = keyed[key]
         mates = (key[0] != "file" and len(indexes) == 2
                  and {_MATE.match(files[i][0])["mate"][-1] for i in indexes} == {"1", "2"})
-        groups = [indexes] if mates else [[i] for i in indexes]
-        for group in groups:
-            if mates:
-                name = key[0]
-            else:
-                stem = files[group[0]][0]
-                name = stem.split(".", 1)[0] if "." in stem else stem
-            seen[name] = seen.get(name, 0) + 1
-            if seen[name] > 1:
-                name = f"{name}#{seen[name]}"
-            ordered = sorted(group, key=lambda i: files[i][0])
-            samples.append(Sample(name=name, files=tuple(files[i] for i in ordered),
-                                  sizes=tuple(sizes[i] for i in ordered) if known else ()))
+        for group in ([indexes] if mates else [[i] for i in indexes]):
+            name = key[0] if mates else _stem(files[group[0]][0])
+            unique, n = name, 1
+            while unique in taken:
+                n += 1
+                unique = f"{name}#{n}"
+            taken.add(unique)
+            samples.append(_sample(unique, files, sizes, group, known))
     return samples
+
+
+def _stem(name: str) -> str:
+    return name.split(".", 1)[0] if "." in name else name
+
+
+def _sample(name: str, files, sizes, group: list[int], known: bool) -> Sample:
+    ordered = sorted(group, key=lambda i: files[i][0])
+    return Sample(name=name, files=tuple(files[i] for i in ordered),
+                  sizes=tuple(sizes[i] for i in ordered) if known else ())

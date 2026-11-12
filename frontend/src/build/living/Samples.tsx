@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { components } from "../../api/schema";
 
@@ -17,6 +17,8 @@ export function Samples({ samples, pageSize = 50 }: { samples: Sample[]; pageSiz
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [groupBy, setGroupBy] = useState<string>("");
   const [page, setPage] = useState(0);
+  // A new upload, or a new order, starts at the first page (review).
+  useEffect(() => setPage(0), [samples, sortBy]);
 
   const valueOf = (sample: Sample, measurement: string) => {
     const fact = sample.facts.find((f) => f.measurement === measurement);
@@ -86,8 +88,8 @@ export function Samples({ samples, pageSize = 50 }: { samples: Sample[]; pageSiz
             </tr>
           </thead>
           <tbody>
-            {rows.map((sample) => (
-              <tr key={sample.name} data-testid="sample-row" title={sample.files.join(", ")}>
+            {rows.map((sample, index) => (
+              <tr key={`${page}:${index}:${sample.name}`} data-testid="sample-row" title={sample.files.join(", ")}>
                 <td className="font-data text-ink pr-3">{sample.name}</td>
                 {measurements.map((m) => (
                   <td key={m} className="font-data text-ink-2 pr-3">{valueOf(sample, m) || "—"}</td>

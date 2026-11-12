@@ -30,8 +30,8 @@ def test_sizes_follow_their_files():
 
 
 def test_a_repeated_name_is_numbered():
-    grouped = samples_of([("a.fq", b"1"), ("a.fq", b"2")], ())
-    assert [s.name for s in grouped] == ["a", "a#2"]
+    grouped = samples_of([("a.fq", b"1"), ("a.fq", b"2"), ("a.fq", b"3")], ())
+    assert [s.name for s in grouped] == ["a", "a#2", "a#3"]
 
 
 @needs_db
@@ -108,3 +108,51 @@ def test_the_models_memory_has_the_spread_and_no_name(clean):  # noqa: F811
     text = known.text(sid)
     assert "paired: yes in 1 samples, no in 1" in text
     assert "patient07" not in text and "patient08" not in text
+
+
+@pytest.mark.parametrize("names", [
+    ("S1_L001_R1_001.fastq.gz", "S1_L001_R2_001.fastq.gz"),
+    ("a_r1.fq", "a_r2.fq"),
+    ("a_R1", "a_R2"),
+    ("a_R1.fq.gz", "a_R2.fq"),
+    ("a.R1.fq", "a.R2.fq"),
+])
+def test_real_world_mates_pair(names):
+    """bcl2fastq's own names, lowercase, no extension, mixed compression (stage 2 review)."""
+    (one,) = samples_of([(n, b"x") for n in names], ())
+    assert [f for f, _ in one.files] == sorted(names)
+
+
+def test_two_files_that_do_not_look_like_mates_are_still_one_sample():
+    """What an upload of two files always was: one sample, read as a pair if it is one."""
+    (one,) = samples_of([("left.fq", b"x"), ("right.fq", b"y")], ())
+    assert [f for f, _ in one.files] == ["left.fq", "right.fq"]
+
+
+def test_a_sample_name_too_long_for_the_record_is_shortened_not_logged():
+    from mendel_api.authoring.types import UploadedSample
+    from mendel_api.stages.samples import _sample_name
+
+    name = _sample_name("x" * 400)
+    assert len(name) <= 256
+    UploadedSample(name=name, outcome="measured")
+
+
+def test_a_fact_is_recorded_only_when_every_sample_decided_it():
+    """One FASTQ pair and a BAM nothing reads: the pair's facts are not the study's (review)."""
+    from mendel_api.services import inspect, registry
+    from mendel_api.services.sample_upload import samples_of
+    from mendel_api.stages.samples import _agreed
+
+    (r1, r2) = PAIR
+    grouped = samples_of([("a_R1.fq.gz", r1.read_bytes()), ("a_R2.fq.gz", r2.read_bytes()),
+                          ("b.bam", b"not a fastq")], ())
+    found = [inspect.inspect_sample(list(s.files), registry.stack(), None) for s in grouped]
+    assert _agreed(found).facts == []
+
+
+def test_the_which_value_proposal_types_the_most_common_number():
+    from mendel_api.stages.gathering import _candidate_option
+    from mendel_api.authoring.types import FactKind
+
+    assert _candidate_option(FactKind.MEASUREMENT, 150, {"value": "Type it"}) == ("value", 150)

@@ -98,6 +98,7 @@ Model: `comeni_core.declared.vocabulary.Vocabulary`
 | `params` | dict | per type, from `param` above |
 | `columns` | dict | per type, from `sample_columns` above |
 | `grains` | dict | per type, from `grain` above |
+| `blank_second` | set | the types whose `second_may_be_blank` is true |
 | `entry_channels` | dict | per type, from `entry_channel` above |
 | `names` | dict | per type that declares one, from `name` above |
 | `explains` | dict | per type that declares one, from `explain` above |

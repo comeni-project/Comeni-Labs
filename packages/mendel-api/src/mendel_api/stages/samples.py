@@ -638,13 +638,20 @@ def _upload(ctx: Ctx, cmd: c.UploadSample) -> Uploaded:
     return Uploaded(inspection, answer, False)
 
 
+def _sample_name(name: str) -> str:
+    """A sample's name as the session keeps it: at most 256 characters, cut rather than refused,
+    so a long file name never fails the upload or reaches a validation message (review)."""
+    return name if len(name) <= 256 else name[:255] + "…"
+
+
 def _keep_samples(session_id: str, grouped, inspections) -> None:
     """Every sample, with its name, its files and what was measured on it, on the session."""
     from mendel_api.authoring.types import SampleFact, UploadedSample
 
     kept = [
         UploadedSample(
-            name=sample.name, files=[name for name, _ in sample.files], outcome=found.outcome,
+            name=_sample_name(sample.name),
+            files=[_sample_name(name) for name, _ in sample.files], outcome=found.outcome,
             facts=[SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage)
                    for f in found.facts if f.undetermined is None],
         ).model_dump(mode="json")
@@ -685,8 +692,9 @@ def uploaded(session_id: str) -> list[dict]:
 
 
 def _agreed(inspections):
-    """What several samples settle together: each fact every measured sample decided the same
-    way. A fact they disagree on is left out, to be asked (#466)."""
+    """What several samples settle together: each fact every sample decided the same way. A fact
+    they disagree on, or one a sample did not decide (or was not read), is left out, to be asked
+    (#466)."""
     measured = [i for i in inspections if i.outcome == "measured"]
     if not measured:
         return inspections[0]
@@ -696,7 +704,8 @@ def _agreed(inspections):
         for f in found.facts:
             if f.undetermined is None:
                 values.setdefault(f.measurement, set()).add(repr(f.value))
-    decided = {m for m, v in values.items() if len(v) == 1
+    # Every sample, not only those read: a sample nothing measured has not agreed (review).
+    decided = {m for m, v in values.items() if len(v) == 1 and len(measured) == len(inspections)
                and all(any(f.measurement == m and f.undetermined is None for f in i.facts)
                        for i in measured)}
     return first.model_copy(update={
