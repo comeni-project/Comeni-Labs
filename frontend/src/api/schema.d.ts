@@ -1783,6 +1783,11 @@ export interface components {
              */
             facts: components["schemas"]["Fact"][];
             /**
+             * Samples
+             * @default []
+             */
+            samples: components["schemas"]["UploadedSample"][];
+            /**
              * Inputs
              * @default []
              */
@@ -4568,6 +4573,18 @@ export interface components {
             source: components["schemas"]["TextSource"];
         };
         /**
+         * SampleFact
+         * @description One fact measured on one uploaded sample (#466).
+         */
+        SampleFact: {
+            /** Measurement */
+            measurement: string;
+            /** Value */
+            value?: number | boolean | string | null;
+            /** Coverage */
+            coverage?: ("head" | "all") | null;
+        };
+        /**
          * SampleInspected
          * @description What one uploaded sample measured, and what that settled (14.7.6.4).
          */
@@ -5141,6 +5158,28 @@ export interface components {
             node: string;
             /** Position */
             position: number;
+        };
+        /**
+         * UploadedSample
+         * @description One sample of an upload, kept with the session: its name and files, and what was
+         *     measured on it (#466). Session state only: a sample's name never reaches a goal, a
+         *     pipeline, a model or a log (operator, 11-12).
+         */
+        UploadedSample: {
+            /** Name */
+            name: string;
+            /**
+             * Files
+             * @default []
+             */
+            files: string[];
+            /** Outcome */
+            outcome: string;
+            /**
+             * Facts
+             * @default []
+             */
+            facts: components["schemas"]["SampleFact"][];
         };
         /** Upstream */
         Upstream: {

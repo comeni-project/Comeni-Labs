@@ -58,31 +58,29 @@ describe("uploading a sample", () => {
     await waitFor(() => expect(onAnswered).toHaveBeenCalledWith(answered, ["s_R1.fq"]));
   });
 
-  it("asks for one file where a sample is one file, and refuses a second (issue 328)", async () => {
-    const onUpload = vi.fn();
-    render(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={onUpload}
+  it("asks for one file per sample where a sample is one file, and takes several (issue 466)", async () => {
+    render(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={vi.fn()}
       onAnswered={vi.fn()} files={1} />);
-    expect(screen.getByText("Choose one file.")).toBeTruthy();
+    expect(screen.getByText("Choose one file per sample.")).toBeTruthy();
     expect(screen.queryByText(/paired/)).toBeNull();
     const input = screen.getByLabelText(LABEL) as HTMLInputElement;
-    expect(input.multiple).toBe(false);
+    expect(input.multiple).toBe(true);
     fireEvent.drop(input.closest("label")!,
       { dataTransfer: { files: [fq("genome.fa"), fq("other.fa")], types: ["Files"] } });
-    expect(screen.getByRole("alert").textContent).toMatch(/2 files: choose one file\./);
-    expect(onUpload).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("other.fa")).toBeTruthy();
   });
 
-  it("offers a pair where a sample may be two files", () => {
+  it("offers pairs where a sample may be two files", () => {
     setup();
-    expect(screen.getByText(/both files if your reads are paired/)).toBeTruthy();
+    expect(screen.getByText(/both files of each paired sample/)).toBeTruthy();
   });
 
-  it("refuses three files on the card, before any request", async () => {
-    const { onUpload } = setup();
+  it("takes every sample of a study in one go (issue 466)", async () => {
+    setup();
     await userEvent.upload(screen.getByLabelText(LABEL), [fq("a.fq"), fq("b.fq"), fq("c.fq")]);
-    expect(screen.getByRole("alert").textContent).toMatch(/3 files: choose one file, or both files if your reads are paired/);
-    expect(screen.queryByRole("button", { name: "Measure" })).toBeNull();
-    expect(onUpload).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Measure" })).toBeTruthy();
   });
 
   it("says why a file could not be read", async () => {
@@ -171,15 +169,14 @@ describe("what a sample measured", () => {
 });
 
 describe("dropping and waiting", () => {
-  it("takes files dropped on it, and refuses three dropped", async () => {
+  it("takes files dropped on it, any number of them", async () => {
     const { onUpload } = setup();
     const target = screen.getByLabelText(LABEL).closest("label")!;
     const drop = (files: File[]) =>
       fireEvent.drop(target, { dataTransfer: { files, types: ["Files"] } });
     drop([fq("a.fq"), fq("b.fq"), fq("c.fq")]);
-    expect(screen.getByRole("alert").textContent).toMatch(/3 files/);
-    drop([fq("s_R1.fq")]);
-    expect(screen.getByText("s_R1.fq")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("c.fq")).toBeTruthy();
     expect(onUpload).not.toHaveBeenCalled();
   });
 
@@ -227,7 +224,7 @@ describe("the AI reading a sample (issue 135)", () => {
     setupReading();
     const input = screen.getByLabelText(LABEL) as HTMLInputElement;
     expect(input.accept).toBe("");
-    expect(screen.getByText(/Choose one file, or both files if your reads are paired/))
+    expect(screen.getByText(/one file per sample, or both files of each paired sample/))
       .toBeTruthy();
     expect(document.body.textContent).not.toMatch(/4 MB|8 KB|the AI to read/);
   });

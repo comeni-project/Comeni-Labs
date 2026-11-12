@@ -43,13 +43,14 @@ from mendel_api.authoring.types import (
     ProposalState,
     Prose,
     TurnState,
+    UploadedSample,
 )
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
 from mendel_api.refusals import REFUSES
 from mendel_api.services import authoring_preview, drafts, session
 from mendel_api.settings import model_access
-from mendel_api.stages import building, gathering, goal
+from mendel_api.stages import building, gathering, goal, samples
 
 router = APIRouter(prefix="/pipeline/authoring", tags=["authoring"])
 
@@ -244,6 +245,8 @@ class AuthoringSessionView(BaseModel):
     failed_from: Phase | None
     goal: Goal | None
     facts: list[Fact] = []
+    samples: list[UploadedSample] = []
+    """Every sample of the last upload, with its name and measurements (#466)."""
     inputs: list[InputDecision] = []
     fact_subjects: list[str] = []
     decision_revision: int = 0
@@ -746,6 +749,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
         goal=gathering.as_goal(picture["goal"]),
         facts=picture["facts"],
+        samples=samples.uploaded(session_id),
         **{
             key: picture[key]
             for key in (

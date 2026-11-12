@@ -24,16 +24,14 @@ type Stage =
   | { at: "done"; files: File[]; result: SampleInspected }
   | { at: "failed"; files: File[]; why: string };
 
-const PAIR = "choose one file, or both files if your reads are paired";
-const ONE = "choose one file";
 /** How to choose, in the person's terms (Part I.1). **Nothing about bytes or the AI read on the
  *  card** (operator, 2026-10-13, replacing issue 135's line): on an install a lab runs itself it
  *  reads as a warning; Settings → Privacy says where each purpose goes. A pair only where a
  *  sample of the type may be two files (issue 328): never under a genome. */
 const CHOOSE_PAIR =
-  "Choose one file, or both files if your reads are paired. Paired files are usually named "
-  + "_R1 and _R2, or _1 and _2.";
-const CHOOSE_ONE = "Choose one file.";
+  "Choose your samples' files: one file per sample, or both files of each paired sample. "
+  + "Paired files are usually named _R1 and _R2, or _1 and _2.";
+const CHOOSE_ONE = "Choose one file per sample.";
 
 export function SampleUpload({
   proposalId,
@@ -73,11 +71,7 @@ export function SampleUpload({
   const pick = (list: FileList | null) => {
     const files = Array.from(list ?? []);
     if (files.length === 0) return;
-    if (files.length > most) {
-      setRefusal(`${files.length} files: ${most > 1 ? PAIR : ONE}.`);
-      setStage({ at: "offered" });
-      return;
-    }
+    // Any number: a study's every sample at once (issue 466); the server pairs the mates.
     setRefusal(null);
     setStage({ at: "picked", files });
   };
@@ -148,7 +142,7 @@ export function SampleUpload({
         <input
           id={field}
           type="file"
-          multiple={most > 1}
+          multiple
           className="sr-only"
           disabled={busy}
           onChange={(e) => {

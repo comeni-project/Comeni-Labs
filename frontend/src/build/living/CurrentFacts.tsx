@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import type { AuthoringSession, AuthoringVocabulary } from "../../api/types";
 import { FactEditor, type FactValue } from "./FactEditor";
 import { FactHistory, factWords, sourceWords } from "./FactHistory";
+import { Samples } from "./Samples";
 
 export type CorrectFact = (subject: string, value: FactValue, kind: "input" | "measurement") => Promise<unknown>;
 /** Whether there is any current answer to show — the describe page draws no empty section. */
 export function hasCurrentFacts(session: AuthoringSession): boolean {
   return (session.facts ?? []).some(fact => fact.kind === "measurement") || (session.inputs ?? []).length > 0
-    || (session.goal?.constraints?.producers ?? []).length > 0 || (session.fact_subjects ?? []).length > 0;
+    || (session.goal?.constraints?.producers ?? []).length > 0 || (session.fact_subjects ?? []).length > 0
+    || (session.samples ?? []).length > 0;
 }
 
 export function CurrentFacts({ session, declarations, onCorrect, onRelease, openRequest = 0, disabled = false, open = false,
@@ -33,7 +35,8 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, open
   const facts = (session.facts ?? []).filter(fact => fact.kind === "measurement");
   const absent = (session.fact_subjects ?? []).filter(subject => !facts.some(fact => fact.subject === subject));
   const inputs = session.inputs ?? [];
-  if (!facts.length && !inputs.length && !pins.length && !absent.length) return null;
+  if (!facts.length && !inputs.length && !pins.length && !absent.length
+    && !(session.samples ?? []).length) return null;
   return <details ref={details} className="mb-4 text-[12px]" open={editing !== null || open ? true : undefined}>
     <summary className="cursor-pointer text-ink-2">Current answers · {facts.length + inputs.length + absent.length}</summary>
     {error && <p role="alert">{error}</p>}
@@ -58,5 +61,6 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, open
         onSave={value => onCorrect(fact.subject, value, fact.kind)} />}
       {<FactHistory sessionId={session.id} subject={fact.subject} revision={session.row_version} />}
     </div>)}
+    <Samples samples={session.samples ?? []} />
   </details>;
 }

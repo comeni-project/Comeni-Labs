@@ -102,13 +102,13 @@ the conversation") and H.
 - Modify: `packages/mendel-api/src/mendel_api/services/characterise.py` and its egress payload (up to three labelled excerpts, by sample position, never by name), with a new prompt version
 - Test: the memory and characterisation tests, with recorded replies
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - the memory says *read length: 150 in 480 samples, 75 in 20* and holds no sample name;
   - three unread files give three excerpts, never more, and no names.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the tests and `make guards`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: the model sees how the samples spread, never their names (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the tests and `make guards`. Expected: pass.
+- [x] **Step 5: Commit** `feat: the model sees how the samples spread, never their names (#466)`.
 
 ### Task 4: The builder shows the samples, and each fact's choice
 
@@ -118,15 +118,15 @@ the conversation") and H.
 - Create: `frontend/src/build/living/Samples.tsx`: a table of every sample with its measurements, sortable, filtered by text, and grouped by a fact. Each fact that differs offers *use one value* or *split by it*, which answer its gap.
 - Test: `Samples.test.tsx`, the gap card's test
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - the table lists every sample with each measurement;
   - grouping by `paired` shows two groups with their counts;
   - *split by it* answers the gap with *varies*, and *use one value* with the chosen value;
   - 500 rows render (paged, or virtualised).
-- [ ] **Step 2: Run** `npx vitest run`. Expected: FAIL.
-- [ ] **Step 3: Implement** with the design tokens.
-- [ ] **Step 4: Run** `npx vitest run` and `npx tsc -b`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: the builder shows every sample and lets a fact be one value or split (#466)`.
+- [x] **Step 2: Run** `npx vitest run`. Expected: FAIL.
+- [x] **Step 3: Implement** with the design tokens.
+- [x] **Step 4: Run** `npx vitest run` and `npx tsc -b`. Expected: pass.
+- [x] **Step 5: Commit** `feat: the builder shows every sample and lets a fact be one value or split (#466)`.
 
 ### Task 5: Docs and the end of the part
 
