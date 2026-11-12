@@ -654,6 +654,36 @@ def _keep_samples(session_id: str, grouped, inspections) -> None:
         db.get(PipelineAuthoringSession, session_id).samples = kept
 
 
+def spread(kept: list[dict], measurement: str) -> list[tuple]:
+    """How the uploaded samples spread over one fact's values: `(value, count)`, most common
+    first, then in the order the values were first seen (#466)."""
+    counts: dict = {}
+    for sample in kept:
+        for fact in sample.get("facts", []):
+            if fact["measurement"] == measurement and fact.get("value") is not None:
+                key = repr(fact["value"])
+                value, count = counts.get(key, (fact["value"], 0))
+                counts[key] = (value, count + 1)
+    return sorted(counts.values(), key=lambda pair: -pair[1])
+
+
+def spread_words(found: list[tuple]) -> str:
+    """`150 in 480 samples, 75 in 20`: a spread as the card and the model say it."""
+    def shown(value) -> str:
+        return {True: "yes", False: "no"}.get(value, str(value)) if isinstance(value, bool) \
+            else str(value)
+    head, *rest = found
+    return ", ".join([f"{shown(head[0])} in {head[1]} samples",
+                      *(f"{shown(v)} in {n}" for v, n in rest)])
+
+
+def uploaded(session_id: str) -> list[dict]:
+    """The session's samples, as the last upload kept them; empty when there are none."""
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        return list(row.samples or []) if row is not None else []
+
+
 def _agreed(inspections):
     """What several samples settle together: each fact every measured sample decided the same
     way. A fact they disagree on is left out, to be asked (#466)."""

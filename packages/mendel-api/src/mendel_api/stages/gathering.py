@@ -339,6 +339,7 @@ def offer_gap_or_card(session_id: str) -> str:
     )
     if offered is not None and (fill := _candidate_option(gap.kind, offered.value, options)):
         question = _prefilled(question, *fill, note=STATED_NOTE)
+    question = _from_uploads(session_id, gap, question, options, stack)
     cached, phrased = cached_phrasing(session_id, gap.subject)
     if phrased is not None:
         question = _phrased(question, AskedGap.model_validate(phrased), gap.kind, options)
@@ -358,6 +359,33 @@ def offer_gap_or_card(session_id: str) -> str:
         },
     )
     return "a_gap"
+
+
+UPLOADS_NOTE = "proposed from your uploads"
+"""The note on an option the uploaded samples' spread proposes (#466)."""
+
+
+def _from_uploads(session_id: str, gap, question: Question, options: dict[str, str],
+                  stack) -> Question:
+    """Where the uploaded samples disagree on the fact asked (#466): the spread, said on the
+    card, and a proposed answer that waits for the person's click (operator, 11-11). *It
+    differs between samples* where the fact can vary; otherwise which value to build for, the
+    most common proposed."""
+    from mendel_api.stages import samples
+
+    if gap.kind is not FactKind.MEASUREMENT:
+        return question
+    found = samples.spread(samples.uploaded(session_id), gap.subject)
+    if len(found) < 2:
+        return question
+    said = f"Your uploads differ: {samples.spread_words(found)}."
+    question = question.model_copy(update={"why_open": f"{said} {question.why_open}"})
+    if VARIES in options:
+        return _prefilled(question, VARIES, None, note=UPLOADS_NOTE)
+    question = question.model_copy(update={
+        "asks": f"{question.asks} Which should the pipeline be built for?"})
+    fill = _candidate_option(gap.kind, found[0][0], options)
+    return _prefilled(question, *fill, note=UPLOADS_NOTE) if fill else question
 
 
 STATED_NOTE = "suggested by AI"

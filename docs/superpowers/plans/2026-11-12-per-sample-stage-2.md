@@ -57,14 +57,14 @@ the conversation") and H.
   - `inspect_samples(samples, stack, claimed) -> list[tuple[Sample, Inspection]]`.
   - The session's `samples`: a list of `{name, files, outcome, facts: [{measurement, value, coverage}]}`, in upload order. A new upload replaces it.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - mates pair (`a_R1`, `a_R2`), and unpaired files stand alone;
   - 500 pairs of tiny FASTQ heads in one upload give 500 stored samples, each with its facts;
   - deleting the session leaves no sample name behind (`grep -rn "def delete" packages/mendel-api/src/mendel_api/services/deletion.py`).
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.** One upload of one sample keeps today's behaviour.
-- [ ] **Step 4: Run** `packages/mendel-api/tests/authoring/samples` and the shape tests. Expected: pass.
-- [ ] **Step 5: Commit** `feat: an upload holds every sample, each kept with its measurements (#466, #218)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.** One upload of one sample keeps today's behaviour.
+- [x] **Step 4: Run** `packages/mendel-api/tests/authoring/samples` and the shape tests. Expected: pass.
+- [x] **Step 5: Commit** `feat: an upload holds every sample, each kept with its measurements (#466, #218)`.
 
 ### Task 2: Agreement is recorded; a split is asked, with a proposal
 
@@ -84,16 +84,16 @@ the conversation") and H.
     The proposal waits for the person's click.
   - A fact the person stated is not asked again; the spread goes to `disagreed`, as today.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - agreement records the value with `samples: 500`;
   - paired and single-end samples propose *varies* and record nothing until the click;
   - 480 at 150 bp and 20 at 75 bp make `read_length` ask which to build for, proposing 150;
   - agreeing and disagreeing facts in one upload (Review Focus 3);
   - a stated fact is not asked again (Review Focus 4).
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `packages/mendel-api/tests/authoring`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: samples that disagree are asked, with the spread and a proposal (#466, #218)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `packages/mendel-api/tests/authoring`. Expected: pass.
+- [x] **Step 5: Commit** `feat: samples that disagree are asked, with the spread and a proposal (#466, #218)`.
 
 ### Task 3: The model sees the spread, and reads a few files nothing measures
 

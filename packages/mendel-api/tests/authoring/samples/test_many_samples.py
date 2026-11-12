@@ -52,3 +52,42 @@ def test_many_pairs_in_one_upload_are_each_kept_with_their_facts(clean):  # noqa
     assert kept[0]["files"] == ["s000_R1.fq.gz", "s000_R2.fq.gz"]
     facts = {f["measurement"]: f["value"] for f in kept[0]["facts"]}
     assert facts["paired"] is True and facts["read_length"] == 150
+
+
+def test_the_spread_counts_each_value_most_common_first():
+    from mendel_api.stages.samples import spread
+
+    kept = ([{"facts": [{"measurement": "read_length", "value": 150}]}] * 480
+            + [{"facts": [{"measurement": "read_length", "value": 75}]}] * 20
+            + [{"facts": []}])
+    assert spread(kept, "read_length") == [(150, 480), (75, 20)]
+
+
+def test_the_spread_is_said_in_words():
+    from mendel_api.stages.samples import spread_words
+
+    assert spread_words([(150, 480), (75, 20)]) == "150 in 480 samples, 75 in 20"
+    assert spread_words([(True, 3), (False, 1)]) == "yes in 3 samples, no in 1"
+
+
+@needs_db
+def test_samples_that_differ_on_pairing_propose_it_varies(clean):  # noqa: F811
+    """Paired and single-end uploads record no pairing and propose *it differs*, waiting for
+    the click (operator, 11-11)."""
+    from mendel_api.services import session as facade
+    from mendel_api_tests.samples import _payload
+
+    sid = _gathering(["counts.matrix"])
+    pid = _pending_for(sid, "paired")
+    (r1, r2) = PAIR
+    files = [("files", ("a_R1.fq.gz", r1.read_bytes())), ("files", ("a_R2.fq.gz", r2.read_bytes())),
+             ("files", ("b.fq.gz", r1.read_bytes()))]
+    got = TestClient(create_app()).post(f"/api/pipeline/authoring/{sid}/samples",
+                                        data={"proposal_id": pid}, files=files)
+    assert got.status_code == 200, got.text
+    pending = _payload(facade.pending_id(sid))
+    assert pending["subject"] == "paired"
+    block = pending["block"]
+    assert "yes in 1 samples, no in 1" in block["why_open"]
+    (recommended,) = [o for o in block["options"] if o.get("recommended")]
+    assert recommended["id"] == "varies"
