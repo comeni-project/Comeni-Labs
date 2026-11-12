@@ -401,6 +401,7 @@ export function LivingCanvas({
             counts={steps[id] && !isGhost ? valuesOf([steps[id]]) : undefined}
             reviewState={isGhost ? (reviews[id] === "again" ? "again" : "proposed") : reviews[id] ?? "unknown"}
             perItem={steps[id]?.runs === "per_item"}
+            takes={steps[id]?.takes_samples?.samples}
             ghost={isGhost}
             selected={selected === id}
             className={id in reveal ? "living-reveal" : played?.className}

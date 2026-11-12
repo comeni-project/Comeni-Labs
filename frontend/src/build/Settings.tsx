@@ -298,6 +298,23 @@ export function Settings({
         </div>
       )}
 
+      {step.takes_samples && (
+        <div data-testid="takes-samples" className="px-[15px] py-3 border-b border-line">
+          <div className="text-secondary text-ink">
+            takes only {step.takes_samples.samples}
+          </div>
+          <div className="pt-[4px] text-label text-ink-3">
+            each sample's tool is chosen by {step.takes_samples.lookup.rule}, from{" "}
+            {step.takes_samples.lookup.facts.map((f) => `${f.fact} ${f.said}`).join("; ")}
+          </div>
+          <ul className="pt-[4px]">
+            {step.takes_samples.lookup.rows.map((row) => (
+              <li key={row} className="font-data text-label text-ink-2">{row}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {step.settings.length === 0 && (
         <p className="px-[15px] py-4 text-body text-ink-2 m-0">
           This step takes no parameters. Everything it does is forced by the module.

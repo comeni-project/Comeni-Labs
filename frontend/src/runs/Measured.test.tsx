@@ -48,6 +48,14 @@ describe("what the run measured (issue 465)", () => {
       "from read_length 150 (from the samplesheet), strandedness reverse (measured in the run)");
   });
 
+  it("says which tool each sample went through when it was chosen per sample (issue 466)", async () => {
+    show({ facts: [], decided: [{ step: "alignment", setting: "tool", sample: "S1",
+                                  value: "nf-core.star.align:2.7.11b", facts: [
+                                    { fact: "read_length", value: "150", source: "cell" }] }] });
+    expect((await screen.findByTestId("measured-decided")).textContent).toContain(
+      "S1 went through nf-core/star/align@2.7.11b for alignment, chosen in the run from read_length 150 (from the samplesheet)");
+  });
+
   it("renders nothing for a run that measured nothing", async () => {
     const { container } = show({ facts: [], decided: [] });
     await new Promise((resolve) => setTimeout(resolve, 20));

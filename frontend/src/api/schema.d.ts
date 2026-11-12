@@ -3278,6 +3278,18 @@ export interface components {
          * @enum {string}
          */
         Grain: "study" | "sample";
+        /**
+         * GuardView
+         * @description The samples a step takes when each sample's tool is chosen per sample (#466): the
+         *     tools whose samples come here, in a sentence, and the rule as the card shows a lookup.
+         */
+        GuardView: {
+            /** Tools */
+            tools: string[];
+            /** Samples */
+            samples: string;
+            lookup: components["schemas"]["AtRunView"];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -4997,6 +5009,7 @@ export interface components {
              * @default []
              */
             checked_per_sample: string[];
+            takes_samples?: components["schemas"]["GuardView"] | null;
             /** Settings */
             settings: components["schemas"]["SettingView"][];
         };

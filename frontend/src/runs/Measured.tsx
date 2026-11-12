@@ -61,7 +61,9 @@ export function Measured({ runId, live }: { runId: string; live: boolean }) {
         {decided.map((value) => (
           <li key={`${value.step}.${value.setting}:${value.sample}`} data-testid="measured-decided"
               className="font-data text-secondary text-ink-2">
-            {value.step}.{value.setting} was {value.value} for {value.sample}, decided at run time
+            {value.setting === "tool"
+              ? <>{value.sample} went through {tool(value.value)} for {value.step}, chosen in the run</>
+              : <>{value.step}.{value.setting} was {value.value} for {value.sample}, decided at run time</>}
             {value.facts && value.facts.length > 0 && (
               <span>
                 {" "}from {value.facts.map((f) => `${f.fact} ${f.value} (${FROM[f.source]})`).join(", ")}
@@ -72,6 +74,12 @@ export function Measured({ runId, live }: { runId: string; live: boolean }) {
       </ul>
     </section>
   );
+}
+
+/** A tool as the run writes it, `nf-core.star.align:2.7.11b`, back to its id (issue 466). */
+function tool(token: string): string {
+  const at = token.lastIndexOf(":");
+  return at < 0 ? token : `${token.slice(0, at).replaceAll(".", "/")}@${token.slice(at + 1)}`;
 }
 
 /** Where a decided value's fact came from (issue 466). */

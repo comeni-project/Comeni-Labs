@@ -339,3 +339,33 @@ describe("a tool rule checked per sample (issue 466)", () => {
     expect(block.textContent).toContain("a sample whose paired is false");
   });
 });
+
+
+describe("a step only some samples take (issue 466)", () => {
+  it("says which samples, and the rule that sends them", async () => {
+    show({ ...STEP, takes_samples: {
+      tools: ["nf-core/star/align@2.7.11b"],
+      samples: "samples where read_length >= 70, and any sample no row covers",
+      lookup: {
+        facts: [{ fact: "read_length", source: "cell_or_measured",
+                  said: "from the samplesheet, measured in the run where left blank",
+                  measured_by: "comeni/measure/fastq@1.0.0" }],
+        rule: "implementation:alignment",
+        rows: ["read_length >= 70 → nf-core/star/align@2.7.11b",
+               "read_length < 70 → nf-core/hisat2/align@2.2.2"],
+        fallback: "nf-core/star/align@2.7.11b", fallback_is: "value",
+        fallback_reason: "asked once",
+      },
+    } });
+    const block = await screen.findByTestId("takes-samples");
+    expect(block.textContent).toContain("takes only samples where read_length >= 70");
+    expect(block.textContent).toContain("read_length < 70 → nf-core/hisat2/align@2.2.2");
+    expect(block.textContent).toContain("from the samplesheet, measured in the run where left blank");
+  });
+
+  it("says nothing when every sample comes here", async () => {
+    show(STEP);
+    await screen.findByTestId("settings-card");
+    expect(screen.queryByTestId("takes-samples")).toBeNull();
+  });
+});

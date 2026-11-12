@@ -176,6 +176,29 @@ def at_run_view(at_run) -> AtRunView | None:
     )
 
 
+class GuardView(BaseModel):
+    """The samples a step takes when each sample's tool is chosen per sample (#466): the
+    tools whose samples come here, in a sentence, and the rule as the card shows a lookup."""
+
+    tools: list[str]
+    samples: str
+    """`samples where read_length >= 70`, with `, and any sample no row covers` when this
+    branch's tool is the fallback."""
+    lookup: AtRunView
+
+
+def guard_view(guard) -> GuardView | None:
+    if guard is None:
+        return None
+    lookup = guard.lookup
+    taken = [" and ".join(_condition_words(c) for c in row.when) or "any sample"
+             for row in lookup.rows if row.then in guard.takes]
+    samples = "samples where " + " or ".join(dict.fromkeys(taken)) if taken else "no sample"
+    if lookup.fallback in guard.takes:
+        samples += ", and any sample no row covers"
+    return GuardView(tools=list(guard.takes), samples=samples, lookup=at_run_view(lookup))
+
+
 class SettingView(BaseModel):
     """One resolved parameter, as the settings card needs it.
 
@@ -328,6 +351,9 @@ class StepView(BaseModel):
     checked_per_sample: list[str] = []
     """The tool's rules each sample's facts settle (#466): a sample breaking one stops the run
     before this step runs."""
+    takes_samples: GuardView | None = None
+    """Which samples this step takes, when each sample's tool is chosen per sample and only
+    some come here (#466); `None` when every sample does."""
     settings: list[SettingView]
     """**The parameters themselves, not a count.** A node shows `N settings` from `len()`; the
     card needs the rows, and a second request to fetch them would make opening a card a network
@@ -502,6 +528,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                  tier=int(step.why.tier), runs=runs[step.id], reason=step.why.reason,
                  ports=ports_of(step.id),
                  checked_per_sample=[rule.says for rule in step.sample_rules],
+                 takes_samples=guard_view(step.guard),
             settings=[
                 SettingView(
                     name=setting.name,
