@@ -38,10 +38,10 @@ from comeni_core.plan.ir import PipelineIR
 from comeni_core.plan.tiers import Grain
 from comeni_core.spell.routes import Via
 
-from mendel_resolver.cases import overlapping
+from mendel_resolver.cases import _hits, cases, overlapping
 from mendel_resolver.measure_steps import steps_for
 from mendel_resolver.rules import Derivation, RuleTable
-from mendel_resolver.rules.format import Decision, FactRef, _comparison
+from mendel_resolver.rules.format import Decision, Effect, FactRef, _comparison
 from mendel_resolver.rules.table import _visible
 
 AT_RUN_STOP = "!stop"
@@ -401,3 +401,71 @@ def deferrable(registry: Registry, rules: RuleTable, premises: dict,
             ) and _tie_free(decision, unknown, visible, measurements, derived):
                 found.add((contract.id, param.name))
     return frozenset(found)
+
+
+@dataclass(frozen=True)
+class BranchPoint:
+    """A tool chosen per sample (#466, stage 4): an `implementation` decision whose rows wait
+    only on facts a person said differ between samples, each carried by the samplesheet (and
+    measured where its cell is blank)."""
+
+    decision: Decision
+    facts: tuple[str, ...]
+    """The facts its rows read that nobody stated, sorted."""
+    sources: tuple[AtRunSource, ...]
+    """Where each of `facts` comes from in the run, in the same order."""
+    rows: tuple[AtRunRow, ...]
+    """The decision's rows with known facts substituted; each `then` is a tool."""
+    outcomes: tuple[str, ...]
+    """Each tool some case of `facts` reaches, in row order: the routes the build makes."""
+
+    def source(self, fact: str) -> AtRunSource:
+        return self.sources[self.facts.index(fact)]
+
+
+def branch_points(registry: Registry, rules: RuleTable, premises: dict,
+                  measurements: MeasurementRegistry, goal: Goal) -> list[BranchPoint]:
+    """Every tool choice this goal makes per sample, judged before any route exists, in
+    decision order.
+
+    Only a fact a person said varies makes a branch: a fact nobody knows, and nobody said
+    differs, stays the question it is today. As for a run-time setting, `hit: unique` branches
+    only without overlaps, and every row must be expressible in the closed tests. Rows that
+    reach a single tool over every case are no branch: that tool is the answer."""
+    derived = {d.fact: d for d in rules.derivations}
+    found = []
+    for decision in rules.decisions:
+        if not any(t.effect is Effect.IMPLEMENTATION for t in decision.targets()):
+            continue
+        roles = [t.of for t in decision.targets() if t.effect is Effect.IMPLEMENTATION]
+        if any(rules.implementation_for(role, premises) is not None for role in roles):
+            continue
+        visible = _visible(decision, premises)
+        read = {key for row in decision.rows for key in row.when}
+        unknown = sorted(f for f in read if f not in visible)
+        if not unknown or any(f in derived for f in unknown):
+            continue
+        sources = [
+            _source(f, bool(registry.producers_of(f"measurement.{f}", frozenset())), goal,
+                    measurements)
+            for f in unknown
+        ]
+        if any(s not in (AtRunSource.CELL, AtRunSource.CELL_OR_MEASURED) for s in sources):
+            continue
+        if not _tie_free(decision, unknown, visible, measurements, derived):
+            continue
+        rows = rows_of(decision, set(unknown), premises, rules, measurements)
+        if rows is None or any(not isinstance(row.then, str) for row in rows):
+            continue
+        every = cases(unknown, decision.rows, measurements,
+                      {f: d.kind for f, d in derived.items()})
+        if every is None:
+            continue
+        reached = {decision.rows[hits[0]].then for case in every
+                   if (hits := _hits(decision, case, visible))}
+        outcomes = tuple(dict.fromkeys(row.then for row in rows if row.then in reached))
+        if len(outcomes) < 2:
+            continue
+        found.append(BranchPoint(decision, tuple(unknown), tuple(sources), tuple(rows),
+                                 outcomes))
+    return found
