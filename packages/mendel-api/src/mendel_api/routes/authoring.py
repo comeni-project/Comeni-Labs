@@ -878,8 +878,8 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
         heads = await sample_upload.read_heads(request, head=inspect.HEAD_BYTES)
     except ValueError as refused:
         raise ValueError(coded("MI0214", str(refused))) from None
-    if not 1 <= heads.count <= 2:
-        raise ValueError(coded("MI0214", f"{heads.count} files: upload one file, or a pair"))
+    if heads.count < 1:
+        raise ValueError(coded("MI0214", "no files: upload one or more samples"))
     proposal_id = heads.fields.get("proposal_id")
     # **Every database call off the event loop** (issue 226): a slow answer here would hold
     # every other request.

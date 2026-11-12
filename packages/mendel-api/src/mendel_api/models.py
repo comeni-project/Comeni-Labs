@@ -379,6 +379,9 @@ class PipelineAuthoringSession(Base):
 
     __tablename__ = "pipeline_authoring_session"
     shape_version: Mapped[int] = stamp("pipeline_authoring_session")
+    samples: Mapped[Any] = mapped_column(Json, nullable=True)
+    """Every sample of the last upload, with its name, its files and its measurements (#466).
+    Deleted with the session; never copied into a goal, a pipeline or a model's payload."""
 
     retired: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     retirement_reason: Mapped[str | None] = mapped_column(

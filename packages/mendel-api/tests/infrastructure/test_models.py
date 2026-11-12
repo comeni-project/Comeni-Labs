@@ -266,6 +266,12 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
             "retirement_reason",
             "pacing",
             "show_gaps",
+            # #466: every uploaded sample, with its name and its files' names, and what was
+            # measured on it. **The one exception to invariant 15 here, by the operator's
+            # decision (11-12):** a study of hundreds of samples is sorted, filtered and split
+            # by sample, so the names are kept with the session, deleted with it, and never
+            # copied into a goal, a pipeline, a model's payload or a log.
+            "samples",
         },
         "pipeline_authoring_turn": {
             "id",

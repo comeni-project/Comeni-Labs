@@ -58,9 +58,9 @@ def test_an_upload_is_inspected_and_answers_the_gap(client, clean):  # noqa: F81
 
 
 @needs_db
-@pytest.mark.parametrize("count", [0, 3])
-def test_any_count_but_one_or_two_is_refused(client, clean, count):  # noqa: F811
-    """Review focus 1."""
+@pytest.mark.parametrize("count", [0])
+def test_an_upload_with_no_file_is_refused(client, clean, count):  # noqa: F811
+    """Review focus 1. Any number of files is a study's samples (#466); none is refused."""
     sid, pid = _at("read_length")
     files = [("files", (f"f{i}.fq", b"@r\nA\n+\nI\n")) for i in range(count)]
     got = _post(client, sid, pid, files)

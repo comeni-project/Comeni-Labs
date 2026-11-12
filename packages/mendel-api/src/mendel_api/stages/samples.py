@@ -593,8 +593,15 @@ def _upload(ctx: Ctx, cmd: c.UploadSample) -> Uploaded:
         owner = db.get(PipelineAuthoringSession, cmd.session_id)
         version = db.get(PipelineDraft, owner.draft_id).decision_revision
         workflow = owner.row_version
-    inspection = inspect.inspect_sample(list(cmd.files), registry.stack(), claimed,
-                                        sizes=tuple(cmd.sizes))
+    from mendel_api.services.sample_upload import samples_of
+
+    # Every sample of the upload, each measured on its own and kept with the session (#466).
+    grouped = samples_of(list(cmd.files), tuple(cmd.sizes))
+    inspections = [inspect.inspect_sample(list(sample.files), registry.stack(), claimed,
+                                          sizes=sample.sizes) for sample in grouped]
+    _keep_samples(cmd.session_id, grouped, inspections)
+    inspection = (inspections[0] if len(inspections) == 1
+                  else _agreed(inspections))
     if claimed is not None:
         end_hand_back(cmd.proposal_id, confirmed=inspection.outcome == "measured")
     # **A hand-back never starts another reading** (issue 246): a re-sent file nothing claims,
@@ -629,6 +636,43 @@ def _upload(ctx: Ctx, cmd: c.UploadSample) -> Uploaded:
         expected_session_version=workflow,
     )
     return Uploaded(inspection, answer, False)
+
+
+def _keep_samples(session_id: str, grouped, inspections) -> None:
+    """Every sample, with its name, its files and what was measured on it, on the session."""
+    from mendel_api.authoring.types import SampleFact, UploadedSample
+
+    kept = [
+        UploadedSample(
+            name=sample.name, files=[name for name, _ in sample.files], outcome=found.outcome,
+            facts=[SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage)
+                   for f in found.facts if f.undetermined is None],
+        ).model_dump(mode="json")
+        for sample, found in zip(grouped, inspections, strict=True)
+    ]
+    with session_scope() as db:
+        db.get(PipelineAuthoringSession, session_id).samples = kept
+
+
+def _agreed(inspections):
+    """What several samples settle together: each fact every measured sample decided the same
+    way. A fact they disagree on is left out, to be asked (#466)."""
+    measured = [i for i in inspections if i.outcome == "measured"]
+    if not measured:
+        return inspections[0]
+    first = measured[0]
+    values: dict[str, set] = {}
+    for found in measured:
+        for f in found.facts:
+            if f.undetermined is None:
+                values.setdefault(f.measurement, set()).add(repr(f.value))
+    decided = {m for m, v in values.items() if len(v) == 1
+               and all(any(f.measurement == m and f.undetermined is None for f in i.facts)
+                       for i in measured)}
+    return first.model_copy(update={
+        "facts": [f for f in first.facts if f.measurement in decided],
+        "steps": [*first.steps, f"measured {len(measured)} of {len(inspections)} samples"],
+    })
 
 
 @records(c.SampleInspected)

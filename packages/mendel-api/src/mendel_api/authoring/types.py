@@ -161,6 +161,25 @@ class FactKind(StrEnum):
     MEASUREMENT = "measurement"
 
 
+class SampleFact(_Shape):
+    """One fact measured on one uploaded sample (#466)."""
+
+    measurement: str = Field(min_length=1, max_length=128)
+    value: HumanParamValue | None = None
+    coverage: Literal["head", "all"] | None = None
+
+
+class UploadedSample(_Shape):
+    """One sample of an upload, kept with the session: its name and files, and what was
+    measured on it (#466). Session state only: a sample's name never reaches a goal, a
+    pipeline, a model or a log (operator, 11-12)."""
+
+    name: str = Field(min_length=1, max_length=256)
+    files: list[str] = []
+    outcome: str = Field(min_length=1, max_length=32)
+    facts: list[SampleFact] = []
+
+
 class FactSource(StrEnum):
     """Where a fact came from, which is what the goal card and the tier-3 premise show."""
 

@@ -9,6 +9,7 @@ streams the body through `python-multipart` and holds at most `head` bytes per f
 """
 
 import asyncio
+import re
 from dataclasses import dataclass, field
 
 from python_multipart.multipart import MultipartParser, parse_options_header
@@ -38,8 +39,9 @@ class Heads:
     count: int = 0
 
 
-async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
-    """Every file part counted; the first `keep` files' first `head` bytes kept."""
+async def read_heads(request: Request, *, head: int, keep: int | None = None) -> Heads:
+    """Every file part counted; the first `head` bytes of each kept, of the first `keep` files
+    or, by default, of every file: an upload may hold hundreds of samples (#466)."""
     kind, options = parse_options_header(request.headers.get("content-type"))
     boundary = options.get(b"boundary")
     if kind != b"multipart/form-data" or not boundary:
@@ -76,7 +78,7 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
                 raise BadUpload(f"a file was sent under a field this route does not read: "
                                 f"{part['name']!r}; send it as {FILES!r}")
             heads.count += 1
-            part["cap"] = head if heads.count <= keep else 0
+            part["cap"] = head if keep is None or heads.count <= keep else 0
         elif not part.get("skip") and part["name"] not in FIELDS:
             raise BadUpload(f"the form has a field this route does not read: {part['name']!r}")
 
@@ -90,7 +92,7 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
         if part.get("skip"):
             return
         if part.get("filename") is not None:
-            if heads.count <= keep:
+            if keep is None or heads.count <= keep:
                 heads.files.append((part["filename"] or "sample", bytes(part["data"])))
         elif part.get("name"):
             heads.fields[part["name"]] = part["data"].decode(errors="replace")
@@ -139,3 +141,54 @@ def sizes_of(field: str | None, files: int) -> tuple[int, ...]:
             or not all(isinstance(n, int) and not isinstance(n, bool) and n >= 0 for n in sizes)):
         return ()
     return tuple(sizes)
+
+
+_MATE = re.compile(r"^(?P<stem>.+?)(?P<sep>[._])(?P<mate>R?[12])(?P<rest>(\.[^.]+)+)$")
+
+
+@dataclass(frozen=True)
+class Sample:
+    """One sample of an upload: a file, or a pair of mates (#466)."""
+
+    name: str
+    files: tuple[tuple[str, bytes], ...]
+    sizes: tuple[int, ...] = ()
+
+
+def samples_of(files: list[tuple[str, bytes]], sizes: tuple[int, ...]) -> list[Sample]:
+    """The upload's files as samples, in the order they came: two files whose names differ
+    only in a mate token (`_R1`/`_R2`, `_1`/`_2`, `.1`/`.2`) before the extension are one sample
+    named by their shared stem; any other file is a sample of its own, named by its stem. A name
+    given twice is numbered (`a#2`)."""
+    known = len(sizes) == len(files)
+    keyed: dict[tuple, list[int]] = {}
+    order: list[tuple] = []
+    for index, (name, _) in enumerate(files):
+        found = _MATE.match(name)
+        # Mates share their stem, separator, `R` or not, and extension; only `1`/`2` differs.
+        key = ((found["stem"], found["sep"], found["mate"].startswith("R"), found["rest"])
+               if found else ("file", index))
+        if key not in keyed:
+            keyed[key] = []
+            order.append(key)
+        keyed[key].append(index)
+    samples: list[Sample] = []
+    seen: dict[str, int] = {}
+    for key in order:
+        indexes = keyed[key]
+        mates = (key[0] != "file" and len(indexes) == 2
+                 and {_MATE.match(files[i][0])["mate"][-1] for i in indexes} == {"1", "2"})
+        groups = [indexes] if mates else [[i] for i in indexes]
+        for group in groups:
+            if mates:
+                name = key[0]
+            else:
+                stem = files[group[0]][0]
+                name = stem.split(".", 1)[0] if "." in stem else stem
+            seen[name] = seen.get(name, 0) + 1
+            if seen[name] > 1:
+                name = f"{name}#{seen[name]}"
+            ordered = sorted(group, key=lambda i: files[i][0])
+            samples.append(Sample(name=name, files=tuple(files[i] for i in ordered),
+                                  sizes=tuple(sizes[i] for i in ordered) if known else ()))
+    return samples
