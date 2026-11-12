@@ -115,6 +115,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       declarations={living.measurements}
       onCorrect={living.correct}
       onRelease={living.releaseTool}
+      onUnits={living.spanRows}
       onDisagreement={living.answerDisagreement}
       correcting={living.correcting}
       onAccept={living.accept}

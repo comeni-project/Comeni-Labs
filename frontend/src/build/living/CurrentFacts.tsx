@@ -12,13 +12,15 @@ export function hasCurrentFacts(session: AuthoringSession): boolean {
     || (session.samples ?? []).length > 0;
 }
 
-export function CurrentFacts({ session, declarations, onCorrect, onRelease, openRequest = 0, disabled = false, open = false,
-  highlight = null }: {
+export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUnits, openRequest = 0, disabled = false,
+  open = false, highlight = null }: {
   session: AuthoringSession; declarations?: AuthoringVocabulary["measurements"];
   /** Open from the start — the describe page, where these answers are the page. */
   open?: boolean;
   onCorrect?: CorrectFact; disabled?: boolean; openRequest?: number;
   onRelease?: (type: string, states: string[]) => Promise<unknown>;
+  /** Whether a sample may span several rows of an input, such as its lanes (issue 466). */
+  onUnits?: (type: string, on: boolean) => Promise<unknown>;
   /** The line an announcement points at, lit for a moment (one builder plan 3). */
   highlight?: string | null;
 }) {
@@ -56,6 +58,16 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, open
       <span>{fact.label}: {factWords(fact.value)} · {sourceWords[fact.source]}</span>
       {onCorrect && <button type="button" disabled={disabled} className="ml-2 text-now-ink underline"
         onClick={() => setEditing(editing === fact.subject ? null : fact.subject)}>Correct {fact.label}</button>}
+      {fact.kind === "input" && fact.value === true && onUnits && (() => {
+        const input = inputs.find(i => i.key === fact.subject)!;
+        return <label className="block pt-[4px] text-ink-2">
+          <input type="checkbox" className="mr-2" disabled={disabled} checked={input.units ?? false}
+            aria-label={`a sample may span several rows of ${input.type_id} (lanes)`}
+            onChange={event => { void onUnits(input.type_id, event.target.checked)
+              .catch(failure => setError(String(failure))); }} />
+          a sample may span several rows, such as the lanes it was sequenced over
+        </label>;
+      })()}
       {editing === fact.subject && onCorrect && <FactEditor subject={fact.subject} value={fact.value}
         kind={fact.kind} declaration={declarations?.[fact.subject]} disabled={disabled}
         onSave={value => onCorrect(fact.subject, value, fact.kind)} />}

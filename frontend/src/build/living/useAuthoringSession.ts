@@ -294,6 +294,16 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     correcting: correction.isPending,
     switchInput: (contract: string, port: string, state: "off" | "optional" | "required") =>
       switching.mutate({ contract, port, state }),
+    // **A sample may span several rows** (issue 466): one change, `units`.
+    spanRows: (type_id: string, on: boolean) => {
+      const current = session.data;
+      if (!current) return Promise.reject(new Error("Reload the session before changing an input"));
+      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
+        change: { kind: "units", subject: type_id, value: on },
+        expected_decision_revision: current.decision_revision ?? 0,
+        expected_draft_revision: current.revision, expected_session_version: current.row_version,
+      }).then(() => refresh());
+    },
     releaseTool: (type_id: string, states: string[]) => correction.mutateAsync({
       release: { type_id, states }, value: null }),
     correct: (subject: string, value: FactValue, kind: "input" | "measurement") =>

@@ -127,3 +127,23 @@ def test_an_optional_input_change_switches_it_on_and_back(with_quast):
 def test_switching_a_required_input_is_refused():
     with pytest.raises(ValueError, match="MI0204"):
         changes.check(_switch("reads", "optional", contract=STAR))
+
+
+def test_a_units_change_says_an_input_may_span_several_rows(with_quast):
+    """A sample may be sequenced over several lanes (#466, stage 5)."""
+    draft = _draft()
+    assert changes.apply(draft, DecisionChange(kind="input", subject="fastq.reads", value=True),
+                         who="ana")
+    lanes = DecisionChange(kind="units", subject="fastq.reads", value=True)
+    assert changes.apply(draft, lanes, who="ana")
+    assert _constraints(draft).units == ["fastq.reads"]
+    assert changes.describe(lanes) == "a sample may span several rows of fastq.reads"
+    assert changes.apply(draft, DecisionChange(kind="units", subject="fastq.reads",
+                                               value=False), who="ana")
+    assert _constraints(draft).units == []
+
+
+def test_units_on_an_input_the_goal_does_not_have_are_refused():
+    with pytest.raises(ValueError, match="MI0204"):
+        changes.apply(_draft(), DecisionChange(kind="units", subject="fastq.reads", value=True),
+                      who="ana")

@@ -146,8 +146,17 @@ A file may also declare `derives:`, facts computed from others, which `when` key
 | Form | Fields | Means |
 |---|---|---|
 | rows | `fact`, `kind`, `rows` | rows with literal `then` values, first match |
-| aggregate | `fact`, `kind`, `aggregate: {measurement, over: cohort, using: max \| min \| mean}` | one value from every sample's |
+| aggregate | `fact`, `kind`, `aggregate: {measurement, over: study, using: max \| min \| mean \| agree \| all \| any \| count \| distinct}` | one value folded from every sample's |
 | transform | `fact`, `kind`, `source`, `transform` | a chain of steps over `source`, left to right |
+
+A fold reads every sample's value. `agree` gives the value every sample shares, and leaves the
+fact undetermined when they differ or one has none; `all` and `any` hold only for `true`;
+`count` counts the samples with a value and `distinct` the values they take. With every value
+known before the build, the fold is decided then. When the fact differs between samples, the
+run folds it once every sample has its value, cell or measurement, and joins it into each
+sample's `meta`, so a run-time lookup reads it (`source: folded`). Steps that read a fold wait
+for every sample; no other step does. The two folds agree case by case
+(`tests/emit/test_at_run_agreement.py`).
 
 Transform steps: `add`, `subtract`, `multiply`, `divide`, `at_most`, `at_least` (each with
 `by`), and `log2` and `round` (half to even, as `printf "%.0f"`) with none. An `integer` fact

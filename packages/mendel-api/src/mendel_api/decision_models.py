@@ -209,6 +209,8 @@ class PipelineInputRevision(_Revision):
     origin: Mapped[str] = mapped_column(
         _one_of(FactOrigin, 16, "origin"), default=FactOrigin.PERSON_SAID
     )
+    units: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    """A sample may span several rows of this input, such as its lanes (#466)."""
 
 
 class PipelineWant(_Subject):

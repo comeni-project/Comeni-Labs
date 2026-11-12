@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- Lanes and folds (#466): `Constraints.units` names inputs whose rows may repeat a sample, carried on the channel (`Channel.units`), which makes the input a samplesheet (MD0340); a port may gather at `grain: sample` (a sample's rows). A run-time fact may be folded over the study (`AtRunSource.FOLDED`, `AtRunFact.folds` and `using`).
+
 - A tool chosen per sample (#466): `IRNode.guard` and `Step.guard` (`Guard`: the decision as a lookup giving a tool, and the tools whose samples a step takes); `StepInput.mixed` names further producers where branches rejoin; `SheetFact.from_row` is a closed vocabulary (`RowFact`). MD0339.
 
 - Mixed single-end and paired samples (#466): a type's second column may be blank (`second_may_be_blank`); a measurement may be read off the row (`row: second_file_present`, MD0338); a samplesheet fact may come from the row (`SheetFact.from_row`).
@@ -111,6 +113,8 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- Lanes and folds (#466): an input whose rows may repeat a sample gets the type's `merging` step before anything reads it (MD0341). `aggregate` folds over `study` (was `cohort`) with `agree`, `all`, `any`, `count` and `distinct` beside `max`, `min` and `mean`, at build time from known values and in the run otherwise.
+
 - A tool chosen per sample (#466): an `implementation` decision whose rows wait only on facts said to vary is a branch point (`at_run.branch_points`); the goal is routed once per tool and the routes merged, each branch's steps guarded; its fallback is asked once (`<step>.if_no_row.implementation:<role>`); routes that differ before the choice are refused (MD0339).
 
 - Per-sample facts (#466): a run-time setting may wait on several facts, from samplesheet cells or measurements; its fallback question is its own (`<step>.if_no_row.<setting>`) and may be answered with a stop; a fact must describe the input behind the step's first input. `mendel_resolver.cases` gives a rule's cases with undetermined, its gaps and overlaps; a `hit: unique` rule over a per-sample fact may not overlap (MD0333). MD0328 is retired.
@@ -143,6 +147,8 @@ or a complete commit history.
 - Profile validation occurs at the resolver boundary, not only in the CLI.
 
 ### mendel-compiler
+
+- A sample's lanes are merged in the run, gathered with a `groupKey` sized from the samplesheet; a one-lane sample passes straight on; lanes that disagree, or a repeated sample and unit, stop the run naming the sample. A fact folded over the study joins every sample's `meta` once every sample has its value (#466).
 
 - Each sample goes down its own branch (#466): a step the samples enter takes only those its tool's rows admit; an index waits for one of its samples; branches rejoin by mixing; each sample's tool is recorded in `decided/<role>.tool.tsv`.
 
@@ -232,6 +238,8 @@ or a complete commit history.
 ### mendel-api
 
 - A step only some samples take says which, with its rule, on its card and its canvas node (#466); previews migrate to shape 8.
+
+- An input may span several rows per sample (#466): a `units` change, from a checkbox on the input in *What was understood*; inputs store it (`pipeline_input_revision.units`), and suggestions and turns move to shapes 4 and 8.
 
 - Several uploads (#466, #218): an upload takes any number of files, mates paired by name; each sample is measured and kept with the session, with its name and measurements (session shape 3). Facts every sample agrees on are recorded; where they differ, the question says how they spread and proposes an answer to confirm. The model's memory carries each spread, never a sample's name.
 
@@ -507,6 +515,8 @@ or a complete commit history.
 ### wiener-api
 
 - The run reads which tool each sample went through when it was chosen per sample, and the run page says so (#466).
+
+- The run form has a `unit` column where a sample may span several rows; a fact folded over the study is read as `folded` (#466).
 
 - The run form lists the samplesheet's fact columns; a decided value lists each fact it read and where it came from (#466).
 

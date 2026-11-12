@@ -83,8 +83,9 @@ function tool(token: string): string {
 }
 
 /** Where a decided value's fact came from (issue 466). */
-const FROM: Record<"cell" | "measured" | "missing", string> = {
+const FROM: Record<"cell" | "measured" | "folded" | "missing", string> = {
   cell: "from the samplesheet",
   measured: "measured in the run",
+  folded: "folded over the study in the run",
   missing: "not known",
 };

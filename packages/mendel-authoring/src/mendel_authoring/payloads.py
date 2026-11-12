@@ -37,12 +37,14 @@ class DecisionChange(_Payload):
 
     kind: Literal["want", "input", "measurement", "require", "pin", "parameter", "asked",
                   "producer", "retain", "observation", "role", "exclude", "source",
-                  "optional_input"]
+                  "optional_input", "units"]
     """`role`, `exclude` and `source` are a person's structural intent (A1), on these fields:
     a role is its `subject`; an exclusion is a site (`subject` type, `states`) and the tool in
     `value`, as a pin is; a source is `source_subject(consumer, port)` and the producer in `value`.
     `retract` withdraws each. `optional_input` is a tool's optional input switched (#460):
-    `source_subject(contract, port)`, and `off`, `optional` or `required` in `value`."""
+    `source_subject(contract, port)`, and `off`, `optional` or `required` in `value`. `units`
+    says whether a sample may span several rows of the input `subject` (#466): `value` true or
+    false."""
     subject: str = Field(min_length=1, max_length=256)
     value: HumanParamValue | list[HumanParamValue] | None = None
     states: list[str] = Field(default_factory=list)

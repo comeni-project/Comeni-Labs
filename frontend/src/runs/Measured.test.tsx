@@ -56,6 +56,14 @@ describe("what the run measured (issue 465)", () => {
       "S1 went through nf-core/star/align@2.7.11b for alignment, chosen in the run from read_length 150 (from the samplesheet)");
   });
 
+  it("says a fact was folded over the study (issue 466)", async () => {
+    show({ facts: [], decided: [{ step: "subread_featurecounts", setting: "min_mqs", sample: "S1",
+                                  value: "10", facts: [
+                                    { fact: "study_read_length", value: "150", source: "folded" }] }] });
+    expect((await screen.findByTestId("measured-decided")).textContent).toContain(
+      "from study_read_length 150 (folded over the study in the run)");
+  });
+
   it("renders nothing for a run that measured nothing", async () => {
     const { container } = show({ facts: [], decided: [] });
     await new Promise((resolve) => setTimeout(resolve, 20));

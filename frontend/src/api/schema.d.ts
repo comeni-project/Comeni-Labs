@@ -2331,6 +2331,8 @@ export interface components {
             inputs?: components["schemas"]["InputChoice"][];
             /** Varies */
             varies?: string[];
+            /** Units */
+            units?: string[];
         };
         /**
          * Constraints
@@ -2353,6 +2355,8 @@ export interface components {
             inputs?: components["schemas"]["InputChoice"][];
             /** Varies */
             varies?: string[];
+            /** Units */
+            units?: string[];
         };
         /** Constructor */
         Constructor: {
@@ -2511,7 +2515,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source" | "optional_input";
+            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source" | "optional_input" | "units";
             /** Subject */
             subject: string;
             /** Value */
@@ -3324,6 +3328,11 @@ export interface components {
             present: boolean;
             /** @default person_said */
             origin: components["schemas"]["FactOrigin"];
+            /**
+             * Units
+             * @default false
+             */
+            units: boolean;
         };
         /**
          * InputState

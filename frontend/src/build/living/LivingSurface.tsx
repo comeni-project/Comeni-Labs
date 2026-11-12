@@ -66,7 +66,7 @@ export function LivingSurface({
   onAddStep,
   onDismiss,
   vocabulary = null,
-  declarations, onCorrect, onRelease, onDisagreement, correcting = false,
+  declarations, onCorrect, onRelease, onUnits, onDisagreement, correcting = false,
   onSetParam,
   onSwitchInput,
   onApplyChange,
@@ -104,6 +104,8 @@ export function LivingSurface({
   declarations?: AuthoringVocabulary["measurements"];
   onCorrect?: CorrectFact;
   onRelease?: (type: string, states: string[]) => Promise<unknown>;
+  /** A sample may span several rows of an input, such as its lanes (issue 466). */
+  onUnits?: (type: string, on: boolean) => Promise<unknown>;
   onDisagreement?: (proposal: AuthoringProposal, option: string, value?: FactValue) => Promise<unknown>;
   correcting?: boolean;
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
@@ -337,7 +339,7 @@ export function LivingSurface({
                           onConfirm={(edited) => onAccept(goal, "keep", edited)} onReject={() => onReject(goal)} />
               </div>
             ) : (
-              <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
+              <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease} onUnits={onUnits}
                           openRequest={factsRequest} disabled={factsDisabled} onOpenQuestion={openQuestion} highlight={flash?.subject ?? null} />
             )}
           </div>
@@ -419,7 +421,7 @@ export function LivingSurface({
             ))}
           </div>
           {left === "understood" && (
-            <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
+            <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease} onUnits={onUnits}
                         openRequest={factsRequest} disabled={factsDisabled}
                         onOpenQuestion={openQuestion} highlight={flash?.subject ?? null} />
           )}

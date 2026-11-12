@@ -7,12 +7,13 @@ import { AnswerLine, answered } from "./StepLine";
  *  sentence, then each answer and fact with where it came from, correctable line by line. Beside
  *  the conversation while describing; one switch from the canvas while building. A fact still
  *  open points at the question asking it. */
-export function Understood({ session, declarations, onCorrect, onRelease, disabled, openRequest = 0,
+export function Understood({ session, declarations, onCorrect, onRelease, onUnits, disabled, openRequest = 0,
   onOpenQuestion, highlight = null }: {
   session: AuthoringSession;
   declarations?: AuthoringVocabulary["measurements"];
   onCorrect?: CorrectFact;
   onRelease?: (type: string, states: string[]) => Promise<unknown>;
+  onUnits?: (type: string, on: boolean) => Promise<unknown>;
   disabled: boolean;
   openRequest?: number;
   /** Bring the open question back in the conversation. */
@@ -50,6 +51,7 @@ export function Understood({ session, declarations, onCorrect, onRelease, disabl
         {answered(session).map((decision) => <AnswerLine key={decision.id} decision={decision} />)}
         <NotOffered phrases={session.not_offered ?? []} />
         <CurrentFacts session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
+                      onUnits={onUnits}
                       openRequest={openRequest} open disabled={disabled} highlight={highlight} />
       </div>
     </section>

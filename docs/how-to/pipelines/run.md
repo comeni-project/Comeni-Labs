@@ -43,6 +43,12 @@ If you said some samples are paired-end and some single-end, leave a single-end 
 reads cell blank: the pipeline reads it as single-end, and passes it one file. After the run, the run page
 says each value a setting took and where each fact behind it came from.
 
+If you said a sample may span several rows (in *What was understood*, on the reads), give each
+lane its own row with the same `sample` and its own `unit`. A one-lane sample may leave `unit`
+blank. The pipeline merges each sample's lanes before anything reads them; a one-lane sample
+passes straight on. Lanes of one sample that disagree, one paired and one single-end say, stop the
+run naming the sample, and so does a repeated `sample` and `unit`.
+
 The dedicated input model page is [Inputs in the alpha](../../explanation/inputs-and-data.md).
 
 ![Run sheet in the alpha app](../../assets/screenshots/run-sheet-alpha.png)

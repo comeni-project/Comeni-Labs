@@ -76,6 +76,7 @@ Model: `comeni_core.goal.asked.Constraints`
 | `sources` | [source-pin] | `[]` | the tool you chose to feed a step's input; left out when empty |
 | `inputs` | [input-choice] | `[]` | an optional input you switched `off`, `optional` (each run may leave it empty) or `required`, as `{contract, port, state}`; left out when empty |
 | `varies` | [measurement id] | `[]` | facts you said differ between samples: each becomes a samplesheet column, and a fact here cannot also be stated in `measurements` (`MD0332`); left out when empty |
+| `units` | [type id] | `[]` | inputs whose rows may repeat a sample, such as a sample sequenced over several lanes: the samplesheet takes a `unit` column and each sample's rows are merged by a step filling the `merging` role before anything reads them; only an input the goal has, one item per sample (`MD0340`), with a merger in the registry (`MD0341`); left out when empty |
 
 `required_states` is what turns *get me a count matrix* into *get me a gene-level count matrix*.
 Without it, any producer of the type matches.

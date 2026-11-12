@@ -600,7 +600,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "cell" | "measured" | "missing";
+            source: "cell" | "measured" | "folded" | "missing";
         };
         /**
          * DecidedValue

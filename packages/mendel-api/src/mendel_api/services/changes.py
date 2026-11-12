@@ -170,6 +170,7 @@ def _apply_input(draft_id: str, change: DecisionChange, stack, *, said, heard) -
             # Part F: `True` held, `False` not held, `None` nobody knows.
             present=change.value is True,
             origin=FactOrigin.OPEN if change.value is None else FactOrigin.PERSON_SAID,
+            units=old.units if old else False,
         ),
         **said,
         **heard,
@@ -262,6 +263,17 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
                                          **said)
         else:
             decisions.pin_source(draft_id, *source_of(subject), str(change.value), **said)
+    elif kind == "units":
+        # A sample may span several rows of an input the goal has (#466).
+        _type(stack, subject)
+        current = next((i for i in decisions.read(draft_id).inputs
+                        if i.type_id == subject and i.present), None)
+        if current is None:
+            raise ValueError(coded("MI0204", f"this pipeline takes no {subject} to span rows"))
+        if current.units == bool(change.value):
+            return False
+        decisions.set_input(draft_id, current.model_copy(update={"units": bool(change.value)}),
+                            **said)
     elif kind == "retain":
         decisions.retain_fact(draft_id, subject, who=who)
     elif kind == "observation":
@@ -281,6 +293,9 @@ def describe(change: DecisionChange) -> str:
 
     stack = registry.stack()
     subject = change.subject
+    if change.kind == "units":
+        return (f"a sample may span several rows of {subject}" if change.value
+                else f"each sample is one row of {subject}")
     if change.kind == "measurement":
         label = subject.replace("_", " ")
         return f"forgot the {label}" if change.retract else f"{label} is {change.value}"

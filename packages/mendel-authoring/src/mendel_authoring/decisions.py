@@ -77,6 +77,8 @@ class InputDecision(_Value):
     states: list[str] = Field(default_factory=list)
     present: bool = True
     origin: FactOrigin = FactOrigin.PERSON_SAID
+    units: bool = False
+    """A sample may span several rows of this input, such as its lanes (#466)."""
 
 
 class WantDecision(_Value):
@@ -215,6 +217,7 @@ class Decisions(_Value):
                     if c.state is not None
                 ],
                 varies=[f.subject for f in self.facts if f.origin is FactOrigin.VARIES],
+                units=sorted({i.type_id for i in self.inputs if i.present and i.units}),
             ),
             profile=measurements.profile_of(
                 [
@@ -253,7 +256,8 @@ class Decisions(_Value):
         return cls(
             inputs=[
                 InputDecision(
-                    key=input_key(i), type_id=i.type_id, name=i.name, states=sorted(i.states)
+                    key=input_key(i), type_id=i.type_id, name=i.name, states=sorted(i.states),
+                    units=i.type_id in goal.constraints.units,
                 )
                 for i in goal.have
             ],
