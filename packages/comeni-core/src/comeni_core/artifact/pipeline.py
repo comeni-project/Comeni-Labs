@@ -21,7 +21,6 @@ construction or loading call.
 
 from collections.abc import Iterable
 from enum import StrEnum
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
@@ -428,7 +427,7 @@ class SheetFact(BaseModel):
     maximum: float | None = Field(default=None, exclude_if=lambda m: m is None)
     required: bool
     """A blank cell stops the run; otherwise a blank is measured (`auto`)."""
-    from_row: Literal["second_file_present"] | None = Field(
+    from_row: "RowFact | None" = Field(
         default=None, exclude_if=lambda r: r is None)
     """Read off the row rather than stated in a column of its own (#466): true where the row
     gives `column`, its input's second file."""
@@ -508,6 +507,13 @@ class RegistryProvenance(BaseModel):
     """Declarations superseded by higher-priority registry layers."""
     unverified: list[ContractId] = Field(default_factory=list)
 
+
+
+class RowFact(StrEnum):
+    """A fact read off a samplesheet row rather than stated in a column (#466)."""
+
+    SECOND_FILE_PRESENT = "second_file_present"
+    """True where the row gives its input's second file: paired-end reads."""
 
 
 class AiPoint(StrEnum):

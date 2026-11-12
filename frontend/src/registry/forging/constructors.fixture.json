@@ -645,6 +645,11 @@
                 "title": "Sample Columns",
                 "type": "integer"
               },
+              "second_may_be_blank": {
+                "default": false,
+                "title": "Second May Be Blank",
+                "type": "boolean"
+              },
               "grain": {
                 "$ref": "#/$defs/Grain",
                 "default": "sample"
@@ -963,6 +968,19 @@
             ],
             "default": null,
             "title": "Meta Key"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "const": "second_file_present",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Row"
           },
           "meta_values": {
             "items": {
