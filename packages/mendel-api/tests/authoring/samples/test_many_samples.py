@@ -152,7 +152,7 @@ def test_a_fact_is_recorded_only_when_every_sample_decided_it():
 
 
 def test_the_which_value_proposal_types_the_most_common_number():
-    from mendel_api.stages.gathering import _candidate_option
     from mendel_api.authoring.types import FactKind
+    from mendel_api.stages.gathering import _candidate_option
 
     assert _candidate_option(FactKind.MEASUREMENT, 150, {"value": "Type it"}) == ("value", 150)

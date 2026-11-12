@@ -81,3 +81,14 @@ def test_each_sample_carries_its_own_cell(tmp_path):
         "S2,{d}/b_1.fq.gz,{d}/b_2.fq.gz,reverse",
     ])
     assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_a_single_end_sample_runs_beside_a_paired_one(tmp_path):
+    """Pairing that varies is read off each row: a blank second file is single-end (#466)."""
+    out = _pipeline(tmp_path, ["paired"])
+    done = _run(tmp_path, out, [
+        "sample,reads_1,reads_2",
+        "S1,{d}/a_1.fq.gz,{d}/a_2.fq.gz",
+        "S2,{d}/b_1.fq.gz,",
+    ])
+    assert done.returncode == 0, done.stdout + done.stderr

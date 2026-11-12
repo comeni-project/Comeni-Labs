@@ -41,11 +41,11 @@ Each sample reaches every module with its own `single_end`.
 - Docs: vocabulary and measurement schema pages
 - Test: `tests/registry/test_row_facts.py` (new)
 
-- [ ] **Step 1: Write the failing tests:** `fastq.reads` may leave its second column blank; `paired` is read off the row; `row:` on a non-boolean, or on a type without a blank-able second column, is refused (MD0338).
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `tests/registry` and `packages/comeni-core/tests`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: a type's second column may be blank; a fact may be read off the row (#466)`.
+- [x] **Step 1: Write the failing tests:** `fastq.reads` may leave its second column blank; `paired` is read off the row; `row:` on a non-boolean, or on a type without a blank-able second column, is refused (MD0338).
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `tests/registry` and `packages/comeni-core/tests`. Expected: pass.
+- [x] **Step 5: Commit** `feat: a type's second column may be blank; a fact may be read off the row (#466)`.
 
 ### Task 2: The pipeline reads pairing off each row
 
@@ -59,15 +59,15 @@ Each sample reaches every module with its own `single_end`.
 - Modify: `test_samplesheet` (the test row keeps both files)
 - Test: `tests/emit/test_row_facts.py` (new: pure, and one slow stub run with a single-end row)
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - with `varies: [paired]`, the pipeline has no `paired` column, and `meta.paired`/`single_end` come from the row;
   - the emitted projection passes one file for a blank second cell;
   - with `paired: true` stated, a blank second cell stops the run (`samplesheet row 2 (sample S2), column reads_2 is required: every sample is paired`);
   - slow: a stub run with one paired and one single-end row completes.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `tests/emit -m "not slow"`, then the slow test. Expected: pass.
-- [ ] **Step 5: Commit** `feat: a blank second reads cell makes a sample single-end (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `tests/emit -m "not slow"`, then the slow test. Expected: pass.
+- [x] **Step 5: Commit** `feat: a blank second reads cell makes a sample single-end (#466)`.
 
 ### Task 3: The run sheet
 

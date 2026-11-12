@@ -21,6 +21,7 @@ construction or loading call.
 
 from collections.abc import Iterable
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
@@ -421,6 +422,10 @@ class SheetFact(BaseModel):
     maximum: float | None = Field(default=None, exclude_if=lambda m: m is None)
     required: bool
     """A blank cell stops the run; otherwise a blank is measured (`auto`)."""
+    from_row: Literal["second_file_present"] | None = Field(
+        default=None, exclude_if=lambda r: r is None)
+    """Read off the row rather than stated in a column of its own (#466): true where the row
+    gives `column`, its input's second file."""
     auto: bool = Field(default=False, exclude_if=lambda auto: not auto)
     """A step the build added measures the fact where the cell is blank or says `auto`."""
     describes: TypeId
@@ -660,7 +665,8 @@ class Pipeline(EgressPayload):
                 )
             )
         taken = {"sample", "id", *(c for ch in self.channels for c in ch.columns)}
-        clash = sorted(f.column for f in self.sheet_facts if f.column in taken)
+        clash = sorted(f.column for f in self.sheet_facts
+                       if f.column in taken and f.from_row is None)
         if clash:
             raise ValueError(coded(
                 "MD0335", f"samplesheet column {clash[0]} is both a fact and a file or the "

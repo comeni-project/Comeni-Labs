@@ -327,14 +327,28 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
             # A column some rows may leave blank needs per-row placeholders (#466).
             raise ValueError(f"{channel.name} is a per-sample input each run may leave empty, "
                              "which a samplesheet cannot carry yet (#466)")
-        files = ", ".join(f"file(row.{column})" for column in channel.columns)
-        payload = files if len(channel.columns) == 1 else f"[ {files} ]"
+        payload = _files(channel, pipeline)
         # The row's facts ride on the input they describe (#466), parsed and checked above.
         identity = (f"[id: row.{SAMPLE_COLUMN}] + row.comeni" if channel.type_id in carried
                     else f"[id: row.{SAMPLE_COLUMN}]")
         projection = f"{SAMPLESHEET}.map {{ row -> [ {identity}, {payload} ] }}"
         lines.append((_channel_name(channel.name), _with_meta(projection, channel.meta)))
     return lines
+
+
+def _files(channel, pipeline: Pipeline) -> str:
+    """A row's files for one input: each named file, a blank cell stopping the run naming it;
+    and where a fact is read off the row, one file or two as the row gives (#466)."""
+    def one(column: str) -> str:
+        return (f"file(row.{column} ?: error(\"samplesheet sample ${{row.{SAMPLE_COLUMN}}}, "
+                f"column {column} is required\"))")
+    if len(channel.columns) == 1:
+        return one(channel.columns[0])
+    first, second = channel.columns[0], channel.columns[1]
+    if any(f.from_row and f.column == second for f in pipeline.sheet_facts):
+        given = f"(row.{second} != null && row.{second}.trim() != '')"
+        return f"({given} ? [ {one(first)}, file(row.{second}) ] : [ {one(first)} ])"
+    return "[ " + ", ".join(one(c) for c in channel.columns) + " ]"
 
 
 def _cells(pipeline: Pipeline) -> str:
@@ -345,7 +359,8 @@ def _cells(pipeline: Pipeline) -> str:
     `comeni_from`, which facts the row stated."""
     if not pipeline.sheet_facts:
         return ""
-    values = ",\n".join(f"                {f.column}: {_cell(f)}" for f in pipeline.sheet_facts)
+    values = ",\n".join(f"                {f.measurement}: {_cell(f)}"
+                        for f in pipeline.sheet_facts)
     keys = [f"{m.key}: {_translated(f, m)}" for f in pipeline.sheet_facts for m in f.meta
             if m.key != f.measurement]
     module = (" + [" + ", ".join(keys) + "]") if keys else ""
@@ -362,6 +377,13 @@ def _cells(pipeline: Pipeline) -> str:
 
 
 def _cell(fact) -> str:
+    if fact.from_row is not None:
+        # Read off the row (#466): whether its input's second file is given.
+        return f"(row.{fact.column} != null && row.{fact.column}.trim() != '')"
+    return _stated_cell(fact)
+
+
+def _stated_cell(fact) -> str:
     """One cell as a closure call: its value; `null` for a blank the fact may leave, or `auto`
     where a step measures it; otherwise a stop naming the row, the sample and the column. Only
     declared identifiers and values, each checked substitutable, reach the message."""
@@ -402,7 +424,7 @@ def _shown(number: float) -> str:
 def _translated(fact, key) -> str:
     """The fact under a module's key, spelled as that module expects (`paired` true is
     `single_end` false)."""
-    var = f"v.{fact.column}"
+    var = f"v.{fact.measurement}"
     if not key.translate:
         return var
     pairs = ", ".join(f"({literal(t.when, fact.column)}): {literal(t.then, fact.column)}"

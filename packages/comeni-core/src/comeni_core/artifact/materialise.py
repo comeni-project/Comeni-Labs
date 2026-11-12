@@ -124,7 +124,7 @@ def of(
             )
         )
     channels = _optional_channels(channels, steps, registry)
-    sheet_facts = _sheet_facts(ir, goal, measurements)
+    sheet_facts = _sheet_facts(ir, goal, measurements, channels)
 
     return Pipeline(
         # Save the resolved profile with the original intent and inputs.
@@ -146,8 +146,8 @@ def of(
     )
 
 
-def _sheet_facts(ir: PipelineIR, goal: Goal,
-                 measurements: MeasurementRegistry | None) -> list[SheetFact]:
+def _sheet_facts(ir: PipelineIR, goal: Goal, measurements: MeasurementRegistry | None,
+                 channels: Sequence[Channel] = ()) -> list[SheetFact]:
     """The samplesheet's fact columns (#466): every fact a person said differs between samples.
     Required, unless a step the build added measures it for a run-time setting, when a blank or
     `auto` cell is measured. Sorted by column."""
@@ -159,13 +159,18 @@ def _sheet_facts(ir: PipelineIR, goal: Goal,
     found = []
     for fact in goal.constraints.varies:
         declared = measurements.get(fact)
+        # A fact read off the row (#466) is its input's second file being there: no column.
+        second = next((c.columns[1] for c in channels
+                       if c.type_id == declared.describes and len(c.columns) > 1), None)
+        from_row = declared.row if declared.row and second else None
         keys = [MetaKeyOf(key=fact)]
         if declared.meta_key and declared.meta_key != fact:
             keys.append(MetaKeyOf(key=declared.meta_key, translate=list(declared.meta_values)))
         found.append(SheetFact(
-            measurement=fact, column=fact, kind=declared.kind, values=list(declared.values),
-            minimum=declared.minimum, maximum=declared.maximum,
-            required=fact not in auto, auto=fact in auto, describes=declared.describes,
+            measurement=fact, column=second if from_row else fact, kind=declared.kind,
+            values=list(declared.values), minimum=declared.minimum, maximum=declared.maximum,
+            required=fact not in auto and not from_row, auto=fact in auto and not from_row,
+            from_row=from_row, describes=declared.describes,
             meta=keys,
             why=Why(tier=Tier.STRUCTURAL, source=ValueSource.SAID,
                     reason=(f"you said {fact} differs between samples, so each row states it"

@@ -88,6 +88,7 @@ def test_a_vocabulary_displacement_reaches_the_artifact(tmp_path):
         _declared(
             ov / "vocabularies" / "fastq.reads.yml",
             "states: [trimmed, deduplicated, subsampled]\n"
+            "sample_columns: 2\nsecond_may_be_blank: true\n"
             "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n",
         )
     )
