@@ -85,10 +85,15 @@ Each sample reaches every module with its own `single_end`.
 
 ### Task 4: Docs and the end of the part
 
-- [ ] **Step 1:** Docs (the run how-to, the schemas), `CHANGELOG.md`, the journal. Tick this plan and record its deviations.
-- [ ] **Step 2:** Run `make check`, `make guards`, `make slow`, `npx vitest run` and `npx tsc -b`, separately. Expected: pass.
-- [ ] **Step 3: Commit** `docs: mixed single-end and paired samples (#466)`.
+- [x] **Step 1:** Docs (the run how-to, the schemas), `CHANGELOG.md`, the journal. Tick this plan and record its deviations.
+- [x] **Step 2:** Run `make check`, `make guards`, `make slow`, `npx vitest run` and `npx tsc -b`, separately. Expected: pass.
+- [x] **Step 3: Commit** `docs: mixed single-end and paired samples (#466)`.
 
 ## Deviations
 
-(Recorded during execution.)
+- A sample with two inputs of one type (short and long reads, each with its own facts) was not
+  built, as the constraints say: no registry tool needs it yet (#489).
+- A blank file cell in the projection names the sample and the column, not the row number (#489).
+- The end checks found three slips, fixed in ac7d8b77: `SheetFact.from_row` became a closed
+  vocabulary (`RowFact`) for the egress guard; two overlay fixtures that redeclare `fastq.reads`
+  now keep `second_may_be_blank`; the forge constructors fixture was regenerated.

@@ -39,3 +39,16 @@ of files (operator: 400–500 genomes is ordinary; keep it simple, one request);
 each sample is measured and kept with the session under its name (operator: stored with the
 session). Agreement is recorded; a spread is asked, with a proposal the person confirms. The
 model sees spreads, never names. The builder lists every sample with its measurements.
+
+## Stage 3: which inputs a sample has (same day)
+
+[The plan](../../superpowers/plans/2026-11-12-per-sample-stage-3.md). A study can mix paired and
+single-end samples: a blank second reads cell makes a sample single-end, and `paired` is read off
+the row with no column of its own. The run sheet lets that cell stay blank. Two inputs of one type
+per sample wait for a tool that needs them (#489).
+
+## Stage 4: branches (same day, in progress)
+
+[The plan](../../superpowers/plans/2026-11-12-per-sample-stage-4.md). A tool chosen from a fact
+said to vary is chosen per sample: the build routes once per tool and merges the routes, each
+branch guarded by the rows that send samples its way.
