@@ -125,6 +125,10 @@ def _port_expression(pipeline: Pipeline, step: Step, port_name: str,
         # An input whose `meta` carries a fact the run measures reads the joined channel; the
         # steps that measure it read the raw one (#217).
         expression = (measured or {}).get(wiring.channel) or _channel_name(wiring.channel)
+    if wiring.select:
+        # Only the samples the port selects, such as a tumour (#466).
+        held = " && ".join(condition(c, f"{step.id}.{port_name}") for c in wiring.select)
+        expression = f"{expression}.filter {{ it -> def meta = it[0]; {held} }}"
     if wiring.gather and wiring.by is not None:
         # One call per group of the key, gathered once its own samples are done (#466).
         key = wiring.by
@@ -184,6 +188,8 @@ def _argument(pipeline: Pipeline, step: Step, arg, measured: dict[str, str] | No
     # (#466); with one sample-scoped channel there is no samplesheet, and nothing else is
     # per-sample to pair it with, so `.join` cannot mis-pair it.
     head, *rest = expressions
+    if arg.join in (Join.BY_KEY, Join.BY_REF) and len(on) == 2 == len(arg.ports):
+        return _related(arg, head, rest[0])
     joined = "".join(
         f".join({expr})" if arg.join_for(name) is Join.BY_SAMPLE
         else f".combine({expr}.map {{ it[1] }})"
@@ -194,6 +200,20 @@ def _argument(pipeline: Pipeline, step: Step, arg, measured: dict[str, str] | No
     given = iter(names)
     slots = ", ".join("[]" if port in off else next(given) for port in arg.ports)
     return f"{head}{joined}.map {{ meta, {', '.join(names)} -> [ meta, {slots} ] }}"
+
+
+def _related(arg, head: str, other: str) -> str:
+    """Two ports of one call that relate samples (#466). `by_key`: one member of each per key,
+    joined, so a patient with two normals or none stops the run naming the patient. `by_ref`:
+    each sample of the first port with the item of the sample its reference names, which may
+    feed several."""
+    key = arg.key
+    if arg.join is Join.BY_KEY:
+        return (f"{head}.map {{ it -> [ it[0].{key}, it ] }}.join({other}.map {{ it -> "
+                f"[ it[0].{key}, it ] }}, failOnDuplicate: true, failOnMismatch: true)"
+                ".map { k, a, b -> [ a[0] ] + a[1..-1] + b[1..-1] }")
+    return (f"{head}.map {{ it -> [ it[0].{key}, it ] }}.combine({other}.map {{ it -> "
+            "[ it[0].id, it ] }, by: 0).map { k, a, b -> [ a[0] ] + a[1..-1] + b[1..-1] }")
 
 
 def _render_meta(entries: list) -> str:
@@ -391,8 +411,26 @@ def _cells(pipeline: Pipeline) -> str:
         "            row + [comeni: v" + module + " + [comeni_from: v.findAll { it.value != null }"
         ".collectEntries { [it.key, 'cell'] }]]\n"
         "        }\n"
-        "    }" + _group_sizes(pipeline)
+        "    }" + _group_sizes(pipeline) + _references(pipeline)
     )
+
+
+def _references(pipeline: Pipeline) -> str:
+    """A reference to another row names a sample this samplesheet has; one that does not stops
+    the run naming both rows (#466)."""
+    refs = [f.measurement for f in pipeline.sheet_facts if f.kind.value == "sample_ref"]
+    if not refs:
+        return ""
+    checks = "\n".join(
+        f"        rows.each {{ row -> if (row.comeni.{r} != null && !ids.contains(row.comeni.{r})) "
+        f"error(\"samplesheet sample ${{row.{SAMPLE_COLUMN}}}: {r} names ${{row.{r}}}, which is "
+        "no row of this samplesheet\") }"
+        for r in refs)
+    return (".toList().flatMap { rows ->\n"
+            f"        def ids = rows.collect {{ it.{SAMPLE_COLUMN} }} as Set\n"
+            f"{checks}\n"
+            "        rows\n"
+            "    }")
 
 
 def _keys(pipeline: Pipeline) -> list[str]:
@@ -434,7 +472,7 @@ def _stated_cell(fact) -> str:
     elif kind == "boolean":
         parsed = (f"c == 'true' ? true : c == 'false' ? false : "
                   f"error(\"{where}: '${{c}}' is not one of true, false\")")
-    elif kind == "key":
+    elif kind in ("key", "sample_ref"):
         # A laboratory's identifier for a relation (#466): letters, digits and `_ . -` only.
         parsed = (f"c ==~ /[A-Za-z0-9_.-]+/ ? c : error(\"{where}: '${{c}}' is not a key: "
                   "letters, digits and _ . - only\")")

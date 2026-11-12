@@ -148,3 +148,16 @@ describe("a key column (issue 466)", () => {
   });
 });
 
+
+describe("a reference to another row (issue 466)", () => {
+  const control = { column: "control", kind: "sample_ref" as const, values: [] as string[],
+                    required: false, auto: false, why: "a step reads each sample's control" };
+
+  it("may stay blank, and is checked as a name otherwise", () => {
+    expect(incomplete([{ sample: "IN", reads_1: "/a.fq", control: "" }], ["reads_1"], [control]))
+      .toEqual([]);
+    expect(incomplete([{ sample: "C1", reads_1: "/b.fq", control: "in put" }], ["reads_1"], [control]))
+      .toEqual(["row 1: control is not a key: letters, digits and _ . - only"]);
+  });
+});
+

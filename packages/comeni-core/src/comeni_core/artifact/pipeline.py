@@ -35,7 +35,14 @@ from comeni_core.diagnostics import coded
 from comeni_core.egress.base import EgressPayload
 from comeni_core.goal.asked import Facts, Goal, Intent
 from comeni_core.goal.premise import PremiseRecord
-from comeni_core.plan.at_run import AtRun, Confirm, Guard, MetaAtRun, SampleRule
+from comeni_core.plan.at_run import (
+    AtRun,
+    AtRunCondition,
+    Confirm,
+    Guard,
+    MetaAtRun,
+    SampleRule,
+)
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.ir import InputRecord
 from comeni_core.plan.tiers import (
@@ -275,6 +282,8 @@ class CallArg(BaseModel):
     """Setting whose value supplies this positional argument."""
     join: Join | None = None
     """How multiple input ports are combined for this argument."""
+    key: MeasurementId | None = Field(default=None, exclude_if=lambda key: key is None)
+    """For a `by_key` or `by_ref` join, the fact the ports meet on (#466)."""
     joins: list["PortJoin"] = Field(default_factory=list, exclude_if=lambda joins: not joins)
     """Each later port's own join, when the contract gives one per port (#464); then `join`
     is unset."""
@@ -305,6 +314,8 @@ class StepInput(BaseModel):
     """Collect the whole channel for one invocation, rather than process individual items."""
     by: MeasurementId | None = Field(default=None, exclude_if=lambda by: by is None)
     """With `gather`, gather per value of this key rather than over the study (#466)."""
+    select: list[AtRunCondition] = Field(default_factory=list, exclude_if=lambda s: not s)
+    """Only the samples meeting every condition, as the contract's port selects them (#466)."""
     mixed: list[EdgeRef] = Field(default_factory=list, exclude_if=lambda m: not m)
     """Further upstream outputs feeding this input, sorted: branches of a tool chosen per
     sample rejoining here, each sample arriving from its own (#466)."""
@@ -662,7 +673,9 @@ class Pipeline(EgressPayload):
         wants_table = self.input_form is InputForm.SAMPLESHEET
         # Every fact said to vary, and every key a step groups by, has its column (#466).
         varies = set(self.intent.constraints.varies) | {
-            i.by for s in self.steps for i in s.inputs if i.by is not None}
+            i.by for s in self.steps for i in s.inputs if i.by is not None} | {
+            c.fact for s in self.steps for i in s.inputs for c in i.select} | {
+            a.key for s in self.steps for a in s.call if a.key is not None}
         if varies != {f.measurement for f in self.sheet_facts}:
             raise ValueError(coded(
                 "MD0335", f"the facts said to differ between samples "

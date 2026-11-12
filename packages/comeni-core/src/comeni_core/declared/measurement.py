@@ -44,6 +44,9 @@ class MeasurementKind(StrEnum):
     KEY = "key"
     """A sample's identifier for a relation, such as its patient or group (#466): compared for
     equality only, read from each samplesheet row and never measured or stated in a goal."""
+    SAMPLE_REF = "sample_ref"
+    """Another row's `sample`, such as a ChIP sample's control (#466): read from the row, blank
+    where the sample names none, and a name no row has stops the run."""
 
 
 class MetaValue(BaseModel):
@@ -332,7 +335,7 @@ class MeasurementRegistry(BaseModel):
                 self.check(measurement_id, element)
             return
         kind = measurement.kind
-        if kind is MeasurementKind.KEY:
+        if kind in (MeasurementKind.KEY, MeasurementKind.SAMPLE_REF):
             # A laboratory's own identifiers (a patient's, say): the run reads them, never Mendel.
             raise BadMeasurementValueError(
                 f"{measurement_id!r} is a key, read from each samplesheet row; it is never "

@@ -29,6 +29,7 @@ from comeni_core.spell.marks import (
     NfIdentifier,
     NfPath,
     NfTemplate,
+    ParamValue,
     PortName,
     RoleName,
     TypeId,
@@ -96,6 +97,10 @@ class InputPort(BaseModel):
     """One invocation takes every item of a finer grain at once, gathered with `.collect()`:
     MultiQC reads every sample's report in one run. Declared with `grain: study`, since a sample
     has nothing finer to gather until units and parts arrive (per-sample design, Goal A)."""
+    select: dict[MeasurementId, ParamValue] | None = Field(default=None,
+                                                           exclude_if=lambda s: s is None)
+    """Only the samples whose facts meet these conditions, written as a rule's `when`: a tumour
+    port selects `{status: tumor}`, a ChIP port `{control: present}` (#466)."""
     by: MeasurementId | None = Field(default=None, exclude_if=lambda by: by is None)
     """With `many`, gather per value of this key rather than over the study (#466): a
     co-assembler reads every sample of one group in one call. The key comes from each
@@ -385,6 +390,10 @@ class NfInput(BaseModel):
     One `Join` applies to every port after the first. A map gives each later port its own, for
     a tuple that pairs a per-sample index with its BAM and shares one intervals file across the
     run (gatk4/haplotypecaller, #464)."""
+
+    key: str | None = Field(default=None, exclude_if=lambda key: key is None)
+    """For `join: by_key`, the key the ports meet on; for `by_ref`, the reference the first
+    port's samples name the second's by (#466)."""
 
     absent: int = 0
     """Width of the empty tuple passed when this entry's ports are all left out (#460). The arity

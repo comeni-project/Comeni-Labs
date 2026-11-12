@@ -293,8 +293,33 @@ def _no_key_measured(catalogue, measurements: MeasurementRegistry) -> None:
 
 
 def _check_groups(contract, measurements: MeasurementRegistry) -> None:
-    """A port gathers by a key each sample's row carries (MD0343, #466)."""
+    """A port gathers by a key each sample's row carries (MD0343); a port selects on a fact
+    each sample has, and a pair or a control joins on a key or a reference (MD0344, #466)."""
     from comeni_core.declared.measurement import MeasurementKind
+    from comeni_core.plan.tiers import Grain
+    from comeni_core.spell.routes import Join
+
+    def kind(fact: str):
+        return measurements.get(fact).kind if fact in measurements.ids() else None
+
+    for port in contract.consumes:
+        for fact in sorted(port.select or {}):
+            if fact not in measurements.ids() or measurements.scope_of(fact) is not Grain.SAMPLE:
+                raise ValueError(coded(
+                    "MD0344", f"{contract.id}'s {port.name} selects on {fact}, which is not a "
+                    "fact each sample has — `mendel explain MD0344`."))
+    for spec in contract.nf_inputs:
+        wants = {Join.BY_KEY: MeasurementKind.KEY, Join.BY_REF: MeasurementKind.SAMPLE_REF}
+        join = spec.join if not isinstance(spec.join, dict) else None
+        if join in wants and (spec.key is None or kind(spec.key) is not wants[join]):
+            raise ValueError(coded(
+                "MD0344", f"{contract.id} joins {', '.join(spec.ports)} {join.value} on "
+                f"{spec.key or 'nothing'}, which is not a {wants[join].value} — "
+                "`mendel explain MD0344`."))
+        if spec.key is not None and join not in wants:
+            raise ValueError(coded(
+                "MD0344", f"{contract.id} names a key, {spec.key}, for a join that reads none "
+                "— `mendel explain MD0344`."))
 
     for port in contract.consumes:
         if port.by is None:

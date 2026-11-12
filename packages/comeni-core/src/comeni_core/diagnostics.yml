@@ -3172,6 +3172,21 @@ MD0343:
     a co-assembler reading every sample of one group (#466). The value comes from each samplesheet
     row, so it must be a key; and grouping is gathering, so the port must take many items.
 
+MD0344:
+  emitted_by: resolver
+  concern: loading
+  says: "a port selects on a fact samples lack, or a pair or a control joins on something that is not a key or a reference"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Select on a measurement each sample has. Join `by_key` on a measurement of kind `key`, and
+    `by_ref` on one of kind `sample_ref`; name no `key` for any other join.
+  explanation: |
+    Relations between samples come from each samplesheet row (#466). A tumour port selects the
+    samples whose `status` is `tumor`; a pair meets on a key such as `patient`; a ChIP sample
+    reads the control its `sample_ref` names. Each of these is a fact every sample has, of the
+    kind its use needs.
+
 MD0501:
   emitted_by: resolver
   concern: validation

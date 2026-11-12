@@ -63,6 +63,7 @@ decline to curate one.
 | `MD0338` | a measurement read off the row is not a boolean, or its type's second column cannot be blank |
 | `MD0342` | a measurer measures a key, which only a samplesheet row gives |
 | `MD0343` | a port groups by something that is not a key, or groups without gathering |
+| `MD0344` | a port selects on a fact samples lack, or a pair or a control joins on something that is not a key or a reference |
 | `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
 | `MD0602` | a contract's constraint names an input or param it does not declare |
 | `MD0603` | no combination of inputs and params satisfies a contract's constraints |

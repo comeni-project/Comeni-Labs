@@ -41,7 +41,7 @@ from comeni_core.artifact.pipeline import (
 )
 from comeni_core.declared.constraints import Setup, evaluate, rows_of, sentence
 from comeni_core.declared.contract import ModuleContract
-from comeni_core.declared.measurement import Measurement, MeasurementRegistry
+from comeni_core.declared.measurement import Measurement, MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
@@ -136,8 +136,7 @@ def of(
         )
     channels = _optional_channels(channels, steps, registry)
     # A key a port groups by is a column of its own, whether or not anybody said so (#466).
-    keys = sorted({port.by for node in ir.nodes for port in registry.get(node.contract_id).consumes
-                   if port.by is not None})
+    keys = sorted(_relations(ir, registry))
     sheet_facts = _sheet_facts(ir, goal, measurements, channels, grouping=keys)
 
     return Pipeline(
@@ -158,6 +157,19 @@ def of(
         input_form=InputForm.SAMPLESHEET if sheet_facts else _form(channels),
         decisions=list(ir.decisions),
     )
+
+
+def _relations(ir: PipelineIR, registry: Registry) -> set[str]:
+    """The facts a step relates samples by (#466): a key it groups by, a fact a port selects
+    on, and the key or reference a pair or a control joins on. Each is a samplesheet column."""
+    found: set[str] = set()
+    for node in ir.nodes:
+        contract = registry.get(node.contract_id)
+        for port in contract.consumes:
+            found |= {port.by} if port.by else set()
+            found |= set(port.select or {})
+        found |= {spec.key for spec in contract.nf_inputs if spec.key}
+    return found
 
 
 def _sheet_facts(ir: PipelineIR, goal: Goal, measurements: MeasurementRegistry | None,
@@ -186,7 +198,10 @@ def _sheet_facts(ir: PipelineIR, goal: Goal, measurements: MeasurementRegistry |
         found.append(SheetFact(
             measurement=fact, column=second if from_row else fact, kind=declared.kind,
             values=list(declared.values), minimum=declared.minimum, maximum=declared.maximum,
-            required=fact not in auto and not from_row, auto=fact in auto and not from_row,
+            # A reference may be blank: the sample names none (#466).
+            required=(fact not in auto and not from_row
+                      and declared.kind is not MeasurementKind.SAMPLE_REF),
+            auto=fact in auto and not from_row,
             from_row=from_row, describes=declared.describes,
             meta=keys,
             why=Why(tier=Tier.STRUCTURAL, source=ValueSource.SAID,
@@ -321,6 +336,7 @@ def _call(contract: ModuleContract, off: frozenset[str] = frozenset()) -> list[C
                          else spec.empty) or None,
             from_setting=spec.param or None,
             join=None if isinstance(spec.join, dict) else spec.join,
+            key=spec.key,
             joins=([PortJoin(port=p, join=spec.join[p]) for p in spec.ports[1:]]
                    if isinstance(spec.join, dict) else []),
             why=(
@@ -371,6 +387,7 @@ def _inputs(
                     gather=gather,
                     mixed=sorted((rejoining or {}).get((node.id, port.name), [])),
                     by=port.by,
+                    select=_select(port),
                 )
             )
         else:
@@ -379,8 +396,15 @@ def _inputs(
                 or default_channels_by_type[node.entry_type(port.name, port.type_id)]
             )
             inputs.append(StepInput(port=port.name, channel=assigned, gather=gather,
-                                    by=port.by))
+                                    by=port.by, select=_select(port)))
     return inputs
+
+
+def _select(port) -> list:
+    """A port's selection, in the closed tests a run-time lookup uses (#466). Sorted by fact."""
+    from comeni_core.plan.at_run import condition_of
+
+    return [condition_of(fact, expected) for fact, expected in sorted((port.select or {}).items())]
 
 
 def _optional_channels(
