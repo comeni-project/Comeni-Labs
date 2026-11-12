@@ -71,15 +71,15 @@ at build time and in the run.
 - Registry (`measurers` branch): `tools/nf-core/cat/fastq/contract.yml` (role `merging`, `fastq.reads` in, grain `sample`, `many: true`; out `fastq.reads`), and the role in `vocabulary/roles.yml`.
 - Test: `packages/mendel-resolver/tests/test_units.py` (new)
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - with `units: [fastq.reads]`, the RNA-seq goal has `merge_fastq_reads` (cat/fastq) feeding trimming, with its reason;
   - without, the pipeline is today's exactly;
   - `units` on a study input is MD0340;
   - a type with no merging contract is MD0341.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the resolver, core and registry tests. Expected: pass.
-- [ ] **Step 5: Commit** `feat: an input may span several rows per sample; its merging step is placed (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the resolver, core and registry tests. Expected: pass.
+- [x] **Step 5: Commit** `feat: an input may span several rows per sample; its merging step is placed (#466)`.
 
 ### Task 2: Lanes merged in the run
 
@@ -93,11 +93,11 @@ at build time and in the run.
 - Modify: `test_samplesheet` (two rows for one sample) and Wiener's run form (`unit` column).
 - Test: `tests/emit/test_units.py` (new: pure, and slow with S1 over three lanes and S2 over one)
 
-- [ ] **Step 1: Write the failing tests** (Review Focus 1 and 2).
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the pure tests, then the slow ones. Expected: pass.
-- [ ] **Step 5: Commit** `feat: a sample's lanes are merged in the run, one-lane samples pass straight on (#466)`.
+- [x] **Step 1: Write the failing tests** (Review Focus 1 and 2).
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the pure tests, then the slow ones. Expected: pass.
+- [x] **Step 5: Commit** `feat: a sample's lanes are merged in the run, one-lane samples pass straight on (#466)`.
 
 ### Task 3: Folding a fact over the study
 
@@ -112,15 +112,15 @@ at build time and in the run.
   - `emit.py`: a reduction `ch.map { it[0].<fact> }.toList().map { <fold> }` combined into every item's `meta`, before any lookup reads it.
 - Test: `packages/mendel-resolver/tests/test_folding.py` (new), and extend `tests/emit/test_at_run_agreement.py` so every fold agrees at build time and in the run on every case (Review Focus 3).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `agree` over 150, 150 is 150; over 150, 75 it is undetermined;
   - `count` and `distinct` count;
   - a rule reading `agree(read_length)` with read length varying is decided in the run, and its lookup reads the folded value;
   - build time and run time agree on every case.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the resolver tests and the agreement tests (slow). Expected: pass.
-- [ ] **Step 5: Commit** `feat: a fact folds over the study at build time and in the run (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the resolver tests and the agreement tests (slow). Expected: pass.
+- [x] **Step 5: Commit** `feat: a fact folds over the study at build time and in the run (#466)`.
 
 ### Task 4: Shown, and the end of Part A
 
@@ -135,10 +135,10 @@ at build time and in the run.
   - the run how-to's lanes.
 
   `CHANGELOG.md`.
-- [ ] **Step 1: Write the failing tests:** the toggle sets `units`; the editor adds a `unit` column and allows a repeated sample.
-- [ ] **Step 2: Implement.** Run `npx vitest run` and `npx tsc -b`.
-- [ ] **Step 3:** Run `make check`, `make guards`, `make slow`, separately. Expected: pass.
-- [ ] **Step 4: Commit** `feat: lanes and folded facts in the builder (#466)`.
+- [x] **Step 1: Write the failing tests:** the toggle sets `units`; the editor adds a `unit` column and allows a repeated sample.
+- [x] **Step 2: Implement.** Run `npx vitest run` and `npx tsc -b`.
+- [x] **Step 3:** Run `make check`, `make guards`, `make slow`, separately. Expected: pass.
+- [x] **Step 4: Commit** `feat: lanes and folded facts in the builder (#466)`.
 
 ## Part B — keys, groups, pairs and references (fixture contracts)
 
@@ -184,4 +184,17 @@ at build time and in the run.
 
 ## Deviations
 
-(Recorded during execution.)
+- **No `unit` grain.** The channel stays `sample` grain and says `units: true`, since a new
+  grain would have to be taught to every per-sample check. The merge is emitted as a prelude, so
+  the rest of the emitter sees one item per sample. `units` also makes the input a samplesheet
+  (MD0340 otherwise).
+- Lanes are gathered by sample id and must agree on every `meta` key; otherwise the run stops
+  naming the sample. The `unit` column is optional on the run form.
+- `aggregate.over` is `study` (was `cohort`), renamed rather than aliased. A fold is carried as a
+  run-time fact (`source: folded`, `folds`, `using`), not a `MetaAtRun.folded`.
+- `agree` with any member missing is undetermined. Build-time `all` and `any` count only `true`,
+  as the run does; the agreement test found the mismatch.
+- The lanes toggle is a checkbox on each held input in *What was understood*. The model does not
+  yet propose `units`, and the toggle is also offered on study inputs, where the build refuses
+  (#489).
+- Registry tests that hard-coded the shipped contracts and tool pages now count the layer's files.
