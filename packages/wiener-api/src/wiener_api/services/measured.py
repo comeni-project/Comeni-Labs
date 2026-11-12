@@ -33,6 +33,10 @@ def _allowed(pipeline) -> tuple[set[str], set[str], set[tuple[str, str]]]:
             if setting.at_run is not None:
                 facts |= {f.measurement for f in setting.at_run.facts}
                 decided.add((step.id, setting.name))
+        # Each sample's tool, when it is chosen per sample: `decided/<role>.tool.tsv` (#466).
+        if step.guard is not None:
+            facts |= {f.measurement for f in step.guard.lookup.facts}
+            decided.add((step.guard.lookup.rule.split(":")[1], "tool"))
     return processes, facts, decided
 
 

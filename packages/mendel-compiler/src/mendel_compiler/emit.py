@@ -6,7 +6,7 @@ from typing import NamedTuple
 from comeni_core.artifact.pipeline import Grain, InputForm, Pipeline, Step
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import InputState
-from comeni_core.plan.at_run import AtRunSource
+from comeni_core.plan.at_run import AtRun, AtRunFallback, AtRunSource
 from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -117,6 +117,10 @@ def _port_expression(pipeline: Pipeline, step: Step, port_name: str,
     if wiring.source is not None:
         node_id, _, from_port = wiring.source.partition(".")
         expression = f"{_process_of(pipeline, node_id)}.out.{from_port}"
+        # Branches of a tool chosen per sample rejoin here: each sample arrives from one (#466).
+        for other in wiring.mixed:
+            node_id, _, from_port = other.partition(".")
+            expression += f".mix({_process_of(pipeline, node_id)}.out.{from_port})"
     else:
         # An input whose `meta` carries a fact the run measures reads the joined channel; the
         # steps that measure it read the raw one (#217).
@@ -651,7 +655,9 @@ def _calls(pipeline: Pipeline) -> list[str]:
     _check_cells(pipeline)
     branch = _measuring_branch(pipeline)
     if not branch:
-        return [*(_call(pipeline, step) for step in pipeline.steps), *_decided(pipeline, {})]
+        calls = {step.id: _call(pipeline, step) for step in pipeline.steps}
+        ordered, routed = _branched(pipeline, calls, set())
+        return [*ordered, *_decided(pipeline, {}), *routed]
     measured, joined, unstated, before = _joined(pipeline)
     _check_measuring(pipeline, branch, measured)
     first = [_measuring_call(pipeline, step, unstated) for step in pipeline.steps
@@ -664,10 +670,122 @@ def _calls(pipeline: Pipeline) -> list[str]:
                 "MD0330", f"{step.id} checks per-sample rules and runs before the facts are "
                 "measured — `mendel explain MD0330`."))
     # The guard goes on after the measured facts are joined back, so it reads them.
-    rest = [_guarded(step, _remeta(pipeline, step, branch, measured,
-                                   _call(pipeline, step, measured, guard=False)))
-            for step in pipeline.steps if step.id not in branch]
-    return [*before, *first, *joined, *rest, *_decided(pipeline, measured)]
+    calls = {step.id: _guarded(step, _remeta(pipeline, step, branch, measured,
+                                             _call(pipeline, step, measured, guard=False)))
+             for step in pipeline.steps if step.id not in branch}
+    rest, routed = _branched(pipeline, calls, branch)
+    return [*before, *first, *joined, *rest, *_decided(pipeline, measured), *routed]
+
+
+def _token(contract_id: str) -> str:
+    """A tool as the run writes it: its id within the substitutable class."""
+    return contract_id.replace("/", ".").replace("@", ":")
+
+
+def _tool_of(step: Step) -> str:
+    """The tool each sample's facts send it to, as one expression over its `meta` (#466). A
+    fallback still a question stops the run, as a stop does: a sample never vanishes."""
+    lookup: AtRun = step.guard.lookup
+    stop = lookup.fallback_is in (AtRunFallback.STOP, AtRunFallback.QUESTION)
+    tokened = lookup.model_copy(update={
+        "rows": [r.model_copy(update={"then": _token(r.then)}) for r in lookup.rows],
+        "fallback": None if stop else _token(lookup.fallback),
+        "fallback_is": AtRunFallback.STOP if stop else lookup.fallback_is,
+    })
+    return closure(tokened, where=f"{step.id}'s samples")
+
+
+def _wrap_first(call: str, suffix: str) -> str:
+    process, _, rest = call.partition("(")
+    first, sep, others = _split_first(rest[:-1])
+    return f"{process}(({first}){suffix}{sep}{others})"
+
+
+def _first_arg(call: str) -> str:
+    return _split_first(call.partition("(")[2][:-1])[0]
+
+
+def _branched(pipeline: Pipeline, calls: dict[str, str], measuring: set[str]
+              ) -> tuple[list[str], list[str]]:
+    """The calls, with each sample sent down its own branch (#466): a guarded step the samples
+    enter takes only those its tool's rows admit; a guarded step that does not carry them (an
+    index) starts only once one of its samples arrives, and is called after what they come
+    from. Also the record of each sample's tool. Without guards, the calls in step order."""
+    by_id = {step.id: step for step in pipeline.steps}
+    sample_types = {f.describes for f in pipeline.sheet_facts}
+
+    def source_of(step: Step) -> Step | None:
+        if not step.call or not step.call[0].ports:
+            return None
+        wiring = next(i for i in step.inputs if i.port == step.call[0].ports[0])
+        return by_id[wiring.source.partition(".")[0]] if wiring.source else None
+
+    def carries(step: Step) -> bool:
+        root = _meta_root(pipeline, step)
+        channel = next((c for c in pipeline.channels if c.name == root), None)
+        return channel is not None and channel.type_id in sample_types
+
+    entering, gated = [], []
+    for step in pipeline.steps:
+        if step.guard is None or step.id not in calls or "(" not in calls[step.id]:
+            continue
+        upstream = source_of(step)
+        if upstream is not None and upstream.guard is not None and upstream.id not in measuring:
+            continue
+        (entering if carries(step) else gated).append(step)
+    if not entering and not gated:
+        return [calls[s.id] for s in pipeline.steps if s.id in calls], []
+    unfiltered = {step.id: _first_arg(calls[step.id]) for step in entering}
+    after: dict[str, set[str]] = {}
+    for step in entering:
+        takes = ", ".join(f"'{_token(t)}'" for t in step.guard.takes)
+        admits = f".filter {{ it -> def meta = it[0]; ({_tool_of(step)}) in [{takes}] }}"
+        calls[step.id] = _wrap_first(calls[step.id], admits)
+    for step in gated:
+        mine = [e for e in entering if set(e.guard.takes) & set(step.guard.takes)]
+        if not mine:
+            continue
+        admitted = _first_arg(calls[mine[0].id])
+        for other in mine[1:]:
+            admitted = f"({admitted}).mix({_first_arg(calls[other.id])})"
+        calls[step.id] = _wrap_first(
+            calls[step.id], f".combine(({admitted}).first().map {{ true }})"
+            ".map { it.size() == 2 ? it[0] : it[0..-2] }.first()")
+        after[step.id] = {s.id for e in mine if (s := source_of(e)) is not None}
+    # Each step after its inputs, and an index after what its samples come from.
+    order, done = [], set()
+    waiting = [s for s in pipeline.steps if s.id in calls]
+    while waiting:
+        for step in waiting:
+            needs = {i.source.partition(".")[0] for i in step.inputs if i.source}
+            needs |= {m.partition(".")[0] for i in step.inputs for m in i.mixed}
+            needs |= after.get(step.id, set())
+            if not (needs & {s.id for s in waiting}):
+                order.append(calls[step.id])
+                done.add(step.id)
+                waiting.remove(step)
+                break
+        else:
+            raise AssertionError("the steps' order has a cycle")
+    routed, seen = [], set()
+    for step in entering:
+        if step.guard.lookup.rule in seen:
+            continue
+        seen.add(step.guard.lookup.rule)
+        facts = " + ".join(
+            f"\"\\t{f.measurement}=${{meta.{f.meta_key}}}:"
+            f"${{meta.comeni_from?.get('{f.measurement}') ?: "
+            f"(meta.{f.meta_key} == null ? 'missing' : 'measured')}}\""
+            for f in step.guard.lookup.facts)
+        # Recorded as the role's `tool`, beside the run-time settings: `decided/alignment.tool.tsv`.
+        name = f"{step.guard.lookup.rule.split(':')[1]}.tool"
+        routed.append(
+            "if (params.outdir) {\n"
+            f"        ({unfiltered[step.id]}).map {{ it -> def meta = it[0]; \"${{meta.id}}\\t\" + "
+            f"String.valueOf({_tool_of(step)}) + {facts} }}.collectFile(name: '{name}.tsv', "
+            "storeDir: \"${params.outdir}/decided\", newLine: true, sort: true)\n"
+            "    }")
+    return order, routed
 
 
 def _guarded(step: Step, call: str) -> str:

@@ -141,3 +141,33 @@ def test_a_symlinked_results_folder_is_not_followed(client, a_run, session, tmp_
     _complete(session, a_run.id)
     session.commit()
     assert client.get(f"/api/runs/{a_run.id}/measured").json()["facts"] == []
+
+
+def test_each_samples_tool_is_read_when_chosen_per_sample(client, a_run, session, tmp_path):
+    """A tool chosen per sample (#466): the run records which each sample took."""
+    import yaml
+
+    _artifact(tmp_path, a_run)
+    path = settings.artifact_root / a_run.artifact_id / "pipeline.yml"
+    data = yaml.safe_load(path.read_text())
+    step = next(s for s in data["steps"] if s["id"] == "star_align")
+    step["guard"] = {
+        "lookup": {"facts": [{"measurement": "read_length", "meta_key": "read_length",
+                              "source": "cell"}],
+                   "rule": "implementation:alignment",
+                   "rows": [{"when": [{"fact": "read_length", "test": ">=", "operand": [70]}],
+                             "then": "nf-core/star/align@2.7.11b"}],
+                   "fallback": None, "fallback_reason": "asked", "fallback_is": "stop"},
+        "takes": ["nf-core/star/align@2.7.11b"]}
+    path.write_text(yaml.safe_dump(data))
+    decided = launcher.results_dir(a_run.id) / "decided"
+    decided.mkdir(parents=True)
+    (decided / "alignment.tool.tsv").write_text(
+        "S1\tnf-core.star.align:2.7.11b\tread_length=150:cell\n")
+    _complete(session, a_run.id)
+    session.commit()
+    body = client.get(f"/api/runs/{a_run.id}/measured").json()
+    assert body["decided"] == [{"step": "alignment", "setting": "tool", "sample": "S1",
+                                "value": "nf-core.star.align:2.7.11b", "facts": [
+                                    {"fact": "read_length", "value": "150",
+                                     "source": "cell"}]}]

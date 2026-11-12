@@ -42,3 +42,68 @@ def test_the_saved_pipeline_keeps_each_steps_guard(branched):
     assert (fact.measurement, fact.auto, fact.required) == ("read_length", True, False)
     again = Pipeline.model_validate(branched.model_dump(mode="json"))
     assert again == branched
+
+
+def _call(text: str, process: str) -> str:
+    return next(line.strip() for line in text.splitlines()
+                if line.strip().startswith(f"{process}("))
+
+
+def test_each_aligner_takes_only_its_samples(branched):
+    from mendel_compiler.emit import emit
+
+    text = emit(branched)
+    star = _call(text, "STAR_ALIGN")
+    assert ".filter {" in star and "in ['nf-core.star.align:2.7.11b']" in star
+    assert "(meta.read_length as double) >= 70.0" in star
+    hisat2 = _call(text, "HISAT2_ALIGN")
+    assert "in ['nf-core.hisat2.align:2.2.2']" in hisat2
+
+
+def test_the_branches_rejoin_by_mixing(branched):
+    from mendel_compiler.emit import emit
+
+    sort = _call(emit(branched), "SAMTOOLS_SORT")
+    assert "HISAT2_ALIGN.out.bam.mix(STAR_ALIGN.out.bam)" in sort \
+        or "STAR_ALIGN.out.bam.mix(HISAT2_ALIGN.out.bam)" in sort
+
+
+def test_an_index_waits_for_a_sample_of_its_own(branched):
+    """An index no sample needs never starts (Review Focus 4)."""
+    from mendel_compiler.emit import emit
+
+    text = emit(branched)
+    for process in ("STAR_GENOMEGENERATE", "HISAT2_BUILD"):
+        call = _call(text, process)
+        assert ".combine(" in call and ".first().map { true }" in call
+    lines = [line.strip() for line in text.splitlines()]
+    trim = next(n for n, line in enumerate(lines) if line.startswith("TRIMGALORE("))
+    index = next(n for n, line in enumerate(lines) if line.startswith("STAR_GENOMEGENERATE("))
+    assert trim < index
+
+
+def test_a_sample_no_row_covers_takes_the_fallback(branched):
+    """It never vanishes: a tool's branch, or the run stops naming it (Review Focus 3)."""
+    from mendel_compiler.emit import emit
+
+    star = _call(emit(branched), "STAR_ALIGN")
+    fallback = branched.steps[0].guard or next(s.guard for s in branched.steps if s.guard)
+    if fallback.lookup.fallback_is.value == "stop":
+        assert "throw new IllegalStateException" in star
+    else:
+        assert star.count("'nf-core.") >= 3
+
+
+def test_the_run_records_each_samples_tool(branched):
+    from mendel_compiler.emit import emit
+
+    text = emit(branched)
+    assert "name: 'alignment.tool.tsv'" in text
+    assert 'storeDir: "${params.outdir}/decided"' in text
+
+
+def test_a_pipeline_without_branches_emits_as_before():
+    from mendel_compiler.emit import emit
+
+    text = emit(_built([], {"read_length": 150}))
+    assert ".mix(" not in text and "alignment.tool.tsv" not in text and ".map { true }" not in text
