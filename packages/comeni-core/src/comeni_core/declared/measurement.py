@@ -8,7 +8,7 @@ values must be declared as an enum.
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import NamedTuple
+from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -82,8 +82,20 @@ class Measurement(BaseModel):
     meta_key: str | None = None
     """Key used when carrying this value in module metadata; absent disables carrying it."""
 
+    row: Literal["second_file_present"] | None = None
+    """Read off each sample's samplesheet row rather than measured (#466): `second_file_present`
+    is true when the row gives its input's second file. A boolean, describing a type whose
+    second column may be blank (MD0338)."""
+
     meta_values: list[MetaValue] = Field(default_factory=list)
     """Optional translations from declared values to module metadata values."""
+
+    @model_validator(mode="after")
+    def _a_row_fact_is_a_boolean(self) -> "Measurement":
+        if self.row is not None and self.kind is not MeasurementKind.BOOLEAN:
+            raise ValueError(coded("MD0338", f"{self.id} is read off the row ({self.row}), "
+                                   "which gives true or false; declare it a boolean"))
+        return self
 
     @model_validator(mode="after")
     def _assertion_only_says_why(self) -> "Measurement":

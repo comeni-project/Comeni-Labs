@@ -47,6 +47,9 @@ class TypeDeclaration(BaseModel):
     """Stable type identifier used by contracts and routing."""
     states: frozenset[str] = frozenset()
     sample_columns: int = 1
+    second_may_be_blank: bool = False
+    """Of two columns, the second may be left blank for a sample (#466): a single-end sample's
+    reads are one file."""
     """Number of input-table columns occupied by one sample of this type."""
 
     grain: Grain = Grain.SAMPLE
@@ -152,6 +155,8 @@ class Vocabulary(BaseModel):
     columns: dict[str, int] = {}
     """Input-table column counts keyed by type ID."""
 
+    blank_second: set[str] = set()
+    """Types whose second samplesheet column a sample may leave blank (#466)."""
     grains: dict[str, Grain] = {}
     """Each type's grain: one item for the study or one per sample (#466)."""
 
@@ -181,6 +186,7 @@ class Vocabulary(BaseModel):
         test_data: dict[str, str | list[str]] = {}
         entry_channels: dict[str, str] = {}
         grains: dict[str, Grain] = {}
+        blank_second: set[str] = set()
         columns: dict[str, int] = {}
         params: dict[str, str] = {}
         names: dict[str, str] = {}
@@ -193,6 +199,8 @@ class Vocabulary(BaseModel):
             types[type_id] = entry.states
             grains[type_id] = entry.grain
             columns[type_id] = entry.sample_columns
+            if entry.second_may_be_blank:
+                blank_second.add(type_id)
             if entry.entry_channel:
                 entry_channels[type_id] = entry.entry_channel
             if entry.param:
@@ -207,6 +215,7 @@ class Vocabulary(BaseModel):
             types=types,
             entry_channels=entry_channels,
             grains=grains,
+            blank_second=blank_second,
             columns=columns,
             params=params,
             names=names,

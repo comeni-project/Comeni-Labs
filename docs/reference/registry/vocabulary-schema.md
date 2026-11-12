@@ -36,6 +36,7 @@ Model: `comeni_core.declared.vocabulary.TypeDeclaration`
 | `id` | string | *required* | the type id. Validated, because it is emitted as a channel name |
 | `states` | [string] | `[]` | every state this type may carry. **Closed** — an undeclared state fails to load |
 | `sample_columns` | integer | `1` | how many samplesheet columns one sample occupies. **1 or 2** |
+| `second_may_be_blank` | boolean | `false` | of two columns, a sample may leave the second blank: single-end reads are one file |
 | `grain` | string | `sample` | `sample` or `study`: how many arrive, relative to the analysis |
 | `entry_channel` | string \| null | `null` | Groovy producing this type when nothing upstream does |
 | `param` | string \| null | `null` | the parameter `entry_channel` reads. Defaults to the id's last segment |

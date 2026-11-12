@@ -41,6 +41,7 @@ Model: `comeni_core.declared.measurement.Measurement`
 | `explain` | string \| null | `null` | what it is and how a person finds it out, one short paragraph shown under a question about it. Read by nothing that builds |
 | `edam` | string \| null | `null` | the EDAM ontology term, when one fits |
 | `describes` | string \| null | `null` | the type this is a fact *about*, e.g. `fastq.reads`. It sets the fact's [scope](#scope). A setting can be [decided at run time](rule-schema.md#decided-at-run-time) from it only when this is set |
+| `row` | `second_file_present` \| null | `null` | read off each sample's samplesheet row instead of measured: true when the row gives its second file. A boolean describing a type with `second_may_be_blank` (`MD0338`) |
 | `meta_key` | string \| null | `null` | the key this becomes in a Nextflow `meta` map |
 | `meta_values` | [string] | `[]` | how its values are spelled in `meta`, when they differ |
 | `deprecated` | boolean | `false` | still loads, should not be used in new rules |

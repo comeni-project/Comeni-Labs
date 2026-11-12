@@ -3085,6 +3085,20 @@ MD0337:
     breaks it, there is nothing to settle per sample in the run: a person's or a model's value
     would fail every sample, so the build refuses it rather than shipping it.
 
+MD0338:
+  emitted_by: core
+  concern: loading
+  says: "a measurement read off the row is not a boolean, or its type's second column cannot be blank"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Declare the measurement `kind: boolean`, and have it describe a type with
+    `second_may_be_blank: true`, such as `fastq.reads`.
+  explanation: |
+    `row: second_file_present` says a fact is read from whether a sample's row gives its second
+    file (#466): paired-end reads are two files, single-end one. It is true or false, and it
+    needs a type whose second column a sample may leave blank.
+
 MD0501:
   emitted_by: resolver
   concern: validation

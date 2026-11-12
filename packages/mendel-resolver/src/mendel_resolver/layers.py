@@ -159,6 +159,12 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
             raise ValueError(coded(
                 "MD0334", f"measurement {measurement.id} describes {measurement.describes}, "
                 "which no layer declares as a type — `mendel explain MD0334`."))
+    for measurement in measurements.measurements.values():
+        if measurement.row is not None and measurement.describes not in vocabulary.blank_second:
+            raise ValueError(coded(
+                "MD0338", f"measurement {measurement.id} is read off the row, and "
+                f"{measurement.describes} has no second column a sample may leave blank — "
+                "`mendel explain MD0338`."))
     measurements = measurements.with_grains(vocabulary.grains)
     declared_families = stack(stacked, FamilyVocabulary.kind(), buckets=buckets)
     families = FamilyVocabulary.of(declared_families)
