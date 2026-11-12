@@ -96,7 +96,8 @@ def of(
     assigned_channels = _named(ir)
 
     # Build channels before wiring step inputs to their names.
-    channels = _channels(ir, registry, vocab, measurements, incoming_edges, assigned_channels)
+    channels = _channels(ir, registry, vocab, measurements, incoming_edges, assigned_channels,
+                         units=set(goal.constraints.units))
     default_channels_by_type = {channel.type_id: channel.name for channel in channels}
 
     steps = []
@@ -615,6 +616,7 @@ def _channels(
     measurements: MeasurementRegistry | None,
     incoming_edges: dict[tuple[str, str], IREdge],
     assigned_channels: dict[str, str],
+    units: set[str] = frozenset(),  # type: ignore[assignment]
 ) -> list[Channel]:
     """Build external input channels from the IR, vocabulary, and measurements.
 
@@ -650,9 +652,9 @@ def _channels(
         channels.append(
             Channel(
                 columns=[name] if wide == 1 else [f"{name}_{n}" for n in range(1, wide + 1)],
-                grain=Grain(chosen.value) if chosen else Grain(
-                    vocab.grains.get(type_id, Grain.SAMPLE)
-                ),
+                # An input whose rows may repeat a sample carries one item per row (#466).
+                grain=Grain(chosen.value) if chosen else Grain.UNIT if type_id in units
+                else Grain(vocab.grains.get(type_id, Grain.SAMPLE)),
                 why=_why(chosen) if chosen else None,
                 name=name,
                 param=param,

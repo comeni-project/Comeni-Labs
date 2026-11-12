@@ -42,7 +42,7 @@ from comeni_core.plan.decision import (
     SourceDecision,
 )
 from comeni_core.plan.ir import EntryType, IREdge, IRNode, PipelineIR, ResolvedValue, Tier
-from comeni_core.plan.tiers import PremiseOrigin, ValueSource
+from comeni_core.plan.tiers import Grain, PremiseOrigin, ValueSource
 
 from mendel_resolver import at_run
 from mendel_resolver.goal import Goal
@@ -137,8 +137,17 @@ def resolve(
     pipeline; any other stays the question it is today. See `_resolve_route` for one route.
     """
     measurements.check_varies(goal)
+    _check_units(goal, vocabulary)
     args = dict(vocabulary=vocabulary, layer_names=layer_names, prior=prior,
                 facts_read=facts_read, inspection=inspection)
+    return _with_units(_resolve_branches(goal, registry, rules, measurements, resolver, args),
+                       goal, registry)
+
+
+def _resolve_branches(goal: Goal, registry: Registry, rules: RuleTable,
+                      measurements: MeasurementRegistry, resolver: AmbiguityResolver | None,
+                      args: dict) -> PipelineIR:
+    """The goal routed, once, or once per tool of a tool chosen per sample and merged."""
     premises = build_premises(goal=goal, derivations=rules.derivations,
                               measurements=measurements)
     points = at_run.branch_points(registry, rules, premises, measurements, goal)
@@ -155,7 +164,7 @@ def resolve(
     if not any(n.contract_id in point.outcomes for route in routes for n in route.nodes):
         # The goal never reaches the choice (final review C1): nothing to branch.
         return _resolve_route(goal, registry, rules, measurements, resolver=remembering, **args)
-    backed = {record.key: record.human_override for record in prior
+    backed = {record.key: record.human_override for record in args["prior"]
               if getattr(record, "human_override", None) is not None}
     return _merged(point, routes, registry, measurements, goal, remembering, backed)
 
@@ -1155,3 +1164,66 @@ def _merged(point: "at_run.BranchPoint", routes: Sequence[PipelineIR], registry:
                                for m in r.meta_at_run}.values())
     merged.confirms = list({c.measurement: c for r in routes for c in r.confirms}.values())
     return merged
+
+
+def _check_units(goal: Goal, vocabulary: Vocabulary) -> None:
+    """Only an input the goal has, one item per sample, may span several rows (MD0340)."""
+    have = {given.type_id for given in goal.have}
+    for type_id in goal.constraints.units:
+        grain = vocabulary.grains.get(type_id, Grain.SAMPLE)
+        if type_id not in have or Grain(grain) is not Grain.SAMPLE:
+            raise ValueError(coded(
+                "MD0340", f"{type_id} cannot span several rows per sample: only an input the "
+                "goal has, with one item per sample, can — `mendel explain MD0340`."))
+
+
+def _with_units(ir: PipelineIR, goal: Goal, registry: Registry) -> PipelineIR:
+    """Each input whose rows may repeat a sample gets its merging step, between the input and
+    everything that read it (#466). Without `units`, the pipeline is untouched."""
+    for type_id in goal.constraints.units:
+        mergers = sorted(
+            (c for c in registry.all() if "merging" in c.roles
+             and any(p.type_id == type_id for p in c.consumes)
+             and any(p.type_id == type_id for p in c.produces)),
+            key=lambda c: (-c.priority, c.id))
+        if not mergers:
+            raise ValueError(coded(
+                "MD0341", f"{type_id} may span several rows per sample, and nothing in the "
+                "registry merges it — `mendel explain MD0341`."))
+        merger = mergers[0]
+        node_id = f"merge_{type_id.replace('.', '_').replace('-', '_')}"
+        fed = {(e.to_node, e.to_port) for e in ir.edges}
+        readers = []
+        for node in ir.nodes:
+            contract = registry.get(node.contract_id)
+            off = {r.port for r in node.inputs if r.state is InputState.OFF}
+            for port in contract.consumes:
+                if port.name in off or (node.id, port.name) in fed:
+                    continue
+                if node.entry_type(port.name, port.type_id) == type_id:
+                    readers.append((node.id, port.name))
+        if not readers:
+            continue
+        states = next((frozenset(g.states) for g in goal.have if g.type_id == type_id),
+                      frozenset())
+        out = next(p for p in merger.produces if p.type_id == type_id)
+        merge = IRNode(
+            id=node_id, contract_id=merger.id,
+            selection=ResolvedValue(
+                value=merger.id, tier=Tier.CONVENTION,
+                reason=(f"uncontested — {merger.id} merges {type_id}" if len(mergers) == 1
+                        else f"registry priority {merger.priority}, over "
+                             f"{', '.join(c.id for c in mergers[1:])}")),
+            presence=ResolvedValue(
+                value=None, tier=Tier.STRUCTURAL,
+                reason=f"a sample may span several rows of {type_id}: its rows are merged "
+                       "before anything reads it"),
+        )
+        first = min(n for n, node in enumerate(ir.nodes) if node.id in {r[0] for r in readers})
+        ir.nodes.insert(first, merge)
+        ir.edges.extend(IREdge(from_node=node_id, from_port=out.name, to_node=node,
+                               to_port=port, type_id=type_id, states=states)
+                        for node, port in readers)
+        order = {n.id: k for k, n in enumerate(ir.nodes)}
+        ir.edges.sort(key=lambda e: order[e.to_node])
+    return ir

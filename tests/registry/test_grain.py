@@ -44,8 +44,17 @@ def test_cardinality_is_gone():
 def test_many_needs_a_finer_grain_to_gather():
     with pytest.raises(ValueError, match="MD0331"):
         ModuleContract.model_validate(
-            _contract({"name": "genome", "type_id": "genome.fasta", "grain": "sample",
+            _contract({"name": "genome", "type_id": "genome.fasta", "grain": "unit",
                        "many": True}))
+
+
+def test_a_sample_may_gather_its_units():
+    """A merger reads every lane of one sample in one call (#466)."""
+    from comeni_core.declared.contract import InputPort
+
+    port = InputPort.model_validate(
+        {"name": "reads", "type_id": "fastq.reads", "grain": "sample", "many": True})
+    assert port.many and port.grain is Grain.SAMPLE
 
 
 def test_a_drawn_channel_grain_is_closed_at_the_boundary():

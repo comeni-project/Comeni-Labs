@@ -3118,6 +3118,34 @@ MD0339:
     branches rejoin at different types, or when the fact does not describe the chosen step's
     own input, the samples cannot be told apart where it matters, and the build refuses.
 
+MD0340:
+  emitted_by: resolver
+  concern: routing
+  says: "an input said to span several rows per sample is not one the goal has, one item per sample"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Say it of an input the goal has whose type carries one item per sample, such as
+    `fastq.reads`. A reference genome is one item for the study and has no lanes.
+  explanation: |
+    `constraints.units` names the inputs whose samplesheet rows may repeat a sample, such as a
+    sample sequenced over several lanes (#466). Each sample's rows are merged before anything
+    reads them, so only a per-sample input the pipeline takes can have them.
+
+MD0341:
+  emitted_by: resolver
+  concern: routing
+  says: "an input may span several rows per sample, and nothing in the registry merges its type"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Add a contract with the role `merging` that consumes and produces the type, or say each
+    sample is one row.
+  explanation: |
+    A sample's rows are merged by a step filling the `merging` role for the input's type, such as
+    nf-core/cat/fastq for reads (#466). Without one, the rows of a sample could not become one
+    item, so the build refuses and names the type.
+
 MD0501:
   emitted_by: resolver
   concern: validation

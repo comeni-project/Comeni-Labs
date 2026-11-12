@@ -191,9 +191,14 @@ class Constraints(BaseModel):
     """Per-sample facts a person said differ between samples (#466): each sample's value comes
     from its samplesheet cell or a measurement in the run, never one value for all. Sorted."""
 
+    units: list[TypeId] = Field(default_factory=list, exclude_if=lambda units: not units)
+    """Inputs whose rows may repeat a sample, such as a sample sequenced over several lanes
+    (#466): the build merges each sample's rows before anything reads them. Sorted."""
+
     @model_validator(mode="after")
     def _varies_sorted(self) -> "Constraints":
         object.__setattr__(self, "varies", sorted(set(self.varies)))
+        object.__setattr__(self, "units", sorted(set(self.units)))
         return self
 
     @model_validator(mode="before")

@@ -171,6 +171,8 @@ decline to curate one.
 | `MD0331` | a port gathers (`many: true`) at a grain with nothing finer to gather |
 | `MD0332` | a fact is said to differ between samples, and it is the study's or is also stated |
 | `MD0339` | a tool chosen per sample needs routes that differ only after the choice and rejoin at one type |
+| `MD0340` | an input said to span several rows per sample is not one the goal has, one item per sample |
+| `MD0341` | an input may span several rows per sample, and nothing in the registry merges its type |
 | `MD0608` | an output a later step needs is not written with this step's settings |
 | `MD0609` | a tool's input is needed, but it was switched off or cannot be connected |
 | `MD0610` | a connection or setting is forbidden by the tool's constraints |
