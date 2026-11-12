@@ -86,3 +86,17 @@ def test_a_contract_reading_no_per_sample_fact_is_refused(tmp_path):
             fixture.replace("fact.paired", bad))
         with pytest.raises(ValueError, match=f"MD0336.*{bad}"):
             layers.load([ROOT / "registry", layer])
+
+
+def test_only_a_constraint_row_may_read_a_fact(tmp_path):
+    """`produced_when` and a group's `when` are not settled per sample, so a fact there is
+    refused at load rather than silently never holding (Task 7 review)."""
+    fixture = (ROOT / "packages/comeni-core/tests/fixtures/constraints/fastp_like.yml").read_text()
+    text = fixture.replace(
+        "produces: [{name: reads, type_id: fastq.reads}]",
+        "produces: [{name: reads, type_id: fastq.reads, produced_when: {fact.paired: true}}]")
+    layer = tmp_path / "produced"
+    (layer / "tools/test/fastp_like").mkdir(parents=True)
+    (layer / "tools/test/fastp_like/contract.yml").write_text(text)
+    with pytest.raises(ValueError, match="MD0336"):
+        layers.load([ROOT / "registry", layer])

@@ -190,7 +190,13 @@ def evaluate(contract: ModuleContract, setup: Setup) -> Verdict:
     add(verdict.missing, [p.name for p in contract.consumes
                           if p.required and p.name not in setup.given])
     samples = _sample_worlds(setup)
+    told = set(setup.facts) | set(setup.unknown_facts)
     for row in rows_of(contract):
+        # A row on a sample's fact the setup says nothing about is the run's to settle per
+        # sample, never a build-time verdict: `absent` would otherwise hold at every build
+        # (Task 7 review).
+        if any(k.startswith("fact.") and k.partition(".")[2] not in told for k in row.when):
+            continue
         broken = []
         applies = False
         for given in worlds:
@@ -276,7 +282,15 @@ def _conditions(contract: ModuleContract) -> list[dict[str, Any]]:
 def check_constraints(contract: ModuleContract) -> list[str]:
     """Findings, each a coded message: MD0603 no valid setup, MD0604 a dead optional input,
     MD0605 a fake optional one, MD0606 an output never produced, MD0607 too many setups,
-    MD0612 a type a port accepts that no setup allows (#464)."""
+    MD0612 a type a port accepts that no setup allows (#464); MD0336 a sample's fact read outside
+    a constraint row, where nothing settles it per sample (#466)."""
+    elsewhere = sorted(k for k in (*(k for g in contract.groups for k in g.when),
+                                   *(k for o in contract.produces
+                                     for k in (o.produced_when or {})))
+                       if k.startswith("fact."))
+    if elsewhere:
+        return [coded("MD0336", f"{contract.id} reads {elsewhere[0]} in a group or an output's "
+                      "produced_when; only a constraint row may read a sample's fact")]
     optional = contract.optional_ports()
     required = frozenset(p.name for p in contract.consumes if p.required)
     compared: dict[str, list[Any]] = {}

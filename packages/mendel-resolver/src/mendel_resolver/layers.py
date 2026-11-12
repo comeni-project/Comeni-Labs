@@ -277,9 +277,17 @@ def _check_facts_read(contract, measurements: MeasurementRegistry) -> None:
     from comeni_core.declared.constraints import rows_of
     from comeni_core.plan.tiers import Grain
 
+    elsewhere = sorted(k for k in (*(k for g in contract.groups for k in g.when),
+                                   *(k for o in contract.produces for k in (o.produced_when or {})))
+                       if k.startswith("fact."))
+    if elsewhere:
+        # Only a constraint row is settled per sample; a group or an output's `produced_when`
+        # on a fact would silently never hold (Task 7 review).
+        raise ValueError(coded(
+            "MD0336", f"{contract.id} reads {elsewhere[0]} in a group or an output's "
+            "produced_when; only a constraint row may read a sample's fact — "
+            "`mendel explain MD0336`."))
     keys = {k for row in rows_of(contract) for k in row.when}
-    keys |= {k for group in contract.groups for k in group.when}
-    keys |= {k for out in contract.produces for k in (out.produced_when or {})}
     for key in sorted(k for k in keys if k.startswith("fact.")):
         name = key.partition(".")[2]
         if name not in measurements.ids() or measurements.scope_of(name) is not Grain.SAMPLE:

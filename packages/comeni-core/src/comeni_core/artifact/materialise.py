@@ -429,15 +429,23 @@ def _fact_cases(name: str, contract: ModuleContract, measurements: MeasurementRe
         return [True, False, None]
     if declared.values:
         return [*declared.values, None]
-    named = set()
+    named: set = set()
     for row in rows_of(contract):
         expected = row.when.get(f"fact.{name}")
-        literal = (expected.partition(" ")[2] if isinstance(expected, str) else expected)
-        try:
-            named.add(float(literal))
-        except (TypeError, ValueError):
-            continue
-    return [*sorted({v + d for v in named for d in (-1, 0, 1)}), None]
+        if isinstance(expected, dict):
+            # `{in: [...]}` and `{not: x}` name their values (Task 7 review).
+            literals = expected.get("in", [expected.get("not")])
+        elif isinstance(expected, str) and " " in expected:
+            literals = [expected.partition(" ")[2]]
+        else:
+            literals = [expected]
+        for literal in literals:
+            try:
+                named.add(float(literal))
+            except (TypeError, ValueError):
+                continue
+    # One value at least, so `present` has a sample to hold for.
+    return [*sorted({v + d for v in named or {0.0} for d in (-1, 0, 1)}), None]
 
 
 def _per_sample(contract: ModuleContract, node: IRNode, settings: list[Setting], goal: Goal,
@@ -467,11 +475,26 @@ def _per_sample(contract: ModuleContract, node: IRNode, settings: list[Setting],
         unknown=frozenset(p for p, st in states.items() if st is InputState.OPTIONAL)))
     by_name = {st.name: st for st in settings}
     rules: list[SampleRule] = []
+    optional = {p for p, st in states.items() if st is InputState.OPTIONAL}
+    ports = {p.name for p in contract.consumes}
     for row in rows_of(contract):
         says = sentence(row)
+        read = [k.partition(".")[2] for k in row.when if k.startswith("fact.")]
+        if not read:
+            continue
+        if all(f in known for f in read) and says in verdict.sentences:
+            # Every sample's value is known and breaks the rule (Task 7 review, Critical).
+            _broken_by_every_sample(row, says, by_name, contract)
+            continue
         if says not in verdict.per_sample:
             continue
-        read = [k.partition(".")[2] for k in row.when if k.startswith("fact.")]
+        # The guard tests the sample's facts only: a row that also depends on an input each
+        # run may leave empty, or that names a port rather than a setting, cannot be settled
+        # per sample this way and is left out (Task 7 review; deferred).
+        if any(k.startswith("given.") and k.partition(".")[2] in optional for k in row.when):
+            continue
+        if any(n in ports for n in (*row.requires, *row.forbids)):
+            continue
         if any(f not in sources for f in read):
             continue
         when = sorted((condition_of(k.partition(".")[2], v) for k, v in row.when.items()
@@ -479,8 +502,10 @@ def _per_sample(contract: ModuleContract, node: IRNode, settings: list[Setting],
         stops = list(row.requires)
         for name in row.forbids:
             setting = by_name.get(name)
-            mine = setting is not None and setting.why.source in (ValueSource.HUMAN,
-                                                                   ValueSource.SAID)
+            # A person's value, or a model's answer flagged for review, is an explicit choice:
+            # a sample it does not suit stops, visibly, rather than ignoring it unseen.
+            mine = setting is not None and setting.why.source in (
+                ValueSource.HUMAN, ValueSource.SAID, ValueSource.MODEL)
             if setting is None or mine or setting.at_run is not None or setting.via is not Via.EXT:
                 stops.append(name)
                 continue
@@ -491,6 +516,28 @@ def _per_sample(contract: ModuleContract, node: IRNode, settings: list[Setting],
         if stops:
             rules.append(SampleRule(when=when, says=f"{says} ({', '.join(sorted(stops))})"))
     return [by_name[st.name] for st in settings], rules
+
+
+def _broken_by_every_sample(row, says: str, by_name: dict, contract: ModuleContract) -> None:
+    """A rule every sample breaks, their facts known before the build: a setting a default or a
+    rule gave is not passed at all; a person's or a model's value, or a requirement, is refused
+    (MD0337), never shipped."""
+    for name in row.forbids:
+        setting = by_name.get(name)
+        if setting is None or setting.value is None:
+            continue
+        if setting.why.source in (ValueSource.HUMAN, ValueSource.SAID, ValueSource.MODEL):
+            raise ValueError(coded(
+                "MD0337", f"{contract.id}: {says}, and every sample's value is known to break "
+                f"it, so {name} cannot be set — `mendel explain MD0337`."))
+        by_name[name] = setting.model_copy(update={
+            "value": None,
+            "why": setting.why.model_copy(update={"reason": f"not set: {says}"}),
+        })
+    if row.requires:
+        raise ValueError(coded(
+            "MD0337", f"{contract.id}: {says}, and every sample's value is known to break it "
+            "— `mendel explain MD0337`."))
 
 
 def _run_sentences(contract: ModuleContract, node: IRNode) -> list[str]:

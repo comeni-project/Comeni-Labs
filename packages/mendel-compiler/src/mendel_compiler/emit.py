@@ -468,12 +468,13 @@ def _meta_injection(step: Step) -> str:
     return f".map {{ it -> [ it[0] + [{rendered}] ] + it[1..-1] }}"
 
 
-def _call(pipeline: Pipeline, step: Step, measured: dict[str, str] | None = None) -> str:
+def _call(pipeline: Pipeline, step: Step, measured: dict[str, str] | None = None,
+          guard: bool = True) -> str:
     args = [_argument(pipeline, step, arg, measured) for arg in step.call]
     injection = _meta_injection(step)
     if injection and args:
         args[0] = f"({args[0]}){injection}"
-    if step.sample_rules and args:
+    if guard and step.sample_rules and args:
         args[0] = f"({args[0]}){_sample_guard(step)}"
     return f"{step.process}({', '.join(args)})"
 
@@ -633,9 +634,26 @@ def _calls(pipeline: Pipeline) -> list[str]:
     _check_measuring(pipeline, branch, measured)
     first = [_measuring_call(pipeline, step, unstated) for step in pipeline.steps
              if step.id in branch]
-    rest = [_remeta(pipeline, step, branch, measured, _call(pipeline, step, measured))
+    for step in pipeline.steps:
+        if step.id in branch and step.sample_rules:
+            # A measuring-branch step reads `meta` before any measurement is joined in, so a
+            # rule on a sample's facts could read nothing there (Task 7 review).
+            raise ValueError(coded(
+                "MD0330", f"{step.id} checks per-sample rules and runs before the facts are "
+                "measured — `mendel explain MD0330`."))
+    # The guard goes on after the measured facts are joined back, so it reads them.
+    rest = [_guarded(step, _remeta(pipeline, step, branch, measured,
+                                   _call(pipeline, step, measured, guard=False)))
             for step in pipeline.steps if step.id not in branch]
     return [*before, *first, *joined, *rest, *_decided(pipeline, measured)]
+
+
+def _guarded(step: Step, call: str) -> str:
+    if not step.sample_rules or "(" not in call:
+        return call
+    process, _, rest = call.partition("(")
+    first, sep, others = _split_first(rest[:-1])
+    return f"{process}(({first}){_sample_guard(step)}{sep}{others})"
 
 
 def _measuring_call(pipeline: Pipeline, step: Step, unstated: dict[str, str]) -> str:

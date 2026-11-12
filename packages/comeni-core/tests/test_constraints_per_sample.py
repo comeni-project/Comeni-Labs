@@ -42,3 +42,14 @@ def test_a_fact_rule_is_said_in_words():
                                        params={"save_merged": True},
                                        unknown_facts={"paired": [True, False, None]}))
     assert verdict.per_sample == [verdict.sentences[0]]
+
+
+def test_a_fact_rule_without_facts_does_not_apply_at_build():
+    """With no facts given, a `fact.` row is the run's to settle, never a build-time verdict;
+    `absent` would otherwise match every build (Task 7 review)."""
+    data = yaml_strict.load(FIXTURES / "fastp_like.yml")
+    data.pop("declares", None)
+    data["constraints"][0]["when"] = {"fact.paired": "absent"}
+    contract = ModuleContract.model_validate(data)
+    verdict = evaluate(contract, Setup(given=frozenset({"reads"}), params={"save_merged": True}))
+    assert verdict.forbidden == [] and verdict.sentences == []

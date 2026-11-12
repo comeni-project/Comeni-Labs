@@ -3071,6 +3071,20 @@ MD0336:
     sample in the run. A fact for the whole study, or a name nothing declares, has no
     per-sample value to settle it.
 
+MD0337:
+  emitted_by: core
+  concern: pipeline-file
+  says: "every sample breaks a tool's rule, their facts known before the build"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Change the setting the rule forbids, or the fact you stated: the tool cannot run this way
+    on any of your samples. A value a default or a rule gave is simply not passed.
+  explanation: |
+    A contract's rule may read a sample's fact (#466). When every sample's value is known and
+    breaks it, there is nothing to settle per sample in the run: a person's or a model's value
+    would fail every sample, so the build refuses it rather than shipping it.
+
 MD0501:
   emitted_by: resolver
   concern: validation

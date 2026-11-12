@@ -140,6 +140,7 @@ decline to curate one.
 | `MD0233` | a starter has nothing resolved to emit or publish |
 | `MD0330` | a setting decided at run time cannot be carried: it routes outside `ext`, or its template does not hold `{value}` once |
 | `MD0335` | a fact that differs between samples has no samplesheet column to carry it |
+| `MD0337` | every sample breaks a tool's rule, their facts known before the build |
 
 ## Routing and resolution
 

@@ -58,3 +58,21 @@ def test_a_persons_value_stops_a_sample_the_rule_forbids(stack):
     assert [(c.fact, c.operand) for c in rule.when] == [("paired", [False])]
     text = emit(pipeline)
     assert "error(\"sample ${meta.id}: \" + '" in text and SAYS in text
+
+
+def test_a_rule_every_sample_breaks_unsets_a_default_and_refuses_a_persons_value(stack):
+    """Every sample known single-end: the default is not passed at all, and a person's value is
+    refused at build, never shipped (Task 7 review, Critical)."""
+    def built(params=()):
+        graph = DraftGraph(nodes=[DraftNode(id="trim", contract_id="test/fastp_like@1.0",
+                                            params=list(params))], edges=[])
+        ir = ir_of(graph, stack)
+        goal = goal_of(graph, stack)
+        ir.profile = stack.measurements.profile({"paired": False})
+        return Pipeline.of(ir, stack.registry, stack.vocabulary, stack.measurements,
+                           stack.paths, goal=goal)
+
+    setting = next(s for s in built().steps[0].settings if s.name == "save_merged")
+    assert setting.value is None and setting.at_run is None
+    with pytest.raises(ValueError, match="MD0337"):
+        built([DraftParam(name="save_merged", value=True)])
