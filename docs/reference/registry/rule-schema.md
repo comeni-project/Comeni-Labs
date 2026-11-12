@@ -231,8 +231,33 @@ samtools faidx and decides in the run: 8 for nf-core's 230,218 bp test genome.
 | `MD0333` | a `hit: unique` decision over a fact that differs between samples has overlapping rows |
 | `MD0335` | a fact read from the samplesheet has no column |
 
-Implementation and presence decisions are not decided per sample yet: the graph is fixed when
-the pipeline is built, so they stay questions.
+### A tool chosen per sample
+
+An `implementation` decision whose rows wait only on facts a person said differ between samples
+chooses each sample's tool. Read length is the example: with it said to vary, samples of 70 bases
+or more go to STAR and shorter ones to HISAT2, in one pipeline. The rows must be expressible in
+the closed tests, `hit: first` or `hit: unique` without overlaps, and reach more than one tool. A
+fact that is unknown but nobody said varies stays the question it is today.
+
+The build routes the goal once for each tool the rows can reach and merges the routes. A step on
+every route is shared. Any other step carries a `guard`: the decision as a lookup whose value is
+a tool, and the tools whose samples the step takes. A sample enters a branch only if its tool is
+one of them. A step that does not carry the samples, such as a genome index, starts only once one
+of its samples arrives, so an index no sample needs never runs. The branches rejoin where the
+routes do, and the next step reads both. A sample no row covers, including one whose fact came
+back undetermined, takes a fallback asked once at build time as
+`<step>.if_no_row.implementation:<role>`: one of the tools, or "stop the run and name the
+sample". A sample never vanishes. Each sample's tool is recorded in
+`<outdir>/decided/<role>.tool.tsv` beside the facts it was chosen from.
+
+The routes must differ only after the choice, apart from steps that never carry the samples, and
+rejoin at one type. Otherwise the build refuses (`MD0339`). One tool per pipeline is chosen per
+sample; any other such decision stays a question. Presence decisions are not decided per sample
+yet.
+
+| Code | When |
+|---|---|
+| `MD0339` | the routes differ before the choice in a step that carries the samples, rejoin at different types, or the fact does not describe the chosen step's own input |
 
 ## Layer composition
 

@@ -373,6 +373,11 @@ not its columns is refused (`MD0335`). Any `sheet_facts` make the input a sample
 A step's `sample_rules` are the tool's rules each sample's facts settle; a setting's `at_run`
 lists every fact it reads, each with its `source`: `cell`, `measured` or `cell_or_measured`.
 
+When each sample's tool is chosen per sample, a step only some samples take has a `guard`: a
+`lookup` in the same form as `at_run`, whose rows give a tool, and the tools whose samples it
+`takes`. Where the branches rejoin, a step input names its first producer in `source` and the
+others in `mixed`. See [a tool chosen per sample](../registry/rule-schema.md#a-tool-chosen-per-sample).
+
 ### `decisions` — the review queue
 
 Every ambiguity, what was on the table, what was taken, and by whom. `human_override` **records**

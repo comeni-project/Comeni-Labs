@@ -1,6 +1,6 @@
 # Per-sample stage 4: branches — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** A tool chosen from a fact that differs between samples is chosen per sample. Samples
 whose read length is 70 or more go to STAR, shorter ones to HISAT2, in one pipeline. A step only
@@ -53,14 +53,14 @@ sample goes through", "Whether a sample goes through a step", "A sample no row c
 **Interfaces:**
 - Produces: `BranchPoint(site, decision, facts, sources, outcomes: list[tuple[str, Guard]], fallback)`. `outcomes` holds each contract the rows can reach over `cases()`, in row order, with the rows that reach it. The rules are as for a run-time setting (stage 1): every unknown fact comes from the run and rides the step's own input; `hit: first`, or `unique` without overlaps.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - with `read_length` measured in the run, `implementation:alignment` is a branch point with outcomes STAR (`read_length >= 70`) and HISAT2 (`< 70`), and its fallback asked;
   - with `read_length: 150` stated, there is no branch point (Review Focus 2);
   - a decision whose rows reach one contract over every case is no branch point.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `packages/mendel-resolver/tests`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: a tool chosen from a per-sample fact is a branch point (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `packages/mendel-resolver/tests`. Expected: pass.
+- [x] **Step 5: Commit** `feat: a tool chosen from a per-sample fact is a branch point (#466)`.
 
 ### Task 2: Routes merged, guards on their steps
 
@@ -71,14 +71,14 @@ sample goes through", "Whether a sample goes through a step", "A sample no row c
 - Modify: `diagnostics.yml` (`MD0339`: routes differ outside the branch, or do not rejoin at one type)
 - Test: `packages/mendel-resolver/tests/test_branches.py` (extend)
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - the merged IR has STAR's align and index and HISAT2's align and index, each guarded; trimming and featureCounts are shared and unguarded; featureCounts' `bam` has two incoming edges;
   - routes differing upstream are refused (Review Focus 1);
   - the merge is deterministic.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the resolver and core tests. Expected: pass.
-- [ ] **Step 5: Commit** `feat: each sample's tool routed, the routes merged with guards (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the resolver and core tests. Expected: pass.
+- [x] **Step 5: Commit** `feat: each sample's tool routed, the routes merged with guards (#466)`.
 
 ### Task 3: The emitted branches
 
@@ -92,11 +92,11 @@ sample goes through", "Whether a sample goes through a step", "A sample no row c
 - Modify: `packages/wiener-api/src/wiener_api/services/measured.py` (read `routed/`), `wiener_core/measured.py` (`RoutedSample`)
 - Test: `tests/emit/test_branches.py` (new: pure, and slow: two stub samples at 150 and 50 bp go to STAR and HISAT2; Review Focus 3, 4 and 5)
 
-- [ ] **Step 1: Write the failing tests** above.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the pure tests, then the slow ones. Expected: pass.
-- [ ] **Step 5: Commit** `feat: each sample goes down its own branch in the run (#466)`.
+- [x] **Step 1: Write the failing tests** above.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the pure tests, then the slow ones. Expected: pass.
+- [x] **Step 5: Commit** `feat: each sample goes down its own branch in the run (#466)`.
 
 ### Task 4: Shown before and after the run
 
@@ -105,21 +105,41 @@ sample goes through", "Whether a sample goes through a step", "A sample no row c
 - `make client`
 - Test: the step card, canvas and run page tests
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - the step card says which samples a guarded step takes;
   - the canvas marks guarded steps;
   - the run page says each sample's tool.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement** with the design tokens.
-- [ ] **Step 4: Run** `npx vitest run` and `npx tsc -b`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: the builder and the run page show each sample's path (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement** with the design tokens.
+- [x] **Step 4: Run** `npx vitest run` and `npx tsc -b`. Expected: pass.
+- [x] **Step 5: Commit** `feat: the builder and the run page show each sample's path (#466)`.
 
 ### Task 5: Docs and the end of the part
 
-- [ ] **Step 1:** Docs (the rule schema's "Decided at run time", the pipeline schema's `guard`), `CHANGELOG.md`, the journal. Tick this plan; record its deviations.
-- [ ] **Step 2:** Run `make check`, `make guards`, `make slow`, `npx vitest run` and `npx tsc -b`, separately. Expected: pass.
-- [ ] **Step 3: Commit** `docs: per-sample branches (#466)`.
+- [x] **Step 1:** Docs (the rule schema's "Decided at run time", the pipeline schema's `guard`), `CHANGELOG.md`, the journal. Tick this plan; record its deviations.
+- [x] **Step 2:** Run `make check`, `make guards`, `make slow`, `npx vitest run` and `npx tsc -b`, separately. Expected: pass.
+- [x] **Step 3: Commit** `docs: per-sample branches (#466)`.
 
 ## Deviations
 
-(Recorded during execution.)
+- Only a fact a person said varies makes a branch; an unknown fact nobody said varies stays
+  today's question (branching on every measurable unknown would build both aligners whenever
+  read length was unknown).
+- One branch point per pipeline; a second per-sample tool choice stays a question (#489).
+- `Guard` was added in Task 2, where it is first used. `validate.py` was not changed: it has no
+  one-edge-per-port check.
+- Several producers into one input are saved as `source` plus `mixed`, not a list of sources.
+- Each sample's tool is recorded as `decided/<role>.tool.tsv` and read by Wiener as a decided
+  value (`<role>.tool`), not in a new `routed/` folder with its own event payload.
+- Tools are written in the run as tokens (`nf-core.star.align:2.7.11b`): `/` and `@` are outside
+  the substitutable class.
+- A fallback still a question stops the run for the sample, as a stop does.
+- The measuring branch is never gated: faidx for `genome_length` runs even when no STAR sample
+  arrives, so the measured-fact join always matches.
+- The fallback question is shown as a generic question (#489).
+- A step only some samples need (presence per sample) was not built: only the tool is chosen per
+  sample (#489).
+- Final review fixes (94f003f1): a goal that never reaches the choice builds as before; a
+  person's pinned, excluded or switched-off tool is no branch; an unanswered fallback stops the
+  run (the stop is the first candidate); a tool's per-sample rules read only its branch's
+  samples; a guarded step carrying samples inside the measuring branch is refused (MD0330).

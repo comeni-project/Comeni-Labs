@@ -47,8 +47,10 @@ single-end samples: a blank second reads cell makes a sample single-end, and `pa
 the row with no column of its own. The run sheet lets that cell stay blank. Two inputs of one type
 per sample wait for a tool that needs them (#489).
 
-## Stage 4: branches (same day, in progress)
+## Stage 4: branches (same day)
 
 [The plan](../../superpowers/plans/2026-11-12-per-sample-stage-4.md). A tool chosen from a fact
 said to vary is chosen per sample: the build routes once per tool and merges the routes, each
-branch guarded by the rows that send samples its way.
+branch guarded by the rows that send samples its way. Read length said to vary gives STAR and
+HISAT2 in one pipeline; a stub run sends each sample down its own, never starts an index nobody
+needs, and records each sample's tool. One branch point per pipeline for now.

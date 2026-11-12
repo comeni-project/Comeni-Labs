@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- A tool chosen per sample (#466): `IRNode.guard` and `Step.guard` (`Guard`: the decision as a lookup giving a tool, and the tools whose samples a step takes); `StepInput.mixed` names further producers where branches rejoin; `SheetFact.from_row` is a closed vocabulary (`RowFact`). MD0339.
+
 - Mixed single-end and paired samples (#466): a type's second column may be blank (`second_may_be_blank`); a measurement may be read off the row (`row: second_file_present`, MD0338); a samplesheet fact may come from the row (`SheetFact.from_row`).
 
 - Per-sample facts (#466): `Grain` (study, sample) replaces channel `scope` and port `cardinality` (a gathering port says `grain: study, many: true`; MD0331); a measurement's scope is its type's grain, so `per_sample` is gone (a `describes` naming no type is MD0334); `constraints.varies` lists facts a person said differ between samples (MD0332). `AtRun` reads several facts, each from the samplesheet, a measurement or both, and may fall back to stopping the run; `Pipeline.sheet_facts` are samplesheet columns checked by the run (MD0335). A contract's rule may read `fact.<measurement>` (MD0336), settled per sample (`Step.sample_rules`), and refused when every sample breaks it (MD0337). SCHEMA_VERSION 9.
@@ -109,6 +111,8 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- A tool chosen per sample (#466): an `implementation` decision whose rows wait only on facts said to vary is a branch point (`at_run.branch_points`); the goal is routed once per tool and the routes merged, each branch's steps guarded; its fallback is asked once (`<step>.if_no_row.implementation:<role>`); routes that differ before the choice are refused (MD0339).
+
 - Per-sample facts (#466): a run-time setting may wait on several facts, from samplesheet cells or measurements; its fallback question is its own (`<step>.if_no_row.<setting>`) and may be answered with a stop; a fact must describe the input behind the step's first input. `mendel_resolver.cases` gives a rule's cases with undetermined, its gaps and overlaps; a `hit: unique` rule over a per-sample fact may not overlap (MD0333). MD0328 is retired.
 
 - Settings decided at run time (#217): a param rule waiting on one fact a pipeline measurer can measure, describing an input in the step's lineage, compiles into a lookup; discovery asks nobody, the build routes again with the measurement wanted (MD0328, MD0329). Estimates a decision used are measured again over all the data (`confirms`). `measure_steps` builds the generated measuring steps; `Layers.routing` is the registry builds route with. A decision may require `coverage: all`. An omittable setting's run-time fallback is the tool's own value.
@@ -139,6 +143,8 @@ or a complete commit history.
 - Profile validation occurs at the resolver boundary, not only in the CLI.
 
 ### mendel-compiler
+
+- Each sample goes down its own branch (#466): a step the samples enter takes only those its tool's rows admit; an index waits for one of its samples; branches rejoin by mixing; each sample's tool is recorded in `decided/<role>.tool.tsv`.
 
 - A row whose second reads file is blank is a single-end sample where pairing varies; a blank required file cell stops the run naming the sample and the column (#466).
 
@@ -224,6 +230,8 @@ or a complete commit history.
   questions are not asked again. Build and Spawn are consolidated into one authoring flow.
 
 ### mendel-api
+
+- A step only some samples take says which, with its rule, on its card and its canvas node (#466); previews migrate to shape 8.
 
 - Several uploads (#466, #218): an upload takes any number of files, mates paired by name; each sample is measured and kept with the session, with its name and measurements (session shape 3). Facts every sample agrees on are recorded; where they differ, the question says how they spread and proposes an answer to confirm. The model's memory carries each spread, never a sample's name.
 
@@ -497,6 +505,8 @@ or a complete commit history.
   Telemetry mapping stays pure, with export handled outside the package.
 
 ### wiener-api
+
+- The run reads which tool each sample went through when it was chosen per sample, and the run page says so (#466).
 
 - The run form lists the samplesheet's fact columns; a decided value lists each fact it read and where it came from (#466).
 
