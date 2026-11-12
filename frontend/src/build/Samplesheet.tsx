@@ -141,10 +141,11 @@ function FactCell({ fact, label, value, onChange }: {
       </select>
     );
   }
+  // Text, not `type=number`: a number box reports an unparsable entry (a comma decimal) as
+  // blank, which would quietly become "measure it". What was typed is kept and checked below.
   return (
-    <input aria-label={label} type="number" value={value} title={fact.why}
-           step={fact.kind === "integer" ? 1 : "any"}
-           min={fact.minimum ?? undefined} max={fact.maximum ?? undefined}
+    <input aria-label={label} type="text" value={value} title={fact.why}
+           inputMode={fact.kind === "integer" ? "numeric" : "decimal"}
            placeholder={fact.auto ? "auto — measured in the run" : "a number"}
            onChange={(event) => onChange(event.target.value)} className={CELL} />
   );
@@ -159,7 +160,33 @@ function FactCell({ fact, label, value, onChange }: {
 export function incomplete(rows: Row[], columns: string[], facts: FactColumn[] = []): string[] {
   const needed = [SAMPLE, ...columns, ...facts.filter((f) => f.required).map((f) => f.column)];
   return rows.flatMap((row, index) => {
+    // A number is checked as the pipeline will check it, so a bad cell is named here rather
+    // than minutes into the run (Task 8 review).
+    const wrong = facts.flatMap((f) => {
+      const cell = (row[f.column] ?? "").trim();
+      const said = numberProblem(f, cell);
+      return said ? [`row ${index + 1}: ${f.column} ${said}`] : [];
+    });
+    if (wrong.length) return wrong;
     const missing = needed.filter((column) => !(row[column] ?? "").trim());
     return missing.length ? [`row ${index + 1}: ${missing.join(", ")}`] : [];
   });
+}
+
+/** What is wrong with a number cell, in the pipeline's own words, or `null`. */
+function numberProblem(fact: FactColumn, cell: string): string | null {
+  if (!cell || cell === "auto" || (fact.kind !== "integer" && fact.kind !== "number")) return null;
+  const whole = /^-?\d+$/.test(cell);
+  if (fact.kind === "integer" && !whole) {
+    return /^-?\d+\.\d+$/.test(cell) ? "is not a whole number" : "is not a number";
+  }
+  if (fact.kind === "number" && !whole && !/^-?\d+\.\d+$/.test(cell)) return "is not a number";
+  const value = Number(cell);
+  if (fact.minimum !== null && fact.minimum !== undefined && value < fact.minimum) {
+    return `is below ${fact.minimum}`;
+  }
+  if (fact.maximum !== null && fact.maximum !== undefined && value > fact.maximum) {
+    return `is above ${fact.maximum}`;
+  }
+  return null;
 }

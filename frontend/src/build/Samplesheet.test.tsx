@@ -92,8 +92,7 @@ describe("a samplesheet's fact columns (issue 466)", () => {
   it("offers auto where the run measures a blank, and a number box with its bounds", () => {
     render(<Samplesheet columns={["reads_1"]} facts={[readLength]} rows={[{}]} onChange={vi.fn()} />);
     const cell = screen.getByLabelText("read_length for row 1") as HTMLInputElement;
-    expect(cell.type).toBe("number");
-    expect(cell.min).toBe("1");
+    expect(cell.inputMode).toBe("numeric");
     expect(cell.placeholder).toBe("auto — measured in the run");
   });
 
@@ -101,5 +100,29 @@ describe("a samplesheet's fact columns (issue 466)", () => {
     const rows = [{ sample: "A", reads_1: "/a.fq" }];
     expect(incomplete(rows, ["reads_1"], [strandedness])).toEqual(["row 1: strandedness"]);
     expect(incomplete(rows, ["reads_1"], [readLength])).toEqual([]);
+  });
+});
+
+describe("a fact cell is checked as the pipeline will check it (issue 466)", () => {
+  const readLength = {
+    column: "read_length", kind: "integer" as const, values: [], minimum: 1, maximum: 500,
+    required: true, auto: false, why: "you said read length differs",
+  };
+  const row = (value: string) => [{ sample: "A", reads_1: "/a.fq", read_length: value }];
+
+  it("names a number outside its bounds, or not whole, before the run", () => {
+    expect(incomplete(row("0"), ["reads_1"], [readLength])).toEqual(["row 1: read_length is below 1"]);
+    expect(incomplete(row("600"), ["reads_1"], [readLength])).toEqual(["row 1: read_length is above 500"]);
+    expect(incomplete(row("150.5"), ["reads_1"], [readLength])).toEqual(["row 1: read_length is not a whole number"]);
+    expect(incomplete(row("1,5"), ["reads_1"], [readLength])).toEqual(["row 1: read_length is not a number"]);
+    expect(incomplete(row("150"), ["reads_1"], [readLength])).toEqual([]);
+  });
+
+  it("keeps what was typed, so a comma decimal is not silently blank", async () => {
+    const onChange = vi.fn();
+    render(<Samplesheet columns={[]} facts={[readLength]} rows={[{}]} onChange={onChange} />);
+    await userEvent.type(screen.getByLabelText("read_length for row 1"), "1,5");
+    expect(onChange).toHaveBeenLastCalledWith([{ read_length: "5" }]);
+    expect((screen.getByLabelText("read_length for row 1") as HTMLInputElement).type).toBe("text");
   });
 });
