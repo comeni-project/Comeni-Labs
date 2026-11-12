@@ -36,6 +36,7 @@ from comeni_core.plan.at_run import (
 )
 from comeni_core.plan.ir import PipelineIR
 from comeni_core.plan.tiers import Grain
+from comeni_core.spell.routes import Via
 
 from mendel_resolver.cases import overlapping
 from mendel_resolver.measure_steps import steps_for
@@ -142,6 +143,9 @@ def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
         contract = registry.get(node.contract_id)
         for param in contract.params:
             if param.name in overridden or f"{node.id}.{param.name}" in answered:
+                continue
+            # Only an `ext` setting is written per task from the sample's `meta` (final review).
+            if param.via is not Via.EXT:
                 continue
             decision = rules.decision_for(contract.roles, param.name, contract.id)
             if decision is None:
@@ -377,7 +381,7 @@ def deferrable(registry: Registry, rules: RuleTable, premises: dict,
     found = set()
     for contract in registry.all():
         for param in contract.params:
-            if param.name in overridden:
+            if param.name in overridden or param.via is not Via.EXT:
                 continue
             decision = rules.decision_for(contract.roles, param.name, contract.id)
             if decision is None:

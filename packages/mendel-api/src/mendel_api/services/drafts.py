@@ -607,7 +607,7 @@ def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) 
             "the selected facts changed; resolve the corrected pipeline before keeping it"))
     graph = stored.graph
     return Pipeline.of(
-        ir_of(graph, stack, by=by, provenance=stored.provenance),
+        ir_of(graph, stack, by=by, provenance=stored.provenance, goal=stored.goal),
         # **Stated by the caller, never derived from the sidecar.** `MD0225` refuses a setting
         # that claims a model settled it in a build recording that no AI point was available —
         # and deriving `available` from the very values it checks would make that circular: a

@@ -659,7 +659,7 @@ class Pipeline(EgressPayload):
                     f"is a table with one column — which is a glob written the long way.",
                 )
             )
-        taken = {"sample", *(c for ch in self.channels for c in ch.columns)}
+        taken = {"sample", "id", *(c for ch in self.channels for c in ch.columns)}
         clash = sorted(f.column for f in self.sheet_facts if f.column in taken)
         if clash:
             raise ValueError(coded(

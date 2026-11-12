@@ -417,21 +417,14 @@ def _aligned(tmp_path, prior=()):
     return node, next(b.value for b in node.params if b.name == "star_ignore_sjdbgtf"), ir
 
 
-def test_a_persons_stop_answer_stops_the_run_and_keeps_the_lookup(tmp_path):
-    """The fallback question is its own (`if_no_row.<setting>`): answering it never replaces
-    the lookup with one value for every sample (Task 5 review, Critical)."""
-    from comeni_core.plan.decision import ParamDecision
-    from mendel_resolver.at_run import AT_RUN_STOP
+def test_a_fallback_answer_is_its_own_question_and_keeps_the_lookup(tmp_path):
+    """An answer to what a sample no row covers gets is keyed `<step>.if_no_row.<setting>`, so
+    it never stands for the setting's own value (Task 5 review). No `ext` setting asks it today
+    (each has a default or the tool's own value), so this checks the keys directly."""
+    from mendel_resolver.resolve import IF_NO_ROW
 
-    node, value, ir = _aligned(tmp_path / "a")
-    asked = [d for d in ir.decisions if d.key == f"{node.id}.if_no_row.star_ignore_sjdbgtf"]
-    assert asked and value.at_run.fallback_is is AtRunFallback.QUESTION
-    stop = ParamDecision(key=asked[0].key, subject=asked[0].subject, reason="a person",
-                         resolved_by="human", chosen=AT_RUN_STOP, human_override=AT_RUN_STOP,
-                         candidates=[None])
-    _, value, _ = _aligned(tmp_path / "b", prior=[stop])
-    assert value.at_run is not None
-    assert value.at_run.fallback_is is AtRunFallback.STOP and value.value is None
+    assert f"star_align.{IF_NO_ROW}.min_mqs" != "star_align.min_mqs"
+    assert IF_NO_ROW == "if_no_row"
 
 
 def test_a_fact_on_another_input_than_the_steps_own_is_not_a_lookup(tmp_path):
@@ -452,4 +445,34 @@ def test_a_fact_on_another_input_than_the_steps_own_is_not_a_lookup(tmp_path):
                  vocabulary=stack.vocabulary)
     node = next(n for n in ir.nodes if n.contract_id == "nf-core/star/align@2.7.11b")
     value = next(b.value for b in node.params if b.name == "star_ignore_sjdbgtf")
+    assert value.at_run is None
+
+
+def test_a_kept_draft_keeps_lookups_its_goal_says_vary(tmp_path):
+    """A conversation's draft is materialised through `ir_of`; its stored goal's `varies` must
+    reach the run-time lookups, or every sample gets one value (final review, Critical)."""
+    from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
+    from mendel_resolver.materialise import ir_of
+
+    _, ir = _counted(tmp_path / "a", varies=["read_length", "strandedness"])
+    graph = DraftGraph(nodes=[DraftNode(id=n.id, contract_id=n.contract_id) for n in ir.nodes],
+                       edges=[DraftEdge(from_node=e.from_node, from_port=e.from_port,
+                                        to_node=e.to_node, to_port=e.to_port) for e in ir.edges])
+    layer = tmp_path / "a" / "quant"
+    stack = layers.load([ROOT / "registry", layer])
+    goal = Goal.model_validate({
+        "have": [{"type_id": t} for t in ("fastq.reads", "genome.fasta", "annotation.gtf")],
+        "want": ["counts.matrix"], "constraints": {"varies": ["read_length", "strandedness"]},
+        "profile": stack.measurements.profile({}).model_dump(mode="json")})
+    kept = ir_of(graph, stack, goal=goal)
+    node = next(n for n in kept.nodes if n.contract_id.startswith("nf-core/subread/"))
+    value = next(b.value for b in node.params if b.name == "min_mqs")
+    assert value.at_run is not None
+    assert {f.measurement for f in value.at_run.facts} == {"read_length", "strandedness"}
+
+
+def test_a_setting_outside_ext_is_never_decided_at_run_time(tmp_path):
+    """Only an `ext` setting can be written per task from `meta`; a positional one falls to the
+    lower tiers instead of an emit refusal (final review)."""
+    _, value, _ = _aligned(tmp_path)
     assert value.at_run is None

@@ -258,6 +258,7 @@ def ir_of(
     *,
     by: str = "",
     provenance: DraftProvenance | None = None,
+    goal: Goal | None = None,
 ) -> PipelineIR:
     """The drawing as an IR, with every choice recorded as somebody's.
 
@@ -282,7 +283,14 @@ def ir_of(
     """
     settled = provenance or DraftProvenance()
     contracts = _contracts(graph, layers)
+    # `goal`: the confirmed goal of a conversation's draft, when there is one. What it says
+    # differs between samples decides which settings are looked up per sample in the run
+    # (final review, Critical); the rest is derived from the drawing, as always.
+    stated = goal
     goal = goal_of(graph, layers)
+    if stated is not None and stated.constraints.varies:
+        goal = goal.model_copy(update={"constraints": goal.constraints.model_copy(
+            update={"varies": list(stated.constraints.varies)})})
     resolver = FlagOnlyResolver()
     # Built once and threaded, exactly as `resolve()` does it: a premise set is a function of
     # the goal and the derivations, so building it twice is two chances to build it differently.
