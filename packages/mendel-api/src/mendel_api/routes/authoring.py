@@ -50,7 +50,7 @@ from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSessio
 from mendel_api.refusals import REFUSES
 from mendel_api.services import authoring_preview, drafts, session
 from mendel_api.settings import model_access
-from mendel_api.stages import building, gathering, goal, samples
+from mendel_api.stages import building, gathering, goal
 
 router = APIRouter(prefix="/pipeline/authoring", tags=["authoring"])
 
@@ -749,7 +749,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
         goal=gathering.as_goal(picture["goal"]),
         facts=picture["facts"],
-        samples=samples.uploaded(session_id),
+        samples=picture["samples"],
         **{
             key: picture[key]
             for key in (

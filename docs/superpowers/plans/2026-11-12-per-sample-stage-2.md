@@ -130,10 +130,17 @@ the conversation") and H.
 
 ### Task 5: Docs and the end of the part
 
-- [ ] **Step 1:** Docs: the samples how-to and explanation, `CHANGELOG.md`, the journal, `now.md`, the privacy note on sample names. Tick this plan and record its deviations.
-- [ ] **Step 2:** Run `make check`, `make guards`, `make slow`, `npx vitest run` and `npx tsc -b`, separately. Expected: pass.
-- [ ] **Step 3: Commit** `docs: several uploads (#466)`.
+- [x] **Step 1:** Docs: the samples how-to and explanation, `CHANGELOG.md`, the journal, `now.md`, the privacy note on sample names. Tick this plan and record its deviations.
+- [x] **Step 2:** Run `make check`, `make guards`, `make slow`, `npx vitest run` and `npx tsc -b`, separately. Expected: pass.
+- [x] **Step 3: Commit** `docs: several uploads (#466)`.
 
 ## Deviations
 
-(Recorded during execution.)
+- Grouping happens in the upload stage; the command still carries the flat file list.
+- The spread and the proposal ride on the gap question (its `why_open`, and a pre-filled option
+  noted "proposed from your uploads"), not on a new suggestion record.
+- `Evidence.samples` was not added; a stated fact the samples disagree with is not reported as
+  a disagreement (deferred).
+- A file nothing measures still reaches the model as one excerpt for the upload.
+- Choosing one value or a split happens on the gap card; the samples table only shows.
+- Per-task reviews were not run (the reviewer hit a usage limit); one whole-stage review instead.
