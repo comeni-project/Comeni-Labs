@@ -2,169 +2,135 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A person uploads several samples at once. Each is measured separately. Where the
-samples agree, the value is recorded as today. Where they disagree, the conversation asks
-*the same for every sample, or does it vary?*, or, for a fact that cannot vary yet, *which
-should the pipeline be built for?*, with the measured split shown and an answer proposed for the
-person to confirm. The model reads every uploaded file, not only the first.
+**Goal:** A person uploads any number of samples at once, hundreds included. Each is measured,
+and kept with the session under its name and with its measurements. Where the samples agree,
+the value is recorded. Where they disagree, the conversation shows the split, and proposes using
+one value or splitting by the fact. The person confirms. The builder shows every sample with its
+measurements, and lets the person choose one value or a split for each fact.
 
-**Architecture:** The upload route groups the files it keeps into samples (a file, or a pair by
-mate naming). `inspect.inspect_samples` measures each sample with the existing runner.
-`samples.record_inspection` records a fact the samples agree on, and turns a disagreement into
-an open question on that fact. The question carries the split and a proposed answer, through the
-existing suggestion that pre-fills a gap and waits for a click. The characterisation job gets one excerpt per file.
+**Architecture:** The upload route keeps every file's head (no cap), pairs mates by name, and
+measures each sample with the existing runner. A new JSON column on the authoring session holds
+the samples: name, files and facts. `samples.record_inspection` records what every sample
+agrees on. For a disagreement it opens the fact's gap with the split and a proposed answer: the
+existing suggestion that pre-fills a gap and waits for a click. The model sees a summary of each
+fact's spread in its memory of the session, and a few excerpts for files nothing measures.
 
-**Tech Stack:** Python 3.12 (FastAPI, pydantic), React + TypeScript.
+**Tech Stack:** Python 3.12 (FastAPI, pydantic, SQLAlchemy/alembic), React + TypeScript.
 
-**Spec:** `docs/superpowers/specs/2026-11-11-per-sample-design.md`: stage 2 of its Stages; Goals B
-("Asking, in the conversation") and H.
+**Spec:** `docs/superpowers/specs/2026-11-11-per-sample-design.md`: stage 2; Goals B ("Asking, in
+the conversation") and H.
 
 ## Global Constraints
 
-- An upload never prunes on its own: a proposal derived from uploads does nothing until a person accepts it (operator, 11-11).
-- Nothing about a sample is written to disk; only each file's first 4 MB is kept, in memory (14.7.6's ruling, `sample_upload`).
-- The protection level governs what a file may send to a model (`protection.Crossing`). An excerpt reaches a model only where it does today.
-- Each fact keeps which upload it came from (`Fact.sample`).
-- Model calls use declared AI points and typed egress payloads; offered ids are validated where they are received.
-- New diagnostics go in `diagnostics.yml` through `coded()`. Changed stored shapes get version bumps and a migration.
-- Per task: targeted tests only. `make check`, guards and the slow runs run once at the end of the part (operator, 11-11).
-- After each task, a fresh reviewer (opus) reviews it, and its findings are fixed before the next task.
+- No cap on the number of files or samples (operator, 11-12). Each file's first 4 MB is kept in memory for the request; nothing is written to disk but the facts.
+- An upload never prunes on its own: a proposal does nothing until a person accepts it (operator, 11-11).
+- Sample names live in the session's sample column only: never in a goal's profile, `pipeline.yml`, a model payload, or a log line. They are deleted with the session (operator, 11-12).
+- The model sees summaries: values with counts, and a number's range and its groups. Never a list of every sample.
+- Model calls use declared AI points and typed egress payloads.
+- Per task: targeted tests only; the full checks and slow runs at the end of the part. A fresh reviewer (opus) after each task.
 - Commit trailer: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Review Focus
 
-1. **Files that do not pair** (an `_R1` without its `_R2`, three files called `a_1`, `a_2`, `b_1`). Each unpaired file is a sample of its own. The card says which files made each sample, and refuses nothing silently. Pinned in Task 1.
-2. **Uploads that agree on one fact and disagree on another.** The agreeing fact is recorded and the disagreeing one is asked. Neither waits for the other. Pinned in Task 3.
-3. **A disagreement on a fact the person already stated.** The person's word stands, and the split is reported as today's disagreement (`kept`/`disagreed`), never asked again. Pinned in Task 3.
-4. **More files than the limit.** They are refused, naming the limit, before any file is inspected. Pinned in Task 1.
-5. **One sample's file nothing reads, among others that are read.** The read ones are recorded. The unread one is named on the card, and only it goes to the model's reading. Pinned in Tasks 2 and 4.
+1. **Files that do not pair** (an `_R1` without its `_R2`). Each is a sample of its own, said so on the card. Pinned in Task 1.
+2. **500 samples.** Measured in one request, recorded, and summarised in a few lines for the model and the card. Pinned in Tasks 2 and 3 (a 500-sample fixture of tiny heads).
+3. **Agreeing on one fact, disagreeing on another.** The first is recorded and the second asked. Neither waits. Pinned in Task 2.
+4. **A fact the person already stated.** Never asked again; the split is reported as today's disagreement. Pinned in Task 2.
+5. **Deleting the session deletes the sample names.** Pinned in Task 1.
 
 ---
 
-### Task 1: Several samples in one upload
+### Task 1: Every sample in one upload, kept with the session
 
 **Files:**
-- Modify: `packages/mendel-api/src/mendel_api/services/sample_upload.py` (`MAX_FILES`, `samples_of`)
-- Modify: `packages/mendel-api/src/mendel_api/routes/authoring.py` (`upload_sample`: the file count check)
-- Modify: `packages/mendel-authoring/src/mendel_authoring/commands.py` (`UploadSample.files` grouped: a tuple of samples)
-- Modify: `diagnostics.yml` (`MI0214` text)
-- Test: `packages/mendel-api/tests/authoring/samples/test_upload_grouping.py` (new, pure)
-
-**Interfaces:**
-- Produces:
-  - `MAX_FILES = 8`.
-  - `samples_of(files: list[tuple[str, bytes]], sizes: tuple[int, ...]) -> list[Sample]`, where `Sample` is a frozen dataclass with `label: str`, `files: list[tuple[str, bytes]]` and `sizes: tuple[int, ...]`.
-  - Two files pair when their names differ only in a mate token (`_R1`/`_R2`, `_1`/`_2`, `.1`/`.2`, before the extension). The label is the shared stem. Every other file is a sample of its own, labelled by its stem.
-  - Order follows the upload. Duplicate labels get `#2`, `#3`.
-  - `UploadSample.samples: tuple[Sample, ...]` replaces `files`.
-
-- [ ] **Step 1: Write the failing tests:**
-  - `test_two_mates_are_one_sample`: `a_R1.fq.gz` and `a_R2.fq.gz` give one sample, `a`, with both files.
-  - `test_unpaired_files_are_samples_of_their_own`: `a_1.fq`, `a_2.fq` and `b_1.fq` give `a` (two files) and `b_1` (one).
-  - `test_four_pairs_are_four_samples`: eight files.
-  - `test_too_many_files_are_refused`: nine files raise `MI0214` naming 8.
-  - `test_sizes_follow_their_files` across a regrouping.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.** The route keeps `MAX_FILES` heads (`read_heads(keep=MAX_FILES)`) and refuses more before inspecting. The command carries samples. `_upload` loops over them (Task 2).
-- [ ] **Step 4: Run** the new tests and `packages/mendel-api/tests/authoring/samples`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: an upload may hold several samples (#466, #218)`.
-
-### Task 2: Each sample measured on its own
-
-**Files:**
+- Modify: `packages/mendel-api/src/mendel_api/services/sample_upload.py` (no cap; `samples_of`)
+- Modify: `packages/mendel-api/src/mendel_api/routes/authoring.py` (`upload_sample`)
+- Modify: `packages/mendel-api/src/mendel_api/models.py` (`PipelineAuthoringSession.samples`, JSON), its shape version and golden, and a migration
 - Modify: `packages/mendel-api/src/mendel_api/services/inspect.py` (`inspect_samples`)
-- Modify: `packages/mendel-api/src/mendel_api/stages/samples.py` (`_upload` loops; `Uploaded` carries one inspection per sample)
-- Modify: the `SampleInspected` route view: per-sample outcomes, with the files that made each
-- Test: `packages/mendel-api/tests/authoring/samples/test_several_samples.py` (new, DB)
+- Modify: `packages/mendel-api/src/mendel_api/stages/samples.py` (`_upload` measures each sample and stores it)
+- Modify: `packages/mendel-api/src/mendel_api/services/deletion.py`, if the session's row is not already deleted whole
+- Test: `packages/mendel-api/tests/authoring/samples/test_many_samples.py` (new)
 
 **Interfaces:**
-- Consumes: `Sample` (Task 1).
 - Produces:
-  - `inspect_samples(samples: list[Sample], stack, claimed: str | None) -> list[tuple[str, Inspection]]`: one `inspect_sample` per sample, in order, each never raising.
-  - `SampleInspected.samples: list[SampleOutcomeView]`, each with `label`, `files`, `outcome`, `type_id` and `reason`.
-
-- [ ] **Step 1: Write the failing tests.** The fixtures are FASTQ heads, as the existing upload tests write them (`grep -rn "def _fastq" packages/mendel-api/tests`).
-  - `test_two_samples_are_each_measured`: two pairs, read lengths 150 and 150, give two `measured` outcomes, each with its own facts.
-  - `test_a_sample_nothing_reads_is_named_and_the_others_kept`: a FASTQ pair plus a `.bam` give one `measured` and one `no_inspector`, labelled.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.** One sample keeps today's path exactly.
-- [ ] **Step 4: Run** `packages/mendel-api/tests/authoring/samples`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: each uploaded sample is measured on its own (#466)`.
-
-### Task 3: Agreeing samples record a fact; disagreeing ones ask
-
-**Files:**
-- Modify: `packages/mendel-api/src/mendel_api/stages/samples.py` (`record_inspection` over several inspections; `_record_found`)
-- Modify: `packages/mendel-api/src/mendel_api/stages/gathering.py` (`_gap_options` and the question: the split, and the proposal)
-- Modify: `packages/mendel-api/src/mendel_api/services/suggestions.py` (a suggestion the engine makes from measured samples, `by: measured`)
-- Modify: `diagnostics.yml` if a refusal is new
-- Test: `packages/mendel-api/tests/authoring/samples/test_several_samples.py` (extend)
-
-**Interfaces:**
-- Consumes: Task 2's inspections; `gaps.can_vary` (stage 1).
-- Produces:
-  - **Agreement:** every sample that decided the fact gives the same value. It is recorded as today (`MEASURED`). Its evidence says how many samples it was read on (`Evidence.samples: int`, a new field, excluded when absent).
-  - **Disagreement:** no value is recorded. The fact's gap stays, or opens, with `split: list[{value, samples}]`, and a proposed answer:
-    - `varies` where `can_vary`, said as *"Your uploads differ: 150 bp in 3, 75 bp in 1. It differs between samples?"*;
-    - otherwise the question becomes *which should the pipeline be built for?*, with options the observed values and the proposal the majority's (the first in the upload's order on a tie). It is said as *"Your uploads differ: … The aligner is chosen once for the whole pipeline. Build for 150 bp?"*.
-  - The proposal is a suggestion (`suggestions`), made by the engine from measurements, never by a model. It pre-fills the gap and waits for the person's click, as a model's suggestion does today (operator, 11-11).
-  - A fact the person already stated is never asked again. The split is reported in `disagreed` as today.
+  - `samples_of(files, sizes) -> list[Sample]` (`Sample`: `name`, `files`, `sizes`). Two files are mates when their names differ only in `_R1`/`_R2`, `_1`/`_2` or `.1`/`.2` before the extension; the sample's name is the shared stem. Any other file is a sample of its own. Duplicate names get `#2`, `#3`.
+  - `inspect_samples(samples, stack, claimed) -> list[tuple[Sample, Inspection]]`.
+  - The session's `samples`: a list of `{name, files, outcome, facts: [{measurement, value, coverage}]}`, in upload order. A new upload replaces it.
 
 - [ ] **Step 1: Write the failing tests:**
-  - `test_samples_that_agree_record_the_fact`: two samples at 150 give `read_length = 150`, with `samples: 2` in its evidence.
-  - `test_samples_that_differ_on_a_fact_that_can_vary_propose_varies`: paired and single-end uploads give no recorded value. The `paired` gap pending carries a split of `true: 1, false: 1` and a suggested option `varies`, and nothing changes until the person answers.
-  - `test_samples_that_differ_on_the_aligners_fact_ask_which_to_build_for`: 150 and 75, `read_length` asked with options `150` and `75`, and `150` proposed (majority, or the first on a tie).
-  - `test_agreeing_and_disagreeing_facts_do_not_wait_for_each_other` (Review Focus 2).
-  - `test_a_stated_fact_is_not_asked_again` (Review Focus 3).
+  - mates pair (`a_R1`, `a_R2`), and unpaired files stand alone;
+  - 500 pairs of tiny FASTQ heads in one upload give 500 stored samples, each with its facts;
+  - deleting the session leaves no sample name behind (`grep -rn "def delete" packages/mendel-api/src/mendel_api/services/deletion.py`).
 - [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.** Order: record agreements; then, for each disagreement, open or update its gap, in the measurement id order.
+- [ ] **Step 3: Implement.** One upload of one sample keeps today's behaviour.
+- [ ] **Step 4: Run** `packages/mendel-api/tests/authoring/samples` and the shape tests. Expected: pass.
+- [ ] **Step 5: Commit** `feat: an upload holds every sample, each kept with its measurements (#466, #218)`.
+
+### Task 2: Agreement is recorded; a split is asked, with a proposal
+
+**Files:**
+- Modify: `packages/mendel-api/src/mendel_api/stages/samples.py` (`record_inspection` over the samples)
+- Modify: `packages/mendel-api/src/mendel_api/stages/gathering.py` (the gap's split and options), `services/suggestions.py` (a proposal the engine makes from measured samples)
+- Test: `packages/mendel-api/tests/authoring/samples/test_many_samples.py` (extend)
+
+**Interfaces:**
+- Produces:
+  - `spread(samples, measurement) -> list[{value, count}]` for an enum or boolean, sorted by count, and a number's values grouped where equal.
+  - **Every sample agrees:** the value is recorded (`MEASURED`), with `Evidence.samples = n`, a new field excluded when absent.
+  - **They disagree:** no value is recorded. The fact's gap opens or stays with the spread, and a proposal:
+    - where `gaps.can_vary`, *it differs between samples*;
+    - otherwise the question is *which should the pipeline be built for?*, with the observed values as options, proposing the most common.
+
+    The proposal waits for the person's click.
+  - A fact the person stated is not asked again; the spread goes to `disagreed`, as today.
+
+- [ ] **Step 1: Write the failing tests:**
+  - agreement records the value with `samples: 500`;
+  - paired and single-end samples propose *varies* and record nothing until the click;
+  - 480 at 150 bp and 20 at 75 bp make `read_length` ask which to build for, proposing 150;
+  - agreeing and disagreeing facts in one upload (Review Focus 3);
+  - a stated fact is not asked again (Review Focus 4).
+- [ ] **Step 2: Run them.** Expected: FAIL.
+- [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** `packages/mendel-api/tests/authoring`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: samples that disagree are asked, with the split and a proposal (#466, #218)`.
+- [ ] **Step 5: Commit** `feat: samples that disagree are asked, with the spread and a proposal (#466, #218)`.
 
-### Task 4: The model reads every file
+### Task 3: The model sees the spread, and reads a few files nothing measures
 
 **Files:**
-- Modify: `packages/mendel-api/src/mendel_api/services/characterise.py` (`excerpts`: one per file not read by an inspector, up to the upload's limit)
-- Modify: the characterisation egress payload in `packages/comeni-core/src/comeni_core/egress/` (`grep -rn "class .*Excerpt\|excerpt" packages/comeni-core/src/comeni_core/egress`): `excerpts: list[...]`, each with its file's label
-- Modify: `packages/mendel-api/src/mendel_api/stages/samples.py` (queue one job with every unread file's excerpt), the prompt part that reads excerpts (new version)
-- Test: the characterisation tests (`grep -rln "characterise" packages/mendel-api/tests`), with recorded replies
-
-**Interfaces:**
-- Produces: the job's payload holds one excerpt per unread file, labelled with its sample. The reply names one type per sample, and each is validated against the registry's types where it is received. Two samples the model reads as different types are reported, not merged.
+- Modify: `packages/mendel-api/src/mendel_api/services/known.py` and `mendel_authoring/memory.py` (each fact's spread, in a line)
+- Modify: `packages/mendel-api/src/mendel_api/services/characterise.py` and its egress payload (up to three labelled excerpts, by sample position, never by name), with a new prompt version
+- Test: the memory and characterisation tests, with recorded replies
 
 - [ ] **Step 1: Write the failing tests:**
-  - `test_every_unread_file_reaches_the_reading`: two `.bam` heads give two labelled excerpts in one payload.
-  - `test_a_read_file_is_not_sent` (Review Focus 5): only the unread sample's excerpt is sent.
-  - `test_a_reply_naming_two_types_is_reported_per_sample`, from a recorded reply.
+  - the memory says *read length: 150 in 480 samples, 75 in 20* and holds no sample name;
+  - three unread files give three excerpts, never more, and no names.
 - [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement**, with the protection level asked as today, once per upload.
-- [ ] **Step 4: Run** the characterisation tests and `make guards`. Expected: pass. The egress guards hold.
-- [ ] **Step 5: Commit** `feat: the model reads every uploaded file nothing measures (#466)`.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run** the tests and `make guards`. Expected: pass.
+- [ ] **Step 5: Commit** `feat: the model sees how the samples spread, never their names (#466)`.
 
-### Task 5: The upload and the question show the samples
+### Task 4: The builder shows the samples, and each fact's choice
 
 **Files:**
-- Modify: the upload control in `frontend/src/build/living/` (`grep -rn "uploadAuthoringSample" frontend/src`): `multiple`, and the files sent in one request
-- Modify: the gap question card (`grep -rln "question-card\|QuestionCard" frontend/src/build/living`): the split line, and the proposed answer pre-selected
-- Modify: the upload result: each sample's label, its files, and what was found or why not
-- `make client`
-- Test: the matching `*.test.tsx`
+- Modify: the session view in `mendel-api` (the samples, from the session) and `make client`
+- Modify: the upload control in `frontend/src/build/living/` (`multiple`, every file in one request) and the gap card (the spread, with the proposed answer selected)
+- Create: `frontend/src/build/living/Samples.tsx`: a table of every sample with its measurements, sortable, filtered by text, and grouped by a fact. Each fact that differs offers *use one value* or *split by it*, which answer its gap.
+- Test: `Samples.test.tsx`, the gap card's test
 
 - [ ] **Step 1: Write the failing tests:**
-  - "several files go in one upload";
-  - "the split is said in words: 150 bp in 3 of 4 uploads, 75 bp in 1";
-  - "a proposed answer is selected and waits for the click";
-  - "each sample says which files made it".
-- [ ] **Step 2: Run** `cd frontend && npx vitest run`. Expected: FAIL.
-- [ ] **Step 3: Implement** with the design tokens, following the documentation style guide for the words.
+  - the table lists every sample with each measurement;
+  - grouping by `paired` shows two groups with their counts;
+  - *split by it* answers the gap with *varies*, and *use one value* with the chosen value;
+  - 500 rows render (paged, or virtualised).
+- [ ] **Step 2: Run** `npx vitest run`. Expected: FAIL.
+- [ ] **Step 3: Implement** with the design tokens.
 - [ ] **Step 4: Run** `npx vitest run` and `npx tsc -b`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: the conversation shows each uploaded sample and how they differ (#466)`.
+- [ ] **Step 5: Commit** `feat: the builder shows every sample and lets a fact be one value or split (#466)`.
 
-### Task 6: Docs and the end of the part
+### Task 5: Docs and the end of the part
 
-**Files:** the samples how-to and explanation pages (`grep -rln "upload a sample" docs`), `CHANGELOG.md`, the journal, `docs/notes/now.md`.
-
-- [ ] **Step 1:** Write the docs. Tick this plan and record its deviations.
+- [ ] **Step 1:** Docs: the samples how-to and explanation, `CHANGELOG.md`, the journal, `now.md`, the privacy note on sample names. Tick this plan and record its deviations.
 - [ ] **Step 2:** Run `make check`, `make guards`, `make slow`, `npx vitest run` and `npx tsc -b`, separately. Expected: pass.
 - [ ] **Step 3: Commit** `docs: several uploads (#466)`.
 

@@ -240,13 +240,32 @@ decisions may be made per sample. The graph is still fixed at build time; it now
 
 ### H. Several uploads (#218 step 1)
 
-The model needs to see more than one file (operator, 11-11). The upload takes several samples,
-each a file or a pair, up to a limit. Each is measured on the server separately, and its facts
-carry which upload they came from. The conversation shows each fact's values across them ("read
-length 150 in 3 of 4 uploads, 75 in one"), and the model's characterisation and proposals read
-all of them, under the protection level that already governs what an upload may send. A
-study-wide decision folds from their `agree` as an estimate (`coverage: head`) once the person
-accepts it, and the pipeline confirms it in the run as part 4 does.
+An analysis may have hundreds of samples: 400–500 genomes is ordinary, and there is no cap
+(operator, 11-12). So uploads stream:
+
+- **One upload holds every sample** (operator, 11-12: keep it simple; the memory is acceptable).
+  The browser sends each file's first 4 MB, as today, all in one request with no cap; the server
+  pairs mates by name (`_R1`/`_R2`, `_1`/`_2`), measures each sample, keeps its facts, and drops
+  the bytes.
+- **Each sample is tagged with its measurements and its name.** The session keeps every sample:
+  its name (from its files), the names of its files, and its facts (operator, 11-12: stored with
+  the session, so any browser shows them). Sample names are often lab or patient identifiers, so
+  this relaxes the rule that a measured profile holds no names: the names live in the session's
+  sample table only, never in a goal's profile, `pipeline.yml`, a payload to a model, or a log.
+  They are deleted with the session. The person sees every sample with its measurements in a
+  table they can sort, filter and group by a fact.
+- **Summaries, not lists.** The conversation and the model see each fact's distribution (values
+  with their counts, a number's range and its clusters), never 500 rows. Where all samples
+  agree, the value is recorded. Where they disagree, the person may use one value for all or
+  split by the fact. The model proposes which, with its reasons ("150 bp in 480 samples, 75 bp in
+  20"), and the person confirms. Splitting is *it varies*; one value is a statement for the
+  study; for a fact that cannot vary yet, the question is which value to build for.
+- **The model reads files nothing measures** only as a few labelled excerpts, enough to name the
+  type, never all of them. It names one type per excerpt; samples that read as different types
+  are reported, not merged.
+
+A study-wide decision folds from the samples' `agree` as an estimate (`coverage: head`) once the
+person accepts it, and the pipeline confirms it in the run as part 4 does.
 
 ### I. Showing it
 
