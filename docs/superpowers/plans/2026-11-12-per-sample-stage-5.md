@@ -179,8 +179,8 @@ at build time and in the run.
   - the samplesheet's key columns in the run how-to.
 
   `CHANGELOG.md`, the journal. Tick this plan; record its deviations.
-- [ ] **Step 2:** Run `make check`, `make guards`, `make slow`, `npx vitest run` and `npx tsc -b`, separately. Expected: pass.
-- [ ] **Step 3: Commit** `docs: relations between samples (#466)`.
+- [x] **Step 2:** Run `make check`, `make guards`, `make slow`, `npx vitest run` and `npx tsc -b`, separately. Expected: pass.
+- [x] **Step 3: Commit** `docs: relations between samples (#466)`.
 
 ## Deviations
 
@@ -208,3 +208,12 @@ at build time and in the run.
   did.
 - The fixture stub runs write each fixture module into the built pipeline, since the layer
   declares no module source.
+- Final review fixes (354e9072):
+  - a group counts samples, not lanes; a port may not both select and group (MD0343);
+  - a pair or reference is exactly two ports with one join (MD0344);
+  - a fold is one value joined only into the steps that read it, and a fold over a samplesheet
+    fact reads the sheet rows once per sample;
+  - a fold over a measured-only fact builds;
+  - lanes beside another per-sample input are refused (MD0340);
+  - no rule reads a key's or a reference's value except to count it (MD0345);
+  - build-time `count` and `distinct` of one stated value stay undetermined.
