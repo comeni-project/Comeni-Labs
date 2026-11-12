@@ -130,3 +130,27 @@ def test_the_csv_is_json_serialisable_after_materialising(tmp_path):
     rows = [{"sample": "A", "gtf": "/lab/a.gtf"}]
     written = _materialise_tables({"input": rows}, tmp_path)
     assert json.loads(json.dumps(written))["input"].endswith("input.csv")
+
+
+def test_the_run_sheet_asks_for_each_fact_as_the_pipeline_checks_it(tmp_path):
+    """A fact that differs between samples is a column of its own (#466), with its values."""
+    from wiener_api.routes.runs import FactColumnView
+    from wiener_api.services.artifacts import input_facts
+
+    body = _pipeline("samplesheet", _channel("reads", "input", "sample", ["reads_1", "reads_2"]))
+    body = body.replace("intent: {want: [], constraints: {}}",
+                        "intent: {want: [], constraints: {varies: [strandedness]}}")
+    body = body.replace("channels:\n", """sheet_facts:
+- measurement: strandedness
+  column: strandedness
+  kind: enum
+  values: [forward, reverse, unstranded]
+  required: true
+  describes: a.b
+  meta: [{key: strandedness}]
+  why: {tier: 1, source: said, reason: you said strandedness differs between samples}
+channels:
+""")
+    (fact,) = [FactColumnView(**f) for f in input_facts(_artifact(tmp_path, body))]
+    assert (fact.column, fact.kind, fact.values, fact.required, fact.auto) == (
+        "strandedness", "enum", ["forward", "reverse", "unstranded"], True, False)

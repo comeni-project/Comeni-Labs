@@ -286,15 +286,15 @@ A, B, C, D, with the parts of I that stage 1 shows).
 - Consumes: `SheetFact` (Task 6), `AtRunFallback.STOP` (Task 5), `SampleRule` (Task 7).
 - Produces: `SheetFactView {column, kind, values, minimum, maximum, required, auto, why}`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `Samplesheet.test.tsx`, "a fact column offers its values": with `facts=[{column:"strandedness", kind:"enum", values:[forward,reverse,unstranded], required:true}]`, the cell is a select with exactly those three. `incomplete` reports a row missing it.
   - "an auto column may be left blank": `incomplete` does not report a blank `read_length` with `auto: true`.
   - "the fallback stop is said": `Settings.test.tsx` renders "If no row applies, the run stops and names the sample".
   - Wiener route test: the run form of a pipeline with `sheet_facts` has `input_form == "samplesheet"` and `input_facts` matching.
-- [ ] **Step 2: Run** `cd frontend && npx vitest run` and the route test. Expected: FAIL.
-- [ ] **Step 3: Implement.** Words follow the documentation style guide: "from the samplesheet", "measured in the run where left blank".
-- [ ] **Step 4: Run** `npx vitest run`, `npx tsc -b` and `make test`, separately. Expected: pass. Browser checks wait for the end of the push (operator, 11-10).
-- [ ] **Step 5: Commit** `feat: the run sheet asks for per-sample facts; the step card says where they come from (#466)`.
+- [x] **Step 2: Run** `cd frontend && npx vitest run` and the route test. Expected: FAIL.
+- [x] **Step 3: Implement.** Words follow the documentation style guide: "from the samplesheet", "measured in the run where left blank".
+- [x] **Step 4: Run** `npx vitest run`, `npx tsc -b` and `make test`, separately. Expected: pass. Browser checks wait for the end of the push (operator, 11-10).
+- [x] **Step 5: Commit** `feat: the run sheet asks for per-sample facts; the step card says where they come from (#466)`.
 
 ### Task 9: Docs, the demo, and the record
 

@@ -1,3 +1,5 @@
+import type { components } from "../wiener/api/schema";
+
 /** A samplesheet, composed row by row. Plan 5B §5.3.
  *
  * ═══ WHY THIS EXISTS AND A PATH BOX DOES NOT ══════════════════════════════════════════════
@@ -24,16 +26,22 @@
 
 export type Row = Record<string, string>;
 
+/** A column each row states a fact in (issue 466), checked by the pipeline when the run starts
+ *  exactly as it is offered here: its values, its bounds, whether it may be left blank. */
+export type FactColumn = components["schemas"]["FactColumnView"];
+
 /** The identifier every row carries. **Not one of the artifact's columns** — those are the
  *  *file* columns each sample supplies, and this is what ties them together. */
 export const SAMPLE = "sample";
 
-export function Samplesheet({ columns, rows, onChange }: {
+export function Samplesheet({ columns, facts = [], rows, onChange }: {
   columns: string[];
+  facts?: FactColumn[];
   rows: Row[];
   onChange: (rows: Row[]) => void;
 }) {
-  const headers = [SAMPLE, ...columns];
+  const byColumn = Object.fromEntries(facts.map((f) => [f.column, f]));
+  const headers = [SAMPLE, ...columns, ...facts.map((f) => f.column)];
 
   const set = (index: number, column: string, value: string) =>
     onChange(rows.map((row, n) => (n === index ? { ...row, [column]: value } : row)));
@@ -67,14 +75,19 @@ export function Samplesheet({ columns, rows, onChange }: {
               <tr key={index} data-testid="samplesheet-row">
                 {headers.map((column) => (
                   <td key={column} className="pr-3 pb-1">
-                    <input
-                      aria-label={`${column} for row ${index + 1}`}
-                      value={row[column] ?? ""}
-                      onChange={(event) => set(index, column, event.target.value)}
-                      placeholder={column === SAMPLE ? "a name you choose" : "a path"}
-                      className="w-full px-2 py-1 bg-surface border border-line rounded-control
-                                 font-data text-body text-ink"
-                    />
+                    {byColumn[column] ? (
+                      <FactCell fact={byColumn[column]} label={`${column} for row ${index + 1}`}
+                                value={row[column] ?? ""}
+                                onChange={(value) => set(index, column, value)} />
+                    ) : (
+                      <input
+                        aria-label={`${column} for row ${index + 1}`}
+                        value={row[column] ?? ""}
+                        onChange={(event) => set(index, column, event.target.value)}
+                        placeholder={column === SAMPLE ? "a name you choose" : "a path"}
+                        className={CELL}
+                      />
+                    )}
                   </td>
                 ))}
                 <td className="pb-1">
@@ -111,15 +124,42 @@ export function Samplesheet({ columns, rows, onChange }: {
   );
 }
 
+const CELL = "w-full px-2 py-1 bg-surface border border-line rounded-control font-data text-body text-ink";
+
+/** One fact's cell: a choice of its values (and `auto` where the run measures a blank), or a
+ *  number box with its bounds. */
+function FactCell({ fact, label, value, onChange }: {
+  fact: FactColumn; label: string; value: string; onChange: (value: string) => void;
+}) {
+  const choices = fact.kind === "enum" ? fact.values : fact.kind === "boolean" ? ["true", "false"] : null;
+  if (choices) {
+    return (
+      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}
+              title={fact.why} className={CELL}>
+        <option value="">{fact.auto ? "auto — measured in the run" : "choose"}</option>
+        {choices.map((choice) => <option key={choice} value={choice}>{choice}</option>)}
+      </select>
+    );
+  }
+  return (
+    <input aria-label={label} type="number" value={value} title={fact.why}
+           step={fact.kind === "integer" ? 1 : "any"}
+           min={fact.minimum ?? undefined} max={fact.maximum ?? undefined}
+           placeholder={fact.auto ? "auto — measured in the run" : "a number"}
+           onChange={(event) => onChange(event.target.value)} className={CELL} />
+  );
+}
+
 /** Which rows are not yet usable — **named, not counted.**
  *
  * A count tells somebody there is a problem; a name tells them where. Same argument
  * `useSubmit.unfilled` makes about the start button: a refusal a disabled control could have
  * explained is a round trip a person had to make to learn what the page already knew.
  */
-export function incomplete(rows: Row[], columns: string[]): string[] {
+export function incomplete(rows: Row[], columns: string[], facts: FactColumn[] = []): string[] {
+  const needed = [SAMPLE, ...columns, ...facts.filter((f) => f.required).map((f) => f.column)];
   return rows.flatMap((row, index) => {
-    const missing = [SAMPLE, ...columns].filter((column) => !(row[column] ?? "").trim());
+    const missing = needed.filter((column) => !(row[column] ?? "").trim());
     return missing.length ? [`row ${index + 1}: ${missing.join(", ")}`] : [];
   });
 }

@@ -287,6 +287,17 @@ export function Settings({
         </div>
       </div>
 
+      {(step.checked_per_sample ?? []).length > 0 && (
+        <div data-testid="checked-per-sample" className="px-[15px] py-3 border-b border-line">
+          <div className="text-label text-ink-3">checked for each sample before this step runs</div>
+          <ul className="pt-[4px]">
+            {(step.checked_per_sample ?? []).map((says) => (
+              <li key={says} className="text-secondary text-ink-2">{says}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {step.settings.length === 0 && (
         <p className="px-[15px] py-4 text-body text-ink-2 m-0">
           This step takes no parameters. Everything it does is forced by the module.

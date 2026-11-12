@@ -24,6 +24,7 @@ from wiener_api.models import Run, RunArtifact
 from wiener_api.services import deletion, launcher, stream, verbs
 from wiener_api.services.artifacts import (
     declared_holes,
+    input_facts,
     input_shape,
     optional_holes,
     pipeline_digest,
@@ -105,12 +106,30 @@ class ArtifactStored(BaseModel):
     kind of thing, and the run fails inside Nextflow minutes later.
     """
 
+    input_facts: list["FactColumnView"] = []
+    """The samplesheet's fact columns (#466), each checked when the run starts as here."""
+
     input_columns: list[str] = []
     """The samplesheet's columns, when `input_form` is `samplesheet`. Empty otherwise.
 
     `sample` is not among them and never will be: it is the identifier column every row
     carries, and it is the browser's to render. These are the *file* columns each sample
     supplies — `reads_1`, `reads_2`, `gtf`."""
+
+
+class FactColumnView(BaseModel):
+    """A samplesheet column each row states a fact in (#466)."""
+
+    column: str
+    kind: Literal["boolean", "enum", "integer", "number"]
+    values: list[str] = []
+    minimum: float | None = None
+    maximum: float | None = None
+    required: bool
+    """A blank cell stops the run."""
+    auto: bool = False
+    """A blank cell, or `auto`, is measured in the run."""
+    why: str
 
 
 class RunAccepted(BaseModel):
@@ -228,12 +247,13 @@ async def upload_artifact(bundle: UploadFile,
             pipeline_digest=pipeline_digest(artifact_id),
         ))
     form, columns = input_shape(artifact_id)
+    facts = [FactColumnView(**f) for f in input_facts(artifact_id)]
     holes = declared_holes(artifact_id)
     return ArtifactStored(artifact_id=artifact_id, digest=digest, size_bytes=size,
                           declared=sorted(holes),
                           optional=sorted(optional_holes(artifact_id) & holes),
                           rules=[RunRuleView(**r) for r in run_rules(artifact_id)],
-                          input_form=form, input_columns=columns)
+                          input_form=form, input_columns=columns, input_facts=facts)
 
 
 @router.post("/runs", status_code=202, operation_id="submitRun", summary="Run a pipeline")

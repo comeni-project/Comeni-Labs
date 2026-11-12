@@ -69,6 +69,7 @@ export function SubmitForm({ submit }: { submit: Submit }) {
           {submit.columns !== null && (
             <Samplesheet
               columns={submit.columns}
+              facts={submit.facts}
               rows={submit.rows}
               onChange={submit.setRows}
             />

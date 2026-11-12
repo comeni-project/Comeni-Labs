@@ -432,6 +432,11 @@ export interface components {
              */
             input_form: "direct" | "samplesheet";
             /**
+             * Input Facts
+             * @default []
+             */
+            input_facts: components["schemas"]["FactColumnView"][];
+            /**
              * Input Columns
              * @default []
              */
@@ -578,6 +583,21 @@ export interface components {
             failed: number;
         };
         /**
+         * DecidedFact
+         * @description One fact a run-time setting read for a sample, and where its value came from (#466).
+         */
+        DecidedFact: {
+            /** Fact */
+            fact: string;
+            /** Value */
+            value: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "cell" | "measured" | "missing";
+        };
+        /**
          * DecidedValue
          * @description The value a run-time setting took for one sample.
          */
@@ -590,6 +610,8 @@ export interface components {
             sample: string;
             /** Value */
             value: string;
+            /** Facts */
+            facts?: components["schemas"]["DecidedFact"][];
         };
         /**
          * Designed
@@ -664,6 +686,37 @@ export interface components {
             cursor: number;
             /** Stream Id */
             stream_id: string;
+        };
+        /**
+         * FactColumnView
+         * @description A samplesheet column each row states a fact in (#466).
+         */
+        FactColumnView: {
+            /** Column */
+            column: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "boolean" | "enum" | "integer" | "number";
+            /**
+             * Values
+             * @default []
+             */
+            values: string[];
+            /** Minimum */
+            minimum?: number | null;
+            /** Maximum */
+            maximum?: number | null;
+            /** Required */
+            required: boolean;
+            /**
+             * Auto
+             * @default false
+             */
+            auto: boolean;
+            /** Why */
+            why: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

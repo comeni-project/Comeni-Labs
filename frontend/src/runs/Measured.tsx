@@ -62,9 +62,21 @@ export function Measured({ runId, live }: { runId: string; live: boolean }) {
           <li key={`${value.step}.${value.setting}:${value.sample}`} data-testid="measured-decided"
               className="font-data text-secondary text-ink-2">
             {value.step}.{value.setting} was {value.value} for {value.sample}, decided at run time
+            {value.facts && value.facts.length > 0 && (
+              <span>
+                {" "}from {value.facts.map((f) => `${f.fact} ${f.value} (${FROM[f.source]})`).join(", ")}
+              </span>
+            )}
           </li>
         ))}
       </ul>
     </section>
   );
 }
+
+/** Where a decided value's fact came from (issue 466). */
+const FROM: Record<"cell" | "measured" | "missing", string> = {
+  cell: "from the samplesheet",
+  measured: "measured in the run",
+  missing: "not known",
+};

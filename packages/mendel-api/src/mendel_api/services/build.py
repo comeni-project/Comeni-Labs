@@ -325,6 +325,9 @@ class StepView(BaseModel):
     """**Every port, not only the connected ones.** A wire is drawn from the layout; a port is
     drawn on the node whether anything reaches it or not — an unmet input is exactly the thing a
     reader needs to see, and it has no wire by definition."""
+    checked_per_sample: list[str] = []
+    """The tool's rules each sample's facts settle (#466): a sample breaking one stops the run
+    before this step runs."""
     settings: list[SettingView]
     """**The parameters themselves, not a count.** A node shows `N settings` from `len()`; the
     card needs the rows, and a second request to fetch them would make opening a card a network
@@ -498,6 +501,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
         StepView(id=step.id, process=step.process, contract_id=step.module.contract_id,
                  tier=int(step.why.tier), runs=runs[step.id], reason=step.why.reason,
                  ports=ports_of(step.id),
+                 checked_per_sample=[rule.says for rule in step.sample_rules],
             settings=[
                 SettingView(
                     name=setting.name,

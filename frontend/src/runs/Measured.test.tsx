@@ -39,6 +39,15 @@ describe("what the run measured (issue 465)", () => {
       "star_genomegenerate.sa_index_nbases was 6 for genome");
   });
 
+  it("says where each fact a decided value read came from (issue 466)", async () => {
+    show({ facts: [], decided: [{ step: "subread_featurecounts", setting: "min_mqs", sample: "S1",
+                                  value: "10", facts: [
+                                    { fact: "read_length", value: "150", source: "cell" },
+                                    { fact: "strandedness", value: "reverse", source: "measured" }] }] });
+    expect((await screen.findByTestId("measured-decided")).textContent).toContain(
+      "from read_length 150 (from the samplesheet), strandedness reverse (measured in the run)");
+  });
+
   it("renders nothing for a run that measured nothing", async () => {
     const { container } = show({ facts: [], decided: [] });
     await new Promise((resolve) => setTimeout(resolve, 20));

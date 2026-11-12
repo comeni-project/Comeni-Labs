@@ -4973,6 +4973,11 @@ export interface components {
             reason: string;
             /** Ports */
             ports: components["schemas"]["PortView"][];
+            /**
+             * Checked Per Sample
+             * @default []
+             */
+            checked_per_sample: string[];
             /** Settings */
             settings: components["schemas"]["SettingView"][];
         };

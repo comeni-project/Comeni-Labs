@@ -57,7 +57,8 @@ export function useSubmit(draftId: string | null, name = "") {
       // missing in it — which a zero-row table cannot.
       setRows(
         stored.input_form === "samplesheet"
-          ? [Object.fromEntries([SAMPLE, ...stored.input_columns].map((c) => [c, ""]))]
+          ? [Object.fromEntries([SAMPLE, ...stored.input_columns,
+              ...stored.input_facts.map((f) => f.column)].map((c) => [c, ""]))]
           : [],
       );
     },
@@ -88,7 +89,7 @@ export function useSubmit(draftId: string | null, name = "") {
       .filter(([name, value]) => value.trim() === "" && !(sheet && name === "input")
                                  && !optional.has(name))
       .map(([name]) => name),
-    ...(sheet ? incomplete(rows, artifact?.input_columns ?? []) : []),
+    ...(sheet ? incomplete(rows, artifact?.input_columns ?? [], artifact?.input_facts ?? []) : []),
   ];
   // The constraints a run must settle, checked here before sending; the pipeline checks them
   // again at its start.
@@ -103,6 +104,8 @@ export function useSubmit(draftId: string | null, name = "") {
     values,
     /** The samplesheet's columns, or `null` when this pipeline takes a glob. */
     columns: sheet ? (artifact?.input_columns ?? []) : null,
+    /** The samplesheet's fact columns (issue 466). */
+    facts: artifact?.input_facts ?? [],
     rows,
     setRows,
     set: (name: string, value: string) => setValues((v) => ({ ...v, [name]: value })),

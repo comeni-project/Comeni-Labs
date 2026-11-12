@@ -69,3 +69,37 @@ describe("incomplete", () => {
     expect(incomplete([{ sample: "  ", gtf: "/a.gtf" }], ["gtf"])).toEqual(["row 1: sample"]);
   });
 });
+
+describe("a samplesheet's fact columns (issue 466)", () => {
+  const strandedness = {
+    column: "strandedness", kind: "enum" as const, values: ["forward", "reverse", "unstranded"],
+    minimum: null, maximum: null, required: true, auto: false,
+    why: "you said strandedness differs between samples",
+  };
+  const readLength = {
+    column: "read_length", kind: "integer" as const, values: [], minimum: 1, maximum: null,
+    required: false, auto: true, why: "measured where left blank",
+  };
+
+  it("offers exactly a fact's values", () => {
+    render(<Samplesheet columns={["reads_1"]} facts={[strandedness]} rows={[{}]} onChange={vi.fn()} />);
+    const cell = screen.getByLabelText("strandedness for row 1") as HTMLSelectElement;
+    expect(cell.tagName).toBe("SELECT");
+    expect(Array.from(cell.options, (o) => o.value).filter(Boolean)).toEqual(
+      ["forward", "reverse", "unstranded"]);
+  });
+
+  it("offers auto where the run measures a blank, and a number box with its bounds", () => {
+    render(<Samplesheet columns={["reads_1"]} facts={[readLength]} rows={[{}]} onChange={vi.fn()} />);
+    const cell = screen.getByLabelText("read_length for row 1") as HTMLInputElement;
+    expect(cell.type).toBe("number");
+    expect(cell.min).toBe("1");
+    expect(cell.placeholder).toBe("auto — measured in the run");
+  });
+
+  it("names a missing required fact, and lets an optional one stay blank", () => {
+    const rows = [{ sample: "A", reads_1: "/a.fq" }];
+    expect(incomplete(rows, ["reads_1"], [strandedness])).toEqual(["row 1: strandedness"]);
+    expect(incomplete(rows, ["reads_1"], [readLength])).toEqual([]);
+  });
+});

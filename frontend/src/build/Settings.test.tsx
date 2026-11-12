@@ -44,6 +44,7 @@ const STEP = {
   runs: "per_item" as const,
   reason: "a rule matched",
   ports: [],
+  checked_per_sample: [] as string[],
   settings: [
     setting("seq_platform", 4, null),
     setting("star_ignore_sjdbgtf", 2, "False"),
@@ -325,5 +326,16 @@ describe("a setting decided at run time", () => {
     ]);
     expect(screen.getByTestId("at-run-fallback").textContent).toBe(
       "if no row applies: the run stops and names the sample (a person)");
+  });
+});
+
+
+describe("a tool rule checked per sample (issue 466)", () => {
+  it("lists it on the step, before the step runs", async () => {
+    show({ ...STEP, checked_per_sample: [
+      "`save_merged` cannot be used for a sample whose paired is false (merging needs both reads) (save_merged)"] });
+    const block = await screen.findByTestId("checked-per-sample");
+    expect(block.textContent).toContain("checked for each sample before this step runs");
+    expect(block.textContent).toContain("a sample whose paired is false");
   });
 });
