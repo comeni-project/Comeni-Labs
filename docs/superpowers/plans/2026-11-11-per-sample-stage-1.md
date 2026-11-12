@@ -308,9 +308,9 @@ A, B, C, D, with the parts of I that stage 1 shows).
 - `CHANGELOG.md` (comeni-core, mendel-resolver, mendel-compiler, mendel-api, wiener, frontend), the journal `docs/notes/journal/2026-11-11-per-sample.md`, `docs/notes/now.md`
 - Test: `tests/emit/test_strandedness_per_sample.py` (new, slow)
 
-- [ ] **Step 1: Write the failing slow test** `test_each_sample_gets_its_strandedness`. Build the shipped rnaseq goal with `varies: [strandedness]` and run it under Docker on nf-core's test reads as two samples, `forward` and `reverse`. Assert each featureCounts task's `.command.sh` has `-s 1` for the first and `-s 2` for the second.
+- [x] **Step 1: Write the failing slow test** `test_each_sample_gets_its_strandedness`. Build the shipped rnaseq goal with `varies: [strandedness]` and run it under Docker on nf-core's test reads as two samples, `forward` and `reverse`. Assert each featureCounts task's `.command.sh` has `-s 1` for the first and `-s 2` for the second.
 - [ ] **Step 2: Run it.** Expected: PASS if Tasks 1–8 hold. A failure is a defect in them: fix it there, with a test.
-- [ ] **Step 3: Write the docs, the CHANGELOG and the journal.** Tick this plan and record its deviations.
+- [x] **Step 3: Write the docs, the CHANGELOG and the journal.** Tick this plan and record its deviations.
 - [ ] **Step 4: Run** `make check`, `make guards`, `make doc-sizes` and `make verify`, separately. Expected: pass.
 - [ ] **Step 5: Commit** `docs: per-sample facts, stage 1 (#466)`.
 

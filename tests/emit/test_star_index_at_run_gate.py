@@ -41,5 +41,6 @@ def test_star_runs_with_the_index_size_its_genome_measures_to(tmp_path):
     assert f"--genomeSAindexNbases {expected}" in star[0].read_text()
 
     decided = out / "results" / "decided" / "star_genomegenerate.sa_index_nbases.tsv"
-    assert decided.read_text().split() == [report.name.removesuffix(".measured.json"),
-                                           str(expected)]
+    sample, value, read = decided.read_text().split()
+    assert (sample, value) == (report.name.removesuffix(".measured.json"), str(expected))
+    assert read == f"genome_length={fact['value']}:measured"

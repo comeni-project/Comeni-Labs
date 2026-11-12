@@ -31,6 +31,15 @@ In the builder, press **Run**. In the current alpha, that action:
 Inputs and samplesheets are still an alpha surface. Expect this flow to become more polished
 and more lab-aware before the API is treated as stable.
 
+### When your samples differ
+
+If you told the builder that a fact differs between your samples (strandedness, say), the run
+sheet asks for it on each sample's row, offering only the values the pipeline accepts. Where the
+pipeline can measure the fact itself, you may leave the cell blank, or choose *auto*, and it is
+measured in the run. The pipeline checks every row before it processes any sample, and stops
+naming the row, the sample and the column if a cell does not fit. After the run, the run page
+says each value a setting took and where each fact behind it came from.
+
 The dedicated input model page is [Inputs in the alpha](../../explanation/inputs-and-data.md).
 
 ![Run sheet in the alpha app](../../assets/screenshots/run-sheet-alpha.png)

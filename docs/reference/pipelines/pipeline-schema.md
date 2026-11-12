@@ -359,6 +359,19 @@ step it feeds has it as an optional input; one step that needs it every run make
 path — this file is shareable, and a dataset that moves is one you cannot compare a result
 against next year.
 
+### `sheet_facts` — facts each sample's row states
+
+Present when a person said a fact differs between samples (`intent.constraints.varies`, #466).
+Each is a samplesheet column with its `kind`, allowed `values` or `minimum`/`maximum`, whether a
+row must fill it (`required`) and whether a blank or `auto` is measured in the run (`auto`). The
+pipeline checks every cell before any sample is processed and stops naming the row, the sample
+and the column. Each value reaches the sample's `meta` under the fact's id and, where a module
+reads it, under the module's key (`single_end` for `paired`). A pipeline whose varying facts are
+not its columns is refused (`MD0335`). Any `sheet_facts` make the input a samplesheet.
+
+A step's `sample_rules` are the tool's rules each sample's facts settle; a setting's `at_run`
+lists every fact it reads, each with its `source`: `cell`, `measured` or `cell_or_measured`.
+
 ### `decisions` — the review queue
 
 Every ambiguity, what was on the table, what was taken, and by whom. `human_override` **records**

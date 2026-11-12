@@ -159,7 +159,7 @@ must not be given. It never chooses; choosing is a rule's.
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `when` | object | `{}` | the condition, in rules' syntax, over `given.<input>`, `param.<name>` and `type.<input>`: the type connected to an input with `accepts`, as one type id, `{in: [...]}` or `{not: ...}` |
+| `when` | object | `{}` | the condition, in rules' syntax, over `given.<input>`, `param.<name>`, `type.<input>`: the type connected to an input with `accepts`, as one type id, `{in: [...]}` or `{not: ...}`, and `fact.<measurement>`: a fact each sample has |
 | `requires` | [string] | `[]` | inputs or params that must be given when `when` holds |
 | `forbids` | [string] | `[]` | inputs or params that must not be given |
 | `because` | string | *required* | why, in a sentence a person reads |
@@ -187,8 +187,24 @@ groups:
 
 Every name must be one this contract declares, and a `type.` condition names only types its
 input accepts (`MD0602`). The load-time check tries each type an input accepts as its own
-case, and refuses a type no combination allows (`MD0612`). A condition may not yet test a
-measurement such as `paired`, which can differ per sample.
+case, and refuses a type no combination allows (`MD0612`).
+
+A row may test a sample's fact, `fact.<measurement>`, for a measurement describing a per-sample
+input (`MD0336` otherwise; only constraint rows may, not groups or `produced_when`). It is then
+settled per sample:
+
+- a row some samples break: a value a default or a rule gave is left unset for those samples; a
+  person's or a model's value stops such a sample before the step runs, naming it and the rule;
+- a row every sample is known to break: a default is not passed at all, and a person's or a
+  model's value is refused (`MD0337`).
+
+```yaml
+# fastp merges only paired reads
+constraints:
+  - {when: {fact.paired: false}, forbids: [save_merged], because: "merging needs both reads"}
+```
+
+The step card lists these as "checked for each sample before this step runs".
 
 ## `provenance`
 

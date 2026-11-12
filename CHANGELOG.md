@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- Per-sample facts (#466): `Grain` (study, sample) replaces channel `scope` and port `cardinality` (a gathering port says `grain: study, many: true`; MD0331); a measurement's scope is its type's grain, so `per_sample` is gone (a `describes` naming no type is MD0334); `constraints.varies` lists facts a person said differ between samples (MD0332). `AtRun` reads several facts, each from the samplesheet, a measurement or both, and may fall back to stopping the run; `Pipeline.sheet_facts` are samplesheet columns checked by the run (MD0335). A contract's rule may read `fact.<measurement>` (MD0336), settled per sample (`Step.sample_rules`), and refused when every sample breaks it (MD0337). SCHEMA_VERSION 9.
+
 - Measurers (#465): one `declares: measurer` replaces `declares: measure`, by our code (`by: code`, a format's records) or by a tool and a parser of its output (`by: tool`), with where it runs (`runs: [server, pipeline]`); MD0326/MD0327. `Evidence.coverage` and `PremiseRecord.coverage` (`Coverage`: head or all) say how much of the data a fact was read from. Run-time decisions (#217): `plan.at_run` (`AtRun`, `MetaAtRun`, `Confirm`), carried as `Setting.at_run`, `Channel.meta_at_run` and `Pipeline.confirms`.
 
 - Tool constraints, phase 2 (#464): an `nf_inputs` entry may mix required and optional ports and hold independent optional ones; `join` may be a map giving each later port its own (`NfInput.join_for`); conditions may test `type.<input>`, the type connected to an input with `accepts`; the constraint check tries each accepted type (MD0612). `ToolTest.types` says which accepted type a test's data is. The artifact's `CallArg.joins` carries a per-port join.
@@ -105,6 +107,8 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- Per-sample facts (#466): a run-time setting may wait on several facts, from samplesheet cells or measurements; its fallback question is its own (`<step>.if_no_row.<setting>`) and may be answered with a stop; a fact must describe the input behind the step's first input. `mendel_resolver.cases` gives a rule's cases with undetermined, its gaps and overlaps; a `hit: unique` rule over a per-sample fact may not overlap (MD0333). MD0328 is retired.
+
 - Settings decided at run time (#217): a param rule waiting on one fact a pipeline measurer can measure, describing an input in the step's lineage, compiles into a lookup; discovery asks nobody, the build routes again with the measurement wanted (MD0328, MD0329). Estimates a decision used are measured again over all the data (`confirms`). `measure_steps` builds the generated measuring steps; `Layers.routing` is the registry builds route with. A decision may require `coverage: all`. An omittable setting's run-time fallback is the tool's own value.
 
 - Rules v2 (#461): a setting can take a fact's value (`then: {fact: <id>}`); `round` joins the transform chain; a decision declares `hit: first | unique`, and a tie under `unique` is asked at tier 4; load checks every case a table's rows tell apart for gaps (MD0311), dead rows (MD0323) and too many cases (MD0324), and a literal value against the tool's constraints (MD0325). A row reading a derived fact records the facts it came from. mendel-resolver needs pydantic 2.12.
@@ -133,6 +137,8 @@ or a complete commit history.
 - Profile validation occurs at the resolver boundary, not only in the CLI.
 
 ### mendel-compiler
+
+- Per-sample facts (#466): the samplesheet carries fact columns, each cell checked before any sample is processed; only rows that leave a measured fact blank are measured, and the measured facts are rejoined after the measuring branch; per-sample tool rules stop a sample naming it; the decided record lists each fact's value and source.
 
 - A run-time setting is emitted as a Groovy lookup over `meta`, from the closed operations only; the measuring branch runs first and its fact is joined into the input by `meta` (`failOnMismatch`); each value used is recorded under `{outdir}/decided/` (#217). The generated measuring step's module (a launcher, the stdlib runner and the pieces) is staged and recorded in `pipeline.yml` (#465). MD0330. `mendel profile` is removed.
 
@@ -212,6 +218,8 @@ or a complete commit history.
   questions are not asked again. Build and Spawn are consolidated into one authoring flow.
 
 ### mendel-api
+
+- Per-sample facts (#466): the conversation offers *it differs between samples* where everything reading a fact can take a value per sample (a fact's origin `varies`); the step card lists tool rules checked per sample and where each run-time fact comes from. Stored previews, drafts, blueprints, turns and forge items migrate to the new shapes.
 
 - The measurer index lists each measurer with where it runs; the browser sends each file's real size, so a whole small file is measured on all of it (#465). A fact only settings read and the pipeline can measure is not asked (#217).
 
@@ -482,6 +490,8 @@ or a complete commit history.
 
 ### wiener-api
 
+- The run form lists the samplesheet's fact columns; a decided value lists each fact it read and where it came from (#466).
+
 - When a run completes, what its measuring steps published is read into its record, closed to what its `pipeline.yml` declares; `GET /runs/{id}/measured` says whether each estimate was confirmed (#465).
 
 - A stored artifact says which inputs a run may leave empty and the run rules between them, read from its `pipeline.yml` (#460).
@@ -507,6 +517,8 @@ or a complete commit history.
 - Shared pure graph layout supports the build and run canvases.
 
 ### frontend
+
+- The samplesheet editor offers each per-sample fact's values, `auto` where the run measures a blank; the run page says where each decided value's facts came from (#466).
 
 - The step card shows a setting decided at run time with every value it can take; the run page shows what the run measured and flags a disagreement (#217, #465).
 

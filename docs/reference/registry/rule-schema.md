@@ -193,23 +193,31 @@ fact, and the pipeline measures it again over all the data to confirm it.
 
 ## Decided at run time
 
-When a `param` decision waits on a fact nobody stated, the build can decide it in the run
-instead. This happens when all of the following hold:
+When a `param` decision waits on facts nobody stated, the build can decide it in the run, for
+each sample. This happens when all of the following hold:
 
-- once every known fact is substituted, the rows wait on exactly one fact;
-- a [measurer](measurer-schema.md) that runs in the pipeline measures that fact;
-- the fact `describes` one of the goal's inputs, and the step reads that input or descends from
-  a step that does;
-- the decision is `hit: first`;
+- once every known fact is substituted, each fact the rows still wait on comes from the run:
+  a [measurer](measurer-schema.md) that runs in the pipeline measures it, or a person said it
+  differs between samples (`constraints.varies`), so each sample's samplesheet row states it, or
+  both (the row states it, and a blank or `auto` cell is measured);
+- each fact `describes` the input behind the step's first input, whose `meta` the step reads;
+- the decision is `hit: first`, or `hit: unique` with rows that cannot overlap;
 - nobody has answered the setting.
 
-The build then adds the measuring step. The fact joins the input's `meta`, and the setting is
-emitted as a lookup over it. Every row the lookup can take is listed in `pipeline.yml` and on the
-step card before the run. So is the fallback, used when the measurement comes back undetermined
-or no row matches. The fallback is the setting's default, or nothing for a setting the tool can
-do without, or else a question. Each value the run used is recorded per sample in
-`<outdir>/decided/<step>.<setting>.tsv`. No model runs at run time, and the same goal gives the
-same pipeline.
+The build then adds the measuring steps the measured facts need. Each fact joins the sample's
+`meta`, and the setting is emitted as a lookup over them. A condition on a fact a sample has no
+value for (a blank cell, a measurement that came back undetermined) holds only for `absent`. Every
+row the lookup can take is listed in `pipeline.yml` and on the step card before the run. So is
+the fallback, used when no row applies:
+
+1. the setting's default;
+2. for a setting the tool can do without, nothing: the tool uses its own;
+3. otherwise a question, asked once at build time as `<step>.if_no_row.<setting>`: a value, or
+   "stop the run and name the sample".
+
+Each value the run used is recorded per sample in `<outdir>/decided/<step>.<setting>.tsv`, with
+each fact it read and where that came from: `sample, value, fact=value:cell|measured|missing`.
+No model runs at run time, and the same goal gives the same pipeline.
 
 A row's `then: {fact: ...}` over a derived fact becomes its chain, written in Groovy from the
 same closed operations: `round` is half to even, as here. STAR's index size is the example. With
@@ -219,10 +227,12 @@ samtools faidx and decides in the run: 8 for nf-core's 230,218 bp test genome.
 | Code | When |
 |---|---|
 | `MD0329` | routing again to add the measuring steps moved the pipeline; a defect, report it |
-| `MD0330` | a run-time setting routes outside `ext`, or its template does not hold `{value}` once |
+| `MD0330` | a run-time setting routes outside `ext`, or its template does not hold `{value}` once, or the step's `meta` does not carry its facts |
+| `MD0333` | a `hit: unique` decision over a fact that differs between samples has overlapping rows |
+| `MD0335` | a fact read from the samplesheet has no column |
 
-Implementation and presence decisions are never decided at run time: the graph is fixed when the
-pipeline is built, so they stay questions.
+Implementation and presence decisions are not decided per sample yet: the graph is fixed when
+the pipeline is built, so they stay questions.
 
 ## Layer composition
 
