@@ -136,7 +136,7 @@ emitted:                       # what was written, and what it was written from
 gate: test                     # the strongest gate this pipeline actually passed
 ```
 
-## The eleven top-level keys
+## The top-level keys
 
 Model: `comeni_core.artifact.pipeline.Pipeline`
 
@@ -149,6 +149,7 @@ Model: `comeni_core.artifact.pipeline.Pipeline`
 | `ai` | which model, if any, touched this. `available: []` means none was wired |
 | `steps` | every process: the tool, why it was chosen, and every setting with its reason. A setting decided at run time also carries its lookup (`at_run`): the fact, the step that measures it, every row and the fallback |
 | `confirms` | each estimate a decision rested on (a fact read from part of the data), the step that measures it again over all of it, and the decisions that used it. After the run, the run page shows whether they agree |
+| `sheet_facts` | the facts each sample's samplesheet row states, with their allowed values; left out when there are none |
 | `channels` | how the steps are wired to each other |
 | `decisions` | the record of every ambiguity, so a rerun replays rather than re-asks |
 | `emitted` | the files that were written, each by digest |

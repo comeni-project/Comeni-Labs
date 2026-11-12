@@ -40,7 +40,10 @@ def _run(tmp_path, out, rows: list[str]) -> subprocess.CompletedProcess:
     header = rows[0]
     sheet.write_text("\n".join([header, *(r.format(d=data) for r in rows[1:])]) + "\n")
     return subprocess.run(
-        ["nextflow", "-q", "run", "main.nf", "-stub-run", "--input", str(sheet),
+        # The stub gate's profiles: Docker, and the limits a stub run fits in. Parameters given
+        # here win over the profile's.
+        ["nextflow", "-q", "run", "main.nf", "-stub-run", "-profile", "stub_data,docker",
+         "--input", str(sheet),
          "--fasta", str(data / "g.fa"), "--gtf", str(data / "g.gtf"),
          "--outdir", str(tmp_path / "results")],
         cwd=out, capture_output=True, text=True, timeout=900)

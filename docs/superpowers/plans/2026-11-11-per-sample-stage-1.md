@@ -309,11 +309,29 @@ A, B, C, D, with the parts of I that stage 1 shows).
 - Test: `tests/emit/test_strandedness_per_sample.py` (new, slow)
 
 - [x] **Step 1: Write the failing slow test** `test_each_sample_gets_its_strandedness`. Build the shipped rnaseq goal with `varies: [strandedness]` and run it under Docker on nf-core's test reads as two samples, `forward` and `reverse`. Assert each featureCounts task's `.command.sh` has `-s 1` for the first and `-s 2` for the second.
-- [ ] **Step 2: Run it.** Expected: PASS if Tasks 1–8 hold. A failure is a defect in them: fix it there, with a test.
+- [x] **Step 2: Run it.** Expected: PASS if Tasks 1–8 hold. A failure is a defect in them: fix it there, with a test.
 - [x] **Step 3: Write the docs, the CHANGELOG and the journal.** Tick this plan and record its deviations.
-- [ ] **Step 4: Run** `make check`, `make guards`, `make doc-sizes` and `make verify`, separately. Expected: pass.
-- [ ] **Step 5: Commit** `docs: per-sample facts, stage 1 (#466)`.
+- [x] **Step 4: Run** `make check`, `make guards`, `make doc-sizes` and `make verify`, separately. Expected: pass.
+- [x] **Step 5: Commit** `docs: per-sample facts, stage 1 (#466)`.
 
 ## Deviations
 
-(Recorded during execution.)
+Every deviation and ruling is in the task ledger (kept in the plan's workspace until the final
+review), summarised here:
+
+- Grain has only `study` and `sample`; the other grains arrive with their stages.
+- Every contract digest moved once (`cardinality` was always written).
+- A measurement's scope is derived from what it describes; `read_length` gained
+  `describes: fastq.reads`.
+- "It varies" is a fact origin (`varies`); the conversation offers it on `paired`, since
+  strandedness is not asked.
+- No MD0333/MD0334 as planned for Task 4: the case enumeration already existed and moved to
+  `mendel_resolver.cases`. MD0333 was later reassigned, by the operator's decision (11-11), to
+  refusing a `unique` rule whose rows can overlap on a per-sample fact.
+- The fallback question has its own subject, `<step>.if_no_row.<setting>`.
+- A measured-only fact gets no optional `auto` column in a samplesheet pipeline.
+- MD0336 refuses the load instead of dropping the contract; MD0337 refuses a value every sample
+  breaks.
+- A model's answer counts as an explicit value for per-sample rules (operator to confirm).
+- Answering "stop" from the app is not built (deferred, #489).
+- Full checks and slow runs ran once at the end of the part (operator, 11-11).
