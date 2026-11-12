@@ -154,6 +154,20 @@ class AtRun(BaseModel):
         return next(f for f in self.facts if f.measurement == measurement)
 
 
+class Guard(BaseModel):
+    """Which samples a step takes, when the tool is chosen per sample (#466).
+
+    `lookup` is the decision compiled as a run-time lookup whose value is a tool: every row,
+    and what a sample no row covers gets (a tool, or the run stops naming it). The step takes
+    a sample when the tool the lookup gives it is among `takes`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    lookup: AtRun
+    takes: list[ContractId]
+    """Sorted."""
+
+
 class MetaAtRun(BaseModel):
     """A measured fact joined into an input channel's `meta`, for a run-time setting to read."""
 

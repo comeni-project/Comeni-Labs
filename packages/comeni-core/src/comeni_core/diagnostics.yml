@@ -3099,6 +3099,25 @@ MD0338:
     file (#466): paired-end reads are two files, single-end one. It is true or false, and it
     needs a type whose second column a sample may leave blank.
 
+MD0339:
+  emitted_by: resolver
+  concern: routing
+  says: "a tool chosen per sample needs routes that differ only after the choice and rejoin at one type"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    State the fact as one value for the study, so one tool serves every sample, or choose the
+    tool yourself. To keep choosing per sample, the registry's tools must take the samples the
+    same way up to the choice.
+  explanation: |
+    When a person says a fact differs between samples, and a rule picks a tool from it (STAR
+    for reads of 70 bases or more, HISAT2 below), the build routes the pipeline once for each
+    tool and merges the routes (#466). Each sample then goes down its own branch. That works
+    only when the routes differ after the choice, plus steps that never carry the samples (a
+    genome index); when a step that carries the samples differs before the choice, when the
+    branches rejoin at different types, or when the fact does not describe the chosen step's
+    own input, the samples cannot be told apart where it matters, and the build refuses.
+
 MD0501:
   emitted_by: resolver
   concern: validation

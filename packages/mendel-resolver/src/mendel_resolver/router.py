@@ -6,7 +6,7 @@ deterministic: unique structural fits are tier 1, registry priority is tier 2, m
 tier 3, and unresolved ties are tier 4 decisions for review.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import NamedTuple
 
 from comeni_core.declared.constraints import rows_of, sentence
@@ -193,6 +193,7 @@ def route(
     *,
     premises: dict[str, object] | None = None,
     absent_roles: frozenset[str] = frozenset(),
+    branch: Mapping[str, str] | None = None,
 ) -> RoutePlan:
     """A rule table needs the premises it will be matched against, and says so.
 
@@ -283,7 +284,8 @@ def route(
                 missing=(type_id, frozenset(states)),
             )
 
-        choice = _choose(type_id, states, candidates, goal, rules, resolver, plan, premises)
+        choice = _choose(type_id, states, candidates, goal, rules, resolver, plan, premises,
+                         branch or {})
         if dropped:
             choice = choice._replace(
                 reason=f"you excluded {', '.join(dropped)} here; {choice.reason}"
@@ -614,6 +616,8 @@ class _Here(NamedTuple):
     rules: RuleTable | None
     premises: dict[str, object]
     rule_pin: Pin | None
+    branch: Mapping[str, str] = {}
+    """The tool each per-sample decision takes on this route, by decision key (#466)."""
 
     def rank(self, contract: ModuleContract) -> tuple[int, int, str]:
         return (_surplus(contract, self.type_id, self.states), -contract.priority, contract.id)
@@ -627,6 +631,7 @@ def _here(
     goal: Goal,
     rules: RuleTable | None,
     premises: dict[str, object],
+    branch: Mapping[str, str] | None = None,
 ) -> _Here:
     # A decision names a **role**, not a type. The roles in play here are the ones the
     # candidates declare, so a rule about which aligner to use is asked only where aligners
@@ -640,7 +645,8 @@ def _here(
         (p for p in (rules.implementation_for(r, premises) for r in roles) if p),
         None,
     ) if rules else None
-    here = _Here(type_id, states, candidates, [], roles, rules, premises, rule_pin)
+    here = _Here(type_id, states, candidates, [], roles, rules, premises, rule_pin,
+                 branch or {})
     return here._replace(ordered=sorted(candidates, key=here.rank))
 
 
@@ -683,6 +689,21 @@ def _by_unapplied_rule(here: _Here) -> Asked | None:
         return None
     decision, unknown = unapplied
     named = {row.then for row in decision.rows}
+    taken = here.branch.get(decision.key())
+    if taken is not None:
+        # **A tool chosen per sample** (#466): this route is the one its samples take. Nobody
+        # is asked; the step takes only the samples the rule sends it (its guard).
+        match = next((c for c in here.candidates if c.id == taken), None)
+        if match is not None:
+            rows = [row for row in decision.rows if row.then == taken]
+            return Choice(
+                match, Tier.DATA_PROFILED,
+                f"chosen per sample by {decision.key()}: for samples where "
+                + " or ".join(", ".join(f"{k} {v}" for k, v in row.when.items()) or "always"
+                              for row in rows)
+                + (f" — {rows[0].because}" if rows and rows[0].because else ""),
+                pinned=f"rule condition, per sample: {decision.key()}",
+            )
     if sum(1 for c in here.ordered if c.id in named) < 2:
         return None
     best = here.rank(here.ordered[0])
@@ -826,10 +847,12 @@ def _choose(
     resolver: AmbiguityResolver,
     plan: RoutePlan,
     premises: dict[str, object],
+    branch: Mapping[str, str] | None = None,
 ) -> Choice:
     """Which contract produces `type_id` here: decided by the chain, a person's pin wrapping it,
     and an open question answered here — the one place a record is appended to the plan."""
-    here = _here(type_id, states, candidates, goal=goal, rules=rules, premises=premises)
+    here = _here(type_id, states, candidates, goal=goal, rules=rules, premises=premises,
+                 branch=branch)
     decided = _decide(here)
     pin = goal.constraints.producer_at(Site(type_id=type_id, states=states))
     by_person = _by_person(here, decided, pin) if pin is not None else None

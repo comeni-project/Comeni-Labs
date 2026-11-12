@@ -15,7 +15,7 @@ from comeni_core.declared.layered import Displacement
 from comeni_core.goal.asked import InputState, Site
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.goal.profile import DataProfile
-from comeni_core.plan.at_run import AtRun, Confirm, MetaAtRun
+from comeni_core.plan.at_run import AtRun, Confirm, Guard, MetaAtRun
 from comeni_core.plan.decision import DecisionRecord
 from comeni_core.plan.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 from comeni_core.spell.marks import (
@@ -142,6 +142,8 @@ class IRNode(BaseModel):
     """The type a pipeline input matched, for each port with `accepts` fed from outside (#464):
     such a port has no single type of its own, so its channel is chosen by this one. In
     contract port order."""
+    guard: Guard | None = Field(default=None, exclude_if=lambda guard: guard is None)
+    """The samples this step takes, when only some samples' tool choice leads here (#466)."""
 
     def entry_type(self, port: str, default: str) -> str:
         """The type the pipeline input feeding `port` matched, or `default`."""

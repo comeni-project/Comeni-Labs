@@ -64,3 +64,70 @@ decisions:
 """)
     stack = layers.load([ROOT / "registry", layer])
     assert _points(stack, _goal(stack, varies=["read_length"])) == []
+
+
+def _resolved(stack, goal):
+    from mendel_resolver.resolve import resolve
+
+    return resolve(goal, stack.routing, stack.rules, stack.measurements,
+                   vocabulary=stack.vocabulary)
+
+
+def test_each_tool_is_routed_and_the_routes_merged_with_guards():
+    stack = _stack()
+    ir = _resolved(stack, _goal(stack, varies=["read_length"]))
+    nodes = {n.id: n for n in ir.nodes}
+    takes = {i: n.guard.takes for i, n in nodes.items() if n.guard is not None}
+    assert takes == {"star_genomegenerate": [STAR], "star_align": [STAR],
+                     "hisat2_build": [HISAT2], "hisat2_align": [HISAT2],
+                     "samtools_faidx": [STAR], "measure_genome_length_fai": [STAR]}
+    assert {"trimgalore", "samtools_sort", "subread_featurecounts"} <= set(nodes)
+    assert nodes["star_align"].selection.tier.value == 3
+    guard = nodes["star_align"].guard.lookup
+    assert guard.rule == "implementation:alignment"
+    assert [r.then for r in guard.rows] == [STAR, HISAT2]
+    (fact,) = guard.facts
+    assert fact.source is AtRunSource.CELL_OR_MEASURED and fact.measured_by
+    into_sort = sorted(e.from_node for e in ir.edges
+                       if (e.to_node, e.to_port) == ("samtools_sort", "bam"))
+    assert into_sort == ["hisat2_align", "star_align"]
+    keys = [d.key for d in ir.decisions]
+    assert not [k for k in keys if k.startswith("producer:alignment.bam")]
+    (fallback,) = [d for d in ir.decisions if "if_no_row" in d.key]
+    assert fallback.candidates == [STAR, HISAT2, at_run.AT_RUN_STOP]
+    assert guard.fallback == fallback.chosen
+    # The measured fact is joined into the reads' `meta` before any guard reads it.
+    assert [m.measurement for m in ir.meta_at_run if m.measurement == "read_length"]
+    # Every node precedes what it feeds.
+    order = [n.id for n in ir.nodes]
+    assert all(order.index(e.from_node) < order.index(e.to_node) for e in ir.edges)
+
+
+def test_the_merge_is_deterministic():
+    stack = _stack()
+    first = _resolved(stack, _goal(stack, varies=["read_length"]))
+    second = _resolved(stack, _goal(stack, varies=["read_length"]))
+    assert first.model_dump_json() == second.model_dump_json()
+
+
+def test_a_stated_fact_builds_todays_pipeline():
+    stack = _stack()
+    ir = _resolved(stack, _goal(stack, profile={"read_length": 150}))
+    assert not [n for n in ir.nodes if n.guard is not None]
+    assert "hisat2_align" not in {n.id for n in ir.nodes}
+
+
+def test_routes_that_differ_before_the_choice_are_refused(tmp_path):
+    """HISAT2 taking untrimmed reads would trim only STAR's samples: a step carrying the
+    samples upstream of the choice may not differ between routes (Review Focus 1)."""
+    import pytest
+
+    contract = (ROOT / "registry/tools/nf-core/hisat2/align/contract.yml").read_text()
+    folder = tmp_path / "raw/tools/nf-core/hisat2/align"
+    folder.mkdir(parents=True)
+    start = contract.index("    state_required_conventional")
+    end = contract.index("  - {name: index")
+    (folder / "contract.yml").write_text(contract[:start] + contract[end:])
+    stack = layers.load([ROOT / "registry", tmp_path / "raw"])
+    with pytest.raises(ValueError, match="MD0339"):
+        _resolved(stack, _goal(stack, varies=["read_length"]))

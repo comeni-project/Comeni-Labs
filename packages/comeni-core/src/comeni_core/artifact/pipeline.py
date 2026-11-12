@@ -36,7 +36,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.egress.base import EgressPayload
 from comeni_core.goal.asked import Facts, Goal, Intent
 from comeni_core.goal.premise import PremiseRecord
-from comeni_core.plan.at_run import AtRun, Confirm, MetaAtRun, SampleRule
+from comeni_core.plan.at_run import AtRun, Confirm, Guard, MetaAtRun, SampleRule
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.ir import InputRecord
 from comeni_core.plan.tiers import (
@@ -304,6 +304,9 @@ class StepInput(BaseModel):
     """External input channel name; mutually exclusive with source."""
     gather: bool = False
     """Collect the whole channel for one invocation, rather than process individual items."""
+    mixed: list[EdgeRef] = Field(default_factory=list, exclude_if=lambda m: not m)
+    """Further upstream outputs feeding this input, sorted: branches of a tool chosen per
+    sample rejoining here, each sample arriving from its own (#466)."""
 
     states: list[StateName] = Field(default_factory=list)
     """States carried by the upstream connection, sorted during materialisation."""
@@ -358,6 +361,9 @@ class Step(BaseModel):
     sample_rules: list[SampleRule] = Field(default_factory=list, exclude_if=lambda r: not r)
     """This step's rules each sample's facts settle (#466): a sample breaking one stops the run
     before the step runs, naming the sample and the rule."""
+    guard: Guard | None = Field(default=None, exclude_if=lambda guard: guard is None)
+    """The samples this step takes, when each sample's tool is chosen per sample and only some
+    lead here (#466): the rule, written as a lookup, and the tools whose samples it takes."""
     run_rules: list[RunRule] = Field(default_factory=list, exclude_if=lambda rules: not rules)
     """This step's constraints only a run can settle, because they involve an input each run
     may leave empty. The pipeline checks them at its start and the run sheet before sending.

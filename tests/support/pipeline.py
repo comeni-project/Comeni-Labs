@@ -161,6 +161,7 @@ SERIALISED_SHAPE = {
         "settings",
         "input_states",
         "sample_rules",
+        "guard",
         "run_rules",
     ],
     "ExtArgs": ["template", "why"],

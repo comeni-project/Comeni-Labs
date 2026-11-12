@@ -84,7 +84,15 @@ def of(
     lock = Lockfile.of(ir, registry, layers, locators)
     pinned = {entry.id: entry for entry in lock.contracts}
 
-    incoming_edges = {(edge.to_node, edge.to_port): edge for edge in ir.edges}
+    # The first edge into a port is its source; any other is a branch rejoining it (#466).
+    incoming_edges: dict[tuple[str, str], IREdge] = {}
+    rejoining: dict[tuple[str, str], list[str]] = {}
+    for edge in ir.edges:
+        key = (edge.to_node, edge.to_port)
+        if key in incoming_edges:
+            rejoining.setdefault(key, []).append(f"{edge.from_node}.{edge.from_port}")
+        else:
+            incoming_edges[key] = edge
     assigned_channels = _named(ir)
 
     # Build channels before wiring step inputs to their names.
@@ -97,7 +105,8 @@ def of(
         contract = registry.get(node.contract_id)
         entry = pinned[node.contract_id]
         wiring = _inputs(
-            node, contract, incoming_edges, assigned_channels, default_channels_by_type
+            node, contract, incoming_edges, assigned_channels, default_channels_by_type,
+            rejoining,
         )
         fed = {w.port: params_of[w.channel] for w in wiring if w.channel is not None}
         settings, sample_rules = _per_sample(contract, node, _settings(node, contract), goal,
@@ -120,6 +129,7 @@ def of(
                 settings=settings,
                 input_states=list(node.inputs),
                 sample_rules=sample_rules,
+                guard=node.guard,
                 run_rules=_run_rules(contract, node, fed),
             )
         )
@@ -156,6 +166,8 @@ def _sheet_facts(ir: PipelineIR, goal: Goal, measurements: MeasurementRegistry |
     auto = {f.measurement for node in ir.nodes for binding in node.params
             if binding.value.at_run is not None for f in binding.value.at_run.facts
             if f.source is AtRunSource.CELL_OR_MEASURED}
+    auto |= {f.measurement for node in ir.nodes if node.guard is not None
+             for f in node.guard.lookup.facts if f.source is AtRunSource.CELL_OR_MEASURED}
     found = []
     for fact in goal.constraints.varies:
         declared = measurements.get(fact)
@@ -328,6 +340,7 @@ def _inputs(
     incoming_edges: dict[tuple[str, str], IREdge],
     assigned_channels: dict[str, str],
     default_channels_by_type: dict[str, str],
+    rejoining: Mapping[tuple[str, str], list[str]] | None = None,
 ) -> list[StepInput]:
     """Connect each consumed port to an upstream output or an external channel.
 
@@ -349,6 +362,7 @@ def _inputs(
                     source=f"{edge.from_node}.{edge.from_port}",
                     states=sorted(edge.states),
                     gather=gather,
+                    mixed=sorted((rejoining or {}).get((node.id, port.name), [])),
                 )
             )
         else:

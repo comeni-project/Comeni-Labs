@@ -24,7 +24,15 @@ from comeni_core.goal.asked import (
     SourcePin,
 )
 from comeni_core.goal.premise import PremiseRecord
-from comeni_core.plan.at_run import AtRun, AtRunFallback, AtRunSource, Confirm, MetaAtRun
+from comeni_core.plan.at_run import (
+    AtRun,
+    AtRunFact,
+    AtRunFallback,
+    AtRunSource,
+    Confirm,
+    Guard,
+    MetaAtRun,
+)
 from comeni_core.plan.decision import (
     DecisionRecord,
     FactDecision,
@@ -121,16 +129,60 @@ def resolve(
     facts_read: Mapping[str, frozenset[str] | None] | None = None,
     inspection: InspectionCatalogue | None = None,
 ) -> PipelineIR:
-    """Resolve ``goal`` against one loaded registry stack, deciding at run time the settings
-    whose rule waits on a fact only the pipeline can measure (#217).
+    """Resolve ``goal`` against one loaded registry stack.
+
+    A tool chosen per sample (#466, `at_run.branch_points`) is routed once for each tool its
+    rows can reach, and the routes merged: steps on every route are shared, the others take
+    only the samples their tool's rows send them (`IRNode.guard`). One branch point per
+    pipeline; any other stays the question it is today. See `_resolve_route` for one route.
+    """
+    measurements.check_varies(goal)
+    args = dict(vocabulary=vocabulary, layer_names=layer_names, prior=prior,
+                facts_read=facts_read, inspection=inspection)
+    premises = build_premises(goal=goal, derivations=rules.derivations,
+                              measurements=measurements)
+    points = at_run.branch_points(registry, rules, premises, measurements, goal)
+    if not points:
+        return _resolve_route(goal, registry, rules, measurements, resolver=resolver, **args)
+    point = points[0]
+    remembering = _Remembering(resolver or FlagOnlyResolver())
+    measured = tuple(f for f in point.facts if point.source(f) is not AtRunSource.CELL)
+    routes = [
+        _resolve_route(goal, registry, rules, measurements, resolver=remembering,
+                       branch={point.decision.key(): tool}, branch_facts=measured, **args)
+        for tool in point.outcomes
+    ]
+    backed = {record.key: record.human_override for record in prior
+              if getattr(record, "human_override", None) is not None}
+    return _merged(point, routes, registry, measurements, goal, remembering, backed)
+
+
+def _resolve_route(
+    goal: Goal,
+    registry: Registry,
+    rules: RuleTable,
+    measurements: MeasurementRegistry,
+    *,
+    vocabulary: Vocabulary,
+    resolver: AmbiguityResolver | None = None,
+    layer_names: Sequence[str] = (),
+    prior: Sequence[DecisionRecord] = (),
+    facts_read: Mapping[str, frozenset[str] | None] | None = None,
+    inspection: InspectionCatalogue | None = None,
+    branch: Mapping[str, str] | None = None,
+    branch_facts: Sequence[str] = (),
+) -> PipelineIR:
+    """Resolve one route of ``goal``, deciding at run time the settings whose rule waits on a
+    fact only the pipeline can measure (#217).
 
     Once, as always; and when such a setting exists, again with the measurements wanted too, so
     the steps that measure them join the graph. The second graph must hold the first one
-    whole: measuring adds steps, it never moves one. See `_resolve_once` for the rest.
+    whole: measuring adds steps, it never moves one. `branch`: the tool each per-sample choice
+    takes on this route; `branch_facts`: the facts its guard reads that the run measures. See
+    `_resolve_once` for the rest.
     """
     args = dict(vocabulary=vocabulary, resolver=resolver, layer_names=layer_names,
-                prior=prior, facts_read=facts_read)
-    measurements.check_varies(goal)
+                prior=prior, facts_read=facts_read, branch=branch or {})
     premises = build_premises(goal=goal, derivations=rules.derivations,
                               measurements=measurements)
     answered = frozenset(record.key for record in prior
@@ -149,18 +201,18 @@ def resolve(
     needs = at_run.needed(first, registry, rules, premises, measurements, goal, answered)
     # `inspection`: the measurers, for confirming estimates; without it nothing is confirmed.
     estimates = at_run.estimates(first, registry, goal, inspection)
-    if not deferring and not needs and not estimates:
+    if not deferring and not needs and not estimates and not branch_facts:
         return first
 
     def again(which: Goal, plan=None) -> PipelineIR:
         """Another pass, through the same remembering resolver: no question is asked twice."""
         return _resolve_once(which, registry, rules, measurements, at_run_plan=plan, **args)
 
-    if not needs and not estimates:
+    if not needs and not estimates and not branch_facts:
         return again(goal)
     # Only what a step measures is routed for; a fact from the samplesheet needs no step (#466).
     facts = sorted({f for need in needs for f in need.facts
-                    if need.source(f) is not AtRunSource.CELL})
+                    if need.source(f) is not AtRunSource.CELL} | set(branch_facts))
     measured = sorted({*facts, *(e.fact for e in estimates)})
     wanted = [f"measurement.{fact}" for fact in measured
               if f"measurement.{fact}" not in goal.want]
@@ -178,7 +230,7 @@ def resolve(
     moved = [n.id for n in first.nodes if kept.get(n.id) != n.contract_id]
     edges = {edge.model_dump_json() for edge in second.edges}
     if moved or not {edge.model_dump_json() for edge in first.edges} <= edges:
-        if not needs:
+        if not needs and not branch_facts:
             # Only confirmations asked for the second route, and they are optional: a build
             # that stood before them is never refused because of them (Task 8 review).
             return again(goal)
@@ -200,7 +252,7 @@ def resolve(
         for e in estimates
     ]
     _name_the_measurers(second, {fact: measuring[fact].contract_id for fact in facts})
-    _say_why_it_measures(second, measuring, needs, estimates)
+    _say_why_it_measures(second, measuring, needs, estimates, branch or {}, branch_facts)
     second.meta_at_run = [
         MetaAtRun(measurement=fact, meta_key=fact, type_id=measurements.get(fact).describes,
                   measured_at=measuring[fact].id, measured_port=fact)
@@ -227,10 +279,16 @@ class _Remembering:
 
 def _say_why_it_measures(ir: PipelineIR, measuring: Mapping[str, IRNode],
                          needs: Sequence["at_run.Needed"],
-                         estimates: Sequence["at_run.Estimate"]) -> None:
+                         estimates: Sequence["at_run.Estimate"],
+                         branch: Mapping[str, str] = {},  # noqa: B006 - read only
+                         branch_facts: Sequence[str] = ()) -> None:
     """A measuring step's presence says what it measures and for whom: nobody asked for it,
     the build added it (Task 8 review)."""
     said: dict[str, list[str]] = {}
+    for fact in branch_facts:
+        for key in branch:
+            said.setdefault(measuring[fact].id, []).append(
+                f"measures {fact} in the run, for {key}: each sample's tool")
     for need in needs:
         for fact in need.facts:
             if need.source(fact) is AtRunSource.CELL:
@@ -279,6 +337,7 @@ def _resolve_once(
     facts_read: Mapping[str, frozenset[str] | None] | None = None,
     at_run_plan: Mapping[str, Mapping[str, "at_run.Needed"]] | None = None,
     deferring: frozenset = frozenset(),
+    branch: Mapping[str, str] | None = None,
 ) -> PipelineIR:
     """Resolve ``goal`` against one loaded registry stack.
 
@@ -335,7 +394,7 @@ def _resolve_once(
     person = goal.constraints.roles_absent()
     try:
         plan = route(goal, registry, rules, resolver, premises=premises,
-                     absent_roles=absent | person)
+                     absent_roles=absent | person, branch=branch)
     except IntentConflict:
         raise
     except UnroutableError as exc:
@@ -944,3 +1003,146 @@ def inert_pins(ir: PipelineIR, pins: Sequence[ProducerPin]) -> list[ProducerPin]
     """
     placed = {(node.site, node.contract_id) for node in ir.nodes if node.site is not None}
     return [pin for pin in pins if (pin.site, pin.contract) not in placed]
+
+
+def _refused(why: str) -> ValueError:
+    return ValueError(coded(
+        "MD0339", f"each sample's tool cannot be chosen per sample: {why}. Say the fact is one "
+        "value for the study, or choose the tool — `mendel explain MD0339`."))
+
+
+def _downstream(ir: PipelineIR, start: str) -> set[str]:
+    found, todo = {start}, [start]
+    while todo:
+        here = todo.pop()
+        for edge in ir.edges:
+            if edge.from_node == here and edge.to_node not in found:
+                found.add(edge.to_node)
+                todo.append(edge.to_node)
+    return found
+
+
+def _ordered(routes: Sequence[PipelineIR], nodes: Mapping[str, IRNode],
+             edges: Sequence[IREdge]) -> list[IRNode]:
+    """Every node after what feeds it; among those ready, the first route's order first."""
+    rank = {}
+    for r, ir in enumerate(routes):
+        for n, node in enumerate(ir.nodes):
+            rank.setdefault(node.id, (r, n))
+    feeds = {i: {e.from_node for e in edges if e.to_node == i} for i in nodes}
+    done: list[str] = []
+    while len(done) < len(nodes):
+        ready = [i for i in nodes if i not in done and feeds[i] <= set(done)]
+        done.append(min(ready, key=rank.__getitem__))
+    return [nodes[i] for i in done]
+
+
+def _fallback(point: "at_run.BranchPoint", node_id: str, resolver: AmbiguityResolver,
+              backed: Mapping[str, object]) -> tuple[object, AtRunFallback, str, ParamDecision]:
+    """Which tool takes a sample no row covers, its fact undetermined included: asked once
+    at build time. A tool, or `AT_RUN_STOP`: the run stops and names the sample."""
+    candidates = [*point.outcomes, at_run.AT_RUN_STOP]
+    ambiguity = ParamAsked(node_id=node_id, subject=f"{IF_NO_ROW}.{point.decision.key()}",
+                           candidates=candidates)
+    resolution = resolver.resolve(ambiguity)
+    value = resolution.value if resolution.value in candidates else None
+    honoured = (resolution.how is ValueSource.HUMAN
+                and backed.get(ambiguity.key()) == value)
+    decision = ParamDecision(
+        key=ambiguity.key(), subject=ambiguity.subject, candidates=candidates, chosen=value,
+        reason=resolution.why, confidence=resolution.confidence, resolved_by=resolution.by,
+        human_override=value if honoured else None)
+    if value == at_run.AT_RUN_STOP:
+        return None, AtRunFallback.STOP, resolution.why, decision
+    if value is None:
+        return None, AtRunFallback.QUESTION, resolution.why, decision
+    return value, AtRunFallback.VALUE, resolution.why, decision
+
+
+def _merged(point: "at_run.BranchPoint", routes: Sequence[PipelineIR], registry: Registry,
+            measurements: MeasurementRegistry, goal: Goal, resolver: AmbiguityResolver,
+            backed: Mapping[str, object]) -> PipelineIR:
+    """One pipeline from one route per tool (#466): a step on every route is shared, any other
+    is guarded by the rows that send samples its way.
+
+    Refused (MD0339) when the routes cannot be told apart per sample: a step that carries the
+    samples differs before the choice, a shared step is fed differently by anything but the
+    branches, the branches rejoin at different types, or the fact does not ride on the chosen
+    step's own input."""
+    tools = point.outcomes
+    sample_types = {measurements.get(f).describes for f in point.facts}
+    seen: dict[str, list[tuple[int, IRNode]]] = {}
+    for r, ir in enumerate(routes):
+        for node in ir.nodes:
+            seen.setdefault(node.id, []).append((r, node))
+    for node_id, copies in seen.items():
+        if len({node.model_dump_json(exclude={"presence"}) for _, node in copies}) > 1:
+            raise _refused(f"{node_id} differs between the routes")
+    shared = {i for i, copies in seen.items() if len(copies) == len(routes)}
+    for r, ir in enumerate(routes):
+        chosen = next((n.id for n in ir.nodes if n.contract_id == tools[r]), None)
+        if chosen is None:
+            raise _refused(f"{tools[r]} is not on its own route")
+        lineage = at_run._lineage(ir, registry, goal)
+        root = at_run._root(ir, registry, chosen)
+        for fact in point.facts:
+            if not at_run._reaches(fact, chosen, lineage, measurements, root):
+                raise _refused(f"{fact} does not describe {chosen}'s own input")
+        after = _downstream(ir, chosen)
+        for node in ir.nodes:
+            if node.id in shared or node.id in after:
+                continue
+            if lineage.get(node.id, set()) & sample_types:
+                raise _refused(f"{node.id} carries the samples and is not on every route")
+    # A shared step's input fed differently on two routes must be fed by the branches, all
+    # with one type and states: that is where they rejoin.
+    for node_id in sorted(shared):
+        ports: dict[str, set[tuple]] = {}
+        for ir in routes:
+            for e in ir.edges:
+                if e.to_node == node_id:
+                    ports.setdefault(e.to_port, set()).add(
+                        (e.from_node, e.from_port, e.type_id, e.states))
+        for port, sources in sorted(ports.items()):
+            if len(sources) == 1:
+                continue
+            if any(s[0] in shared for s in sources) or len({s[2:] for s in sources}) > 1:
+                raise _refused(f"the routes do not rejoin at {node_id}'s {port}")
+    edges: list[IREdge] = []
+    known: set[str] = set()
+    for ir in routes:
+        for edge in ir.edges:
+            if (key := edge.model_dump_json()) not in known:
+                known.add(key)
+                edges.append(edge)
+    first = next(n for n in routes[0].nodes if n.contract_id == tools[0])
+    fallback, kind, why, asked = _fallback(point, first.id, resolver, backed)
+    measuring = {m.measurement: m.measured_at for r in routes for m in r.meta_at_run}
+    by_contract = {n.id: n.contract_id for r in routes for n in r.nodes}
+    lookup = AtRun(
+        facts=[AtRunFact(measurement=f, meta_key=f, source=point.source(f),
+                         measured_by=(by_contract[measuring[f]]
+                                      if point.source(f) is not AtRunSource.CELL else None))
+               for f in point.facts],
+        rule=point.decision.key(), rows=list(point.rows), fallback=fallback,
+        fallback_reason=why or "asked once, at build time", fallback_is=kind)
+    nodes: dict[str, IRNode] = {}
+    for node_id, copies in seen.items():
+        node = copies[0][1].model_copy(deep=True)
+        if node_id not in shared:
+            takes = sorted({tools[r] for r, _ in copies})
+            node.guard = Guard(lookup=lookup, takes=takes)
+        nodes[node_id] = node
+    merged = routes[0].model_copy(deep=True)
+    merged.nodes = _ordered(routes, nodes, edges)
+    order = {n.id: k for k, n in enumerate(merged.nodes)}
+    merged.edges = sorted(edges, key=lambda e: order[e.to_node])
+    decisions: dict[str, DecisionRecord] = {}
+    for ir in routes:
+        for decision in ir.decisions:
+            decisions.setdefault(decision.key, decision)
+    merged.decisions = [*decisions.values(), asked]
+    merged.meta_at_run = list({m.measurement: m for r in routes
+                               for m in r.meta_at_run}.values())
+    merged.confirms = list({c.measurement: c for r in routes for c in r.confirms}.values())
+    return merged
