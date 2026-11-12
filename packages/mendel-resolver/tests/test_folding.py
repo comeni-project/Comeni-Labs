@@ -94,3 +94,8 @@ def test_a_fold_over_a_varying_fact_is_decided_in_the_run(tmp_path):
     assert [r.when[0].fact for r in value.at_run.rows] == ["study_read_length"] * 2
     # Its members' read lengths are measured where a cell is blank, so the fold sees them all.
     assert "read_length" in {m.measurement for m in ir.meta_at_run}
+
+
+def test_a_count_of_one_value_for_the_study_is_not_known_at_build_time(tmp_path):
+    """Final review: one stated value says nothing of how many samples there are."""
+    assert _premise(_stack(tmp_path, "count"), 150, "count") is None

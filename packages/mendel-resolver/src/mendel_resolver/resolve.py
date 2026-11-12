@@ -1168,9 +1168,12 @@ def _merged(point: "at_run.BranchPoint", routes: Sequence[PipelineIR], registry:
 def _check_units(goal: Goal, vocabulary: Vocabulary) -> None:
     """Only an input the goal has, one item per sample, may span several rows (MD0340)."""
     have = {given.type_id for given in goal.have}
+    per_sample = {t for t in have if Grain(vocabulary.grains.get(t, Grain.SAMPLE))
+                  is Grain.SAMPLE}
     for type_id in goal.constraints.units:
         grain = vocabulary.grains.get(type_id, Grain.SAMPLE)
-        if type_id not in have or Grain(grain) is not Grain.SAMPLE:
+        # Another per-sample input would be read once per lane (final review I3).
+        if type_id not in have or Grain(grain) is not Grain.SAMPLE or per_sample - {type_id}:
             raise ValueError(coded(
                 "MD0340", f"{type_id} cannot span several rows per sample: only an input the "
                 "goal has, with one item per sample, can — `mendel explain MD0340`."))

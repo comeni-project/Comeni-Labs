@@ -54,3 +54,10 @@ def test_units_on_an_input_the_goal_does_not_have_are_refused():
 def test_a_type_with_no_merger_is_refused():
     with pytest.raises(ValueError, match="MD0341"):
         _resolved(_stack(), units=["alignment.bam"], have=("alignment.bam", "annotation.gtf"))
+
+
+def test_lanes_beside_another_per_sample_input_are_refused():
+    """Final review I3: the other input would be read once per lane."""
+    with pytest.raises(ValueError, match="MD0340"):
+        _resolved(_stack(), units=["fastq.reads"],
+                  have=("fastq.reads", "alignment.bam", "annotation.gtf"))

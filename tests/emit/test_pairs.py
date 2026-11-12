@@ -123,3 +123,14 @@ def test_a_control_that_names_no_row_stops_the_run_naming_both(tmp_path):
     assert done.returncode != 0
     said = done.stdout + done.stderr
     assert "sample C1" in said and "XX" in said
+
+
+@pytest.mark.parametrize("change", [
+    ("join: by_key, key: patient", "join: {normal: by_key}, key: patient"),
+    ("nf_inputs: [{ports: [tumour, normal],", "nf_inputs: [{ports: [tumour, normal, normal],"),
+])
+def test_a_pair_is_two_ports_and_one_join(tmp_path, change):
+    """Final review C2: anything else would pair every tumour with every normal."""
+    files = {**PAIRS, "pair.contract.yml": PAIRS["pair.contract.yml"].replace(*change)}
+    with pytest.raises(Exception, match="MD0344"):
+        _built(tmp_path, files, "calls.vcf")

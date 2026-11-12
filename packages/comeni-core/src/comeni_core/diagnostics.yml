@@ -3187,6 +3187,20 @@ MD0344:
     reads the control its `sample_ref` names. Each of these is a fact every sample has, of the
     kind its use needs.
 
+MD0345:
+  emitted_by: resolver
+  concern: loading
+  says: "a rule reads a key's or a reference's value, a laboratory's identifier"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Read a fact about the data instead. A rule may count a key's values (`count`, `distinct`),
+    and a step may group, pair or join on one; nothing else reads it.
+  explanation: |
+    A key such as `patient`, or a reference such as `control`, is a laboratory's own identifier
+    (#466). Its value comes from each samplesheet row and stays in the run: a rule reading it
+    would put it on every sample's `meta` and into the run's record of decided values.
+
 MD0501:
   emitted_by: resolver
   concern: validation

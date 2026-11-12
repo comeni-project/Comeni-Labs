@@ -265,6 +265,49 @@
             "title": "Many",
             "type": "boolean"
           },
+          "select": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Select"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "By"
+          },
           "required": {
             "default": true,
             "title": "Required",
@@ -353,7 +396,9 @@
             "description": "How two channels filling one process input are matched.\n\nClosed for the same reason `Via` is: each member needs its own line in the emitter.\n\nThere is no default because broadcast and per-sample pairing have different cardinality.\n`.combine()` is a Cartesian product, while `.join()` pairs matching sample metadata.",
             "enum": [
               "broadcast",
-              "by_sample"
+              "by_sample",
+              "by_key",
+              "by_ref"
             ],
             "title": "Join",
             "type": "string"
@@ -407,6 +452,18 @@
                 "default": null,
                 "title": "Join"
               },
+              "key": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Key"
+              },
               "absent": {
                 "default": 0,
                 "title": "Absent",
@@ -445,7 +502,9 @@
               "integer",
               "number",
               "boolean",
-              "enum"
+              "enum",
+              "key",
+              "sample_ref"
             ],
             "title": "MeasurementKind",
             "type": "string"
@@ -776,7 +835,9 @@
               "integer",
               "number",
               "boolean",
-              "enum"
+              "enum",
+              "key",
+              "sample_ref"
             ],
             "title": "MeasurementKind",
             "type": "string"

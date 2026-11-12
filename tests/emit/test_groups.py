@@ -104,3 +104,40 @@ entry: piece/read_length.py
 """})
     with pytest.raises(ValueError, match="MD0342"):
         loader.load([ROOT / "registry", root])
+
+
+def test_a_group_counts_samples_not_lanes(tmp_path):
+    """Final review C1: with lanes, a group's size is its samples, or it never fills."""
+    roots = [ROOT / "registry", layer(tmp_path)]
+    goal = Goal.model_validate({"have": [{"type_id": "fastq.reads"}], "want": ["assembly.fasta"],
+                                "constraints": {"units": ["fastq.reads"]}})
+    text = emit(orchestrate.build(goal, registry_roots=roots).pipeline)
+    assert "rs*.sample.unique().size()" in text
+
+
+def test_a_port_that_selects_and_groups_is_refused(tmp_path):
+    """Final review C1: a selection before a group gather would leave the group unfilled."""
+    from emit.fixtures.relations import LAYER
+
+    contract = LAYER["coassemble.contract.yml"].replace(
+        "many: true, by: group}", "many: true, by: group, select: {group: present}}")
+    with pytest.raises(Exception, match="MD0343"):
+        _built(tmp_path, {"coassemble.contract.yml": contract})
+
+
+def test_a_rule_reading_a_key_is_refused(tmp_path):
+    """Final review: a key's value would ride on every sample's meta into the run's record."""
+    from mendel_resolver import layers as loader
+
+    root = layer(tmp_path)
+    (root / "rules").mkdir()
+    (root / "rules/key.yml").write_text("""declares: rule
+version: 1
+derives:
+  - fact: one_group
+    kind: key
+    aggregate: {measurement: group, over: study, using: agree}
+    because: a fixture
+""")
+    with pytest.raises(Exception, match="MD0345"):
+        loader.load([ROOT / "registry", root])

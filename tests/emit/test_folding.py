@@ -51,13 +51,6 @@ def test_the_fold_joins_every_samples_meta(folded):
     text = emit(folded)
     assert ".toList().map { vs ->" in text
     assert "study_read_length:" in text
-    assert "ch_reads_folded" in text
-
-
-def test_the_fold_reaches_steps_after_the_measuring_branch(folded):
-    text = emit(folded)
-    star = next(line for line in text.splitlines() if line.strip().startswith("STAR_ALIGN("))
-    assert "'study_read_length'" in star
 
 
 def test_agree_is_undetermined_when_samples_differ_or_one_is_missing(folded):
@@ -114,3 +107,18 @@ def test_a_folded_fact_is_read_in_the_run(tmp_path):
                          for line in record.splitlines()}
     assert results["agree"] == {"S1": "10", "S2": "10"}
     assert set(results["differ"].values()) != {"10"} and set(results["differ"].values()) != {"7"}
+
+
+def test_only_a_step_reading_the_fold_waits_for_it(folded):
+    """Final review I1: the aligners keep going per sample; featureCounts joins the fold."""
+    text = emit(folded)
+    lines = {line.strip().split("(")[0]: line.strip() for line in text.splitlines()
+             if line.strip()[:1].isupper() and "(" in line}
+    assert "study_read_length" not in lines["STAR_ALIGN"]
+    assert "study_read_length" in lines["SUBREAD_FEATURECOUNTS"]
+
+
+def test_a_fold_over_a_measured_fact_builds(tmp_path):
+    """Final review I2: nobody knows the read length and nobody said it varies."""
+    pipeline = build(tmp_path, varies=(), profile={})
+    assert ".toList().map { vs ->" in emit(pipeline)

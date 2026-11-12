@@ -217,6 +217,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         )
     decided = stack(stacked, RuleTable.kind(registry, vocabulary, measurements), buckets=buckets)
     rules = RuleTable.of(decided, stacked)
+    _no_key_read(rules, measurements)
     # After assembly, so a decision may read a fact a derivation in another file
     # supplies. Same reason `roles.check` runs here rather than inside a parse.
     rules.check_premise_names(measurements)
@@ -279,6 +280,35 @@ def _blame_the_overlay(
     )
 
 
+def _no_key_read(rules, measurements: MeasurementRegistry) -> None:
+    """A key's or a reference's value is a laboratory's identifier: no rule reads it, so it
+    never rides on a sample's `meta` into the run's record. Counting them is fine (MD0345)."""
+    from comeni_core.declared.measurement import MeasurementKind
+
+    def identifier(fact: str) -> bool:
+        return fact in measurements.ids() and measurements.get(fact).kind in (
+            MeasurementKind.KEY, MeasurementKind.SAMPLE_REF)
+
+    for derivation in rules.derivations:
+        folded = derivation.aggregate
+        if folded is not None and identifier(folded.measurement) \
+                and folded.using not in ("count", "distinct"):
+            raise ValueError(coded(
+                "MD0345", f"{derivation.fact} folds {folded.measurement}, a laboratory's "
+                "identifier, with " + folded.using + "; only count and distinct may — "
+                "`mendel explain MD0345`."))
+        if derivation.source and identifier(derivation.source):
+            raise ValueError(coded("MD0345", f"{derivation.fact} reads {derivation.source}, "
+                                   "a laboratory's identifier — `mendel explain MD0345`."))
+    for decision in rules.decisions:
+        for row in [*decision.rows, *(d for derived in rules.derivations for d in derived.rows)]:
+            for fact in row.when:
+                if identifier(fact):
+                    raise ValueError(coded(
+                        "MD0345", f"a rule reads {fact}, a laboratory's identifier — "
+                        "`mendel explain MD0345`."))
+
+
 def _no_key_measured(catalogue, measurements: MeasurementRegistry) -> None:
     """A key is a laboratory's own identifier, read from the samplesheet: nothing measures one
     (MD0342, #466). Checked before a piece is refused for any other reason."""
@@ -303,6 +333,12 @@ def _check_groups(contract, measurements: MeasurementRegistry) -> None:
         return measurements.get(fact).kind if fact in measurements.ids() else None
 
     for port in contract.consumes:
+        if port.select and port.by is not None:
+            # The group's size counts every sample with the key; a selection would leave it
+            # unfilled, and the group would never run (final review C1).
+            raise ValueError(coded(
+                "MD0343", f"{contract.id}'s {port.name} both selects and groups by {port.by} — "
+                "`mendel explain MD0343`."))
         for fact in sorted(port.select or {}):
             if fact not in measurements.ids() or measurements.scope_of(fact) is not Grain.SAMPLE:
                 raise ValueError(coded(
@@ -311,6 +347,11 @@ def _check_groups(contract, measurements: MeasurementRegistry) -> None:
     for spec in contract.nf_inputs:
         wants = {Join.BY_KEY: MeasurementKind.KEY, Join.BY_REF: MeasurementKind.SAMPLE_REF}
         join = spec.join if not isinstance(spec.join, dict) else None
+        per_port = spec.join.values() if isinstance(spec.join, dict) else ()
+        if any(j in wants for j in per_port) or (join in wants and len(spec.ports) != 2):
+            raise ValueError(coded(
+                "MD0344", f"{contract.id} relates {', '.join(spec.ports)} by a key or a "
+                "reference; only two ports, with one join, may — `mendel explain MD0344`."))
         if join in wants and (spec.key is None or kind(spec.key) is not wants[join]):
             raise ValueError(coded(
                 "MD0344", f"{contract.id} joins {', '.join(spec.ports)} {join.value} on "

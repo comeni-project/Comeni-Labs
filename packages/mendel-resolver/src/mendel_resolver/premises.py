@@ -254,6 +254,10 @@ def _aggregate(premises: dict[str, Premise], derivation: Derivation) -> None:
     values = source.value if isinstance(source.value, list) else [source.value]
     if not values:
         return
+    # One value for the study says nothing of how many samples share it (final review).
+    if not isinstance(source.value, list) and derivation.aggregate.using in ("count",
+                                                                            "distinct"):
+        return
     folded = _REDUCERS[derivation.aggregate.using](values)
     if folded is None:
         return
