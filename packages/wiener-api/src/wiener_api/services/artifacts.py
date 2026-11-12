@@ -159,6 +159,15 @@ def input_shape(artifact_id: str) -> tuple[str, list[str]]:
     return (pipeline.input_form.value, columns)
 
 
+def optional_columns(artifact_id: str) -> list[str]:
+    """The file columns a row may leave blank (#466): a second file whose absence is a fact,
+    single-end reads where pairing varies."""
+    pipeline = _pipeline(artifact_id)
+    if pipeline is None:
+        return []
+    return sorted(f.column for f in pipeline.sheet_facts if f.from_row is not None)
+
+
 def input_facts(artifact_id: str) -> list[dict]:
     """The samplesheet's fact columns (#466): each with its kind, allowed values and bounds,
     whether a row must fill it and whether a blank is measured, so the run sheet can ask for it

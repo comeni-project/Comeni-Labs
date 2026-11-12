@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- Mixed single-end and paired samples (#466): a type's second column may be blank (`second_may_be_blank`); a measurement may be read off the row (`row: second_file_present`, MD0338); a samplesheet fact may come from the row (`SheetFact.from_row`).
+
 - Per-sample facts (#466): `Grain` (study, sample) replaces channel `scope` and port `cardinality` (a gathering port says `grain: study, many: true`; MD0331); a measurement's scope is its type's grain, so `per_sample` is gone (a `describes` naming no type is MD0334); `constraints.varies` lists facts a person said differ between samples (MD0332). `AtRun` reads several facts, each from the samplesheet, a measurement or both, and may fall back to stopping the run; `Pipeline.sheet_facts` are samplesheet columns checked by the run (MD0335). A contract's rule may read `fact.<measurement>` (MD0336), settled per sample (`Step.sample_rules`), and refused when every sample breaks it (MD0337). SCHEMA_VERSION 9.
 
 - Measurers (#465): one `declares: measurer` replaces `declares: measure`, by our code (`by: code`, a format's records) or by a tool and a parser of its output (`by: tool`), with where it runs (`runs: [server, pipeline]`); MD0326/MD0327. `Evidence.coverage` and `PremiseRecord.coverage` (`Coverage`: head or all) say how much of the data a fact was read from. Run-time decisions (#217): `plan.at_run` (`AtRun`, `MetaAtRun`, `Confirm`), carried as `Setting.at_run`, `Channel.meta_at_run` and `Pipeline.confirms`.
@@ -137,6 +139,8 @@ or a complete commit history.
 - Profile validation occurs at the resolver boundary, not only in the CLI.
 
 ### mendel-compiler
+
+- A row whose second reads file is blank is a single-end sample where pairing varies; a blank required file cell stops the run naming the sample and the column (#466).
 
 - Per-sample facts (#466): the samplesheet carries fact columns, each cell checked before any sample is processed; only rows that leave a measured fact blank are measured, and the measured facts are rejoined after the measuring branch; per-sample tool rules stop a sample naming it; the decided record lists each fact's value and source.
 

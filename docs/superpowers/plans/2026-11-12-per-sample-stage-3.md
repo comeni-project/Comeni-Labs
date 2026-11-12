@@ -77,11 +77,11 @@ Each sample reaches every module with its own `single_end`.
 - `make client`
 - Test: the Wiener samplesheet test, `Samplesheet.test.tsx`
 
-- [ ] **Step 1: Write the failing tests:** with pairing varying, `reads_2` is optional on the run form and in the editor; without, it is required.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the Wiener tests, `npx vitest run` and `npx tsc -b`. Expected: pass.
-- [ ] **Step 5: Commit** `feat: the run sheet lets a single-end sample leave its second file blank (#466)`.
+- [x] **Step 1: Write the failing tests:** with pairing varying, `reads_2` is optional on the run form and in the editor; without, it is required.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the Wiener tests, `npx vitest run` and `npx tsc -b`. Expected: pass.
+- [x] **Step 5: Commit** `feat: the run sheet lets a single-end sample leave its second file blank (#466)`.
 
 ### Task 4: Docs and the end of the part
 

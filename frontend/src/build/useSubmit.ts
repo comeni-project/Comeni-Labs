@@ -89,7 +89,8 @@ export function useSubmit(draftId: string | null, name = "") {
       .filter(([name, value]) => value.trim() === "" && !(sheet && name === "input")
                                  && !optional.has(name))
       .map(([name]) => name),
-    ...(sheet ? incomplete(rows, artifact?.input_columns ?? [], artifact?.input_facts ?? []) : []),
+    ...(sheet ? incomplete(rows, artifact?.input_columns ?? [], artifact?.input_facts ?? [],
+      artifact?.input_optional_columns ?? []) : []),
   ];
   // The constraints a run must settle, checked here before sending; the pipeline checks them
   // again at its start.

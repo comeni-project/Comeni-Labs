@@ -26,6 +26,7 @@ from wiener_api.services.artifacts import (
     declared_holes,
     input_facts,
     input_shape,
+    optional_columns,
     optional_holes,
     pipeline_digest,
     run_rules,
@@ -106,6 +107,8 @@ class ArtifactStored(BaseModel):
     kind of thing, and the run fails inside Nextflow minutes later.
     """
 
+    input_optional_columns: list[str] = []
+    """The file columns a row may leave blank: a single-end sample's second reads (#466)."""
     input_facts: list["FactColumnView"] = []
     """The samplesheet's fact columns (#466), each checked when the run starts as here."""
 
@@ -248,12 +251,14 @@ async def upload_artifact(bundle: UploadFile,
         ))
     form, columns = input_shape(artifact_id)
     facts = [FactColumnView(**f) for f in input_facts(artifact_id)]
+    blank = optional_columns(artifact_id)
     holes = declared_holes(artifact_id)
     return ArtifactStored(artifact_id=artifact_id, digest=digest, size_bytes=size,
                           declared=sorted(holes),
                           optional=sorted(optional_holes(artifact_id) & holes),
                           rules=[RunRuleView(**r) for r in run_rules(artifact_id)],
-                          input_form=form, input_columns=columns, input_facts=facts)
+                          input_form=form, input_columns=columns, input_facts=facts,
+                          input_optional_columns=blank)
 
 
 @router.post("/runs", status_code=202, operation_id="submitRun", summary="Run a pipeline")

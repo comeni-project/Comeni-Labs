@@ -3482,6 +3482,8 @@ export interface components {
             describes?: string | null;
             /** Meta Key */
             meta_key?: string | null;
+            /** Row */
+            row?: "second_file_present" | null;
             /** Meta Values */
             meta_values?: components["schemas"]["MetaValue"][];
             /**

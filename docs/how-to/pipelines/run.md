@@ -37,7 +37,10 @@ If you told the builder that a fact differs between your samples (strandedness, 
 sheet asks for it on each sample's row, offering only the values the pipeline accepts. Where the
 pipeline can measure the fact itself, you may leave the cell blank, or choose *auto*, and it is
 measured in the run. The pipeline checks every row before it processes any sample, and stops
-naming the row, the sample and the column if a cell does not fit. After the run, the run page
+naming the row, the sample and the column if a cell does not fit.
+
+If you said some samples are paired-end and some single-end, leave a single-end sample's second
+reads cell blank: the pipeline reads it as single-end, and passes it one file. After the run, the run page
 says each value a setting took and where each fact behind it came from.
 
 The dedicated input model page is [Inputs in the alpha](../../explanation/inputs-and-data.md).

@@ -126,3 +126,11 @@ describe("a fact cell is checked as the pipeline will check it (issue 466)", () 
     expect((screen.getByLabelText("read_length for row 1") as HTMLInputElement).type).toBe("text");
   });
 });
+
+describe("a second file a row may leave blank (issue 466)", () => {
+  it("is not asked for", () => {
+    const rows = [{ sample: "A", reads_1: "/a.fq", reads_2: "" }];
+    expect(incomplete(rows, ["reads_1", "reads_2"], [], ["reads_2"])).toEqual([]);
+    expect(incomplete(rows, ["reads_1", "reads_2"], [])).toEqual(["row 1: reads_2"]);
+  });
+});

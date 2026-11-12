@@ -166,3 +166,24 @@ def test_a_comma_in_a_cell_stays_in_its_column(tmp_path):
     with open(written["input"], newline="") as sheet:
         (row,) = list(csv.DictReader(sheet))
     assert row == {"sample": "A, rep 1", "reads_1": "/lab/a,1.fq", "strandedness": "reverse"}
+
+
+def test_a_second_file_a_row_may_leave_blank_is_optional(tmp_path):
+    """Pairing read off the row (#466): `reads_2` may stay blank on the run sheet."""
+    from wiener_api.services.artifacts import optional_columns
+
+    body = _pipeline("samplesheet", _channel("reads", "input", "sample", ["reads_1", "reads_2"]))
+    body = body.replace("intent: {want: [], constraints: {}}",
+                        "intent: {want: [], constraints: {varies: [paired]}}")
+    body = body.replace("channels:\n", """sheet_facts:
+- measurement: paired
+  column: reads_2
+  kind: boolean
+  required: false
+  from_row: second_file_present
+  describes: a.b
+  meta: [{key: paired}]
+  why: {tier: 1, source: said, reason: you said paired differs between samples}
+channels:
+""")
+    assert optional_columns(_artifact(tmp_path, body)) == ["reads_2"]

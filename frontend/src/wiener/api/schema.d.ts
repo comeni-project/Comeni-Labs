@@ -432,6 +432,11 @@ export interface components {
              */
             input_form: "direct" | "samplesheet";
             /**
+             * Input Optional Columns
+             * @default []
+             */
+            input_optional_columns: string[];
+            /**
              * Input Facts
              * @default []
              */

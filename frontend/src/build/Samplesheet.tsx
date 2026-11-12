@@ -157,8 +157,10 @@ function FactCell({ fact, label, value, onChange }: {
  * `useSubmit.unfilled` makes about the start button: a refusal a disabled control could have
  * explained is a round trip a person had to make to learn what the page already knew.
  */
-export function incomplete(rows: Row[], columns: string[], facts: FactColumn[] = []): string[] {
-  const needed = [SAMPLE, ...columns, ...facts.filter((f) => f.required).map((f) => f.column)];
+export function incomplete(rows: Row[], columns: string[], facts: FactColumn[] = [],
+  optional: string[] = []): string[] {
+  const needed = [SAMPLE, ...columns.filter((c) => !optional.includes(c)),
+    ...facts.filter((f) => f.required).map((f) => f.column)];
   return rows.flatMap((row, index) => {
     // A number is checked as the pipeline will check it, so a bad cell is named here rather
     // than minutes into the run (Task 8 review).
