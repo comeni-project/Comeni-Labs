@@ -59,9 +59,27 @@ class Needed:
     decision: Decision
     sources: tuple[AtRunSource, ...]
     """Where each of `facts` comes from in the run, in the same order."""
+    folds: tuple[tuple[str, str, str, AtRunSource], ...] = ()
+    """Each folded fact among `facts`: `(fact, the fact it folds, how, where that comes from)`."""
 
     def source(self, fact: str) -> AtRunSource:
         return self.sources[self.facts.index(fact)]
+
+    def fold(self, fact: str) -> tuple[str, str, str, AtRunSource] | None:
+        return next((f for f in self.folds if f[0] == fact), None)
+
+    def measured(self) -> set[str]:
+        """The facts a step must measure in the run: measured ones, and the members a fold
+        reads where they are measured."""
+        found = {f for f, s in zip(self.facts, self.sources, strict=True)
+                 if s in (AtRunSource.MEASURED, AtRunSource.CELL_OR_MEASURED)}
+        return found | {base for _, base, _, s in self.folds if s is not AtRunSource.CELL}
+
+
+def _folded(fact: str, derived: dict[str, Derivation]) -> Derivation | None:
+    """The derivation folding `fact` over the study from one per-sample measurement (#466)."""
+    found = derived.get(fact)
+    return found if found is not None and found.aggregate is not None else None
 
 
 def _lineage(ir: PipelineIR, registry: Registry, goal: Goal) -> dict[str, set[str]]:
@@ -155,26 +173,40 @@ def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
                 continue
             visible = _visible(decision, premises)
             # Only what is not known is expanded to what it rests on: a derived fact already
-            # computed needs nothing measured.
-            bases = set().union(set(), *(_bases(f, derived) for f in _read(decision)
-                                         if f not in visible))
+            # computed needs nothing measured. A fold stays itself: the run folds it (#466).
+            read = [f for f in _read(decision) if f not in visible]
+            bases = set().union(set(), *(
+                {f} if _folded(f, derived) else _bases(f, derived) for f in read))
             unknown = sorted(f for f in bases if f not in visible)
             if not unknown:
                 continue
             root = _root(ir, registry, node.id)
-            sources = [
-                _source(f, _measurable(f, node.id, lineage, registry, measurements), goal,
-                        measurements) if _reaches(f, node.id, lineage, measurements, root)
-                else None
-                for f in unknown
-            ]
+
+            def where(fact: str, here: str = node.id, root: str | None = root
+                      ) -> AtRunSource | None:
+                if not _reaches(fact, here, lineage, measurements, root):
+                    return None
+                return _source(fact, _measurable(fact, here, lineage, registry,
+                                                 measurements), goal, measurements)
+
+            sources, folds = [], []
+            for f in unknown:
+                fold = _folded(f, derived)
+                if fold is None:
+                    sources.append(where(f))
+                    continue
+                base = fold.aggregate.measurement
+                came = where(base)
+                sources.append(None if came is None else AtRunSource.FOLDED)
+                if came is not None:
+                    folds.append((f, base, fold.aggregate.using, came))
             if any(s is None for s in sources):
                 continue
             if not _tie_free(decision, unknown, visible, measurements, derived):
                 continue
             if rows_of(decision, set(unknown), premises, rules, measurements) is not None:
                 found.append(Needed(node.id, param.name, tuple(unknown), decision,
-                                    tuple(sources)))
+                                    tuple(sources), tuple(folds)))
     return found
 
 
@@ -312,15 +344,23 @@ def lookup(need: Needed, rows: list[AtRunRow], measured_by: dict[str, str], fall
            fallback_reason: str) -> AtRun:
     """`measured_by`: the step measuring each measured fact, by fact."""
     return AtRun(
-        facts=[AtRunFact(measurement=f, meta_key=f, source=need.source(f),
-                         measured_by=(measured_by.get(f) if need.source(f) is not AtRunSource.CELL
-                                      else None))
-               for f in need.facts],
+        facts=[_fact(need, f, measured_by) for f in need.facts],
         rule=need.decision.key(),
         rows=rows,
         fallback=fallback,
         fallback_reason=fallback_reason,
     )
+
+
+def _fact(need: Needed, fact: str, measured_by: dict[str, str]) -> AtRunFact:
+    fold = need.fold(fact)
+    if fold is not None:
+        return AtRunFact(measurement=fact, meta_key=fact, source=AtRunSource.FOLDED,
+                         folds=fold[1], using=fold[2])
+    source = need.source(fact)
+    return AtRunFact(measurement=fact, meta_key=fact, source=source,
+                     measured_by=measured_by.get(fact) if source is not AtRunSource.CELL
+                     else None)
 
 
 @dataclass(frozen=True)

@@ -200,13 +200,17 @@ class Fired(BaseModel):
 
 
 class Aggregate(BaseModel):
-    """Reduce a per-sample measurement across a cohort using a named operation."""
+    """Fold a per-sample measurement over the study with a named operation (#466).
+
+    `agree` gives the value every sample shares, and nothing (undetermined) when they differ;
+    `all` and `any` fold booleans; `count` counts the samples with a value, `distinct` the values
+    they take. Folded at build time from known values, and in the run otherwise."""
 
     model_config = ConfigDict(extra="forbid")
 
     measurement: MeasurementId
-    over: Literal["cohort"]
-    using: Literal["max", "min", "mean"]
+    over: Literal["study"]
+    using: Literal["max", "min", "mean", "agree", "all", "any", "count", "distinct"]
 
 
 class Transform(BaseModel):

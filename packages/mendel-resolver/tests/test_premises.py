@@ -262,7 +262,7 @@ def test_a_derivation_never_overwrites_an_earlier_derivation_either():
 _COHORT_MAX = {
     "fact": "cohort_max_read_length",
     "kind": "integer",
-    "aggregate": {"measurement": "read_length", "over": "cohort", "using": "max"},
+    "aggregate": {"measurement": "read_length", "over": "study", "using": "max"},
     "because": "the index is built once per run, so it must suit the longest read in it",
     "cite": "STAR manual 2.7, --sjdbOverhang",
 }

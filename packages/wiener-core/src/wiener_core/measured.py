@@ -48,7 +48,7 @@ class DecidedFact(BaseModel):
     fact: str = Field(pattern=_ID)
     value: Annotated[str, LAB_STRING] = Field(max_length=256)
     """As the run printed it; `null` when the sample had none."""
-    source: Literal["cell", "measured", "missing"]
+    source: Literal["cell", "measured", "folded", "missing"]
 
 
 class DecidedValue(BaseModel):

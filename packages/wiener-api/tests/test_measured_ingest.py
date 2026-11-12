@@ -171,3 +171,32 @@ def test_each_samples_tool_is_read_when_chosen_per_sample(client, a_run, session
                                 "value": "nf-core.star.align:2.7.11b", "facts": [
                                     {"fact": "read_length", "value": "150",
                                      "source": "cell"}]}]
+
+
+def test_a_folded_fact_is_read_beside_its_value(client, a_run, session, tmp_path):
+    """A fact folded over the study in the run says so (#466, stage 5)."""
+    import yaml
+
+    _artifact(tmp_path, a_run)
+    path = settings.artifact_root / a_run.artifact_id / "pipeline.yml"
+    data = yaml.safe_load(path.read_text())
+    step = next(s for s in data["steps"] if s["id"] == "star_genomegenerate")
+    step["settings"] = [{
+        "name": "sa_index_nbases", "value": None, "via": "ext", "key": "args",
+        "template": "--genomeSAindexNbases {value}",
+        "why": {"tier": 3, "source": "resolver", "reason": "decided at run time"},
+        "at_run": {"facts": [{"measurement": "study_read_length", "meta_key": "study_read_length",
+                              "source": "folded", "folds": "read_length", "using": "agree"}],
+                   "rule": "param:index_building:sa_index_nbases",
+                   "rows": [{"takes": "study_read_length"}], "fallback": None,
+                   "fallback_reason": "asked"}}]
+    path.write_text(yaml.safe_dump(data))
+    decided = launcher.results_dir(a_run.id) / "decided"
+    decided.mkdir(parents=True)
+    (decided / "star_genomegenerate.sa_index_nbases.tsv").write_text(
+        "g\t150\tstudy_read_length=150:folded\n")
+    _complete(session, a_run.id)
+    session.commit()
+    body = client.get(f"/api/runs/{a_run.id}/measured").json()
+    assert body["decided"][0]["facts"] == [
+        {"fact": "study_read_length", "value": "150", "source": "folded"}]

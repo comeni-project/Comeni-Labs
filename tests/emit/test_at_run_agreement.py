@@ -149,3 +149,30 @@ def test_two_facts_agree_case_by_case(tmp_path):
 def test_a_stop_stops_exactly_where_no_row_applies(tmp_path):
     _table_case(tmp_path, "  - {when: {strandedness: reverse}, then: 2}\n",
                 ["strandedness"], None, kind=AtRunFallback.STOP)
+
+
+FOLD_CASES = [[150, 150], [150, 75], [150, 75, 75], [50], [True, False], [True, True]]
+
+
+def test_every_fold_agrees_at_build_time_and_in_the_run(tmp_path):
+    """`agree`, `all`, `any`, `count`, `distinct` and the old three, over the same members, in
+    Python and in the emitted Groovy (#466, stage 5)."""
+    import json
+
+    from mendel_compiler.emit import _FOLDS
+    from mendel_resolver.premises import _REDUCERS
+
+    assert set(_FOLDS) == set(_REDUCERS)
+    lines, expected = [], []
+    for op, fold in sorted(_FOLDS.items()):
+        for members in FOLD_CASES:
+            numeric = all(isinstance(v, int) and not isinstance(v, bool) for v in members)
+            if op in ("max", "min", "mean") and not numeric:
+                continue
+            lines.append(f"        println('CASE ' + String.valueOf({{ vs -> def known = "
+                         f"vs.findAll {{ it != null }}; {fold} }}(new groovy.json.JsonSlurper()"
+                         f".parseText('{json.dumps(members)}'))))")
+            expected.append(_python(_REDUCERS[op](members)))
+    script = "workflow {\n" + "\n".join(lines) + "\n}\n"
+    got = _run(tmp_path, script)
+    assert got and got == expected

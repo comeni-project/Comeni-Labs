@@ -169,6 +169,13 @@ _REDUCERS = {
     "max": max,
     "min": min,
     "mean": lambda values: sum(values) / len(values),
+    # `None` is undetermined: the samples do not share one value (#466).
+    "agree": lambda values: values[0] if len(set(values)) == 1 else None,
+    # True only for `true`, as the run's Groovy folds it, never for a truthy number.
+    "all": lambda values: all(value is True for value in values),
+    "any": lambda values: any(value is True for value in values),
+    "count": len,
+    "distinct": lambda values: len(set(values)),
 }
 
 
@@ -247,9 +254,12 @@ def _aggregate(premises: dict[str, Premise], derivation: Derivation) -> None:
     values = source.value if isinstance(source.value, list) else [source.value]
     if not values:
         return
+    folded = _REDUCERS[derivation.aggregate.using](values)
+    if folded is None:
+        return
     premises[derivation.fact] = Premise(
         id=derivation.fact,
-        value=_REDUCERS[derivation.aggregate.using](values),
+        value=folded,
         origin=PremiseOrigin.DERIVED,
         because=derivation.because or "",
         cite=derivation.cite or "",

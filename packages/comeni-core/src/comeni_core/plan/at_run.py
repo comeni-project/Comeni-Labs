@@ -79,6 +79,24 @@ class AtRunSource(StrEnum):
     """A step the build added measures it on every sample."""
     CELL_OR_MEASURED = "cell_or_measured"
     """The samplesheet where the cell is filled in; measured where it is blank or `auto`."""
+    FOLDED = "folded"
+    """Folded over the study from every sample's value of another fact (`folds`), in the run."""
+
+
+class AtRunFold(StrEnum):
+    """How a folded fact reduces its samples' values (#466)."""
+
+    MAX = "max"
+    MIN = "min"
+    MEAN = "mean"
+    AGREE = "agree"
+    """The value every sample shares; none when they differ."""
+    ALL = "all"
+    ANY = "any"
+    COUNT = "count"
+    """The samples with a value."""
+    DISTINCT = "distinct"
+    """The values the samples take."""
 
 
 class AtRunFact(BaseModel):
@@ -91,6 +109,10 @@ class AtRunFact(BaseModel):
     source: AtRunSource
     measured_by: ContractId | None = Field(default=None, exclude_if=lambda by: by is None)
     """The generated step that measures it, when a measurement is among its sources."""
+    folds: MeasurementId | None = Field(default=None, exclude_if=lambda f: f is None)
+    """For a folded fact: the per-sample fact it folds, itself on every sample's `meta`."""
+    using: AtRunFold | None = Field(default=None, exclude_if=lambda u: u is None)
+    """For a folded fact: how."""
 
 
 class AtRunCondition(BaseModel):

@@ -660,6 +660,58 @@ def _meta_root(pipeline: Pipeline, step: Step) -> str | None:
     return None
 
 
+_FOLDS = {
+    "agree": "known.size() == vs.size() && known.toSet().size() == 1 ? known[0] : null",
+    "all": "vs.every { it == true }",
+    "any": "vs.any { it == true }",
+    "count": "known.size()",
+    "distinct": "known.toSet().size()",
+    "max": "known ? known.max() : null",
+    "min": "known ? known.min() : null",
+    "mean": "known ? ((known.sum() as double) / known.size()) : null",
+}
+"""Each fold in Groovy over `vs`, every sample's value, and `known`, those with one: what
+`premises._REDUCERS` does at build time (#466)."""
+
+
+def _folds_of(pipeline: Pipeline) -> dict[str, list]:
+    """The facts folded over the study, by the input channel whose items carry them: the one
+    behind each step that reads one (#466). Sorted by fact."""
+    found: dict[str, dict[str, object]] = {}
+    for step in pipeline.steps:
+        for setting in step.settings:
+            if setting.at_run is None:
+                continue
+            for fact in setting.at_run.facts:
+                root = _meta_root(pipeline, step)
+                if fact.source is AtRunSource.FOLDED and root is not None:
+                    found.setdefault(root, {})[fact.measurement] = fact
+    return {root: [facts[k] for k in sorted(facts)] for root, facts in found.items()}
+
+
+def _folding(pipeline: Pipeline, names: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    """Each channel carrying folded facts, with them joined into every item's `meta` once every
+    sample has its value (#466). A fold reads the study, so it waits for every sample: only a
+    step that reads it does. Returns the channels' names, updated, and the lines defining
+    them."""
+    names, lines = dict(names), []
+    for root, facts in sorted(_folds_of(pipeline).items()):
+        source = names.get(root, _channel_name(root))
+        expression = source
+        for fact in facts:
+            if fact.using.value not in _FOLDS:
+                raise ValueError(f"{fact.measurement}: no fold {fact.using!r}")
+            fold = (f"{source}.map {{ it[0].{fact.folds} }}.toList().map {{ vs -> "
+                    f"def known = vs.findAll {{ it != null }}; [ {_FOLDS[fact.using.value]} ] }}")
+            expression = (f"{expression}.combine({fold}).map {{ it -> [ it[0] + "
+                          f"[{fact.meta_key}: it[-1], comeni_from: (it[0].comeni_from ?: [:]) + "
+                          f"[{fact.measurement}: 'folded']] ] + it[1..-2] }}")
+        name = f"{_channel_name(root)}_folded"
+        lines.append(f"{name} = {expression}")
+        names[root] = name
+    return names, lines
+
+
 def _check_measuring(pipeline: Pipeline, branch: set[str], measured: dict[str, str]) -> None:
     """What would make a measured fact miss the step it is for, refused at emit (MD0330)."""
     for step in pipeline.steps:
@@ -672,6 +724,7 @@ def _check_measuring(pipeline: Pipeline, branch: set[str], measured: dict[str, s
             root = _meta_root(pipeline, step)
             channel = next((c for c in pipeline.channels if c.name == root), None)
             carried = {m.measurement for m in channel.meta_at_run} if channel else set()
+            carried |= {f.measurement for f in _folds_of(pipeline).get(root, [])}
             # Every fact a step measures must be joined into the `meta` this step reads; a fact
             # from the samplesheet arrives on the row itself (#466).
             missing = [f.measurement for f in setting.at_run.facts
@@ -731,10 +784,15 @@ def _calls(pipeline: Pipeline) -> list[str]:
     _check_cells(pipeline)
     branch = _measuring_branch(pipeline)
     if not branch:
-        calls = {step.id: _call(pipeline, step, guard=False) for step in pipeline.steps}
+        measured, folding = _folding(pipeline, {})
+        _check_measuring(pipeline, branch, measured)
+        calls = {step.id: _call(pipeline, step, measured or None, guard=False)
+                 for step in pipeline.steps}
         ordered, routed = _branched(pipeline, calls, set())
-        return [*ordered, *_decided(pipeline, {}), *routed]
+        return [*folding, *ordered, *_decided(pipeline, measured), *routed]
     measured, joined, unstated, before = _joined(pipeline)
+    measured, folding = _folding(pipeline, measured)
+    joined = [*joined, *folding]
     _check_measuring(pipeline, branch, measured)
     first = [_measuring_call(pipeline, step, unstated) for step in pipeline.steps
              if step.id in branch]
@@ -924,7 +982,8 @@ def _remeta(pipeline: Pipeline, step: Step, branch: set[str], measured: dict[str
     channel = next((c for c in pipeline.channels if c.name == root), None)
     if channel is None or root not in measured or channel.grain is not Grain.SAMPLE:
         return call
-    keys = ", ".join(f"'{m.meta_key}'" for m in channel.meta_at_run)
+    keys = ", ".join(f"'{k}'" for k in [*(m.meta_key for m in channel.meta_at_run),
+                                         *(f.meta_key for f in _folds_of(pipeline).get(root, []))])
     process, _, rest = call.partition("(")
     first, sep, others = _split_first(rest[:-1])
     merged = (f"({first}).map {{ it -> [it[0].id, it] }}.join({measured[root]}.map {{ meta, d -> "
@@ -941,8 +1000,10 @@ def _check_cells(pipeline: Pipeline) -> None:
         for setting in step.settings:
             if setting.at_run is None:
                 continue
-            missing = [f.measurement for f in setting.at_run.facts
-                       if f.source is not AtRunSource.MEASURED and f.measurement not in columns]
+            # A folded fact reads the fact it folds, which needs its column (#466).
+            read = [f.folds if f.source is AtRunSource.FOLDED else f.measurement
+                    for f in setting.at_run.facts if f.source is not AtRunSource.MEASURED]
+            missing = [f for f in read if f not in columns]
             if missing:
                 raise ValueError(coded(
                     "MD0335", f"{step.id}.{setting.name} reads {', '.join(missing)} from the "

@@ -120,7 +120,7 @@ def _comparable(fact: str, actual: Any, literal: str, expected: str) -> tuple[An
                 "MD0312",
                 f"{fact!r} is a cohort of {len(actual)} values and {expected!r} compares "
                 f"one. Reduce it first with a `derives:` aggregate — "
-            f"`aggregate: {{measurement: {fact}, over: cohort, using: max}}` — and test the "
+            f"`aggregate: {{measurement: {fact}, over: study, using: max}}` — and test the "
             f"derived fact, so the file says which sample the rule meant.")
         )
     try:

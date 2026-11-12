@@ -223,8 +223,7 @@ def _resolve_route(
     if not needs and not estimates and not branch_facts:
         return again(goal)
     # Only what a step measures is routed for; a fact from the samplesheet needs no step (#466).
-    facts = sorted({f for need in needs for f in need.facts
-                    if need.source(f) is not AtRunSource.CELL} | set(branch_facts))
+    facts = sorted({f for need in needs for f in need.measured()} | set(branch_facts))
     measured = sorted({*facts, *(e.fact for e in estimates)})
     wanted = [f"measurement.{fact}" for fact in measured
               if f"measurement.{fact}" not in goal.want]
@@ -302,9 +301,7 @@ def _say_why_it_measures(ir: PipelineIR, measuring: Mapping[str, IRNode],
             said.setdefault(measuring[fact].id, []).append(
                 f"measures {fact} in the run, for {key}: each sample's tool")
     for need in needs:
-        for fact in need.facts:
-            if need.source(fact) is AtRunSource.CELL:
-                continue
+        for fact in sorted(need.measured()):
             said.setdefault(measuring[fact].id, []).append(
                 f"measures {fact} in the run, for {need.node_id}.{need.param}")
     for estimate in estimates:
@@ -325,7 +322,8 @@ def _name_the_measurers(ir: PipelineIR, measured_by: Mapping[str, str]) -> None:
             if lookup is None:
                 continue
             facts = [f.model_copy(update={"measured_by": measured_by[f.measurement]})
-                     if f.source is not AtRunSource.CELL else f for f in lookup.facts]
+                     if f.source not in (AtRunSource.CELL, AtRunSource.FOLDED) else f
+                     for f in lookup.facts]
             named = lookup.model_copy(update={"facts": facts})
             by = {f.measurement: f.measured_by for f in facts}
             binding.value = binding.value.model_copy(update={
@@ -825,6 +823,7 @@ _SAID = {
     AtRunSource.CELL: "from the samplesheet",
     AtRunSource.MEASURED: "measured in the pipeline",
     AtRunSource.CELL_OR_MEASURED: "from the samplesheet, measured in the run where left blank",
+    AtRunSource.FOLDED: "folded over the study in the run",
 }
 
 
@@ -867,8 +866,8 @@ def _at_run(
         source=ValueSource.RESOLVER,
         reason=_at_run_reason(lookup),
         premise=[PremiseRecord(id=f, value=None, origin=PremiseOrigin.UNMEASURED,
-                               by=pending[f] if need.source(f) is not AtRunSource.CELL
-                               else None)
+                               by=pending[f] if need.source(f) not in (
+                                   AtRunSource.CELL, AtRunSource.FOLDED) else None)
                  for f in need.facts],
         axis_reason=need.decision.because or "",
         at_run=lookup,
