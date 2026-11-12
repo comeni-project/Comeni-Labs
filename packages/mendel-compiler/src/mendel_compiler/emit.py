@@ -11,7 +11,7 @@ from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from mendel_compiler.groovy_lookup import closure, literal
+from mendel_compiler.groovy_lookup import closure, condition, literal
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
@@ -231,6 +231,21 @@ def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
         )
         for channel in pipeline.channels
     ]
+
+
+def _sample_guard(step: Step) -> str:
+    """Each sample checked against the step's per-sample rules before the step runs (#466): one
+    that breaks a rule stops the run, naming the sample and the rule."""
+    checks = "; ".join(
+        f"if ({' && '.join(condition(c, step.id) for c in rule.when) or 'true'}) "
+        f"error(\"sample ${{meta.id}}: \" + '{_groovy_single(rule.says)}')"
+        for rule in step.sample_rules)
+    return f".map {{ it -> def meta = it[0]; {checks}; it }}"
+
+
+def _groovy_single(text: str) -> str:
+    """Text inside a Groovy single-quoted string: no interpolation, no early end."""
+    return text.replace("\\", "\\\\").replace("'", "\\'")
 
 
 def _run_guards(pipeline: Pipeline) -> list[str]:
@@ -458,6 +473,8 @@ def _call(pipeline: Pipeline, step: Step, measured: dict[str, str] | None = None
     injection = _meta_injection(step)
     if injection and args:
         args[0] = f"({args[0]}){injection}"
+    if step.sample_rules and args:
+        args[0] = f"({args[0]}){_sample_guard(step)}"
     return f"{step.process}({', '.join(args)})"
 
 

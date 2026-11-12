@@ -185,3 +185,40 @@ class Confirm(BaseModel):
     used_by: list[Line]
     """Sorted: `selection:<step>` for a tool chosen on it, `setting:<step>.<name>` for a
     setting decided from it."""
+
+
+_ORDERED_TESTS = {">=": AtRunTest.GE, ">": AtRunTest.GT, "<=": AtRunTest.LE, "<": AtRunTest.LT,
+                  "==": AtRunTest.EQ, "!=": AtRunTest.NE}
+
+
+def condition_of(fact: str, expected) -> AtRunCondition:
+    """A `when` entry on one fact, in the closed tests: `absent`, `present`, `{not: x}`,
+    `{in: [...]}`, `">= 70"`, or a value for equality. The rules' `when` and a contract's
+    `fact.` conditions read the same way (#466)."""
+    if expected == "absent":
+        return AtRunCondition(fact=fact, test=AtRunTest.ABSENT)
+    if expected == "present":
+        return AtRunCondition(fact=fact, test=AtRunTest.PRESENT)
+    if isinstance(expected, dict):
+        if "not" in expected:
+            return AtRunCondition(fact=fact, test=AtRunTest.NE, operand=[expected["not"]])
+        return AtRunCondition(fact=fact, test=AtRunTest.IN, operand=list(expected["in"]))
+    if isinstance(expected, str):
+        symbol, _, literal = expected.partition(" ")
+        if symbol in _ORDERED_TESTS:
+            try:
+                return AtRunCondition(fact=fact, test=_ORDERED_TESTS[symbol],
+                                      operand=[float(literal)])
+            except ValueError:
+                pass
+    return AtRunCondition(fact=fact, test=AtRunTest.EQ, operand=[expected])
+
+
+class SampleRule(BaseModel):
+    """A tool's rule each sample's facts settle (#466): when every condition holds for a
+    sample, the run stops before the step runs, naming the sample and the rule."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    when: list[AtRunCondition]
+    says: Line

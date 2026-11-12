@@ -257,22 +257,22 @@ A, B, C, D, with the parts of I that stage 1 shows).
   - `Step.sample_rules: list[SampleRule]`, excluded when empty.
   - `MD0336`: a contract's `fact.<m>` names a measurement no layer declares, or a study-scoped one. The contract is dropped, as `MD0327` drops a measurer.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `test_a_rule_broken_by_some_samples_is_per_sample`: a fixture contract (fastp-like) with `save_merged` and the row `{when: {fact.paired: false}, forbids: [save_merged], because: "merging needs both reads"}`. It is evaluated with `params={"save_merged": True}` and `unknown_facts={"paired": [True, False, UNDETERMINED]}`, giving `per_sample == [that sentence]` and nothing `forbidden`.
   - `test_a_rule_broken_by_every_sample_is_refused`: the same contract with `facts={"paired": False}` gives `forbidden == ["save_merged"]`.
   - `test_a_default_setting_is_dropped_per_sample`: when `save_merged` came from the contract's default, the emitted `ext.args` closure gives no `--save_merged` for a sample with `meta.paired == false`. The step card lists it as "not set for single-end samples: merging needs both reads".
   - `test_a_person_setting_stops_the_sample` (slow): when a person set `save_merged`, a single-end row stops the run with `sample S2: merging needs both reads (save_merged)`.
   - `test_an_unknown_fact_drops_the_contract`: `fact.nonsense` gives `MD0336`, and the other contracts load.
-- [ ] **Step 2: Run** them. Expected: FAIL.
-- [ ] **Step 3: Implement.**
+- [x] **Step 2: Run** them. Expected: FAIL.
+- [x] **Step 3: Implement.**
   - The worlds are the product of unknown inputs and fact cases.
   - A row broken in some worlds whose break depends on a fact goes to `per_sample`. It becomes a `SampleRule`, or an `AtRun` row that unsets the setting, under the spec's rule:
     - a default or a rule's value is dropped for those samples;
     - a person's value stops the sample.
   - The guard is a `.map` on the step's first input that raises `error` naming `meta.id` and the sentence.
   - The forge's checker accepts `fact.` keys over declared sample-scoped measurements.
-- [ ] **Step 4: Run** the tests, `make check`, `make guards` and the slow test, each separately. Expected: all pass.
-- [ ] **Step 5: Commit** `feat: a tool rule can read a per-sample fact (#466, #460)`.
+- [x] **Step 4: Run** the tests, `make check`, `make guards` and the slow test, each separately. Expected: all pass.
+- [x] **Step 5: Commit** `feat: a tool rule can read a per-sample fact (#466, #460)`.
 
 ### Task 8: The run sheet and the step card show it
 

@@ -35,8 +35,11 @@
   An input only some modes need is "required": false; the rows say when. A mode that changes
   the job is a separate tool, not rows. Example:
   {"when": {"given.gff": "present"}, "requires": ["fasta"],
-   "because": "the script reads the GFF only against a reference"}. A constraint says what is
-  possible, never what to choose.
+   "because": "the script reads the GFF only against a reference"}. A rule that depends on
+  each sample tests "fact.<measurement>" for a measurement listed below that describes the
+  sample's input, and is settled per sample in the run: fastp merges only paired reads, so
+  {"when": {"fact.paired": false}, "forbids": ["save_merged"], "because": "..."}. A
+  constraint says what is possible, never what to choose.
 - contract:group:group<n> (group1, …) — {"kind", "members", "because"}: kind is one_of (exactly one member),
   any_of (at least one) or all_or_none (together or not at all).
 - parameters:param:<name> — {"position", "name", "default" or "tier_hint": 4, "domain", "via",

@@ -468,9 +468,9 @@ class Group(BaseModel):
 
 def _when_keys(when: dict[str, Any], ports: dict[str, set[str]], params: set[str]) -> list[str]:
     """The keys of a contract's `when` that name nothing in it. A condition reads
-    `given.<port>`, `param.<name>` and `type.<port>`, the type connected to a port (#464);
-    `ports` maps each port to the types it accepts. A measurement waits for per-sample facts
-    (#466)."""
+    `given.<port>`, `param.<name>`, `type.<port>`, the type connected to a port (#464), and
+    `fact.<measurement>`, a fact each sample has (#466); `ports` maps each port to the types it
+    accepts."""
     wrong = []
     for key, value in when.items():
         space, _, name = key.partition(".")
@@ -481,6 +481,10 @@ def _when_keys(when: dict[str, Any], ports: dict[str, set[str]], params: set[str
             accepted = ports[name]
             if named is None or not named or not named <= accepted:
                 wrong.append(f"{key}: {value!r} (`{name}` accepts {', '.join(sorted(accepted))})")
+        elif space == "fact" and name.isidentifier():
+            # A per-sample fact (#466): which measurement it names is checked at load, where
+            # the measurements are known (MD0336).
+            continue
         elif not ((space == "given" and name in ports) or (space == "param" and name in params)):
             wrong.append(key)
     return wrong

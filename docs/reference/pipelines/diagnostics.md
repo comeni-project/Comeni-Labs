@@ -59,6 +59,7 @@ decline to curate one.
 | `MD0327` | a measurer uses a tool, or an output of it, that no layer declares |
 | `MD0333` | a `hit: unique` decision over a fact that differs between samples has overlapping rows |
 | `MD0334` | a measurement describes a type no layer declares |
+| `MD0336` | a contract's rule reads a fact that is not a measurement each sample has |
 | `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
 | `MD0602` | a contract's constraint names an input or param it does not declare |
 | `MD0603` | no combination of inputs and params satisfies a contract's constraints |

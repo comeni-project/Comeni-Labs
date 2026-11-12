@@ -50,6 +50,7 @@ _PIPELINE_MODELS = frozenset(
         "MetaKeyOf",
         "MetaValue",
         "SheetFact",
+        "SampleRule",
         "AtRunFact",
         "AtRunRow",
         "AtRunStep",

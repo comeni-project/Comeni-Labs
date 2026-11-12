@@ -183,6 +183,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     # layer may legitimately fill a role an overlay declares.
     for contract in registry.all():
         roles.check(contract.id, contract.roles)
+        _check_facts_read(contract, measurements)
     # A `by: tool` measurer names a tool's contract, which may come from any layer (#465).
     inspection, refused_tools = inspection.check_tools(registry)
     refused_pieces = [*refused_pieces, *refused_tools]
@@ -268,3 +269,20 @@ def _blame_the_overlay(
         type_id=error.type_id,
         state=error.state,
     )
+
+
+def _check_facts_read(contract, measurements: MeasurementRegistry) -> None:
+    """A contract rule's `fact.<name>` names a measurement each sample has (MD0336, #466): one
+    nobody declared, or one for the whole study, could never vary by sample."""
+    from comeni_core.declared.constraints import rows_of
+    from comeni_core.plan.tiers import Grain
+
+    keys = {k for row in rows_of(contract) for k in row.when}
+    keys |= {k for group in contract.groups for k in group.when}
+    keys |= {k for out in contract.produces for k in (out.produced_when or {})}
+    for key in sorted(k for k in keys if k.startswith("fact.")):
+        name = key.partition(".")[2]
+        if name not in measurements.ids() or measurements.scope_of(name) is not Grain.SAMPLE:
+            raise ValueError(coded(
+                "MD0336", f"{contract.id} reads {key}, which is not a measurement each sample "
+                "has — `mendel explain MD0336`."))

@@ -41,6 +41,11 @@ class Setup(BaseModel):
     """Inputs each run may supply or leave empty."""
     types: dict[str, str] = Field(default_factory=dict)
     """The type connected to each input, where routing matched one of its `accepts` (#464)."""
+    facts: dict[str, Any] = Field(default_factory=dict)
+    """Per-sample facts known for every sample (#466), as `fact.<name>` reads them."""
+    unknown_facts: dict[str, list] = Field(default_factory=dict)
+    """Per-sample facts each sample may have any of these values of (its cases, `None` for
+    a sample whose value is missing): the run settles them per sample."""
 
 
 class Verdict(BaseModel):
@@ -53,6 +58,8 @@ class Verdict(BaseModel):
     """One per row whose condition holds, in declaration order."""
     holds_at_run_time: list[str] = Field(default_factory=list)
     """Rows that only the run can settle, because they depend on an unknown input."""
+    per_sample: list[str] = Field(default_factory=list)
+    """Rows only each sample's facts can settle (#466): broken for some samples, not all."""
 
 
 class _Value(NamedTuple):
@@ -96,8 +103,24 @@ def _subject(row: ConstraintRow) -> str:
     return f"{name}` as {value}"
 
 
+def _sample(row: ConstraintRow) -> str | None:
+    """A row on a sample's fact, said as that: `for a sample whose paired is false` (#466)."""
+    key, value = next(iter(row.when.items()))
+    if not key.startswith("fact."):
+        return None
+    name = key.partition(".")[2]
+    shown = {True: "true", False: "false"}.get(value, value) if not isinstance(value, dict) else (
+        f"one of {', '.join(map(str, value['in']))}" if "in" in value else f"not {value['not']}")
+    return f"a sample whose {name} is {shown}"
+
+
 def sentence(row: ConstraintRow) -> str:
     """The row as a person reads it. Exact copy is part of the design (#460, §2)."""
+    sample = _sample(row) if row.when else None
+    if sample is not None:
+        if row.requires:
+            return f"`{', '.join(row.requires)}` is required for {sample} ({row.because})"
+        return f"`{', '.join(row.forbids)}` cannot be used for {sample} ({row.because})"
     subject = _subject(row)
     if row.requires:
         needed = ", ".join(row.requires)
@@ -133,9 +156,21 @@ def _worlds(setup: Setup) -> Iterator[frozenset[str]]:
             yield setup.given | frozenset(chosen)
 
 
+def _sample_worlds(setup: Setup) -> list[dict[str, Any]]:
+    """Every combination of the per-sample facts' cases, known ones fixed."""
+    names = sorted(setup.unknown_facts)
+    worlds = []
+    for values in product(*(setup.unknown_facts[n] for n in names)):
+        worlds.append({**setup.facts, **dict(zip(names, values, strict=True))})
+    return worlds or [dict(setup.facts)]
+
+
 def _facts(given: frozenset[str], params: dict[str, Any],
-           types: dict[str, str] | None = None) -> dict[str, _Value]:
+           types: dict[str, str] | None = None,
+           sample: dict[str, Any] | None = None) -> dict[str, _Value]:
     facts = {f"given.{port}": _Value(True) for port in given}
+    facts.update({f"fact.{name}": _Value(v) for name, v in (sample or {}).items()
+                  if v is not None})
     facts.update({f"param.{name}": _Value(v) for name, v in params.items() if v is not None})
     facts.update({f"type.{port}": _Value(t) for port, t in (types or {}).items() if port in given})
     return facts
@@ -154,17 +189,19 @@ def evaluate(contract: ModuleContract, setup: Setup) -> Verdict:
 
     add(verdict.missing, [p.name for p in contract.consumes
                           if p.required and p.name not in setup.given])
+    samples = _sample_worlds(setup)
     for row in rows_of(contract):
         broken = []
         applies = False
         for given in worlds:
-            if not matches(row.when, _facts(given, setup.params, setup.types)):
-                broken.append(False)
-                continue
-            applies = True
-            lacking = [n for n in row.requires if not _has(n, given, setup.params)]
-            present = [n for n in row.forbids if _has(n, given, setup.params)]
-            broken.append(bool(lacking or present))
+            for sample in samples:
+                if not matches(row.when, _facts(given, setup.params, setup.types, sample)):
+                    broken.append(False)
+                    continue
+                applies = True
+                lacking = [n for n in row.requires if not _has(n, given, setup.params)]
+                present = [n for n in row.forbids if _has(n, given, setup.params)]
+                broken.append(bool(lacking or present))
         if not applies:
             continue
         said = sentence(row)
@@ -174,7 +211,8 @@ def evaluate(contract: ModuleContract, setup: Setup) -> Verdict:
                 [n for n in row.requires if not _has(n, setup.given, setup.params)])
             add(verdict.forbidden, [n for n in row.forbids if _has(n, setup.given, setup.params)])
         elif any(broken):
-            add(verdict.holds_at_run_time, [said])
+            reads_a_fact = any(k.startswith("fact.") for k in row.when)
+            add(verdict.per_sample if reads_a_fact else verdict.holds_at_run_time, [said])
     for group in contract.groups:
         if group.kind is GroupKind.ALL_OR_NONE:
             continue

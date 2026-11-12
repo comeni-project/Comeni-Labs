@@ -116,6 +116,11 @@ def _condition(condition: AtRunCondition, where: str) -> str:
     return f"({number} && ({var} as double) {condition.test.value} {_number(operand, where)})"
 
 
+def condition(condition: AtRunCondition, where: str = "a condition") -> str:
+    """One condition over the sample's `meta`, for a per-sample rule's guard (#466)."""
+    return _condition(condition, where)
+
+
 def _row(row: AtRunRow, where: str) -> str:
     """Every condition of the row, and a value for the fact it takes."""
     parts = [_condition(c, where) for c in row.when]

@@ -47,10 +47,18 @@ from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal, InputState
 from comeni_core.goal.profile import DataProfile, Measured
-from comeni_core.plan.at_run import AtRunSource
+from comeni_core.plan.at_run import (
+    AtRun,
+    AtRunFact,
+    AtRunRow,
+    AtRunSource,
+    SampleRule,
+    condition_of,
+)
 from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import Grain, InputForm, Tier, ValueSource
 from comeni_core.spell.marks import LayerName, ParamValue
+from comeni_core.spell.routes import Via
 
 # ---------------- PIPELINE CONSTRUCTION ----------------
 
@@ -92,6 +100,8 @@ def of(
             node, contract, incoming_edges, assigned_channels, default_channels_by_type
         )
         fed = {w.port: params_of[w.channel] for w in wiring if w.channel is not None}
+        settings, sample_rules = _per_sample(contract, node, _settings(node, contract), goal,
+                                             measurements, ir)
         steps.append(
             Step(
                 id=node.id,
@@ -107,8 +117,9 @@ def of(
                 ext_args=_ext_args(contract),
                 inputs=wiring,
                 call=_call(contract, _off(node)),
-                settings=_settings(node, contract),
+                settings=settings,
                 input_states=list(node.inputs),
+                sample_rules=sample_rules,
                 run_rules=_run_rules(contract, node, fed),
             )
         )
@@ -407,6 +418,79 @@ def _run_rules(contract: ModuleContract, node: IRNode, fed: dict[str, str]) -> l
         if keeps and rule not in rules:
             rules.append(rule)
     return rules
+
+
+def _fact_cases(name: str, contract: ModuleContract, measurements: MeasurementRegistry) -> list:
+    """The values a sample's fact may take, for a contract's rows to be tried against: an
+    enum's values or a boolean's two, else the numbers the rows name and either side of them;
+    and `None`, a sample whose value is missing."""
+    declared = measurements.get(name)
+    if declared.kind.value == "boolean":
+        return [True, False, None]
+    if declared.values:
+        return [*declared.values, None]
+    named = set()
+    for row in rows_of(contract):
+        expected = row.when.get(f"fact.{name}")
+        literal = (expected.partition(" ")[2] if isinstance(expected, str) else expected)
+        try:
+            named.add(float(literal))
+        except (TypeError, ValueError):
+            continue
+    return [*sorted({v + d for v in named for d in (-1, 0, 1)}), None]
+
+
+def _per_sample(contract: ModuleContract, node: IRNode, settings: list[Setting], goal: Goal,
+                measurements: MeasurementRegistry | None, ir: PipelineIR
+                ) -> tuple[list[Setting], list[SampleRule]]:
+    """The step's rules that read a per-sample fact and that some samples break (#466). A
+    setting the rule forbids for those samples is left unset for them where a default or a rule
+    gave it; a person's value, or a requirement nothing can supply, stops such a sample in the
+    run, naming it. A fact the run does not carry (neither a samplesheet column nor a measured
+    one) cannot be settled per sample, and its rows are left out."""
+    names = sorted({k.partition(".")[2] for row in rows_of(contract) for k in row.when
+                    if k.startswith("fact.")})
+    if not names or measurements is None:
+        return settings, []
+    sources = {f: AtRunSource.CELL for f in goal.constraints.varies}
+    sources |= {m.measurement: AtRunSource.MEASURED for m in ir.meta_at_run
+                if m.measurement not in sources}
+    known = {m.measurement: m.value for m in ir.profile.measurements
+             if m.measurement in names and not isinstance(m.value, list)}
+    unknown = {f: _fact_cases(f, contract, measurements) for f in names if f not in known}
+    states = {r.port: r.state for r in node.inputs}
+    given = {p.name for p in contract.consumes if p.required}
+    given |= {p for p, st in states.items() if st is InputState.REQUIRED}
+    params = {st.name: st.value for st in settings}
+    verdict = evaluate(contract, Setup(
+        given=frozenset(given), params=params, facts=known, unknown_facts=unknown,
+        unknown=frozenset(p for p, st in states.items() if st is InputState.OPTIONAL)))
+    by_name = {st.name: st for st in settings}
+    rules: list[SampleRule] = []
+    for row in rows_of(contract):
+        says = sentence(row)
+        if says not in verdict.per_sample:
+            continue
+        read = [k.partition(".")[2] for k in row.when if k.startswith("fact.")]
+        if any(f not in sources for f in read):
+            continue
+        when = sorted((condition_of(k.partition(".")[2], v) for k, v in row.when.items()
+                       if k.startswith("fact.")), key=lambda c: c.fact)
+        stops = list(row.requires)
+        for name in row.forbids:
+            setting = by_name.get(name)
+            mine = setting is not None and setting.why.source in (ValueSource.HUMAN,
+                                                                   ValueSource.SAID)
+            if setting is None or mine or setting.at_run is not None or setting.via is not Via.EXT:
+                stops.append(name)
+                continue
+            by_name[name] = setting.model_copy(update={"at_run": AtRun(
+                facts=[AtRunFact(measurement=f, meta_key=f, source=sources[f]) for f in read],
+                rule=f"constraint:{contract.id}", rows=[AtRunRow(when=when, then=None)],
+                fallback=setting.value, fallback_reason=f"not set where {says}")})
+        if stops:
+            rules.append(SampleRule(when=when, says=f"{says} ({', '.join(sorted(stops))})"))
+    return [by_name[st.name] for st in settings], rules
 
 
 def _run_sentences(contract: ModuleContract, node: IRNode) -> list[str]:

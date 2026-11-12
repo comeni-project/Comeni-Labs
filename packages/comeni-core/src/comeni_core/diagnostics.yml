@@ -3057,6 +3057,20 @@ MD0335:
     or with a file column of the same name, would give every sample nothing to read, and every
     run-time lookup over it would take its fallback.
 
+MD0336:
+  emitted_by: resolver
+  concern: loading
+  says: "a contract's rule reads a fact that is not a measurement each sample has"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Name a declared measurement that describes a per-sample input, such as `fact.paired`, or
+    declare the measurement in a layer.
+  explanation: |
+    A contract's `when` may read `fact.<measurement>` (#466): the rule is then settled per
+    sample in the run. A fact for the whole study, or a name nothing declares, has no
+    per-sample value to settle it.
+
 MD0501:
   emitted_by: resolver
   concern: validation

@@ -35,7 +35,7 @@ from comeni_core.diagnostics import coded
 from comeni_core.egress.base import EgressPayload
 from comeni_core.goal.asked import Facts, Goal, Intent
 from comeni_core.goal.premise import PremiseRecord
-from comeni_core.plan.at_run import AtRun, Confirm, MetaAtRun
+from comeni_core.plan.at_run import AtRun, Confirm, MetaAtRun, SampleRule
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
 from comeni_core.plan.ir import InputRecord
 from comeni_core.plan.tiers import (
@@ -353,6 +353,9 @@ class Step(BaseModel):
         default_factory=list, exclude_if=lambda states: not states)
     """Each optional input's state, who set it and why, sorted by port (#460); omitted when the
     step's tool has none."""
+    sample_rules: list[SampleRule] = Field(default_factory=list, exclude_if=lambda r: not r)
+    """This step's rules each sample's facts settle (#466): a sample breaking one stops the run
+    before the step runs, naming the sample and the rule."""
     run_rules: list[RunRule] = Field(default_factory=list, exclude_if=lambda rules: not rules)
     """This step's constraints only a run can settle, because they involve an input each run
     may leave empty. The pipeline checks them at its start and the run sheet before sending.

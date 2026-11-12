@@ -160,6 +160,7 @@ SERIALISED_SHAPE = {
         "call",
         "settings",
         "input_states",
+        "sample_rules",
         "run_rules",
     ],
     "ExtArgs": ["template", "why"],

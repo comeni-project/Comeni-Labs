@@ -74,3 +74,15 @@ def test_the_goals_required_states_keep_their_plain_meaning():
         value = ["gene_level"]
 
     assert matches({"required_states": "transcript_level"}, {"required_states": States()}) is False
+
+
+def test_a_contract_reading_no_per_sample_fact_is_refused(tmp_path):
+    """`fact.<name>` names a measurement each sample has (MD0336)."""
+    fixture = (ROOT / "packages/comeni-core/tests/fixtures/constraints/fastp_like.yml").read_text()
+    for bad in ("fact.nonsense", "fact.genome_length"):
+        layer = tmp_path / bad
+        (layer / "tools/test/fastp_like").mkdir(parents=True)
+        (layer / "tools/test/fastp_like/contract.yml").write_text(
+            fixture.replace("fact.paired", bad))
+        with pytest.raises(ValueError, match=f"MD0336.*{bad}"):
+            layers.load([ROOT / "registry", layer])
