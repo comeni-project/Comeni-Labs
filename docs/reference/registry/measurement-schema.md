@@ -28,7 +28,7 @@ Model: `comeni_core.declared.measurement.Measurement`
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `id` | string | *required* | what a profile and a rule call it |
-| `kind` | enum | *required* | `integer`, `number`, `boolean` or `enum` |
+| `kind` | enum | *required* | `integer`, `number`, `boolean`, `enum`, `key` or `sample_ref` |
 | `values` | [string] | `[]` | for `enum`: the permitted values |
 | `extensible` | boolean | `false` | for `enum`: whether values outside the list are allowed |
 | `assertion_only` | boolean | `false` | **no tool can produce this** — see below |
@@ -103,6 +103,14 @@ rather than wired: `-s 2` is featureCounts' encoding of a fact, not a decision a
 | `number` | any number | `minimum`, `maximum` |
 | `boolean` | `true` / `false` | — |
 | `enum` | one of `values` | `extensible` widens it |
+| `key` | a laboratory's identifier: letters, digits and `_ . -` | — |
+| `sample_ref` | another row's `sample`, or blank | — |
+
+A `key`, such as `patient` or `group`, relates samples: a step may run once per group of it, or
+pair two samples sharing it. A `sample_ref`, such as `control`, names another sample. Both come
+from each samplesheet row: they are never measured (`MD0342`), never stated in a goal, and Mendel
+never reads their values. The run checks each cell; a `sample_ref` naming no row stops the run
+naming both.
 
 `extensible: true` is for lists that genuinely cannot be enumerated — `organism` is the example.
 It is a real weakening of the closed-vocabulary guarantee and should be rare.

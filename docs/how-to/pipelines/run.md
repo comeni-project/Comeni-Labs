@@ -49,6 +49,12 @@ blank. The pipeline merges each sample's lanes before anything reads them; a one
 passes straight on. Lanes of one sample that disagree, one paired and one single-end say, stop the
 run naming the sample, and so does a repeated `sample` and `unit`.
 
+Where a step relates samples, the samplesheet has a column for each relation: a key such as
+`patient` or `group` (letters, digits and `_ . -`), a fact a step selects on such as `status`,
+or a reference such as `control`, which names another row's `sample` or stays blank. A
+reference to a sample the sheet does not have, or a patient with two normals for a step that
+takes one, stops the run naming them.
+
 The dedicated input model page is [Inputs in the alpha](../../explanation/inputs-and-data.md).
 
 ![Run sheet in the alpha app](../../assets/screenshots/run-sheet-alpha.png)

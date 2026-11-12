@@ -153,7 +153,7 @@ at build time and in the run.
   - a `group` port reads `groupTuple` on `groupKey([<key>: value], size)`.
 - Test: `tests/emit/test_groups.py`, with the fixture `fixtures/constraints/coassemble.yml` (one run per `group`). Slow: two groups of two and one samples.
 
-- [ ] **Step 1–5:** failing tests, implement, run, commit `feat: samples sharing a key run together as a group (#466)`.
+- [x] **Step 1–5:** failing tests, implement, run, commit `feat: samples sharing a key run together as a group (#466)`.
 
 ### Task 6: Pairs, roles and references
 
@@ -169,11 +169,11 @@ at build time and in the run.
   - a reference to no row stops the run naming both rows, checked in the projection.
 - Test: `tests/emit/test_pairs.py`, with the fixtures `mutect_like.yml` (tumour and normal on `patient`) and `chip_like.yml` (`control`). Slow: Review Focus 4 and 5.
 
-- [ ] **Step 1–5:** failing tests, implement, run, commit `feat: tumour and normal pair on a key; a sample may name its control (#466)`.
+- [x] **Step 1–5:** failing tests, implement, run, commit `feat: tumour and normal pair on a key; a sample may name its control (#466)`.
 
 ### Task 7: Docs and the end of the part
 
-- [ ] **Step 1:** Docs:
+- [x] **Step 1:** Docs:
   - the measurement schema's `key` and `sample_ref`;
   - the contract schema's `grain: group`, `by`, `select` and `join: by_key`;
   - the samplesheet's key columns in the run how-to.
@@ -198,3 +198,13 @@ at build time and in the run.
   yet propose `units`, and the toggle is also offered on study inputs, where the build refuses
   (#489).
 - Registry tests that hard-coded the shipped contracts and tool pages now count the layer's files.
+- **No `group` grain.** A group is `many: true, by: <key>` on a port. A key a step groups,
+  selects or joins on is a samplesheet column whether or not anybody said it varies, and a key or
+  reference is never a goal value.
+- `select` is written as a rule's `when` and stored as conditions. A reference is a `by_ref`
+  join on an `NfInput.key`, not a port field. `by_key` and `by_ref` relate two ports only (#489).
+- Group folds (`over: group`) were not built: folds are over the study (#489).
+- `SCHEMA_VERSION` stays 9, still unreleased; the pinned shape gains `CallArg.key`, as stages 1–4
+  did.
+- The fixture stub runs write each fixture module into the built pipeline, since the layer
+  declares no module source.

@@ -69,6 +69,8 @@ Model: `comeni_core.declared.contract.InputPort`
 | `prefer` | {string} | `{}` | which alternative to prefer |
 | `grain` | `study` \| `sample` | the type's | what one invocation reads: one item for the study or one per sample |
 | `many` | boolean | `false` | `true` gathers every item of a finer grain into one invocation, with `grain: study`: MultiQC reads every sample's report at once. Without `grain: study` it is refused (`MD0331`) |
+| `by` | measurement id | — | with `many: true`, gather per value of this `key` rather than over the study: a co-assembler reads every sample of one group in one call, each group as soon as its own samples are done (`MD0343`) |
+| `select` | {measurement: condition} | — | only the samples meeting these conditions, written as a rule's `when`: a tumour port selects `{status: tumor}` (`MD0344`) |
 | `required` | boolean | `true` | `false` for an input the process can run without. Left out, it gets `[]` in its tuple position; an `nf_inputs` entry whose ports are all optional declares `absent` |
 
 **The three requirement levels are the point.** `state_required` excludes; `state_preferred`
@@ -122,7 +124,8 @@ Model: `comeni_core.declared.contract.NfInput`
 | `param` | string | `""` | a parameter's value |
 | `because` | string | `""` | why. **Required for `empty`** |
 | `empty` | integer | `0` | an empty slot, and **the tuple width** it must have |
-| `join` | string \| object \| null | `null` | how several ports combine into one channel: `broadcast` or `by_sample` for every port after the first, or a map giving each its own |
+| `join` | string \| object \| null | `null` | how several ports combine into one channel: `broadcast` or `by_sample` for every port after the first, or a map giving each its own. Two ports may also meet `by_key` (one sample of each per value of `key`: a patient's tumour and normal) or `by_ref` (each sample of the first port with the item of the sample its `key`, a `sample_ref`, names: a ChIP sample and its control) |
+| `key` | measurement id | — | for `by_key`, a `key`; for `by_ref`, a `sample_ref` (`MD0344`). A patient with two normals, or none, stops the run naming the patient |
 | `absent` | integer | `0` | the tuple width passed when every port of this entry is left out. Required when all its ports are optional, refused when any is required (`MD0601`) |
 
 **A contract port is not a process argument.** Only one of six spine processes matches its port

@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- Relations between samples (#466): measurement kinds `key` and `sample_ref`, read only from samplesheet rows (MD0342); a port gathers per key (`by`, MD0343) or selects samples by their facts (`select`); a shared slot joins `by_key` or `by_ref` on an `NfInput.key` (MD0344). Each relation is a samplesheet column (`StepInput.by`, `StepInput.select`, `CallArg.key`).
+
 - Lanes and folds (#466): `Constraints.units` names inputs whose rows may repeat a sample, carried on the channel (`Channel.units`), which makes the input a samplesheet (MD0340); a port may gather at `grain: sample` (a sample's rows). A run-time fact may be folded over the study (`AtRunSource.FOLDED`, `AtRunFact.folds` and `using`).
 
 - A tool chosen per sample (#466): `IRNode.guard` and `Step.guard` (`Guard`: the decision as a lookup giving a tool, and the tools whose samples a step takes); `StepInput.mixed` names further producers where branches rejoin; `SheetFact.from_row` is a closed vocabulary (`RowFact`). MD0339.
@@ -147,6 +149,8 @@ or a complete commit history.
 - Profile validation occurs at the resolver boundary, not only in the CLI.
 
 ### mendel-compiler
+
+- A group runs once with its own samples, gathered with a `groupKey` sized from the sheet; a pair joins one member per key, a patient with two normals stopping the run naming it; a sample reads the control it names, which may feed several, and a reference to no row stops the run naming both (#466).
 
 - A sample's lanes are merged in the run, gathered with a `groupKey` sized from the samplesheet; a one-lane sample passes straight on; lanes that disagree, or a repeated sample and unit, stop the run naming the sample. A fact folded over the study joins every sample's `meta` once every sample has its value (#466).
 
@@ -516,7 +520,7 @@ or a complete commit history.
 
 - The run reads which tool each sample went through when it was chosen per sample, and the run page says so (#466).
 
-- The run form has a `unit` column where a sample may span several rows; a fact folded over the study is read as `folded` (#466).
+- The run form has a `unit` column where a sample may span several rows; a fact folded over the study is read as `folded`; key and reference columns are checked as identifiers, a reference may stay blank (#466).
 
 - The run form lists the samplesheet's fact columns; a decided value lists each fact it read and where it came from (#466).
 

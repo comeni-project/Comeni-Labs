@@ -54,3 +54,13 @@ said to vary is chosen per sample: the build routes once per tool and merges the
 branch guarded by the rows that send samples its way. Read length said to vary gives STAR and
 HISAT2 in one pipeline; a stub run sends each sample down its own, never starts an index nobody
 needs, and records each sample's tool. One branch point per pipeline for now.
+
+## Stage 5: relations and folding (same day)
+
+[The plan](../../superpowers/plans/2026-11-12-per-sample-stage-5.md). Part A, which the demo uses:
+an input may span several rows per sample, and nf-core/cat/fastq merges each sample's lanes before
+anything reads them (a one-lane sample passes straight on); a fact folds over the study with
+`agree`, `all`, `any`, `count` and `distinct`, at build time and in the run, the two agreeing case
+by case. Part B, proven with fixture contracts under Nextflow: keys and groups, a tumour and a
+normal paired on a patient, and a sample reading the control it names.
+
