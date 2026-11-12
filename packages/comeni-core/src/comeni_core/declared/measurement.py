@@ -46,7 +46,7 @@ class MeasurementKind(StrEnum):
 class MetaValue(BaseModel):
     """Translate one declared value to the value expected in module metadata."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     when: ParamValue
     then: ParamValue

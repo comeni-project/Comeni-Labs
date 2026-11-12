@@ -86,6 +86,8 @@ FREE_TEXT_FIELDS = {
     ("InputRecord", "reason"),
     # The sentence of a constraint only a run can settle, shown by the run sheet (#460).
     ("RunRule", "says"),
+    # A tool's rule each sample's facts settle (#466), as a person reads it.
+    ("SampleRule", "says"),
     # One per decision kind since A16 split `DecisionRecord` into three. Four entries
     # became six by a refactor rather than by a new field crossing the boundary — which is
     # exactly the sort of change this literal list exists to make someone notice.

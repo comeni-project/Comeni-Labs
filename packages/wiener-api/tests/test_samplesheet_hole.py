@@ -154,3 +154,15 @@ channels:
     (fact,) = [FactColumnView(**f) for f in input_facts(_artifact(tmp_path, body))]
     assert (fact.column, fact.kind, fact.values, fact.required, fact.auto) == (
         "strandedness", "enum", ["forward", "reverse", "unstranded"], True, False)
+
+
+def test_a_comma_in_a_cell_stays_in_its_column(tmp_path):
+    """A sample name or a path with a comma must not shift every later cell, now that fact
+    columns follow the files (Task 8 review)."""
+    import csv
+
+    rows = [{"sample": "A, rep 1", "reads_1": "/lab/a,1.fq", "strandedness": "reverse"}]
+    written = _materialise_tables({"input": rows}, tmp_path)
+    with open(written["input"], newline="") as sheet:
+        (row,) = list(csv.DictReader(sheet))
+    assert row == {"sample": "A, rep 1", "reads_1": "/lab/a,1.fq", "strandedness": "reverse"}

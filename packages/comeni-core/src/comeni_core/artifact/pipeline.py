@@ -61,6 +61,7 @@ from comeni_core.spell.marks import (
     NfPath,
     NfTemplate,
     NodeId,
+    OptionId,
     ParamValue,
     PortName,
     StateName,
@@ -414,8 +415,8 @@ class SheetFact(BaseModel):
     measurement: MeasurementId
     column: NfIdentifier
     kind: MeasurementKind
-    values: list[str] = Field(default_factory=list, exclude_if=lambda v: not v)
-    """The allowed values, for an enum."""
+    values: list[OptionId] = Field(default_factory=list, exclude_if=lambda v: not v)
+    """The allowed values, for an enum: identifiers, as a measurement declares them."""
     minimum: float | None = Field(default=None, exclude_if=lambda m: m is None)
     maximum: float | None = Field(default=None, exclude_if=lambda m: m is None)
     required: bool
