@@ -26,6 +26,17 @@ def _value(value) -> str:
     return str(value)
 
 
+def _uploads(session_id: str) -> list[str]:
+    """Each fact the uploaded samples disagree on, as its spread, by measurement id order: what
+    the model reads of them (#466). Counts and values only, never a sample's name."""
+    from mendel_api.stages import samples
+
+    kept = samples.uploaded(session_id)
+    names = sorted({f["measurement"] for one in kept for f in one.get("facts", [])})
+    return [f"{name}: {samples.spread_words(found)}"
+            for name in names if len(found := samples.spread(kept, name)) > 1]
+
+
 def _suggested(session_id: str) -> list[str]:
     """The model's suggestions still waiting for a click, in words."""
     from mendel_api.services import suggestions
@@ -74,6 +85,7 @@ def of(session_id: str) -> Known:
                          source=_SOURCE[f.origin], heard=words("fact", f.subject))
                for f in current.facts],
         suggested=_suggested(session_id),
+        uploads=_uploads(session_id),
         open=[] if isinstance(open_, gaps.Unreachable)
         else [explain.name_of(stack, g.kind, g.subject) for g in open_],
         confirmed=authoring_decisions.confirmed(draft_id),

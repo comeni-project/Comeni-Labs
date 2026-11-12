@@ -91,3 +91,20 @@ def test_samples_that_differ_on_pairing_propose_it_varies(clean):  # noqa: F811
     assert "yes in 1 samples, no in 1" in block["why_open"]
     (recommended,) = [o for o in block["options"] if o.get("recommended")]
     assert recommended["id"] == "varies"
+
+
+@needs_db
+def test_the_models_memory_has_the_spread_and_no_name(clean):  # noqa: F811
+    from mendel_api.services import known
+
+    sid = _gathering(["counts.matrix"])
+    pid = _pending_for(sid, "paired")
+    (r1, r2) = PAIR
+    files = [("files", ("patient07_R1.fq.gz", r1.read_bytes())),
+             ("files", ("patient07_R2.fq.gz", r2.read_bytes())),
+             ("files", ("patient08.fq.gz", r1.read_bytes()))]
+    TestClient(create_app()).post(f"/api/pipeline/authoring/{sid}/samples",
+                                  data={"proposal_id": pid}, files=files)
+    text = known.text(sid)
+    assert "paired: yes in 1 samples, no in 1" in text
+    assert "patient07" not in text and "patient08" not in text

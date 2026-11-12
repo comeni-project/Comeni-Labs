@@ -30,6 +30,9 @@ class Known(BaseModel):
     inputs: list[KnownItem] = []
     facts: list[KnownItem] = []
     suggested: list[str] = []
+    uploads: list[str] = []
+    """How the uploaded samples spread over each fact they disagree on, a line each (#466):
+    `paired: yes in 3 samples, no in 1`. Never a sample's name."""
     open: list[str] = []
     confirmed: bool = False
 
@@ -58,6 +61,7 @@ def render(known: Known) -> str:
         ("Inputs you have", [_item(i) for i in known.inputs]),
         ("Facts about your data", [_item(i) for i in known.facts]),
         ("Suggested, waiting for you", [f"- {s}" for s in known.suggested]),
+        ("Your uploaded samples differ on", [f"- {u}" for u in known.uploads]),
         ("Still open", [f"- {o}" for o in known.open]),
     ]
     lines = ["What is known (recorded; do not ask for it again):"]
