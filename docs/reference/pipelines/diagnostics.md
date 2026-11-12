@@ -138,6 +138,7 @@ decline to curate one.
 | `MD0232` | a registry layer has uncommitted edits, so its commit does not rebuild it |
 | `MD0233` | a starter has nothing resolved to emit or publish |
 | `MD0330` | a setting decided at run time cannot be carried: it routes outside `ext`, or its template does not hold `{value}` once |
+| `MD0335` | a fact that differs between samples has no samplesheet column to carry it |
 
 ## Routing and resolution
 

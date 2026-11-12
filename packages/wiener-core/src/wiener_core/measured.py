@@ -40,6 +40,17 @@ class MeasuredFact(BaseModel):
     """The pieces, `fastq@1.1.0` then `read_length@1.0.0`."""
 
 
+class DecidedFact(BaseModel):
+    """One fact a run-time setting read for a sample, and where its value came from (#466)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    fact: str = Field(pattern=_ID)
+    value: Annotated[str, LAB_STRING] = Field(max_length=256)
+    """As the run printed it; `null` when the sample had none."""
+    source: Literal["cell", "measured", "missing"]
+
+
 class DecidedValue(BaseModel):
     """The value a run-time setting took for one sample."""
 
@@ -50,6 +61,8 @@ class DecidedValue(BaseModel):
     sample: Annotated[str, LAB_STRING] = Field(max_length=256)
     value: Annotated[str, LAB_STRING] = Field(max_length=256)
     """As the run printed it; `null` when the lookup gave nothing."""
+    facts: list[DecidedFact] = Field(default_factory=list, exclude_if=lambda f: not f)
+    """The facts the value was looked up from, each with its source (#466)."""
 
 
 class Measurements(BaseModel):

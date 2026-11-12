@@ -141,6 +141,7 @@ SERIALISED_SHAPE = {
         "ai",
         "steps",
         "confirms",
+        "sheet_facts",
         "channels",
         "decisions",
         "emitted",

@@ -221,22 +221,22 @@ A, B, C, D, with the parts of I that stage 1 shows).
   - A non-empty `sheet_facts` makes the input form a samplesheet, even with one sample-scoped channel. The validator's "at least two" becomes "at least two, or a fact column".
   - The decided tsv line is `sample\tvalue\t<fact>=<value>:<cell|measured|fallback>` per fact, sorted by fact.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `test_varying_strandedness_is_a_required_column`: the rnaseq goal with `varies: [strandedness]` materialises `sheet_facts == [SheetFact(column="strandedness", kind=enum, values=["forward","reverse","unstranded"], required=True, auto=False, ...)]`. The reads channel's `meta` has no `strandedness` entry, and the input form is samplesheet.
   - `test_cells_reach_meta`: the emitted `main.nf` projection includes `strandedness: row.strandedness` translated through `meta_values`, and the fact id key.
   - `test_a_bad_cell_stops_the_run` (slow): run the emitted pipeline's stub on a two-row sheet whose second row says `Forward`. Expected: non-zero exit, and stderr contains `samplesheet row 2 (sample S2), column strandedness: 'Forward' is not one of forward, reverse, unstranded`.
   - `test_a_blank_required_cell_stops_the_run` (slow), likewise: `column strandedness is required`.
   - `test_only_blank_cells_are_measured` (slow): a fixture pipeline with `read_length` as `CELL_OR_MEASURED` over two rows, one `150` and one blank. The measuring step runs once, and the decided tsv says `read_length=150:cell` for the first row and `...:measured` for the second.
   - `test_an_integer_cell_must_be_whole` (slow): `69.5` in an integer column stops the run naming the row and column.
-- [ ] **Step 2: Run** them. Expected: FAIL.
-- [ ] **Step 3: Implement.**
+- [x] **Step 2: Run** them. Expected: FAIL.
+- [x] **Step 3: Implement.**
   - `_check_rows` is emitted after `splitCsv` and before any projection. It checks every fact column for allowed values and kind, `minimum`/`maximum`, blank only where not required, and `auto` only where `auto`. `boolean` accepts `true`/`false` only.
   - Each projection's `meta` gets the parsed cells, null for blank or `auto`.
   - `_joined` branches each channel carrying measured facts. Rows with every measured fact non-null go around the measuring step; the others go through it and join. The two are mixed. A cell wins over a measurement.
   - `_decided` writes the source. The source is carried on `meta.comeni_from`, a map from fact to source, which modules ignore.
   - Wiener's reader takes the new columns, and shows the source on the run page.
-- [ ] **Step 4: Run** the pure tests, then the slow ones, then `make check`, `make static` and `make test`, each separately. Expected: all pass.
-- [ ] **Step 5: Commit** `feat: the samplesheet carries per-sample facts, checked when the run starts (#466)`.
+- [x] **Step 4: Run** the pure tests, then the slow ones, then `make check`, `make static` and `make test`, each separately. Expected: all pass.
+- [x] **Step 5: Commit** `feat: the samplesheet carries per-sample facts, checked when the run starts (#466)`.
 
 ### Task 7: A tool rule reads a per-sample fact
 

@@ -45,7 +45,7 @@ def test_the_emitted_pipeline_measures_then_joins_then_builds_the_index(tmp_path
     star = main.index("STAR_GENOMEGENERATE(ch_fasta_measured")
     assert faidx < measure < joined < star
     assert ".facts?.get('genome_length')?.value" in main
-    assert "meta + [genome_length: v0]" in main
+    assert "meta + [genome_length: (meta.genome_length != null ? meta.genome_length : v0)" in main
     assert "collectFile(name: 'star_genomegenerate.sa_index_nbases.tsv'" in main
     config = emit_config(pipeline)
     line = next(x for x in config.splitlines() if "STAR_GENOMEGENERATE" in x and "ext.args" in x)

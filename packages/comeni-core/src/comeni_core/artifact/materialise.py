@@ -26,12 +26,14 @@ from comeni_core.artifact.pipeline import (
     Channel,
     ExtArgs,
     MetaEntry,
+    MetaKeyOf,
     ModuleRef,
     Pipeline,
     PortJoin,
     RegistryProvenance,
     RunRule,
     Setting,
+    SheetFact,
     Step,
     StepInput,
     Why,
@@ -45,6 +47,7 @@ from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal, InputState
 from comeni_core.goal.profile import DataProfile, Measured
+from comeni_core.plan.at_run import AtRunSource
 from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import Grain, InputForm, Tier, ValueSource
 from comeni_core.spell.marks import LayerName, ParamValue
@@ -110,6 +113,7 @@ def of(
             )
         )
     channels = _optional_channels(channels, steps, registry)
+    sheet_facts = _sheet_facts(ir, goal, measurements)
 
     return Pipeline(
         # Save the resolved profile with the original intent and inputs.
@@ -124,10 +128,39 @@ def of(
         ai=_read_upstream(ai or AiProvenance(available=[], used=[]), ir.profile),
         steps=steps,
         confirms=list(ir.confirms),
+        sheet_facts=sheet_facts,
         channels=channels,
-        input_form=_form(channels),
+        input_form=InputForm.SAMPLESHEET if sheet_facts else _form(channels),
         decisions=list(ir.decisions),
     )
+
+
+def _sheet_facts(ir: PipelineIR, goal: Goal,
+                 measurements: MeasurementRegistry | None) -> list[SheetFact]:
+    """The samplesheet's fact columns (#466): every fact a person said differs between samples.
+    Required, unless a step the build added measures it for a run-time setting, when a blank or
+    `auto` cell is measured. Sorted by column."""
+    if measurements is None or not goal.constraints.varies:
+        return []
+    auto = {f.measurement for node in ir.nodes for binding in node.params
+            if binding.value.at_run is not None for f in binding.value.at_run.facts
+            if f.source is AtRunSource.CELL_OR_MEASURED}
+    found = []
+    for fact in goal.constraints.varies:
+        declared = measurements.get(fact)
+        keys = [MetaKeyOf(key=fact)]
+        if declared.meta_key and declared.meta_key != fact:
+            keys.append(MetaKeyOf(key=declared.meta_key, translate=list(declared.meta_values)))
+        found.append(SheetFact(
+            measurement=fact, column=fact, kind=declared.kind, values=list(declared.values),
+            minimum=declared.minimum, maximum=declared.maximum,
+            required=fact not in auto, auto=fact in auto, describes=declared.describes,
+            meta=keys,
+            why=Why(tier=Tier.STRUCTURAL, source=ValueSource.SAID,
+                    reason=(f"you said {fact} differs between samples, so each row states it"
+                            + (", or leaves it blank to be measured" if fact in auto else ""))),
+        ))
+    return sorted(found, key=lambda f: f.column)
 
 
 

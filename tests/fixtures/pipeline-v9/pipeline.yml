@@ -765,7 +765,7 @@ emitted:
   schema_version: 9
   files:
   - name: main.nf
-    digest: sha256:5d49e4729cacbda0c96f863b74efd706f7b8a1ea4e9f606dcaf9b9f6745f6d4f
+    digest: sha256:3fcd4f5e7a67706f2f85e06948efc57f36bb9a5de63436ba2ddb228af73b1d38
   - name: modules/comeni/measure/genome_length_fai/main.nf
     digest: sha256:49485b740430c45c4875919c2403e8dea1115d3782644621aafb35560726cd58
   - name: modules/comeni/measure/genome_length_fai/resources/usr/bin/comeni-measure-genome-length-fai

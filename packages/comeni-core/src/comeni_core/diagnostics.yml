@@ -3043,6 +3043,20 @@ MD0334:
     reads is per sample, a fact about the reference is the study's. A `describes` naming no type
     has no grain, so a typo would make a reference's fact per sample without a word.
 
+MD0335:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a fact that differs between samples has no samplesheet column to carry it"
+  fires_on: [build, upgrade, emit, publish]
+  refuses: true
+  fix: |
+    A fact said to differ between samples is a column of the samplesheet. Rebuild the pipeline
+    from its goal, or rename a channel whose column has the fact's name.
+  explanation: |
+    Each sample's value of such a fact comes from its row (#466). A pipeline without the column,
+    or with a file column of the same name, would give every sample nothing to read, and every
+    run-time lookup over it would take its fallback.
+
 MD0501:
   emitted_by: resolver
   concern: validation

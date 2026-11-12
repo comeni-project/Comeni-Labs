@@ -14,7 +14,7 @@ import logging
 from pathlib import Path
 
 from pydantic import ValidationError
-from wiener_core.measured import DecidedValue, MeasuredFact
+from wiener_core.measured import DecidedFact, DecidedValue, MeasuredFact
 
 log = logging.getLogger(__name__)
 
@@ -84,6 +84,13 @@ def _facts_in(text: str, sample: str, wanted: set[str]) -> list[MeasuredFact]:
     return facts
 
 
+def _fact_read(text: str) -> DecidedFact:
+    """`fact=value:source`, as the pipeline writes each fact beside a decided value (#466)."""
+    named, _, source = text.rpartition(":")
+    fact, _, value = named.partition("=")
+    return DecidedFact(fact=fact, value=value, source=source)
+
+
 def read(results: Path, pipeline) -> tuple[list[MeasuredFact], list[DecidedValue]]:
     """Every fact and decided value the run published that its pipeline declares. Never
     raises: anything it cannot read is skipped, and logged without its name, which may be a
@@ -102,12 +109,13 @@ def read(results: Path, pipeline) -> tuple[list[MeasuredFact], list[DecidedValue
     for step, setting in sorted(decisions):
         text = _small(results, results / "decided" / f"{step}.{setting}.tsv")
         for line in sorted((text or "").splitlines()):
-            sample, sep, value = line.partition("\t")
+            sample, sep, rest = line.partition("\t")
             if not sep:
                 continue
+            value, *read = rest.split("\t")
             try:
                 decided.append(DecidedValue(step=step, setting=setting, sample=sample,
-                                            value=value))
+                                            value=value, facts=[_fact_read(f) for f in read]))
             except ValidationError:
                 log.warning("measured: a value of %s.%s was refused", step, setting)
     return facts, decided

@@ -30,6 +30,7 @@ from comeni_core.artifact.gates import Gate
 from comeni_core.artifact.lockfile import LockedLayer
 from comeni_core.artifact.param_refs import extract_param_refs
 from comeni_core.declared.layered import Displacement
+from comeni_core.declared.measurement import MeasurementKind, MetaValue
 from comeni_core.diagnostics import coded
 from comeni_core.egress.base import EgressPayload
 from comeni_core.goal.asked import Facts, Goal, Intent
@@ -55,6 +56,7 @@ from comeni_core.spell.marks import (
     GroovyExpression,
     LayerName,
     Line,
+    MeasurementId,
     NfIdentifier,
     NfPath,
     NfTemplate,
@@ -391,6 +393,38 @@ class Step(BaseModel):
         return self
 
 
+class MetaKeyOf(BaseModel):
+    """One key a samplesheet fact becomes on the sample's `meta`, and how its value is spelled
+    there: the fact's own id, read by run-time lookups, and a module's key (`single_end`)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: NfIdentifier
+    translate: list[MetaValue] = Field(default_factory=list, exclude_if=lambda t: not t)
+
+
+class SheetFact(BaseModel):
+    """A fact each sample's samplesheet row states (#466), checked when the run starts."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    measurement: MeasurementId
+    column: NfIdentifier
+    kind: MeasurementKind
+    values: list[str] = Field(default_factory=list, exclude_if=lambda v: not v)
+    """The allowed values, for an enum."""
+    minimum: float | None = Field(default=None, exclude_if=lambda m: m is None)
+    maximum: float | None = Field(default=None, exclude_if=lambda m: m is None)
+    required: bool
+    """A blank cell stops the run; otherwise a blank is measured (`auto`)."""
+    auto: bool = Field(default=False, exclude_if=lambda auto: not auto)
+    """A step the build added measures the fact where the cell is blank or says `auto`."""
+    describes: TypeId
+    """The input whose row carries it: its channel's `meta` gets the value."""
+    meta: list[MetaKeyOf]
+    why: Why
+
+
 class Channel(BaseModel):
     """External pipeline input, including its expression, grain, metadata, and test data."""
 
@@ -540,6 +574,8 @@ class Pipeline(EgressPayload):
     confirms: list[Confirm] = Field(default_factory=list, exclude_if=lambda c: not c)
     """Estimates the build rested on, measured again over all the data in the run, each with
     the decisions that used it: what the run's reading of the facts is compared against."""
+    sheet_facts: list[SheetFact] = Field(default_factory=list, exclude_if=lambda f: not f)
+    """Facts each sample's samplesheet row states (#466), sorted by column."""
     channels: list[Channel] = Field(default_factory=list)
     decisions: list[DecisionRecord] = Field(default_factory=list)
     emitted: Emitted | None = None
@@ -597,7 +633,11 @@ class Pipeline(EgressPayload):
             )
         per_sample = [c.name for c in self.channels if c.grain is Grain.SAMPLE]
         wants_table = self.input_form is InputForm.SAMPLESHEET
-        if wants_table and len(per_sample) < 2:
+        if self.sheet_facts and not wants_table:
+            raise ValueError(coded(
+                "MD0335", "this pipeline has samplesheet facts and takes no samplesheet; a "
+                "fact that differs between samples needs a row to carry it."))
+        if wants_table and len(per_sample) < 2 and not self.sheet_facts:
             raise ValueError(
                 coded(
                     "MD0229",
@@ -608,6 +648,12 @@ class Pipeline(EgressPayload):
                     f"is a table with one column — which is a glob written the long way.",
                 )
             )
+        taken = {"sample", *(c for ch in self.channels for c in ch.columns)}
+        clash = sorted(f.column for f in self.sheet_facts if f.column in taken)
+        if clash:
+            raise ValueError(coded(
+                "MD0335", f"samplesheet column {clash[0]} is both a fact and a file or the "
+                "sample's id; rename the channel."))
         claimed: dict[str, list[str]] = {}
         for channel in self.channels:
             claimed.setdefault(channel.param, []).append(channel.name)

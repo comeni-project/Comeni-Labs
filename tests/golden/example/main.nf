@@ -21,13 +21,13 @@ workflow {
 
     SAMTOOLS_FAIDX(ch_fasta.map { meta, a -> [ meta, a, [] ] }, false)
     MEASURE_GENOME_LENGTH_FAI(SAMTOOLS_FAIDX.out.fai)
-    ch_fasta_measured = (ch_fasta.join(MEASURE_GENOME_LENGTH_FAI.out.genome_length.map { meta, report -> [ meta, new groovy.json.JsonSlurper().parseText(report.text).facts?.get('genome_length')?.value ] }, failOnMismatch: true, failOnDuplicate: true).map { meta, data, v0 -> [ meta + [genome_length: v0], data ] }).first()
+    ch_fasta_measured = (ch_fasta.join(MEASURE_GENOME_LENGTH_FAI.out.genome_length.map { meta, report -> [ meta, new groovy.json.JsonSlurper().parseText(report.text).facts?.get('genome_length')?.value ] }, failOnMismatch: true, failOnDuplicate: true).map { meta, data, v0 -> [ meta + [genome_length: (meta.genome_length != null ? meta.genome_length : v0), comeni_from: (meta.comeni_from ?: [:]) + [genome_length: (meta.genome_length != null ? 'cell' : 'measured')]], data ] }).first()
     TRIMGALORE(ch_reads)
     STAR_GENOMEGENERATE(ch_fasta_measured, ch_gtf)
     STAR_ALIGN(TRIMGALORE.out.reads, STAR_GENOMEGENERATE.out.index, ch_gtf, false)
     SAMTOOLS_SORT(STAR_ALIGN.out.bam, Channel.value([[:], [], []]), 'bai')
     SUBREAD_FEATURECOUNTS(SAMTOOLS_SORT.out.bam.combine(ch_gtf.map { it[1] }))
     if (params.outdir) {
-        ch_fasta_measured.map { meta, data -> "${meta.id}\t" + String.valueOf(((meta.genome_length != null) ? (Math.rint(Math.min((((Math.abs((Math.log((meta.genome_length as double)) / Math.log(2.0d)) - Math.rint((Math.log((meta.genome_length as double)) / Math.log(2.0d)))) < 1e-9 ? Math.rint((Math.log((meta.genome_length as double)) / Math.log(2.0d))) : (Math.log((meta.genome_length as double)) / Math.log(2.0d))) / 2.0) - 1.0), 14.0)) as long) : null)) }.collectFile(name: 'star_genomegenerate.sa_index_nbases.tsv', storeDir: "${params.outdir}/decided", newLine: true, sort: true)
+        ch_fasta_measured.map { meta, data -> "${meta.id}\t" + String.valueOf(((meta.genome_length != null) ? (Math.rint(Math.min((((Math.abs((Math.log((meta.genome_length as double)) / Math.log(2.0d)) - Math.rint((Math.log((meta.genome_length as double)) / Math.log(2.0d)))) < 1e-9 ? Math.rint((Math.log((meta.genome_length as double)) / Math.log(2.0d))) : (Math.log((meta.genome_length as double)) / Math.log(2.0d))) / 2.0) - 1.0), 14.0)) as long) : null)) + "\tgenome_length=${meta.genome_length}:${meta.comeni_from?.get('genome_length') ?: (meta.genome_length == null ? 'missing' : 'measured')}" }.collectFile(name: 'star_genomegenerate.sa_index_nbases.tsv', storeDir: "${params.outdir}/decided", newLine: true, sort: true)
     }
 }

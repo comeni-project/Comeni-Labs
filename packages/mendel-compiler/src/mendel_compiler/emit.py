@@ -11,7 +11,7 @@ from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from mendel_compiler.groovy_lookup import closure
+from mendel_compiler.groovy_lookup import closure, literal
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
@@ -294,9 +294,10 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
         (
             SAMPLESHEET,
             f"Channel.fromPath(params.input, checkIfExists: true)"
-            f".splitCsv(header: true){_no_duplicate_ids()}",
+            f".splitCsv(header: true){_no_duplicate_ids()}{_cells(pipeline)}",
         )
     ]
+    carried = {f.describes for f in pipeline.sheet_facts}
     for channel in pipeline.channels:
         if channel.grain is not Grain.SAMPLE:
             lines.append(
@@ -313,11 +314,85 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
                              "which a samplesheet cannot carry yet (#466)")
         files = ", ".join(f"file(row.{column})" for column in channel.columns)
         payload = files if len(channel.columns) == 1 else f"[ {files} ]"
-        projection = (
-            f"{SAMPLESHEET}.map {{ row -> [ [id: row.{SAMPLE_COLUMN}], {payload} ] }}"
-        )
+        # The row's facts ride on the input they describe (#466), parsed and checked above.
+        identity = (f"[id: row.{SAMPLE_COLUMN}] + row.comeni" if channel.type_id in carried
+                    else f"[id: row.{SAMPLE_COLUMN}]")
+        projection = f"{SAMPLESHEET}.map {{ row -> [ {identity}, {payload} ] }}"
         lines.append((_channel_name(channel.name), _with_meta(projection, channel.meta)))
     return lines
+
+
+def _cells(pipeline: Pipeline) -> str:
+    """Each row's facts, parsed and checked before any process starts (#466): every cell against
+    its declared kind and values, a blank only where the fact is optional, `auto` only where a
+    step measures it. A bad cell stops the run naming the row, the sample and the column. The
+    parsed values sit on `row.comeni`: each fact under its id and under a module's key, and
+    `comeni_from`, which facts the row stated."""
+    if not pipeline.sheet_facts:
+        return ""
+    values = ",\n".join(f"                {f.column}: {_cell(f)}" for f in pipeline.sheet_facts)
+    keys = [f"{m.key}: {_translated(f, m)}" for f in pipeline.sheet_facts for m in f.meta
+            if m.key != f.measurement]
+    module = (" + [" + ", ".join(keys) + "]") if keys else ""
+    return (
+        ".toList().flatMap { rows ->\n"
+        "        rows.withIndex().collect { row, i ->\n"
+        "            def n = i + 1\n"
+        "            def v = [\n" + values + "\n            ]\n"
+        "            row + [comeni: v" + module + " + [comeni_from: v.findAll { it.value != null }"
+        ".collectEntries { [it.key, 'cell'] }]]\n"
+        "        }\n"
+        "    }"
+    )
+
+
+def _cell(fact) -> str:
+    """One cell as a closure call: its value; `null` for a blank the fact may leave, or `auto`
+    where a step measures it; otherwise a stop naming the row, the sample and the column. Only
+    declared identifiers and values, each checked substitutable, reach the message."""
+    where = f"samplesheet row ${{n}} (sample ${{row.{SAMPLE_COLUMN}}}), column {fact.column}"
+    listed = ", ".join(literal(v, f"samplesheet column {fact.column}") for v in fact.values)
+    kind = fact.kind.value
+    if kind == "enum":
+        parsed = (f"c in [{listed}] ? c : error(\"{where}: '${{c}}' is not one of "
+                  f"{', '.join(fact.values)}\")")
+    elif kind == "boolean":
+        parsed = (f"c == 'true' ? true : c == 'false' ? false : "
+                  f"error(\"{where}: '${{c}}' is not one of true, false\")")
+    else:
+        number = ("c ==~ /-?\\d+/ ? (c as long)" if kind == "integer"
+                  else "c.isBigDecimal() ? (c as BigDecimal)")
+        what = "a whole number" if kind == "integer" else "a number"
+        parsed = f"{number} : error(\"{where}: '${{c}}' is not {what}\")"
+        bounds = []
+        if fact.minimum is not None:
+            bounds.append(f"x < {float(fact.minimum)!r} ? error(\"{where}: '${{c}}' is below "
+                          f"{_shown(fact.minimum)}\")")
+        if fact.maximum is not None:
+            bounds.append(f"x > {float(fact.maximum)!r} ? error(\"{where}: '${{c}}' is above "
+                          f"{_shown(fact.maximum)}\")")
+        if bounds:
+            parsed = f"{{ -> def x = ({parsed}); " + " : ".join(bounds) + " : x }()"
+    blank = "null" if not fact.required else f'error("{where} is required")'
+    auto = ("null" if fact.auto
+            else f'error("{where}: auto is allowed only where the run measures the fact")')
+    return (f"({{ -> def c = (row.{fact.column} ?: '').trim(); "
+            f"c == '' ? {blank} : c == 'auto' ? {auto} : ({parsed}) }}())")
+
+
+def _shown(number: float) -> str:
+    return str(int(number)) if float(number).is_integer() else str(number)
+
+
+def _translated(fact, key) -> str:
+    """The fact under a module's key, spelled as that module expects (`paired` true is
+    `single_end` false)."""
+    var = f"v.{fact.column}"
+    if not key.translate:
+        return var
+    pairs = ", ".join(f"({literal(t.when, fact.column)}): {literal(t.then, fact.column)}"
+                      for t in key.translate)
+    return f"({var} == null ? null : [{pairs}][{var}])"
 
 
 def _no_duplicate_ids() -> str:
@@ -401,15 +476,27 @@ def _measuring_branch(pipeline: Pipeline) -> set[str]:
     return branch
 
 
-def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str]]:
-    """Each input channel carrying run-measured facts, joined with them by `meta`: its name
-    for the consumers outside the measuring branch, and the lines that define it."""
-    names, lines = {}, []
+def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str], dict[str, str], list[str]]:
+    """Each input channel carrying run-measured facts, joined with them by `meta`: its name for
+    the consumers outside the measuring branch and the lines that define it; and, for a channel
+    whose measured facts the samplesheet may state (#466), the channel the measuring branch reads
+    instead, of the rows that left a cell blank, with the lines defining it. A stated cell wins
+    over a measurement, and `meta.comeni_from` says which each sample's value is."""
+    auto = {f.measurement for f in pipeline.sheet_facts if f.auto}
+    names, lines, unstated, before = {}, [], {}, []
     for channel in pipeline.channels:
         if not channel.meta_at_run:
             continue
         raw = _channel_name(channel.name)
         name = f"{raw}_measured"
+        facts = [m.measurement for m in channel.meta_at_run]
+        bypass = all(f in auto for f in facts)
+        source = raw
+        if bypass:
+            blank = " || ".join(f"meta.{f} == null" for f in facts)
+            source = f"{raw}_unstated"
+            before.append(f"{source} = {raw}.filter {{ meta, data -> {blank} }}")
+            unstated[channel.name] = source
         # `failOnMismatch`: a sample whose measurement never matches its input must stop the
         # run, not vanish from it with exit 0 (Task 7 review).
         joins = "".join(
@@ -420,13 +507,21 @@ def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str]]:
             for m in channel.meta_at_run
         )
         values = [f"v{n}" for n in range(len(channel.meta_at_run))]
-        merged = ", ".join(f"{m.meta_key}: {v}" for m, v in zip(channel.meta_at_run, values,
-                                                                  strict=True))
-        expression = (f"{raw}{joins}.map {{ meta, data, {', '.join(values)} -> "
-                      f"[ meta + [{merged}], data ] }}")
+        merged = ", ".join(
+            f"{m.meta_key}: (meta.{m.meta_key} != null ? meta.{m.meta_key} : {v})"
+            for m, v in zip(channel.meta_at_run, values, strict=True))
+        sources = ", ".join(
+            f"{m.measurement}: (meta.{m.meta_key} != null ? 'cell' : 'measured')"
+            for m in channel.meta_at_run)
+        expression = (f"{source}{joins}.map {{ meta, data, {', '.join(values)} -> "
+                      f"[ meta + [{merged}, comeni_from: (meta.comeni_from ?: [:]) + "
+                      f"[{sources}]], data ] }}")
+        if bypass:
+            stated = " && ".join(f"meta.{f} != null" for f in facts)
+            expression = f"{raw}.filter {{ meta, data -> {stated} }}.mix({expression})"
         names[channel.name] = name
         lines.append(f"{name} = {_as_value(expression, channel.grain)}")
-    return names, lines
+    return names, lines, unstated, before
 
 
 def _meta_root(pipeline: Pipeline, step: Step) -> str | None:
@@ -488,10 +583,16 @@ def _decided(pipeline: Pipeline, measured: dict[str, str]) -> list[str]:
             root = _meta_root(pipeline, step)
             channel = measured.get(root, _channel_name(root))
             expr = closure(setting.at_run, where=f"{step.id}.{setting.name}")
+            # Each fact beside the value, with where it came from (#466): `fact=value:source`.
+            facts = " + ".join(
+                f"\"\\t{f.measurement}=${{meta.{f.meta_key}}}:"
+                f"${{meta.comeni_from?.get('{f.measurement}') ?: "
+                f"(meta.{f.meta_key} == null ? 'missing' : 'measured')}}\""
+                for f in setting.at_run.facts)
             lines.append(
                 "if (params.outdir) {\n"
                 f"        {channel}.map {{ meta, data -> \"${{meta.id}}\\t\" + "
-                f"String.valueOf({expr}) }}.collectFile(name: "
+                f"String.valueOf({expr}) + {facts} }}.collectFile(name: "
                 f"'{step.id}.{setting.name}.tsv', storeDir: \"${{params.outdir}}/decided\", "
                 "newLine: true, sort: true)\n"
                 "    }"
@@ -501,17 +602,36 @@ def _decided(pipeline: Pipeline, measured: dict[str, str]) -> list[str]:
 
 def _calls(pipeline: Pipeline) -> list[str]:
     """Every statement after the entry channels: the measuring branch first, on the raw
-    inputs; then the inputs joined with what it measured; then every other step reading the
-    joined inputs; then the record of each run-time value (#217). A pipeline that measures
-    nothing gets exactly its calls in step order, as before."""
+    inputs (only the rows that left a cell blank, where the samplesheet may state the fact);
+    then the inputs joined with what it measured; then every other step reading the joined
+    inputs; then the record of each run-time value (#217, #466). A pipeline that decides
+    nothing in the run gets exactly its calls in step order, as before."""
+    _check_cells(pipeline)
     branch = _measuring_branch(pipeline)
     if not branch:
-        return [_call(pipeline, step) for step in pipeline.steps]
-    measured, joined = _joined(pipeline)
+        return [*(_call(pipeline, step) for step in pipeline.steps), *_decided(pipeline, {})]
+    measured, joined, unstated, before = _joined(pipeline)
     _check_measuring(pipeline, branch, measured)
-    first = [_call(pipeline, step) for step in pipeline.steps if step.id in branch]
+    first = [_call(pipeline, step, unstated) for step in pipeline.steps if step.id in branch]
     rest = [_call(pipeline, step, measured) for step in pipeline.steps if step.id not in branch]
-    return [*first, *joined, *rest, *_decided(pipeline, measured)]
+    return [*before, *first, *joined, *rest, *_decided(pipeline, measured)]
+
+
+def _check_cells(pipeline: Pipeline) -> None:
+    """Every fact a run-time lookup reads from the samplesheet has its column (MD0335): without
+    it every sample would read nothing and take the fallback (Task 5 review)."""
+    columns = {f.measurement for f in pipeline.sheet_facts}
+    for step in pipeline.steps:
+        for setting in step.settings:
+            if setting.at_run is None:
+                continue
+            missing = [f.measurement for f in setting.at_run.facts
+                       if f.source is not AtRunSource.MEASURED and f.measurement not in columns]
+            if missing:
+                raise ValueError(coded(
+                    "MD0335", f"{step.id}.{setting.name} reads {', '.join(missing)} from the "
+                    "samplesheet, and the samplesheet has no such column — "
+                    "`mendel explain MD0335`."))
 
 
 def emit(pipeline: Pipeline) -> str:
@@ -624,7 +744,22 @@ def test_samplesheet(pipeline: Pipeline) -> str:
         for column, url in zip(channel.columns, by_param[channel.param].test_data, strict=False):
             columns.append(column)
             values.append(url)
+    # Each fact column gets a value its check accepts (#466): `auto` where the run measures it,
+    # the first allowed value, `true`, or the smallest number allowed.
+    for fact in pipeline.sheet_facts:
+        columns.append(fact.column)
+        values.append(_test_cell(fact))
     return ",".join(columns) + "\n" + ",".join(values) + "\n"
+
+
+def _test_cell(fact) -> str:
+    if fact.auto:
+        return "auto"
+    if fact.values:
+        return fact.values[0]
+    if fact.kind.value == "boolean":
+        return "true"
+    return _shown(fact.minimum if fact.minimum is not None else 1)
 
 
 def _at_run_fragment(step: Step, setting) -> str:

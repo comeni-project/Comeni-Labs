@@ -117,13 +117,16 @@ def test_the_values_run_time_settings_took_are_read(client, a_run, session, tmp_
     path.write_text(yaml.safe_dump(data))
     decided = launcher.results_dir(a_run.id) / "decided"
     decided.mkdir(parents=True)
-    (decided / "star_genomegenerate.sa_index_nbases.tsv").write_text("g\t6\nbad line\n")
+    (decided / "star_genomegenerate.sa_index_nbases.tsv").write_text(
+        "g\t6\tgenome_length=29903:measured\nbad line\n")
     (decided / "../escape.tsv").write_text("x\t1\n")
     _complete(session, a_run.id)
     session.commit()
     body = client.get(f"/api/runs/{a_run.id}/measured").json()
     assert body["decided"] == [{"step": "star_genomegenerate", "setting": "sa_index_nbases",
-                                "sample": "g", "value": "6"}]
+                                "sample": "g", "value": "6", "facts": [
+                                    {"fact": "genome_length", "value": "29903",
+                                     "source": "measured"}]}]
 
 
 def test_a_symlinked_results_folder_is_not_followed(client, a_run, session, tmp_path):
