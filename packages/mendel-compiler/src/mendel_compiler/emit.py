@@ -338,7 +338,7 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
 
 
 def _cells(pipeline: Pipeline) -> str:
-    """Each row's facts, parsed and checked before any process starts (#466): every cell against
+    """Each row's facts, parsed and checked before any sample is processed (#466): every cell
     its declared kind and values, a blank only where the fact is optional, `auto` only where a
     step measures it. A bad cell stops the run naming the row, the sample and the column. The
     parsed values sit on `row.comeni`: each fact under its id and under a module's key, and
@@ -513,7 +513,9 @@ def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str], dict[str, st
             blank = " || ".join(f"meta.{f} == null" for f in facts)
             source = f"{raw}_unstated"
             before.append(f"{source} = {raw}.filter {{ meta, data -> {blank} }}")
-            unstated[channel.name] = source
+            # Only the measuring steps see just the blank rows; every other step, in the
+            # branch or not, keeps every row (Task 6 review, Critical).
+            unstated[channel.name] = " || ".join(f"it[0].{f} == null" for f in facts)
         # `failOnMismatch`: a sample whose measurement never matches its input must stop the
         # run, not vanish from it with exit 0 (Task 7 review).
         joins = "".join(
@@ -629,9 +631,60 @@ def _calls(pipeline: Pipeline) -> list[str]:
         return [*(_call(pipeline, step) for step in pipeline.steps), *_decided(pipeline, {})]
     measured, joined, unstated, before = _joined(pipeline)
     _check_measuring(pipeline, branch, measured)
-    first = [_call(pipeline, step, unstated) for step in pipeline.steps if step.id in branch]
-    rest = [_call(pipeline, step, measured) for step in pipeline.steps if step.id not in branch]
+    first = [_measuring_call(pipeline, step, unstated) for step in pipeline.steps
+             if step.id in branch]
+    rest = [_remeta(pipeline, step, branch, measured, _call(pipeline, step, measured))
+            for step in pipeline.steps if step.id not in branch]
     return [*before, *first, *joined, *rest, *_decided(pipeline, measured)]
+
+
+def _measuring_call(pipeline: Pipeline, step: Step, unstated: dict[str, str]) -> str:
+    """A step of the measuring branch; a measurer of facts the samplesheet may state reads only
+    the rows that left them blank (#466)."""
+    call = _call(pipeline, step)
+    root = _meta_root(pipeline, step)
+    blank = unstated.get(root) if step.include.startswith(MEASURING) else None
+    if blank is None or "(" not in call:
+        return call
+    process, _, rest = call.partition("(")
+    first, sep, others = _split_first(rest[:-1])
+    return f"{process}(({first}).filter {{ it -> {blank} }}{sep}{others})"
+
+
+def _split_first(args: str) -> tuple[str, str, str]:
+    """The first argument of a call's argument list, at its top level."""
+    depth = 0
+    for n, ch in enumerate(args):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            return args[:n], ", ", args[n + 1:].lstrip()
+    return args, "", ""
+
+
+def _remeta(pipeline: Pipeline, step: Step, branch: set[str], measured: dict[str, str],
+            call: str) -> str:
+    """A step whose first input comes out of the measuring branch never had the measured facts
+    joined into its `meta`: they are joined back by sample id, so its lookup and the decided
+    record read the same values (Task 6 review)."""
+    if not step.call or not step.call[0].ports:
+        return call
+    wiring = next(i for i in step.inputs if i.port == step.call[0].ports[0])
+    if wiring.source is None or wiring.source.partition(".")[0] not in branch:
+        return call
+    root = _meta_root(pipeline, step)
+    channel = next((c for c in pipeline.channels if c.name == root), None)
+    if channel is None or root not in measured or channel.grain is not Grain.SAMPLE:
+        return call
+    keys = ", ".join(f"'{m.meta_key}'" for m in channel.meta_at_run)
+    process, _, rest = call.partition("(")
+    first, sep, others = _split_first(rest[:-1])
+    merged = (f"({first}).map {{ it -> [it[0].id, it] }}.join({measured[root]}.map {{ meta, d -> "
+              f"[meta.id, meta.subMap([{keys}, 'comeni_from'])] }}, failOnMismatch: true)"
+              ".map { id, it, m -> [it[0] + m] + it[1..-1] }")
+    return f"{process}({merged}{sep}{others})"
 
 
 def _check_cells(pipeline: Pipeline) -> None:

@@ -80,8 +80,14 @@ decisions:
         "read_length", MeasurementKind.INTEGER, False, True, 1)
     text = emit(pipeline)
     assert "c == 'auto' ? null" in text
-    # Only rows whose cell is blank go through the measuring step.
-    assert "ch_reads_unstated" in text
+    # Only the measuring step sees just the rows whose cell is blank; trimming, and with it the
+    # analysis, gets every row (Task 6 review, Critical).
+    assert "TRIMGALORE(ch_reads)" in text or "TRIMGALORE((ch_reads)" in text
+    assert ".filter { it -> it[0].read_length == null }" in text
+    # Alignment reads trimming's output, which never had the measurement joined in, so the
+    # measured facts are joined back there and ride on to featureCounts.
+    align = next(line for line in text.splitlines() if "STAR_ALIGN(" in line)
+    assert "meta.subMap(['read_length', 'comeni_from'])" in align
     # Each sample's value is recorded with where it came from.
     assert "read_length=${meta.read_length}:" in text
     # A lookup reading a cell needs the column, or every sample would read nothing.
@@ -97,3 +103,14 @@ def test_the_test_profile_fills_every_fact_column(stranded):
     header, row, _ = test_samplesheet(stranded).split("\n")
     cells = dict(zip(header.split(","), row.split(","), strict=True))
     assert cells["strandedness"] == "forward"
+
+
+def test_a_pipeline_that_lost_a_varying_column_is_refused(stranded):
+    """Strandedness reaches featureCounts on `meta`, not through a lookup, so only the file's
+    own check can catch its column going missing (Task 6 review)."""
+    from pydantic import ValidationError
+
+    data = stranded.model_dump(mode="json")
+    data["sheet_facts"] = []
+    with pytest.raises(ValidationError, match="MD0335"):
+        Pipeline.model_validate(data)

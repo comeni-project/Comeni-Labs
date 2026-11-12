@@ -636,6 +636,13 @@ class Pipeline(EgressPayload):
             )
         per_sample = [c.name for c in self.channels if c.grain is Grain.SAMPLE]
         wants_table = self.input_form is InputForm.SAMPLESHEET
+        varies = set(self.intent.constraints.varies)
+        if varies != {f.measurement for f in self.sheet_facts}:
+            raise ValueError(coded(
+                "MD0335", f"the facts said to differ between samples "
+                f"({', '.join(sorted(varies)) or 'none'}) are not this pipeline's samplesheet "
+                f"columns ({', '.join(sorted(f.column for f in self.sheet_facts)) or 'none'}); "
+                "rebuild it from its goal — `mendel explain MD0335`."))
         if self.sheet_facts and not wants_table:
             raise ValueError(coded(
                 "MD0335", "this pipeline has samplesheet facts and takes no samplesheet; a "
