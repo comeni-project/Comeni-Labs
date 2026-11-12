@@ -189,6 +189,8 @@ or a complete commit history.
 
 ### mendel-authoring
 
+- The memory rendered for the model says how uploaded samples spread over each fact they differ on (#466).
+
 #### Changed
 
 - The protocol engine moved to `comeni-flow`; `PROTOCOL` is declared on it through
@@ -218,6 +220,8 @@ or a complete commit history.
   questions are not asked again. Build and Spawn are consolidated into one authoring flow.
 
 ### mendel-api
+
+- Several uploads (#466, #218): an upload takes any number of files, mates paired by name; each sample is measured and kept with the session, with its name and measurements (session shape 3). Facts every sample agrees on are recorded; where they differ, the question says how they spread and proposes an answer to confirm. The model's memory carries each spread, never a sample's name.
 
 - Per-sample facts (#466): the conversation offers *it differs between samples* where everything reading a fact can take a value per sample (a fact's origin `varies`); the step card lists tool rules checked per sample and where each run-time fact comes from. Stored previews, drafts, blueprints, turns and forge items migrate to the new shapes.
 
@@ -517,6 +521,8 @@ or a complete commit history.
 - Shared pure graph layout supports the build and run canvases.
 
 ### frontend
+
+- The upload takes every sample at once; current answers list each sample with its measurements, filtered, sorted and grouped (#466).
 
 - The samplesheet editor offers each per-sample fact's values, `auto` where the run measures a blank; the run page says where each decided value's facts came from (#466).
 

@@ -31,3 +31,11 @@ six.
 
 Stage 2 of the per-sample design: several uploads and the conversation (brainstormed in the
 design already; plan, then build).
+
+## Stage 2: several uploads (same day)
+
+[The plan](../../superpowers/plans/2026-11-12-per-sample-stage-2.md). An upload takes any number
+of files (operator: 400–500 genomes is ordinary; keep it simple, one request); mates pair by name;
+each sample is measured and kept with the session under its name (operator: stored with the
+session). Agreement is recorded; a spread is asked, with a proposal the person confirms. The
+model sees spreads, never names. The builder lists every sample with its measurements.
