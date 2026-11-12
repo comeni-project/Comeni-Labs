@@ -145,7 +145,7 @@ function FactCell({ fact, label, value, onChange }: {
   // blank, which would quietly become "measure it". What was typed is kept and checked below.
   return (
     <input aria-label={label} type="text" value={value} title={fact.why}
-           inputMode={fact.kind === "integer" ? "numeric" : "decimal"}
+           inputMode={fact.kind === "integer" ? "numeric" : fact.kind === "key" ? "text" : "decimal"}
            placeholder={fact.auto ? "auto — measured in the run" : "a number"}
            onChange={(event) => onChange(event.target.value)} className={CELL} />
   );
@@ -177,6 +177,10 @@ export function incomplete(rows: Row[], columns: string[], facts: FactColumn[] =
 
 /** What is wrong with a number cell, in the pipeline's own words, or `null`. */
 function numberProblem(fact: FactColumn, cell: string): string | null {
+  // A key names a relation between samples, such as a patient (issue 466).
+  if (fact.kind === "key") {
+    return !cell || /^[A-Za-z0-9_.-]+$/.test(cell) ? null : "is not a key: letters, digits and _ . - only";
+  }
   if (!cell || cell === "auto" || (fact.kind !== "integer" && fact.kind !== "number")) return null;
   const whole = /^-?\d+$/.test(cell);
   if (fact.kind === "integer" && !whole) {

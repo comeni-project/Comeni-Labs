@@ -25,6 +25,7 @@ from comeni_core.spell.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
 from comeni_core.spell.marks import (
     ContainerRef,
     ContractId,
+    MeasurementId,
     NfIdentifier,
     NfPath,
     NfTemplate,
@@ -95,6 +96,10 @@ class InputPort(BaseModel):
     """One invocation takes every item of a finer grain at once, gathered with `.collect()`:
     MultiQC reads every sample's report in one run. Declared with `grain: study`, since a sample
     has nothing finer to gather until units and parts arrive (per-sample design, Goal A)."""
+    by: MeasurementId | None = Field(default=None, exclude_if=lambda by: by is None)
+    """With `many`, gather per value of this key rather than over the study (#466): a
+    co-assembler reads every sample of one group in one call. The key comes from each
+    samplesheet row."""
     required: bool = True
     """Whether the process can run without this input (#460). An optional input is left out
     unless switched on, and its `nf_inputs` entry says what to pass instead (`absent`)."""
@@ -113,8 +118,13 @@ class InputPort(BaseModel):
 
     @model_validator(mode="after")
     def _gathers_something(self) -> "InputPort":
-        # A study gathers its samples; a sample gathers its rows, such as lanes (#466).
-        if self.many and self.grain not in (Grain.STUDY, Grain.SAMPLE):
+        if self.by is not None and not self.many:
+            raise ValueError(coded(
+                "MD0343", f"port {self.name!r} groups by {self.by} and does not gather "
+                "(`many: true`) — `mendel explain MD0343`."))
+        # A study gathers its samples; a sample gathers its rows, such as lanes (#466); a group,
+        # the samples sharing a key.
+        if self.many and self.by is None and self.grain not in (Grain.STUDY, Grain.SAMPLE):
             raise ValueError(coded(
                 "MD0331", f"port {self.name!r} gathers (`many: true`) at grain "
                 f"{self.grain.value if self.grain else 'of its type'}, which has nothing finer to "

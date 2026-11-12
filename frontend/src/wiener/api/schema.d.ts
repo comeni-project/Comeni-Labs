@@ -703,7 +703,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "boolean" | "enum" | "integer" | "number";
+            kind: "boolean" | "enum" | "integer" | "number" | "key";
             /**
              * Values
              * @default []

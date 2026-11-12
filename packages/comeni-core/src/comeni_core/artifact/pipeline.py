@@ -303,6 +303,8 @@ class StepInput(BaseModel):
     """External input channel name; mutually exclusive with source."""
     gather: bool = False
     """Collect the whole channel for one invocation, rather than process individual items."""
+    by: MeasurementId | None = Field(default=None, exclude_if=lambda by: by is None)
+    """With `gather`, gather per value of this key rather than over the study (#466)."""
     mixed: list[EdgeRef] = Field(default_factory=list, exclude_if=lambda m: not m)
     """Further upstream outputs feeding this input, sorted: branches of a tool chosen per
     sample rejoining here, each sample arriving from its own (#466)."""
@@ -658,7 +660,9 @@ class Pipeline(EgressPayload):
             )
         per_sample = [c.name for c in self.channels if c.grain is Grain.SAMPLE]
         wants_table = self.input_form is InputForm.SAMPLESHEET
-        varies = set(self.intent.constraints.varies)
+        # Every fact said to vary, and every key a step groups by, has its column (#466).
+        varies = set(self.intent.constraints.varies) | {
+            i.by for s in self.steps for i in s.inputs if i.by is not None}
         if varies != {f.measurement for f in self.sheet_facts}:
             raise ValueError(coded(
                 "MD0335", f"the facts said to differ between samples "

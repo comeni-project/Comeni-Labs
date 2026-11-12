@@ -134,3 +134,17 @@ describe("a second file a row may leave blank (issue 466)", () => {
     expect(incomplete(rows, ["reads_1", "reads_2"], [])).toEqual(["row 1: reads_2"]);
   });
 });
+
+
+describe("a key column (issue 466)", () => {
+  const group = { column: "group", kind: "key" as const, values: [] as string[], required: true,
+                  auto: false, why: "a step groups samples by group" };
+
+  it("takes letters, digits and _ . - only, as the pipeline checks it", () => {
+    expect(incomplete([{ sample: "A", reads_1: "/a.fq", group: "patient 1" }], ["reads_1"], [group]))
+      .toEqual(["row 1: group is not a key: letters, digits and _ . - only"]);
+    expect(incomplete([{ sample: "A", reads_1: "/a.fq", group: "patient-1" }], ["reads_1"], [group]))
+      .toEqual([]);
+  });
+});
+

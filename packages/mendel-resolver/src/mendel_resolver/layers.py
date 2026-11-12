@@ -170,6 +170,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     families = FamilyVocabulary.of(declared_families)
     declared_tools = stack(stacked, ToolCatalogue.kind(), buckets=buckets)
     pieces = [stack(stacked, kind, buckets=buckets) for kind in InspectionCatalogue.kinds()]
+    _no_key_measured(InspectionCatalogue.of(*pieces), measurements)
     inspection, refused_pieces = InspectionCatalogue.of(*pieces).check(
         set(vocabulary.types), set(measurements.measurements)
     )
@@ -190,6 +191,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     for contract in registry.all():
         roles.check(contract.id, contract.roles)
         _check_facts_read(contract, measurements)
+        _check_groups(contract, measurements)
     # A `by: tool` measurer names a tool's contract, which may come from any layer (#465).
     inspection, refused_tools = inspection.check_tools(registry)
     refused_pieces = [*refused_pieces, *refused_tools]
@@ -275,6 +277,33 @@ def _blame_the_overlay(
         type_id=error.type_id,
         state=error.state,
     )
+
+
+def _no_key_measured(catalogue, measurements: MeasurementRegistry) -> None:
+    """A key is a laboratory's own identifier, read from the samplesheet: nothing measures one
+    (MD0342, #466). Checked before a piece is refused for any other reason."""
+    from comeni_core.declared.measurement import MeasurementKind
+
+    for key, measurer in sorted(catalogue.measurers.items()):
+        if measurer.measures in measurements.ids() \
+                and measurements.get(measurer.measures).kind is MeasurementKind.KEY:
+            raise ValueError(coded(
+                "MD0342", f"measurer {key} measures {measurer.measures}, a key, which only a "
+                "samplesheet row gives — `mendel explain MD0342`."))
+
+
+def _check_groups(contract, measurements: MeasurementRegistry) -> None:
+    """A port gathers by a key each sample's row carries (MD0343, #466)."""
+    from comeni_core.declared.measurement import MeasurementKind
+
+    for port in contract.consumes:
+        if port.by is None:
+            continue
+        if port.by not in measurements.ids() \
+                or measurements.get(port.by).kind is not MeasurementKind.KEY:
+            raise ValueError(coded(
+                "MD0343", f"{contract.id}'s {port.name} groups by {port.by}, which is not a "
+                "key measurement — `mendel explain MD0343`."))
 
 
 def _check_facts_read(contract, measurements: MeasurementRegistry) -> None:

@@ -3519,7 +3519,7 @@ export interface components {
          * MeasurementKind
          * @enum {string}
          */
-        MeasurementKind: "integer" | "number" | "boolean" | "enum";
+        MeasurementKind: "integer" | "number" | "boolean" | "enum" | "key";
         /**
          * MeasurerView
          * @description One way a measurement can be measured, and where that runs (#134).

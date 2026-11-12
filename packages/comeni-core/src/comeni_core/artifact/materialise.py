@@ -135,7 +135,10 @@ def of(
             )
         )
     channels = _optional_channels(channels, steps, registry)
-    sheet_facts = _sheet_facts(ir, goal, measurements, channels)
+    # A key a port groups by is a column of its own, whether or not anybody said so (#466).
+    keys = sorted({port.by for node in ir.nodes for port in registry.get(node.contract_id).consumes
+                   if port.by is not None})
+    sheet_facts = _sheet_facts(ir, goal, measurements, channels, grouping=keys)
 
     return Pipeline(
         # Save the resolved profile with the original intent and inputs.
@@ -158,11 +161,12 @@ def of(
 
 
 def _sheet_facts(ir: PipelineIR, goal: Goal, measurements: MeasurementRegistry | None,
-                 channels: Sequence[Channel] = ()) -> list[SheetFact]:
+                 channels: Sequence[Channel] = (), grouping: Sequence[str] = ()
+                 ) -> list[SheetFact]:
     """The samplesheet's fact columns (#466): every fact a person said differs between samples.
     Required, unless a step the build added measures it for a run-time setting, when a blank or
     `auto` cell is measured. Sorted by column."""
-    if measurements is None or not goal.constraints.varies:
+    if measurements is None or not (goal.constraints.varies or grouping):
         return []
     auto = {f.measurement for node in ir.nodes for binding in node.params
             if binding.value.at_run is not None for f in binding.value.at_run.facts
@@ -170,7 +174,7 @@ def _sheet_facts(ir: PipelineIR, goal: Goal, measurements: MeasurementRegistry |
     auto |= {f.measurement for node in ir.nodes if node.guard is not None
              for f in node.guard.lookup.facts if f.source is AtRunSource.CELL_OR_MEASURED}
     found = []
-    for fact in goal.constraints.varies:
+    for fact in sorted({*goal.constraints.varies, *grouping}):
         declared = measurements.get(fact)
         # A fact read off the row (#466) is its input's second file being there: no column.
         second = next((c.columns[1] for c in channels
@@ -186,7 +190,9 @@ def _sheet_facts(ir: PipelineIR, goal: Goal, measurements: MeasurementRegistry |
             from_row=from_row, describes=declared.describes,
             meta=keys,
             why=Why(tier=Tier.STRUCTURAL, source=ValueSource.SAID,
-                    reason=(f"you said {fact} differs between samples, so each row states it"
+                    reason=(f"a step groups samples by {fact}, so each row names its {fact}"
+                            if fact in grouping and fact not in goal.constraints.varies else
+                            f"you said {fact} differs between samples, so each row states it"
                             + (", or leaves it blank to be measured" if fact in auto else ""))),
         ))
     return sorted(found, key=lambda f: f.column)
@@ -364,6 +370,7 @@ def _inputs(
                     states=sorted(edge.states),
                     gather=gather,
                     mixed=sorted((rejoining or {}).get((node.id, port.name), [])),
+                    by=port.by,
                 )
             )
         else:
@@ -371,7 +378,8 @@ def _inputs(
                 assigned_channels.get(f"{node.id}.{port.name}")
                 or default_channels_by_type[node.entry_type(port.name, port.type_id)]
             )
-            inputs.append(StepInput(port=port.name, channel=assigned, gather=gather))
+            inputs.append(StepInput(port=port.name, channel=assigned, gather=gather,
+                                    by=port.by))
     return inputs
 
 

@@ -3146,6 +3146,32 @@ MD0341:
     nf-core/cat/fastq for reads (#466). Without one, the rows of a sample could not become one
     item, so the build refuses and names the type.
 
+MD0342:
+  emitted_by: resolver
+  concern: loading
+  says: "a measurer measures a key, which only a samplesheet row gives"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Remove the measurer, or declare the measurement as a kind other than `key`.
+  explanation: |
+    A key, such as a patient or a group, is a laboratory's own identifier for a relation between
+    samples (#466). It comes from each samplesheet row and is compared only for equality; nothing
+    in the data measures it, and Mendel never reads its values.
+
+MD0343:
+  emitted_by: resolver
+  concern: loading
+  says: "a port groups by something that is not a key, or groups without gathering"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Name a measurement of kind `key` in `by`, and declare `many: true` beside it.
+  explanation: |
+    `by: <key>` with `many: true` gathers the samples sharing a key's value into one call, such as
+    a co-assembler reading every sample of one group (#466). The value comes from each samplesheet
+    row, so it must be a key; and grouping is gathering, so the port must take many items.
+
 MD0501:
   emitted_by: resolver
   concern: validation

@@ -125,6 +125,13 @@ def _port_expression(pipeline: Pipeline, step: Step, port_name: str,
         # An input whose `meta` carries a fact the run measures reads the joined channel; the
         # steps that measure it read the raw one (#217).
         expression = (measured or {}).get(wiring.channel) or _channel_name(wiring.channel)
+    if wiring.gather and wiring.by is not None:
+        # One call per group of the key, gathered once its own samples are done (#466).
+        key = wiring.by
+        return (f"{expression}.map {{ it -> [ groupKey(it[0].{key}, "
+                f"it[0].comeni_groups['{key}']), it ] }}.groupTuple().map {{ k, items -> "
+                f"[ [id: k.toString(), {key}: k.toString()], "
+                "items.collect { it[1] }.flatten() ] }")
     return f"{expression}.collect()" if wiring.gather else expression
 
 
@@ -336,6 +343,8 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
         # The row's facts ride on the input they describe (#466), parsed and checked above.
         identity = (f"[id: row.{SAMPLE_COLUMN}] + row.comeni" if channel.type_id in carried
                     else f"[id: row.{SAMPLE_COLUMN}]")
+        if channel.type_id in carried and _keys(pipeline):
+            identity += " + [comeni_groups: row.comeni_groups]"
         name = _channel_name(channel.name)
         if channel.units:
             # One item per row, each knowing how many rows its sample has (#466): merged below.
@@ -382,8 +391,27 @@ def _cells(pipeline: Pipeline) -> str:
         "            row + [comeni: v" + module + " + [comeni_from: v.findAll { it.value != null }"
         ".collectEntries { [it.key, 'cell'] }]]\n"
         "        }\n"
-        "    }"
+        "    }" + _group_sizes(pipeline)
     )
+
+
+def _keys(pipeline: Pipeline) -> list[str]:
+    """The keys some step gathers by (#466), sorted."""
+    return sorted({i.by for s in pipeline.steps for i in s.inputs if i.by is not None})
+
+
+def _group_sizes(pipeline: Pipeline) -> str:
+    """Each row learns how many samples share each key's value with it, so a group gathers as
+    soon as its own samples are done (#466)."""
+    keys = _keys(pipeline)
+    if not keys:
+        return ""
+    counts = ", ".join(f"{k}: rows.collect {{ it.comeni.{k} }}.countBy {{ it }}" for k in keys)
+    sizes = ", ".join(f"{k}: sizes.{k}[row.comeni.{k}]" for k in keys)
+    return (".toList().flatMap { rows ->\n"
+            f"        def sizes = [{counts}]\n"
+            f"        rows.collect {{ row -> row + [comeni_groups: [{sizes}]] }}\n"
+            "    }")
 
 
 def _cell(fact) -> str:
@@ -406,6 +434,10 @@ def _stated_cell(fact) -> str:
     elif kind == "boolean":
         parsed = (f"c == 'true' ? true : c == 'false' ? false : "
                   f"error(\"{where}: '${{c}}' is not one of true, false\")")
+    elif kind == "key":
+        # A laboratory's identifier for a relation (#466): letters, digits and `_ . -` only.
+        parsed = (f"c ==~ /[A-Za-z0-9_.-]+/ ? c : error(\"{where}: '${{c}}' is not a key: "
+                  "letters, digits and _ . - only\")")
     else:
         number = ("c ==~ /-?\\d+/ ? (c as long)" if kind == "integer"
                   else "c.isBigDecimal() ? (c as BigDecimal)")

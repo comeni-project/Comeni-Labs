@@ -124,7 +124,7 @@ class FactColumnView(BaseModel):
     """A samplesheet column each row states a fact in (#466)."""
 
     column: str
-    kind: Literal["boolean", "enum", "integer", "number"]
+    kind: Literal["boolean", "enum", "integer", "number", "key"]
     values: list[str] = []
     minimum: float | None = None
     maximum: float | None = None
