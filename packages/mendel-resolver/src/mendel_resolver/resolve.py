@@ -152,6 +152,9 @@ def resolve(
                        branch={point.decision.key(): tool}, branch_facts=measured, **args)
         for tool in point.outcomes
     ]
+    if not any(n.contract_id in point.outcomes for route in routes for n in route.nodes):
+        # The goal never reaches the choice (final review C1): nothing to branch.
+        return _resolve_route(goal, registry, rules, measurements, resolver=remembering, **args)
     backed = {record.key: record.human_override for record in prior
               if getattr(record, "human_override", None) is not None}
     return _merged(point, routes, registry, measurements, goal, remembering, backed)
@@ -1041,7 +1044,9 @@ def _fallback(point: "at_run.BranchPoint", node_id: str, resolver: AmbiguityReso
               backed: Mapping[str, object]) -> tuple[object, AtRunFallback, str, ParamDecision]:
     """Which tool takes a sample no row covers, its fact undetermined included: asked once
     at build time. A tool, or `AT_RUN_STOP`: the run stops and names the sample."""
-    candidates = [*point.outcomes, at_run.AT_RUN_STOP]
+    # The stop first (final review I2): a resolver that only flags takes it, so a sample no row
+    # covers stops the run until somebody chooses a tool for it, as a setting's fallback does.
+    candidates = [at_run.AT_RUN_STOP, *point.outcomes]
     ambiguity = ParamAsked(node_id=node_id, subject=f"{IF_NO_ROW}.{point.decision.key()}",
                            candidates=candidates)
     resolution = resolver.resolve(ambiguity)
@@ -1119,6 +1124,10 @@ def _merged(point: "at_run.BranchPoint", routes: Sequence[PipelineIR], registry:
     fallback, kind, why, asked = _fallback(point, first.id, resolver, backed)
     measuring = {m.measurement: m.measured_at for r in routes for m in r.meta_at_run}
     by_contract = {n.id: n.contract_id for r in routes for n in r.nodes}
+    unmeasured = [f for f in point.facts
+                  if point.source(f) is not AtRunSource.CELL and f not in measuring]
+    if unmeasured:
+        raise _refused(f"nothing in the run can measure {', '.join(unmeasured)}")
     lookup = AtRun(
         facts=[AtRunFact(measurement=f, meta_key=f, source=point.source(f),
                          measured_by=(by_contract[measuring[f]]

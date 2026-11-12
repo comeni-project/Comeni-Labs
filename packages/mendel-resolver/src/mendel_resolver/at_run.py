@@ -466,6 +466,12 @@ def branch_points(registry: Registry, rules: RuleTable, premises: dict,
         outcomes = tuple(dict.fromkeys(row.then for row in rows if row.then in reached))
         if len(outcomes) < 2:
             continue
+        # A person's say over the choice stands for every sample (final review C2): a tool they
+        # pinned, a role they switched off, a tool they excluded.
+        said = {pin.contract for pin in goal.constraints.producers}
+        said |= {e.contract for e in goal.constraints.exclusions}
+        if said & set(outcomes) or goal.constraints.roles_absent() & set(roles):
+            continue
         found.append(BranchPoint(decision, tuple(unknown), tuple(sources), tuple(rows),
                                  outcomes))
     return found

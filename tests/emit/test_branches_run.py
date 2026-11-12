@@ -81,11 +81,10 @@ def test_an_index_no_sample_needs_never_starts(built, tmp_path):
     assert "SUBREAD_FEATURECOUNTS" in ran
 
 
-def test_a_sample_whose_length_is_undetermined_takes_the_fallback(built, tmp_path):
+def test_a_sample_whose_length_is_undetermined_stops_the_run_naming_it(built, tmp_path):
     """Measured where blank; a stub measures nothing, so no row covers it (Review Focus 3).
-    It never vanishes: it is routed, and counted."""
-    done, routed, ran = _run(tmp_path, built, ["50", ""])
-    assert done.returncode == 0, done.stdout + done.stderr
-    assert set(routed) == {"S1", "S2"}
-    assert routed["S1"] == "nf-core.hisat2.align:2.2.2"
-    assert routed["S2"].startswith("nf-core.")
+    Nobody chose a tool for such a sample, so the run stops and names it: it never vanishes."""
+    done, _, _ = _run(tmp_path, built, ["50", ""])
+    assert done.returncode != 0
+    said = done.stdout + done.stderr
+    assert "sample S2: no row of implementation:alignment applies to its read_length" in said

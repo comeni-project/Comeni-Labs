@@ -107,3 +107,31 @@ def test_a_pipeline_without_branches_emits_as_before():
 
     text = emit(_built([], {"read_length": 150}))
     assert ".mix(" not in text and "alignment.tool.tsv" not in text and ".map { true }" not in text
+
+
+def test_a_tool_rule_reads_only_the_samples_its_branch_takes(branched):
+    """Final review I1: a sample sent to HISAT2 never meets STAR's per-sample rules."""
+    from comeni_core.plan.at_run import AtRunCondition, AtRunTest, SampleRule
+    from mendel_compiler.emit import emit
+
+    rule = SampleRule(when=[AtRunCondition(fact="read_length", test=AtRunTest.LT,
+                                           operand=[50])], says="a fixture rule")
+    steps = [s.model_copy(update={"sample_rules": [rule]}) if s.id == "star_align" else s
+             for s in branched.steps]
+    star = _call(emit(branched.model_copy(update={"steps": steps})), "STAR_ALIGN")
+    assert star.index(".filter {") < star.index("error(")
+
+
+def test_a_branch_inside_the_measuring_branch_is_refused(branched):
+    """Final review I3: an aligner a run-time measurement reads would align every sample."""
+    from mendel_compiler.emit import emit
+
+    channels = []
+    for channel in branched.channels:
+        if channel.meta_at_run and channel.type_id == "fastq.reads":
+            moved = [m.model_copy(update={"measured_at": "samtools_sort"})
+                     for m in channel.meta_at_run]
+            channel = channel.model_copy(update={"meta_at_run": moved})
+        channels.append(channel)
+    with pytest.raises(ValueError, match="MD0330: .* takes only some samples"):
+        emit(branched.model_copy(update={"channels": channels}))

@@ -517,6 +517,7 @@ def _measuring_branch(pipeline: Pipeline) -> set[str]:
             continue
         branch.add(node)
         wanted |= {i.source.partition(".")[0] for i in by_id[node].inputs if i.source}
+        wanted |= {m.partition(".")[0] for i in by_id[node].inputs for m in i.mixed}
     return branch
 
 
@@ -655,7 +656,7 @@ def _calls(pipeline: Pipeline) -> list[str]:
     _check_cells(pipeline)
     branch = _measuring_branch(pipeline)
     if not branch:
-        calls = {step.id: _call(pipeline, step) for step in pipeline.steps}
+        calls = {step.id: _call(pipeline, step, guard=False) for step in pipeline.steps}
         ordered, routed = _branched(pipeline, calls, set())
         return [*ordered, *_decided(pipeline, {}), *routed]
     measured, joined, unstated, before = _joined(pipeline)
@@ -670,8 +671,19 @@ def _calls(pipeline: Pipeline) -> list[str]:
                 "MD0330", f"{step.id} checks per-sample rules and runs before the facts are "
                 "measured — `mendel explain MD0330`."))
     # The guard goes on after the measured facts are joined back, so it reads them.
-    calls = {step.id: _guarded(step, _remeta(pipeline, step, branch, measured,
-                                             _call(pipeline, step, measured, guard=False)))
+    samples = {f.describes for f in pipeline.sheet_facts}
+    for step in pipeline.steps:
+        root = next((c for c in pipeline.channels if c.name == _meta_root(pipeline, step)), None)
+        if step.id in branch and step.guard is not None and root is not None \
+                and root.type_id in samples:
+            # A step only some samples take, read by a measurement, would take them all
+            # (final review I3).
+            raise ValueError(coded(
+                "MD0330", f"{step.id} takes only some samples and a run-time measurement reads "
+                "what it makes, so it would run on every sample — `mendel explain MD0330`."))
+    # Each step's per-sample rules go on in `_branched`, after its branch's filter.
+    calls = {step.id: _remeta(pipeline, step, branch, measured,
+                              _call(pipeline, step, measured, guard=False))
              for step in pipeline.steps if step.id not in branch}
     rest, routed = _branched(pipeline, calls, branch)
     return [*before, *first, *joined, *rest, *_decided(pipeline, measured), *routed]
@@ -734,7 +746,7 @@ def _branched(pipeline: Pipeline, calls: dict[str, str], measuring: set[str]
             continue
         (entering if carries(step) else gated).append(step)
     if not entering and not gated:
-        return [calls[s.id] for s in pipeline.steps if s.id in calls], []
+        return [_guarded(s, calls[s.id]) for s in pipeline.steps if s.id in calls], []
     unfiltered = {step.id: _first_arg(calls[step.id]) for step in entering}
     after: dict[str, set[str]] = {}
     for step in entering:
@@ -761,7 +773,8 @@ def _branched(pipeline: Pipeline, calls: dict[str, str], measuring: set[str]
             needs |= {m.partition(".")[0] for i in step.inputs for m in i.mixed}
             needs |= after.get(step.id, set())
             if not (needs & {s.id for s in waiting}):
-                order.append(calls[step.id])
+                # A tool's per-sample rules read only the samples its branch admits (I1).
+                order.append(_guarded(step, calls[step.id]))
                 done.add(step.id)
                 waiting.remove(step)
                 break

@@ -94,8 +94,8 @@ def test_each_tool_is_routed_and_the_routes_merged_with_guards():
     keys = [d.key for d in ir.decisions]
     assert not [k for k in keys if k.startswith("producer:alignment.bam")]
     (fallback,) = [d for d in ir.decisions if "if_no_row" in d.key]
-    assert fallback.candidates == [STAR, HISAT2, at_run.AT_RUN_STOP]
-    assert guard.fallback == fallback.chosen
+    assert fallback.candidates == [at_run.AT_RUN_STOP, STAR, HISAT2]
+    assert guard.fallback is None and guard.fallback_is.value == "stop"
     # The measured fact is joined into the reads' `meta` before any guard reads it.
     assert [m.measurement for m in ir.meta_at_run if m.measurement == "read_length"]
     # Every node precedes what it feeds.
@@ -131,3 +131,43 @@ def test_routes_that_differ_before_the_choice_are_refused(tmp_path):
     stack = layers.load([ROOT / "registry", tmp_path / "raw"])
     with pytest.raises(ValueError, match="MD0339"):
         _resolved(stack, _goal(stack, varies=["read_length"]))
+
+
+def _goal_of(stack, have, want, *, varies=("read_length",), constraints=None) -> Goal:
+    return Goal.model_validate({
+        "have": have, "want": [want],
+        "constraints": {"varies": list(varies), **(constraints or {})},
+        "profile": stack.measurements.profile({}).model_dump(mode="json")})
+
+
+def test_a_goal_without_the_choice_builds_as_before():
+    """Final review C1: read length said to vary, and nothing aligns."""
+    stack = _stack()
+    qc = _resolved(stack, _goal_of(stack, [{"type_id": "fastq.reads"}], "qc.report"))
+    assert not [n for n in qc.nodes if n.guard is not None]
+    counted = _resolved(stack, _goal_of(
+        stack, [{"type_id": "alignment.bam"}, {"type_id": "annotation.gtf"}], "counts.matrix"))
+    assert "star_align" not in {n.id for n in counted.nodes}
+
+
+def test_a_persons_tool_is_no_branch_point():
+    """Final review C2: a pinned aligner serves every sample."""
+    stack = _stack()
+    goal = _goal(stack, varies=["read_length"]).model_copy(deep=True)
+    goal = Goal.model_validate({**goal.model_dump(mode="json"), "constraints": {
+        "varies": ["read_length"],
+        "producers": [{"site": {"type_id": "alignment.bam", "states": []}, "contract": STAR}]}})
+    assert _points(stack, goal) == []
+    ir = _resolved(stack, goal)
+    assert not [n for n in ir.nodes if n.guard is not None]
+    assert "hisat2_align" not in {n.id for n in ir.nodes}
+
+
+def test_an_unanswered_fallback_stops_the_run():
+    """Final review I2: nobody chose a tool for a sample no row covers."""
+    stack = _stack()
+    ir = _resolved(stack, _goal(stack, varies=["read_length"]))
+    (fallback,) = [d for d in ir.decisions if "if_no_row" in d.key]
+    assert fallback.candidates[0] == at_run.AT_RUN_STOP
+    guard = next(n.guard for n in ir.nodes if n.guard is not None)
+    assert guard.lookup.fallback_is.value == "stop"
