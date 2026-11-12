@@ -466,6 +466,10 @@ class Channel(BaseModel):
     test_data: list[TestDataRef] = Field(default_factory=list)
     """Public example inputs used by the test profile, represented as a list."""
 
+    units: bool = Field(default=False, exclude_if=lambda units: not units)
+    """A sample may span several rows of this input, such as its lanes (#466): the samplesheet
+    takes a `unit` column, and each sample's rows are merged before anything reads them."""
+
     optional: bool = Field(default=False, exclude_if=lambda optional: not optional)
     """Each run may supply this input or leave it empty (#460). True only when every step it
     feeds has it as an optional input."""
@@ -665,7 +669,12 @@ class Pipeline(EgressPayload):
             raise ValueError(coded(
                 "MD0335", "this pipeline has samplesheet facts and takes no samplesheet; a "
                 "fact that differs between samples needs a row to carry it."))
-        if wants_table and len(per_sample) < 2 and not self.sheet_facts:
+        lanes = any(c.units for c in self.channels)
+        if lanes and not wants_table:
+            raise ValueError(coded(
+                "MD0340", "an input whose rows may repeat a sample needs a samplesheet: only a "
+                "row says which lane it is — `mendel explain MD0340`."))
+        if wants_table and len(per_sample) < 2 and not self.sheet_facts and not lanes:
             raise ValueError(
                 coded(
                     "MD0229",

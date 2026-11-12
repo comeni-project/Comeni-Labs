@@ -113,7 +113,7 @@ class InputPort(BaseModel):
 
     @model_validator(mode="after")
     def _gathers_something(self) -> "InputPort":
-        # A study gathers its samples; a sample gathers its units, such as lanes (#466).
+        # A study gathers its samples; a sample gathers its rows, such as lanes (#466).
         if self.many and self.grain not in (Grain.STUDY, Grain.SAMPLE):
             raise ValueError(coded(
                 "MD0331", f"port {self.name!r} gathers (`many: true`) at grain "

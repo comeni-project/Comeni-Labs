@@ -572,10 +572,12 @@ def _run_sentences(contract: ModuleContract, node: IRNode) -> list[str]:
 
 
 def _form(channels: Sequence[Channel]) -> InputForm:
-    """Use a samplesheet for multiple sample-scoped channels, otherwise direct input."""
+    """Use a samplesheet for multiple sample-scoped channels, or an input whose rows may repeat
+    a sample (only a row can say which lane it is, #466); otherwise direct input."""
     return (
         InputForm.SAMPLESHEET
         if sum(1 for c in channels if c.grain is Grain.SAMPLE) > 1
+        or any(c.units for c in channels)
         else InputForm.DIRECT
     )
 
@@ -652,9 +654,10 @@ def _channels(
         channels.append(
             Channel(
                 columns=[name] if wide == 1 else [f"{name}_{n}" for n in range(1, wide + 1)],
-                # An input whose rows may repeat a sample carries one item per row (#466).
-                grain=Grain(chosen.value) if chosen else Grain.UNIT if type_id in units
-                else Grain(vocab.grains.get(type_id, Grain.SAMPLE)),
+                grain=Grain(chosen.value) if chosen else Grain(
+                    vocab.grains.get(type_id, Grain.SAMPLE)
+                ),
+                units=type_id in units,
                 why=_why(chosen) if chosen else None,
                 name=name,
                 param=param,

@@ -44,8 +44,7 @@ def test_cardinality_is_gone():
 def test_many_needs_a_finer_grain_to_gather():
     with pytest.raises(ValueError, match="MD0331"):
         ModuleContract.model_validate(
-            _contract({"name": "genome", "type_id": "genome.fasta", "grain": "unit",
-                       "many": True}))
+            _contract({"name": "genome", "type_id": "genome.fasta", "many": True}))
 
 
 def test_a_sample_may_gather_its_units():

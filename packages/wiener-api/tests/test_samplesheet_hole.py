@@ -187,3 +187,14 @@ def test_a_second_file_a_row_may_leave_blank_is_optional(tmp_path):
 channels:
 """)
     assert optional_columns(_artifact(tmp_path, body)) == ["reads_2"]
+
+
+def test_lanes_add_an_optional_unit_column(tmp_path):
+    """An input whose rows may repeat a sample (#466): each row names its unit, such as a lane;
+    a one-lane sample may leave it blank."""
+    from wiener_api.services.artifacts import optional_columns
+
+    channel = _channel("reads", "input", "sample", ["reads_1", "reads_2"]) + "  units: true\n"
+    artifact = _artifact(tmp_path, _pipeline("samplesheet", channel))
+    assert input_shape(artifact) == ("samplesheet", ["reads_1", "reads_2", "unit"])
+    assert optional_columns(artifact) == ["unit"]

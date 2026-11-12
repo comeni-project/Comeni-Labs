@@ -156,6 +156,9 @@ def input_shape(artifact_id: str) -> tuple[str, list[str]]:
         if channel.grain.value == "sample"
         for column in channel.columns
     )
+    # Each row names its unit, such as a lane, where a sample may span several rows (#466).
+    if any(channel.units for channel in pipeline.channels):
+        columns.append("unit")
     return (pipeline.input_form.value, columns)
 
 
@@ -165,7 +168,11 @@ def optional_columns(artifact_id: str) -> list[str]:
     pipeline = _pipeline(artifact_id)
     if pipeline is None:
         return []
-    return sorted(f.column for f in pipeline.sheet_facts if f.from_row is not None)
+    blank = {f.column for f in pipeline.sheet_facts if f.from_row is not None}
+    # A one-lane sample may leave its unit blank (#466).
+    if any(channel.units for channel in pipeline.channels):
+        blank.add("unit")
+    return sorted(blank)
 
 
 def input_facts(artifact_id: str) -> list[dict]:

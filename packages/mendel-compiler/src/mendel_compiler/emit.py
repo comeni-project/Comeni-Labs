@@ -313,7 +313,8 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
         (
             SAMPLESHEET,
             f"Channel.fromPath(params.input, checkIfExists: true)"
-            f".splitCsv(header: true){_no_duplicate_ids()}{_cells(pipeline)}",
+            f".splitCsv(header: true)"
+            f"{_no_duplicate_ids(any(c.units for c in pipeline.channels))}{_cells(pipeline)}",
         )
     ]
     carried = {f.describes for f in pipeline.sheet_facts}
@@ -335,8 +336,13 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
         # The row's facts ride on the input they describe (#466), parsed and checked above.
         identity = (f"[id: row.{SAMPLE_COLUMN}] + row.comeni" if channel.type_id in carried
                     else f"[id: row.{SAMPLE_COLUMN}]")
+        name = _channel_name(channel.name)
+        if channel.units:
+            # One item per row, each knowing how many rows its sample has (#466): merged below.
+            identity += " + [comeni_units: row.comeni_units]"
+            name = f"{name}_rows"
         projection = f"{SAMPLESHEET}.map {{ row -> [ {identity}, {payload} ] }}"
-        lines.append((_channel_name(channel.name), _with_meta(projection, channel.meta)))
+        lines.append((name, _with_meta(projection, channel.meta)))
     return lines
 
 
@@ -436,7 +442,73 @@ def _translated(fact, key) -> str:
     return f"({var} == null ? null : [{pairs}][{var}])"
 
 
-def _no_duplicate_ids() -> str:
+UNIT_COLUMN = "unit"
+"""The column telling one sample's rows apart, such as its lanes, where an input may span several
+rows per sample (#466)."""
+
+
+def _no_units_twice() -> str:
+    """Rows sharing a sample are its units; a repeated sample and unit is refused, naming them.
+    Each row learns how many its sample has, so its lanes gather as soon as they are all done
+    (#466)."""
+    return (
+        ".toList().map { rows ->\n"
+        "        def keys = rows.collect { \"${it.sample} unit ${it.unit ?: ''}\" }\n"
+        "        def twice = keys.countBy { it }.findAll { _k, v -> v > 1 }.keySet()\n"
+        "        if (twice) {\n"
+        "            error \"samplesheet has a repeated sample and unit: \" +\n"
+        "                \"${twice.join(', ')}. \" +\n"
+        "                \"Each row is one unit of a sample, such as a lane; give each its own.\"\n"
+        "        }\n"
+        "        def units = rows.collect { it.sample }.countBy { it }\n"
+        "        rows.collect { it + [comeni_units: units[it.sample]] }\n"
+        "    }.flatMap { it }"
+    )
+
+
+def _merging(pipeline: Pipeline) -> tuple[Pipeline, list[str]]:
+    """Each input whose rows may repeat a sample, merged before anything reads it (#466): its
+    rows split into one-row samples, which pass straight on, and samples with several, gathered
+    by `groupKey` sized from the sheet and merged; the two streams make the input's channel. The
+    rest of the emitter then sees a pipeline whose readers take that channel, one item per
+    sample, and no merging step."""
+    by_channel = {c.name: c for c in pipeline.channels}
+    merges = [step for step in pipeline.steps if step.inputs and step.inputs[0].channel
+              and by_channel[step.inputs[0].channel].units]
+    if not merges:
+        return pipeline, []
+    lines, rewired = [], {}
+    for step in merges:
+        channel = _channel_name(step.inputs[0].channel)
+        out = next(iter(_outputs_read(pipeline, step.id)), "reads")
+        rewired[f"{step.id}.{out}"] = step.inputs[0].channel
+        lines += [
+            f"{channel}_units = {channel}_rows.branch {{ it -> one: it[0].comeni_units == 1; "
+            "many: true }",
+            f"{step.process}({channel}_units.many.map {{ meta, files -> "
+            "[ groupKey(meta.id, meta.comeni_units), meta, files ] }.groupTuple().map { "
+            "key, metas, files -> def m = metas[0]; "
+            "def differ = metas.collectMany { x -> x.findAll { k, v -> m[k] != v }*.key }"
+            ".unique(); if (differ) error(\"samplesheet sample ${m.id}: its rows disagree on "
+            "${differ.join(', ')}\"); [ m, files.flatten() ] })",
+            f"{channel} = {channel}_units.one.mix({step.process}.out.{out})",
+        ]
+    steps = []
+    for step in pipeline.steps:
+        if step in merges:
+            continue
+        inputs = [i.model_copy(update={"source": None, "channel": rewired[i.source]})
+                  if i.source in rewired else i for i in step.inputs]
+        steps.append(step.model_copy(update={"inputs": inputs}))
+    return pipeline.model_copy(update={"steps": steps}), lines
+
+
+def _outputs_read(pipeline: Pipeline, step_id: str) -> list[str]:
+    return sorted({i.source.partition(".")[2] for s in pipeline.steps for i in s.inputs
+                   if i.source and i.source.partition(".")[0] == step_id})
+
+
+def _no_duplicate_ids(units: bool = False) -> str:
     """Refuse a table whose sample ids repeat, naming them. Plan 5B §5.4.
 
     Two sample-scoped channels are aligned by row, so a sample split across lanes or flowcells —
@@ -449,8 +521,11 @@ def _no_duplicate_ids() -> str:
     guessing, and names the ids so the person can fix the table.
 
     Emitted into the pipeline because that is where the table is: Mendel never reads one
-    (invariant 15), so the only place this check can run is the run itself.
+    (invariant 15), so the only place this check can run is the run itself. Where an input may
+    span several rows per sample, a repeated sample is its units instead (#466).
     """
+    if units:
+        return _no_units_twice()
     return (
         ".toList().map { rows ->\n"
         "        def seen = rows.collect { it.sample }\n"
@@ -893,11 +968,12 @@ def emit(pipeline: Pipeline) -> str:
         {"id": step.id, "process": step.process, "include": step.include}
         for step in pipeline.steps
     ]
+    view, merging = _merging(pipeline)
     return env.get_template("main.nf.j2").render(
         nodes=nodes,
         entry_channels=_entry_channels(pipeline),
         guards=_run_guards(pipeline),
-        calls=_calls(pipeline),
+        calls=[*merging, *_calls(view)],
     )
 
 
@@ -990,6 +1066,9 @@ def test_samplesheet(pipeline: Pipeline) -> str:
     for fact in pipeline.sheet_facts:
         columns.append(fact.column)
         values.append(_test_cell(fact))
+    if any(c.units for c in pipeline.channels):
+        columns.append(UNIT_COLUMN)
+        values.append("1")
     return ",".join(columns) + "\n" + ",".join(values) + "\n"
 
 

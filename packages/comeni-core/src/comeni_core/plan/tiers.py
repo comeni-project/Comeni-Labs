@@ -116,10 +116,6 @@ class Grain(StrEnum):
     SAMPLE = "sample"
     """One queued item per sample."""
 
-    UNIT = "unit"
-    """One item per row of a sample that spans several, such as its lanes, before they are
-    merged (#466)."""
-
 
 class InputForm(StrEnum):
     """How a laboratory supplies per-sample pipeline inputs."""
