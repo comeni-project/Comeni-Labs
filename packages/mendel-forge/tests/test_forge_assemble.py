@@ -186,3 +186,74 @@ def test_a_derived_fact_is_assembled_into_derives(tmp_path):
     assert [d["fact"] for d in derived["derives"]] == ["ignore_gtf"]
     proof = prove(REGISTRY, [], tmp_path / "draft")
     assert proof.loaded, proof.problems
+
+
+# ── measurements and measurers (#487, #490) ──────────────────────────────────────────────────
+
+FAIDX = REGISTRY / "tools" / "nf-core" / "samtools" / "faidx"
+DEPTH = {"id": "depth", "kind": "number", "description": "Mean depth", "cite": "a fixture"}
+
+
+def _faidx() -> tuple[dict, ModuleOrigin]:
+    data = yaml.safe_load((FAIDX / "contract.yml").read_text())
+    data.pop("declares")
+    module = yaml.safe_load((FAIDX / "module.yml").read_text())
+    origin = ModuleOrigin(source_dir=FAIDX / "module", module_id="nf-core/samtools/faidx",
+                          repo=module["upstream"]["repo"], sha=module["upstream"]["sha"],
+                          path=module["upstream"]["path"], licence="MIT")
+    return items_of(ModuleContract(**data)), origin
+
+
+def _write(values: dict, origin: ModuleOrigin, out):
+    return write_layer(values, "nf-core/samtools/faidx@1.24", PROVENANCE, origin,
+                       base=REGISTRY, out=out)
+
+
+def test_a_vocabulary_measurement_is_written(tmp_path):
+    """#490: an approved measurement from the vocabulary step was dropped."""
+    values, origin = _faidx()
+    _write({**values, "vocabulary:measurement:depth": DEPTH}, origin, tmp_path / "draft")
+    written = yaml.safe_load((tmp_path / "draft/vocabulary/measurements/depth.yml").read_text())
+    assert written["declares"] == "measurement" and written["id"] == "depth"
+    proof = prove(REGISTRY, [], tmp_path / "draft")
+    assert proof.loaded and proof.conforms, proof.problems
+
+
+def test_a_measurer_is_written_and_loads(tmp_path):
+    from mendel_resolver import layers
+    from support.forge_measurer import KEY, measurer
+    values, origin = _faidx()
+    drafted = {**measurer(), "decided": {"min_sequences": 1}}
+    _write({**values, KEY: drafted}, origin, tmp_path / "draft")
+    folder = tmp_path / "draft/measurers/measures/genome_length_fai"
+    declared = yaml.safe_load((folder / "measurer.yml").read_text())
+    assert declared == {
+        "declares": "measurer", "id": "genome_length_fai", "version": "1.0.0",
+        "measures": "genome_length", "by": "tool", "uses": "nf-core/samtools/faidx@1.24",
+        "output": "fai", "entry": "piece/genome_length_fai.py", "runs": ["pipeline"],
+        "decided": {"min_sequences": 1}}
+    assert (folder / "measurer.yml").read_text().startswith("# samtools faidx writes")
+    assert (folder / "piece/genome_length_fai.py").read_text() == drafted["code"]
+    assert (folder / "piece/test_genome_length_fai.py").read_text() == drafted["tests"]
+    stack = layers.load([REGISTRY, tmp_path / "draft"])
+    assert stack.inspection.measurers["genome_length_fai"].uses == "nf-core/samtools/faidx@1.24"
+    proof = prove(REGISTRY, [], tmp_path / "draft")
+    assert proof.loaded and proof.conforms, proof.problems
+
+
+def test_one_measurement_from_two_pieces_is_refused(tmp_path):
+    values, origin = _faidx()
+    with pytest.raises(ValueError, match="MF0511.*drafted twice.*measurers:measurement:depth"
+                                         ".*vocabulary:measurement:depth"):
+        _write({**values, "vocabulary:measurement:depth": DEPTH,
+                "measurers:measurement:depth": DEPTH}, origin, tmp_path / "draft")
+
+
+def test_a_piece_that_reaches_out_blames_measurers(tmp_path):
+    from support.forge_measurer import KEY, measurer
+    values, origin = _faidx()
+    bad = {**measurer(), "code": "import os\n" + measurer()["code"]}
+    _write({**values, KEY: bad}, origin, tmp_path / "draft")
+    proof = prove(REGISTRY, [], tmp_path / "draft")
+    assert not proof.conforms and proof.blames is Piece.MEASURERS
+    assert any("MD0027" in p.says and "os" in p.says for p in proof.problems)

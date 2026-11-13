@@ -14,7 +14,7 @@ from comeni_core.declared.signature import join
 from comeni_core.declared.tooltest import ToolTest
 from comeni_core.diagnostics import coded
 from comeni_vendor.ops import EXCLUDED, digest_of_module
-from mendel_compiler import conformance
+from mendel_compiler import conformance, registry_lint
 from mendel_compiler.modulespec import ModuleSpec
 from mendel_resolver import layers
 from pydantic import BaseModel, ConfigDict, JsonValue
@@ -119,6 +119,21 @@ def write_layer(
             derived = validate_value(key, value).model_dump(mode="json", exclude_defaults=True)
             put(out / "rules" / "derived" / f"{derived['fact']}.yml",
                 _yaml({"declares": "rule", "version": 1, "derives": [derived]}))
+    measurements: dict[str, str] = {}
+    for key, value in sorted(values.items()):
+        if key.startswith(("vocabulary:measurement:", "measurers:measurement:")):
+            declared = validate_value(key, value).model_dump(mode="json", exclude_defaults=True)
+            if declared["id"] in measurements:
+                raise ValueError(coded("MF0511", f"measurement {declared['id']!r} is drafted "
+                                       f"twice, as {measurements[declared['id']]} and {key}: "
+                                       "keep one"))
+            measurements[declared["id"]] = key
+            put(out / "vocabulary" / "measurements" / f"{declared['id']}.yml",
+                _yaml({"declares": "measurement", **declared}))
+    for key, value in sorted(values.items()):
+        if key.startswith("measurers:measurer:"):
+            _measurer(put, out, key.removeprefix("measurers:measurer:"),
+                      validate_value(key, value), contract_id)
     for key in tests:
         name = key.removeprefix("tests:test:")
         test = ToolTest(**values[key], contract=contract_id, name=name,
@@ -126,6 +141,21 @@ def write_layer(
         put(tool / "tests" / f"{name}.yml",
             _yaml({"declares": "test", **test.model_dump(mode="json", exclude_defaults=True)}))
     return written
+
+
+def _measurer(put, out: Path, name: str, draft, contract_id: str) -> None:
+    """A drafted `by: tool` measurer as the registry lays one out (#487): what only the
+    engine decides is fixed here, never drafted."""
+    folder = out / "measurers" / "measures" / name
+    declared = {"declares": "measurer", "id": name, "version": "1.0.0",
+                "measures": draft.measures, "by": "tool", "uses": contract_id,
+                "output": draft.output, "entry": f"piece/{name}.py", "runs": ["pipeline"]}
+    if draft.decided:
+        declared["decided"] = draft.decided
+    explain = " ".join(draft.explain.split())
+    put(folder / "measurer.yml", f"# {explain}\n" + _yaml(declared))
+    put(folder / "piece" / f"{name}.py", draft.code)
+    put(folder / "piece" / f"test_{name}.py", draft.tests)
 
 
 def _in_type(port: dict, field: str) -> dict:
@@ -173,11 +203,17 @@ def prove(base: Path, below: list[Path], draft: Path) -> Proof:
     if found:
         return Proof(loaded=True, conforms=False, blames=Piece.CONTRACT, problems=[
             Problem(code="MF0512", says=f"{d.code}: {d.summary}") for d in found])
+    reached = registry_lint.pieces(draft)
+    if reached:
+        return Proof(loaded=True, conforms=False, blames=Piece.MEASURERS, problems=[
+            Problem(code="MF0512", says=f"{d.code} {d.where}: {d.summary}") for d in reached])
     return Proof(loaded=True, conforms=True, blames=None, problems=[])
 
 
 def _blamed(message: str) -> Piece:
     lowered = message.lower()
+    if "measurer" in lowered or "md0027" in lowered:
+        return Piece.MEASURERS
     if "rule" in lowered or "decision" in lowered:
         return Piece.RULES
     if any(word in lowered for word in ("type", "state", "role", "measurement", "family")):

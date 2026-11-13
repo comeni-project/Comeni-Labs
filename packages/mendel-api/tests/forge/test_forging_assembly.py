@@ -173,3 +173,23 @@ def test_an_unapproved_family_blocks_assembly_until_a_person_approves_it(client)
     proof = client.post(f"/api/forge/adaptations/{adaptation_id}/assemble").json()
     assert proof["loaded"] and proof["conforms"], proof["problems"]
     assert "vocabulary/families/assembly.yml" in proof["files"]
+
+
+def test_parser_code_that_reaches_out_is_refused_when_written(client):
+    """#487: a person's measurer is held to the pieces' rules (MD0027) as the AI's is, so it
+    never reaches assembly; assembly blames the measurers step if one ever does."""
+    from comeni_flow.interpret import Refused
+    from support.forge_measurer import measurer
+    adaptation_id = _approved_reforge()
+    item = forging.load(adaptation_id).items["measurers:none"]
+    forging.act(adaptation_id, forging.person(Move.REMOVE, "measurers:none",
+                                              expected=item.current.n, value=None, because=None))
+    bad = {**measurer(), "output": "bam", "code": "import os\n" + measurer()["code"]}
+    with pytest.raises(Refused, match="MD0027.*os"):
+        forging.act(adaptation_id, forging.person(Move.WRITE, "measurers:measurer:depth",
+                                                  expected=None, value=bad, because=None))
+    good = {**bad, "code": measurer()["code"]}
+    forging.act(adaptation_id, forging.person(Move.WRITE, "measurers:measurer:depth",
+                                              expected=None, value=good, because=None))
+    proof = forging.assemble(adaptation_id)
+    assert proof.loaded and proof.conforms, proof.problems
