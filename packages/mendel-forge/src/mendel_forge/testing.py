@@ -6,7 +6,7 @@ made directly, one node per setup step and one for the tool, and from there on i
 """
 
 from collections.abc import Iterable
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.declared.contract import ModuleContract
@@ -26,8 +26,9 @@ from comeni_core.plan.ir import (
 )
 from comeni_core.plan.tiers import Grain, Tier
 from comeni_core.spell.routes import OMITTABLE
-from mendel_compiler import locate
+from mendel_compiler import locate, measure_module
 from mendel_resolver.layers import Layers
+from mendel_resolver.measure_steps import MeasureStep, steps_for
 
 TESTDATA_BASE = "https://raw.githubusercontent.com/nf-core/test-datasets/{commit}/data/"
 TOOL = "tool"
@@ -65,11 +66,28 @@ def _steps(test: ToolTest, stack: Layers) -> list[tuple[str, ModuleContract, dic
     return [*setups, (TOOL, stack.registry.get(test.contract), test.params)]
 
 
+def parsers_for(test: ToolTest, stack: Layers) -> list[MeasureStep]:
+    """The generated steps of this tool's `by: tool` measurers whose output the test expects,
+    sorted by measurer id (#487): a parser runs on the tool's real output, after it, as in a
+    built pipeline. An output the test leaves unchecked proves no parser."""
+    expected = {e.port for e in test.expect}
+    found = [step for step in steps_for(stack.inspection, stack.registry)
+             if step.format is None and step.measurers[0].uses == test.contract
+             and step.measurers[0].output in expected]
+    return sorted(found, key=lambda s: s.measurers[0].id)
+
+
+def _parser_node(step: MeasureStep) -> str:
+    return f"measure_{step.measurers[0].id}"
+
+
 def build_test_pipeline(test: ToolTest, stack: Layers) -> Pipeline:
     """The test as a pipeline. `ValueError` with its code when it cannot be one."""
     steps = _steps(test, stack)
     tool = stack.registry.get(test.contract)
     edges = _edges(test, steps, tool)
+    parsers = parsers_for(test, stack)
+    registry = stack.registry.with_contracts([p.contract for p in parsers])
     fed = {(e.to_node, e.to_port) for e in edges}
     off = left_out(test, tool, fed)
     fed |= {(TOOL, port) for port in off}
@@ -82,10 +100,17 @@ def build_test_pipeline(test: ToolTest, stack: Layers) -> Pipeline:
     nodes = [_node(node, contract, given) for node, contract, given in steps]
     nodes[-1].inputs = [InputRecord(port=port, state=InputState.OFF, by=InputDecider.PERSON,
                                     reason="off: this test gives it no data") for port in off]
+    for parser in parsers:
+        measurer = parser.measurers[0]
+        nodes.append(_node(_parser_node(parser), parser.contract, {}))
+        edges.append(IREdge(from_node=TOOL, from_port=measurer.output,
+                            to_node=_parser_node(parser), to_port="data",
+                            type_id=parser.contract.consumes[0].type_id))
     ir = PipelineIR(nodes=nodes, edges=edges, channels=channels, registry_layers=[])
     goal = Goal(have=[GoalInput(type_id=c.type_id, name=c.name) for c in channels],
-                want=sorted({p.type_id for p in tool.produces}))
-    return Pipeline.of(ir, stack.registry, stack.vocabulary, stack.measurements, stack.paths,
+                want=sorted({p.type_id for p in tool.produces}
+                            | {p.type_id for s in parsers for p in s.contract.produces}))
+    return Pipeline.of(ir, registry, stack.vocabulary, stack.measurements, stack.paths,
                        goal=goal, locators=locate.locators(stack.paths))
 
 
@@ -145,9 +170,17 @@ def _per_sample(pipeline: Pipeline) -> list[str]:
     return [c.name for c in pipeline.channels if c.grain is Grain.SAMPLE]
 
 
-def module_files(pipeline: Pipeline, stack: Layers) -> Iterable[tuple[str, Path]]:
-    """Each step's module source, as (path in the bundle, file on disk)."""
-    for key in sorted({key_of(step.include) for step in pipeline.steps}):
+def module_files(pipeline: Pipeline, stack: Layers) -> Iterable[tuple[str, Path | bytes]]:
+    """Each step's module source, as (path in the bundle, file on disk). A generated measuring
+    step's files are written, not vendored: they come as bytes (#487)."""
+    generated = {s.contract.id: s for s in steps_for(stack.inspection, stack.registry)}
+    for step in sorted(pipeline.steps, key=lambda s: key_of(s.include)):
+        if step.module.contract_id in generated:
+            folder = PurePosixPath(step.include).parent
+            for name, data in measure_module.files(generated[step.module.contract_id]).items():
+                yield f"{folder}/{name}", data
+    for key in sorted({key_of(step.include) for step in pipeline.steps
+                       if step.module.contract_id not in generated}):
         source = stack.modules[key].at / "module"
         for path in sorted(p for p in source.rglob("*") if p.is_file()):
             yield f"modules/{key}/{path.relative_to(source)}", path

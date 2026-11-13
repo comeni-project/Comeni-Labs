@@ -50,6 +50,15 @@ class WienerRunner:
             if not page["files"] or len(found) >= page["total"]:
                 return found
 
+    def measured(self, run_id: str) -> list[dict]:
+        return [_fact(view) for view in
+                self._call("GET", f"/api/runs/{run_id}/measured")["facts"]]
+
+
+def _fact(view: dict) -> dict:
+    return {"measurement": view["measurement"], "value": view.get("value"),
+            "undetermined": view.get("reason") if view.get("status") == "undetermined" else None}
+
 
 def runner() -> TestRunner | None:
     """The installation's runner, or `None` when no Wiener is configured: tests say so."""

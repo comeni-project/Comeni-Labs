@@ -186,3 +186,40 @@ def test_an_input_that_accepts_several_types_round_trips_through_items():
     assert back.consumes == contract.consumes
     assert back.constraints == contract.constraints
     assert isinstance(back.provenance, Provenance)
+
+
+# ── a drafted parser runs after the tool, on its real output (#487) ──────────────────────────
+
+def _faidx(**changes) -> ToolTest:
+    return ToolTest(**{"contract": "nf-core/samtools/faidx@1.24", "name": "one",
+                       "data_commit": "abc", "inputs": {"fasta": ["a/genome.fasta"]},
+                       "expect": [{"port": "fai", "pattern": "*.fai"}], **changes})
+
+
+def test_a_parser_of_an_expected_output_runs_after_the_tool(stack):
+    from mendel_forge.testing import parsers_for
+    assert [s.measurers[0].id for s in parsers_for(_faidx(), stack)] == ["genome_length_fai"]
+    pipeline = build_test_pipeline(_faidx(), stack)
+    ids = [s.module.contract_id for s in pipeline.steps]
+    assert ids[0] == "nf-core/samtools/faidx@1.24"
+    assert ids[1].startswith("comeni/measure/genome_length_fai@")
+    assert "MEASURE_GENOME_LENGTH_FAI" in emit(pipeline)
+
+
+def test_a_test_that_does_not_expect_the_output_runs_no_parser(stack):
+    from mendel_forge.testing import parsers_for
+    # faidx makes one output, which a valid test must expect: copied past validation to reach
+    # the filter, as a tool of two outputs would.
+    test = _faidx().model_copy(update={"expect": [], "unchecked": {"fai": "not this time"}})
+    assert parsers_for(test, stack) == []
+    ids = [s.module.contract_id for s in build_test_pipeline(test, stack).steps]
+    assert ids == ["nf-core/samtools/faidx@1.24"]
+
+
+def test_the_bundle_holds_the_generated_measuring_step(stack):
+    pipeline = build_test_pipeline(_faidx(), stack)
+    files = dict(module_files(pipeline, stack))
+    main = files["modules/comeni/measure/genome_length_fai/main.nf"]
+    assert isinstance(main, bytes) and b"MEASURE_GENOME_LENGTH_FAI" in main
+    assert any(name.endswith("pieces/measures/genome_length_fai/fai.py") for name in files)
+    assert "modules/nf-core/samtools/faidx/main.nf" in files
