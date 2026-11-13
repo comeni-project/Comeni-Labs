@@ -11,11 +11,10 @@ cites its entry; the long form is in [the archive](journal/archive/).
 - **Task 14, step 14.7: walking the living pipeline with a real model.** The tree is #119.
 - **One builder (#395) plans 1–5 and Part I.2 (#293) are built** (journal 10-27, 10-28, not yet
   compacted); their browser checks are #404. Also #357, #302. (10-22, 10-28)
-- **#463 push:** phase 1 (#460) merged (PR #476); phase 2 (#464), rules v2 (#461), measurers
-  (#465, #217), per-sample stages 1–6 (#466) and the forge drafting measurers (5.1, #487) on the
-  branch, registry on a local `measurers` branch. Next: part 6 (#462) for the full loop; then
-  browser checks and the QUAST walk, then tune how much the AI does. (11-13)
-  **After merge:** bump the registry's `ENGINE_REF`, or its CI lacks MD0027 (#487). (11-13)
+- **#463 push:** on the branch: phases 1–2 (#460 merged, #464), rules v2 (#461), measurers
+  (#465, #217), per-sample 1–6 (#466), forge measurers (#487); registry on local `measurers`.
+  Next: part 6 (#462), browser checks, the QUAST walk, tuning the AI. After merge, bump the
+  registry's `ENGINE_REF` (no MD0027 in its CI until then). (11-13)
 - **Walks run on GPT** through the ChatGPT subscription (#457), not local models. (11-10)
 - **All of it is on `main`** (PR #402, with a behaviour-preserving refactoring campaign). Left for
   an authorised behaviour pass: `SampleUpload.tsx`'s hook warning, Node under Vite's floor. (10-26)

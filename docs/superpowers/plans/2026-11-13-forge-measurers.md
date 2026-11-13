@@ -78,7 +78,7 @@
   - The constants `ALLOWED`, `BANNED_CALLS`, `BANNED_METHODS`, `BANNED_NAMES` move here from the
     guard.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
   - `test_allowed_code_has_no_problems`: `piece_problems("from comeni_inspect.outcome import Value\nimport re\n") == []`.
   - `test_each_reach_is_named`: `piece_problems("import os\nopen('x')\nfrom . import y\n")` ==
     `["<open()>", "<relative import>", "os"]`.
@@ -88,10 +88,10 @@
     `measurers/measures/x/piece/x.py` holding `import socket`. Then `[d.code for d in lint(root)] == ["MD0027"]`
     and `"socket"` is in the summary.
 
-- [ ] **Step 2: Run** `uv run pytest packages/mendel-compiler/tests/test_registry_lint_pieces.py -q`.
+- [x] **Step 2: Run** `uv run pytest packages/mendel-compiler/tests/test_registry_lint_pieces.py -q`.
   Expected: FAIL, because `piece_problems` is not defined.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
   - Move `_reaches`'s AST walk from the guard into `piece_problems`, working on a string.
   - Add `pieces(root)` and call it from `lint` before the layout early-return.
   - Declare MD0027 (`emitted_by: compiler`, `concern: layout`,
@@ -102,10 +102,10 @@
     tests and its `there_are_pieces` assertion.
   - Regenerate the diagnostics doc.
 
-- [ ] **Step 4: Run** the new tests, `uv run pytest tests/guards/test_inspector_pieces.py -q` and
+- [x] **Step 4: Run** the new tests, `uv run pytest tests/guards/test_inspector_pieces.py -q` and
   `uv run pytest packages/mendel-compiler/tests -q -k lint`. Expected: PASS.
 
-- [ ] **Step 5: Commit** `feat: the pieces' import check is a lint rule, MD0027 (#487)`.
+- [x] **Step 5: Commit** `feat: the pieces' import check is a lint rule, MD0027 (#487)`.
 
 ### Task 2: The measurers step and its items
 
@@ -134,7 +134,7 @@
   - `DEPENDS`: `CONTRACT` and `VOCABULARY` gain `MEASURERS`; `MEASURERS: frozenset()`.
   - Item keys: `measurers:measurer:<id>`, `measurers:measurement:<id>` and `measurers:none`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
   - `test_values`:
     - `validate_value("measurers:measurer:genome_length_fai", {...})` returns a `MeasurerDraft`;
     - an extra field such as `by` is refused;
@@ -158,10 +158,10 @@
 
     All are MF0507. A good draft yields none.
 
-- [ ] **Step 2: Run** `uv run pytest packages/mendel-forge/tests -q -k "values or validate or forging_rules"`.
+- [x] **Step 2: Run** `uv run pytest packages/mendel-forge/tests -q -k "values or validate or forging_rules"`.
   Expected: FAIL.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
   - Add `measurers` to `KEY` and to `ForgePiece`.
   - Add `("measurers:measurer", "Measurer", True)` and
     `("measurers:measurement", "Measurement", True)` to `KINDS`, and `measurers` to the `:none`
@@ -172,10 +172,10 @@
   - In `ValueDetails`, render the string fields `code` and `tests` in a monospace `<pre>`.
   - Regenerate `constructors.fixture.json` the way the existing fixture test says.
 
-- [ ] **Step 4: Run** the Step 2 command and `cd frontend && npx vitest run src/registry/forging`.
+- [x] **Step 4: Run** the Step 2 command and `cd frontend && npx vitest run src/registry/forging`.
   Expected: PASS.
 
-- [ ] **Step 5: Commit** `feat: the forge's measurers step and its items (#487)`.
+- [x] **Step 5: Commit** `feat: the forge's measurers step and its items (#487)`.
 
 ### Task 3: Assembly writes measurements and measurers (#490)
 
@@ -205,7 +205,7 @@
   - `measurers/measures/<id>/piece/<id>.py` (`code`) and `piece/test_<id>.py` (`tests`).
   - `prove` runs `registry_lint.pieces(draft)`. Any MD0027 blames `Piece.MEASURERS`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
   - `test_a_vocabulary_measurement_is_written` (#490): an approved `vocabulary:measurement:depth`
     lands at `vocabulary/measurements/depth.yml` and loads.
   - `test_a_measurer_is_written_and_loads`: the faidx-style items give the three files above, and
@@ -217,15 +217,15 @@
     `import os` (written by a person, so it bypasses drafting validation) fails assembly. The
     message says MD0027, and the measurer item is re-opened.
 
-- [ ] **Step 2: Run** `uv run pytest packages/mendel-forge/tests/test_forge_assemble.py -q` and the
+- [x] **Step 2: Run** `uv run pytest packages/mendel-forge/tests/test_forge_assemble.py -q` and the
   API assembly test via the test DB. Expected: FAIL.
 
-- [ ] **Step 3: Implement** in `write_layer` and `prove` as above. Make `_blamed` map
+- [x] **Step 3: Implement** in `write_layer` and `prove` as above. Make `_blamed` map
   `"MD0027"` and `"measurer"` to `MEASURERS`.
 
-- [ ] **Step 4: Run** the Step 2 commands. Expected: PASS.
+- [x] **Step 4: Run** the Step 2 commands. Expected: PASS.
 
-- [ ] **Step 5: Commit** `feat: assembly writes measurements and measurers; pieces checked (#487, #490)`.
+- [x] **Step 5: Commit** `feat: assembly writes measurements and measurers; pieces checked (#487, #490)`.
 
 ### Task 4: The test run proves each parser on the tool's real output
 
@@ -256,7 +256,7 @@
     MF0515 per measurement with no fact, `"measurer <id>: reported nothing"`, or with only
     undetermined facts, `"measurer <id>: undetermined: <reason>"`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
   - `test_forge_testing`, against a stack holding `samtools/faidx` and `genome_length_fai`:
     - `build_test_pipeline` of a faidx test that expects `fai` has a step whose contract id starts
       with `comeni/measure/genome_length_fai`, fed from the tool's `fai`;
@@ -270,15 +270,15 @@
     - an undetermined fact fails with its reason.
   - `parsers_green` unit cases for the three outcomes.
 
-- [ ] **Step 2: Run** the three test files. Expected: FAIL.
+- [x] **Step 2: Run** the three test files. Expected: FAIL.
 
-- [ ] **Step 3: Implement.** `_verdict` adds `parsers_green(...)` after `green(...)` for runs whose
+- [x] **Step 3: Implement.** `_verdict` adds `parsers_green(...)` after `green(...)` for runs whose
   draft has measurers. It reads the draft's measurer ids from the draft folder, as `_declared` does
   for the test. `FakeRunner` in both forge API test modules gains `facts` and `measured`.
 
-- [ ] **Step 4: Run** the Step 2 tests. Expected: PASS.
+- [x] **Step 4: Run** the Step 2 tests. Expected: PASS.
 
-- [ ] **Step 5: Commit** `feat: a forge test runs each drafted parser on the tool's output (#487)`.
+- [x] **Step 5: Commit** `feat: a forge test runs each drafted parser on the tool's output (#487)`.
 
 ### Task 5: The AI drafts the measurers step
 
@@ -309,15 +309,15 @@
 - A new measurement goes as a `measurers:measurement:<id>` item. An existing `assertion_only`
   measurement this tool measures is re-declared without the flag.
 
-- [ ] **Step 1: Write the failing test.** `test_measurers_are_drafted_with_their_prompt`: a fake
+- [x] **Step 1: Write the failing test.** `test_measurers_are_drafted_with_their_prompt`: a fake
   client, as in that file, replies with the `genome_length_fai` items. Assert the invocation
   recorded `forge.measurers.v1`, and the item `measurers:measurer:genome_length_fai` is proposed.
   A second reply whose code imports `os` is refused once, with MD0027's words in the retry's
   problems.
-- [ ] **Step 2: Run** it. Expected: FAIL (it drafts with `forge.draft.v9`).
-- [ ] **Step 3: Implement** the prompt and the two dict entries.
-- [ ] **Step 4: Run** `test_forging_ai.py` and the prompts' render tests. Expected: PASS.
-- [ ] **Step 5: Commit** `feat: the AI drafts measurers with their parser code (#487)`.
+- [x] **Step 2: Run** it. Expected: FAIL (it drafts with `forge.draft.v9`).
+- [x] **Step 3: Implement** the prompt and the two dict entries.
+- [x] **Step 4: Run** `test_forging_ai.py` and the prompts' render tests. Expected: PASS.
+- [x] **Step 5: Commit** `feat: the AI drafts measurers with their parser code (#487)`.
 
 ### Task 6: Publishing carries measurers and may drop `assertion_only`
 
@@ -330,19 +330,19 @@
   registry's file minus `assertion_only` and `assertion_only_because`, and overwrites it. Every
   other difference is still MF0517.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
   - `test_place_drops_assertion_only`: the target holds `assertion_only: true` with a reason, and
     the draft is the same without them. The target is replaced.
   - `test_place_refuses_another_measurement_change`: a changed `description` is refused with
     MF0517.
   - `test_place_adds_a_measurer_folder`: the three measurer files are placed under
     `measurers/measures/<id>/`, and `check(checkout)` (which lints MD0027) passes.
-- [ ] **Step 2: Run** `uv run pytest packages/mendel-forge/tests/test_forge_publishing.py -q`.
+- [x] **Step 2: Run** `uv run pytest packages/mendel-forge/tests/test_forge_publishing.py -q`.
   Expected: FAIL on the first test.
-- [ ] **Step 3: Implement** a `_drops_assertion_only(source, target) -> bool` beside
+- [x] **Step 3: Implement** a `_drops_assertion_only(source, target) -> bool` beside
   `_states_missing`.
-- [ ] **Step 4: Run.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat: publishing a measurer, and dropping assertion_only (#487)`.
+- [x] **Step 4: Run.** Expected: PASS.
+- [x] **Step 5: Commit** `feat: publishing a measurer, and dropping assertion_only (#487)`.
 
 ### Task 7: End to end — re-create `genome_length_fai` through the forge
 
@@ -352,7 +352,7 @@
 **Interfaces:**
 - Consumes everything above.
 
-- [ ] **Step 1: Write the test.** `test_faidx_measurer_from_draft_to_publish_record`:
+- [x] **Step 1: Write the test.** `test_faidx_measurer_from_draft_to_publish_record`:
   1. Re-forge `nf-core/samtools/faidx@1.24` with fake source, runner and publisher, following the
      pattern of `test_forge_tests.py` and `test_forge_publish.py`.
   2. Approve the seeded items; write `vocabulary:none` and `rules:none` and a test that expects
@@ -363,9 +363,9 @@
      equals the drafted code.
   6. Assert the pull request's record lists `measurers:measurer:genome_length_fai` as drafted by
      the AI and decided by the person.
-- [ ] **Step 2: Run** it through the test DB. Expected: PASS. If it fails, the defect is in an
+- [x] **Step 2: Run** it through the test DB. Expected: PASS. If it fails, the defect is in an
   earlier task: fix it there, with a test that fails first.
-- [ ] **Step 3: Commit** `test: the forge re-creates genome_length_fai end to end (#487)`.
+- [x] **Step 3: Commit** `test: the forge re-creates genome_length_fai end to end (#487)`.
 
 ### Task 8: Registry CI, docs and the finish
 
@@ -378,11 +378,27 @@
 - Comeni-Labs: the forge how-to page (find it with `grep -rl "Tests after" docs/`); `CHANGELOG.md`
   under mendel-forge and mendel-api; the journal note; `docs/notes/now.md`.
 
-- [ ] **Step 1: Make the registry edits.** Commit on `measurers`, then
+- [x] **Step 1: Make the registry edits.** Commit on `measurers`, then
   `git -C registry fetch -q ../comeni-registry-measurers measurers && git -C registry checkout -q FETCH_HEAD`.
-- [ ] **Step 2: Edit the docs.**
-- [ ] **Step 3: Run the full checks**, each separately: `make check`, `make guards`, slow tests,
+- [x] **Step 2: Edit the docs.**
+- [x] **Step 3: Run the full checks**, each separately: `make check`, `make guards`, slow tests,
   `npx vitest run`, `npx tsc -b`. Expected: all pass.
-- [ ] **Step 4: Commit** `docs: the forge drafts measurers (#487)` and tick this plan.
-- [ ] **Step 5: Run the final review.** A fresh reviewer on the most capable model reviews the
+- [x] **Step 4: Commit** `docs: the forge drafts measurers (#487)` and tick this plan.
+- [x] **Step 5: Run the final review.** A fresh reviewer on the most capable model reviews the
   branch range. Fix Critical and Important findings test-first, and add Minors to #489.
+
+## Deviations
+
+- Task 1: the lint tests live in `tests/registry/test_registry_lint_pieces.py`, beside the existing lint tests.
+- Task 2: the item guide was bumped to `items.v6.md`, not edited in place. Forge API fixtures write `measurers:none`. The display test is a new `ValueDetails.test.tsx`.
+- Task 3: a person's bad parser is refused when written, since person writes are validated; the assembly blame is unit-tested.
+- Task 4: `parsers_green` takes `{measurer id: measurement}`. A `samtools/faidx` catalogue fixture was added.
+- Task 5: the allowlist reaches the prompt as `{{allowed_imports}}`, from `registry_lint.ALLOWED`.
+- Task 7: the fake checkout drops the registry's own `genome_length_fai`; the re-forge collision is on #489.
+- Final review:
+  - C1: Wiener now reads a measurement the pipeline wants.
+  - I1: assembly re-checks parser coverage (`validate.unproven`), and Tests re-opens Measurers.
+  - I2: two measurers of one measurement are refused, and a forge test runs only its draft's parsers.
+  - I3: `assertion_only` is dropped only when the draft measures it.
+  - I4: the registry CI comment is corrected; the `ENGINE_REF` bump is in the current notes.
+  - Minors are on #489.
