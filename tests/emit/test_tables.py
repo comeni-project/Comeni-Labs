@@ -211,16 +211,120 @@ def test_a_sample_left_with_no_row_stops_the_run(tmp_path):
     assert "meets no row of database" in done.stdout + done.stderr
 
 
-def test_a_crossed_step_taking_only_some_samples_is_refused(tmp_path):
-    """Filtering only the sample side after the pairs are made would mis-pair them."""
-    from emit.test_branches import _built as branched
+def _guard():
+    """A stage-4 guard, built from the shipped registry's read-length branch."""
+    goal = Goal.model_validate({
+        "have": [{"type_id": t} for t in ("fastq.reads", "genome.fasta", "annotation.gtf")],
+        "want": ["counts.matrix"], "constraints": {"varies": ["read_length"]}})
+    built = orchestrate.build(goal, registry_roots=[ROOT / "registry"]).pipeline
+    return next(s.guard for s in built.steps if s.guard is not None)
 
-    guard = next(s.guard for s in branched(["read_length"]).steps if s.guard is not None)
+
+def _cross_line(text: str) -> str:
+    return next(line.strip() for line in text.splitlines() if "ch_cross_profile = " in line)
+
+
+def test_a_crossed_step_taking_only_some_samples_is_emitted(tmp_path):
+    """Final review 1: wrapping only the sample side after the pairs would mis-pair them."""
     pipeline = _built(tmp_path)
-    steps = [s.model_copy(update={"guard": guard}) if s.id == "profile" else s
+    steps = [s.model_copy(update={"guard": _guard()}) if s.id == "profile" else s
              for s in pipeline.steps]
+    # Any wrapper on the sample input lands inside the pairs' first argument, never on one
+    # side of the multiMap; the sample-rule test below pins the order.
+    text = emit(pipeline.model_copy(update={"steps": steps}))
+    assert _cross_line(text).startswith("ch_cross_profile = ")
+    assert _call(text, "PROFILE") == "PROFILE(ch_cross_profile.sample, ch_cross_profile.table)"
+
+
+def test_a_crossed_steps_sample_rules_are_checked_before_the_pairs(tmp_path):
+    """Final review 1: the rule wrapped text inside the multiMap, which Nextflow cannot parse."""
+    from comeni_core.plan.at_run import AtRunCondition, AtRunTest, SampleRule
+
+    pipeline = _built(tmp_path)
+    rule = SampleRule(when=[AtRunCondition(fact="read_length", test=AtRunTest.LT,
+                                           operand=[50])], says="a fixture rule")
+    steps = [s.model_copy(update={"sample_rules": [rule]}) if s.id == "profile" else s
+             for s in pipeline.steps]
+    text = emit(pipeline.model_copy(update={"steps": steps}))
+    cross = _cross_line(text)
+    assert cross.index("a fixture rule") < cross.index(".combine(")
+    assert _call(text, "PROFILE") == "PROFILE(ch_cross_profile.sample, ch_cross_profile.table)"
+
+
+SUMMARISE = """declares: contract
+id: lab/summarise@1.0.0
+nf_process: SUMMARISE
+nf_include: modules/lab/summarise/main
+roles: [summarising]
+consumes: [{name: profile, type_id: profile.tsv}]
+produces: [{name: summary, type_id: summary.tsv, format: [tsv]}]
+nf_inputs: [{ports: [profile]}]
+"""
+SUMMARY = {"summary.family.yml": "declares: family\nid: summary\ndescription: Summaries\n",
+           "summary.tsv.yml": "declares: vocabulary\nid: summary.tsv\nstates: []\n",
+           "summarising.role.yml": "declares: role\nroles:\n  - {id: summarising, explain: x.}\n"}
+
+
+def _summarised(tmp_path, extra=None, want="summary.tsv"):
+    from emit.fixtures.tables import PROVENANCE
+
+    return _built(tmp_path, extra={"summarise.contract.yml": SUMMARISE + PROVENANCE,
+                                   **SUMMARY, **(extra or {})},
+                  goal={**GOAL, "want": [want]})
+
+
+def test_a_step_after_the_cross_publishes_each_pair_under_its_own_name(tmp_path):
+    """Final review 2: two databases' summaries of one sample overwrote each other."""
+    config = emit_config(_summarised(tmp_path))
+    assert 'withName: SUMMARISE { ext.prefix = { "${meta.id}_${meta.database.id}" } }' in config
+
+
+def test_a_by_sample_join_two_steps_after_the_cross_is_refused(tmp_path):
+    """Final review 2: it would never match, and the step would silently never run."""
+    from emit.fixtures.tables import PROVENANCE
+
+    joiner = """declares: contract
+id: lab/compare@1.0.0
+nf_process: COMPARE
+nf_include: modules/lab/compare/main
+roles: [comparing]
+consumes:
+  - {name: summary, type_id: summary.tsv}
+  - {name: reads, type_id: fastq.reads}
+produces: [{name: report, type_id: report.txt, format: [txt]}]
+nf_inputs: [{ports: [summary, reads], join: by_sample}]
+""" + PROVENANCE
+    extra = {"compare.contract.yml": joiner,
+             "report.family.yml": "declares: family\nid: report\ndescription: Reports\n",
+             "report.txt.yml": "declares: vocabulary\nid: report.txt\nstates: []\n",
+             "comparing.role.yml": "declares: role\nroles:\n  - {id: comparing, explain: x.}\n"}
     with pytest.raises(ValueError, match="MD0348"):
-        emit(pipeline.model_copy(update={"steps": steps}))
+        _summarised(tmp_path, extra=extra, want="report.txt")
+
+
+def test_a_step_reading_two_tables_is_refused(tmp_path):
+    """Final review 8: the second would pair in lockstep with the first's pairs."""
+    from emit.fixtures.tables import LAYER
+
+    two = LAYER["profile.contract.yml"].replace(
+        "  - {name: db, type_id: database.index}",
+        "  - {name: db, type_id: database.index}\n  - {name: db2, type_id: database.extra}")
+    two = two.replace("{ports: [db]}]", "{ports: [db]}, {ports: [db2]}]")
+    extra = {"profile.contract.yml": two,
+             "database.extra.yml": "declares: vocabulary\nid: database.extra\nstates: []\n"
+                                   "grain: study\n"}
+    goal = {**GOAL, "have": [*GOAL["have"], {"type_id": "database.extra"}]}
+    with pytest.raises(ValueError, match="MD0348"):
+        _built(tmp_path, {"tables": ["database.extra", "database.index"]}, extra, goal)
+
+
+def test_a_select_on_a_study_input_that_is_no_table_is_refused(tmp_path):
+    """Final review 12: it would filter the one item away, and nothing downstream would run."""
+    goal = Goal.model_validate(GOAL)
+    with pytest.raises(ValueError, match="MD0347"):
+        orchestrate.build(goal, registry_roots=[
+            ROOT / "registry", layer(tmp_path, {"profile.contract.yml": SHORT_ONLY})])
+
 
 
 def test_a_rows_fact_is_no_samplesheet_column(tmp_path):

@@ -1303,13 +1303,28 @@ def _splitting(node: IRNode, goal: Goal, registry: Registry, vocabulary: Vocabul
     return port, type_id, splitters[0], mergers
 
 
+def _crossing(ir: PipelineIR, goal: Goal, registry: Registry) -> set[str]:
+    """The steps reading a table input, and every step after them (#466)."""
+    tables = set(goal.constraints.tables)
+    fed = {(e.to_node, e.to_port) for e in ir.edges}
+    found = set()
+    for node in ir.nodes:
+        reads = any((node.id, p.name) not in fed and node.entry_type(p.name, p.type_id) in tables
+                    for p in registry.get(node.contract_id).consumes)
+        if reads or any(e.to_node == node.id and e.from_node in found for e in ir.edges):
+            found.add(node.id)
+    return found
+
+
 def _with_parts(ir: PipelineIR, goal: Goal, registry: Registry,
                 vocabulary: Vocabulary) -> PipelineIR:
     """Each step that can run on parts of a sample is split before it and merged after it, by
     default (#466, stage 6). A tool in `constraints.whole` keeps only the record, so the person
     can turn the split back on."""
+    crossing = _crossing(ir, goal, registry)
     for node in list(ir.nodes):
-        found = _splitting(node, goal, registry, vocabulary, ir)
+        # Parts of two rows' pairs would merge into one (final review 3).
+        found = None if node.id in crossing else _splitting(node, goal, registry, vocabulary, ir)
         if found is None:
             continue
         port, type_id, splitter, mergers = found

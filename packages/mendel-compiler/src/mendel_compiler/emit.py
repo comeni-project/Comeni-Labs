@@ -3,7 +3,14 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from comeni_core.artifact.pipeline import Grain, InputForm, PartsWiring, Pipeline, Step
+from comeni_core.artifact.pipeline import (
+    Grain,
+    InputForm,
+    PartsWiring,
+    Pipeline,
+    Step,
+    crossed_steps,
+)
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import InputState
 from comeni_core.plan.at_run import AtRun, AtRunFallback, AtRunSource
@@ -129,14 +136,18 @@ def _port_expression(pipeline: Pipeline, step: Step, port_name: str,
         # Each sample's parts become items of their own (#466, stage 6). A splitter making one
         # part emits a path rather than a list.
         expression += (".flatMap { meta, parts -> def list = parts instanceof List ? parts : "
-                       "[parts]; list.withIndex().collect { f, i -> [ meta + [part: i, "
+                       "[parts]; if (!list) error(\"sample ${meta.id}: its splitter made no "
+                       "parts\"); list.withIndex().collect { f, i -> [ meta + [part: i, "
                        "comeni_parts: list.size()], f ] } }")
     if wiring.parts is PartsWiring.GATHER:
         # One sample's parts, gathered as soon as they are all done, never waiting for the
         # study: `groupKey` knows how many there are.
-        return (f"{expression}.map {{ meta, f -> [ groupKey(meta.id, meta.comeni_parts), meta, "
-                "f ] }.groupTuple().map { k, metas, files -> [ metas[0].findAll { it.key !in "
-                "['part', 'comeni_parts'] }, files.flatten() ] }")
+        # Keyed on the whole `meta` but the part, and merged in part order, not in the order the
+        # parts finished, so the merge is the same every run (final review 5).
+        whole = "findAll { it.key !in ['part', 'comeni_parts'] }"
+        return (f"{expression}.map {{ meta, f -> [ groupKey(meta.{whole}, meta.comeni_parts), "
+                "[meta, f] ] }.groupTuple().map { k, items -> def s = items.sort { it[0].part }; "
+                f"[ s[0][0].{whole}, s.collect {{ it[1] }}.flatten() ] }}")
     if wiring.select:
         # Only the samples the port selects, such as a tumour (#466).
         held = " && ".join(condition(c, f"{step.id}.{port_name}") for c in wiring.select)
@@ -687,9 +698,7 @@ def _call(pipeline: Pipeline, step: Step, measured: dict[str, str] | None = None
         args[0] = f"({args[0]}){injection}"
     if guard and step.sample_rules and args:
         args[0] = f"({args[0]}){_sample_guard(step)}"
-    table = _table_argument(pipeline, step)
-    if table is not None:
-        return _crossed(step, args, *table)
+    _table_argument(pipeline, step)  # refuses a table read where it cannot be crossed
     return f"{step.process}({', '.join(args)})"
 
 
@@ -708,18 +717,47 @@ def _table_argument(pipeline: Pipeline, step: Step):
     return None
 
 
-def _crossed(step: Step, args: list[str], at: int, table) -> str:
-    """Every sample with every row of a table (#466): the pairs made once and split into the
-    call's two inputs in step, each sample's `meta` carrying the row's under the table's name.
-    A table no row of which this step reads stops the run rather than dropping every sample."""
-    name = f"ch_cross_{step.id}"
-    rows = (f"{args[at]}.ifEmpty {{ error(\"each sample meets no row of {table.name}: "
-            f"{step.process} reads none of its rows\") }}")
-    cross = (f"{name} = {args[0]}.map {{ [it] }}.combine({rows}.map {{ [it] }}).multiMap "
-             f"{{ s, t -> sample: [ s[0] + [{table.name}: t[0]] ] + s.drop(1); table: t }}")
-    called = [f"{name}.sample" if n == 0 else f"{name}.table" if n == at else arg
-              for n, arg in enumerate(args)]
-    return f"{cross}\n    {step.process}({', '.join(called)})"
+def _split_args(args: str) -> list[str]:
+    """A call's argument list, split at its top level."""
+    parts, depth, start = [], 0, 0
+    for n, ch in enumerate(args):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            parts.append(args[start:n].strip())
+            start = n + 1
+    return [*parts, args[start:].strip()]
+
+
+def _crossing(pipeline: Pipeline, lines: list[str]) -> list[str]:
+    """Each step reading a sample and a table, its finished call turned into the pairs (#466):
+    every wrapper on its sample input (a branch's filter, a tool rule, measured facts) is
+    already in place, so it applies before the pairs are made rather than to one side after.
+    The pairs are made once and split into the call's two inputs in step, each sample's `meta`
+    carrying the row's under the table's name. A table no row of which the step reads stops the
+    run rather than dropping every sample."""
+    tables = {s.process: (s, _table_argument(pipeline, s)) for s in pipeline.steps}
+    out = []
+    for line in lines:
+        process, _, rest = line.partition("(")
+        step, table = tables.get(process, (None, None))
+        if table is None or not rest.endswith(")"):
+            out.append(line)
+            continue
+        at, shape = table
+        args = _split_args(rest[:-1])
+        name = f"ch_cross_{step.id}"
+        rows = (f"{args[at]}.ifEmpty {{ error(\"each sample meets no row of {shape.name}: "
+                f"{step.process} reads none of its rows\") }}")
+        out.append(f"{name} = {args[0]}.map {{ [it] }}.combine({rows}.map {{ [it] }}).multiMap "
+                   f"{{ s, t -> sample: [ s[0] + [{shape.name}: t[0]] ] + s.drop(1); "
+                   "table: t }")
+        called = [f"{name}.sample" if n == 0 else f"{name}.table" if n == at else arg
+                  for n, arg in enumerate(args)]
+        out.append(f"{process}({', '.join(called)})")
+    return out
 
 
 def _measuring_branch(pipeline: Pipeline) -> set[str]:
@@ -951,14 +989,6 @@ def _calls(pipeline: Pipeline) -> list[str]:
     inputs; then the record of each run-time value (#217, #466). A pipeline that decides
     nothing in the run gets exactly its calls in step order, as before."""
     _check_cells(pipeline)
-    for step in pipeline.steps:
-        folded = any(f.source is AtRunSource.FOLDED for s in step.settings if s.at_run
-                     for f in s.at_run.facts)
-        if (step.guard is not None or folded) and _table_argument(pipeline, step) is not None:
-            # Wrapping only the sample side after the pairs are made would mis-pair them.
-            raise ValueError(coded(
-                "MD0348", f"{step.id} crosses a table and takes only some samples or reads a "
-                "folded fact; it may do one — `mendel explain MD0348`."))
     branch = _measuring_branch(pipeline)
     if not branch:
         folds, folding = _folding(pipeline, {})
@@ -1216,7 +1246,7 @@ def emit(pipeline: Pipeline) -> str:
         nodes=nodes,
         entry_channels=_entry_channels(pipeline),
         guards=_run_guards(pipeline),
-        calls=[*merging, *_calls(view)],
+        calls=[*merging, *_crossing(view, _calls(view))],
     )
 
 
@@ -1426,12 +1456,13 @@ def _ext_scope(step: Step, crosses: str | None = None) -> list[str]:
             setting.template.replace("{value}", rendered)
         )
 
-    if crosses is not None and "prefix" not in fragments:
-        # Each pair's results under a name of its own (#466).
-        fragments["prefix"] = [f"${{meta.id}}_${{meta.{crosses}.id}}"]
-    if step.parts is not None and step.parts.on and "prefix" not in fragments:
-        # Each part's results under a name of its own, or publishing would overwrite them (#466).
-        fragments["prefix"] = ["${meta.id}.part${meta.part}"]
+    # Each pair's and each part's results under a name of its own, or publishing would overwrite
+    # them (#466). A contract's own prefix is kept and suffixed (final review 4).
+    suffix = (f"_${{meta.{crosses}.id}}" if crosses is not None else "") + (
+        ".part${meta.part}" if step.parts is not None and step.parts.on else "")
+    if suffix:
+        own = fragments.get("prefix")
+        fragments["prefix"] = [*own[:-1], own[-1] + suffix] if own else ["${meta.id}" + suffix]
     lines = []
     for key in sorted(fragments):
         joined = " ".join(fragments[key])
@@ -1605,9 +1636,9 @@ def _label_scope() -> list[str]:
 def _process_scope(pipeline: Pipeline) -> list[str]:
     """`ext.*` and directives per process, for modules that declare flags or carry settings."""
     blocks: list[str] = []
+    crossed = crossed_steps(pipeline.steps, pipeline.channels)
     for step in pipeline.steps:
-        table = _table_argument(pipeline, step)
-        blocks += _ext_scope(step, crosses=table[1].name if table else None)
+        blocks += _ext_scope(step, crosses=crossed.get(step.id))
         blocks += _directive_scope(step)
     return ["process {", *_label_scope(), *sorted(set(blocks)), "}", ""]
 

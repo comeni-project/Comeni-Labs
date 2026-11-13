@@ -3225,6 +3225,7 @@ MD0347:
   fix: |
     Name in `tables` only an input the goal has whose type is one item for the study, such as
     a reference database. A per-sample input with several rows per sample is `units` instead.
+    A port selecting on a study input's own fact needs that input to be a table.
   explanation: |
     A table input gives several items where the study usually has one, such as several
     databases to profile every sample against (#466). Each sample is paired with each row, so
@@ -3238,8 +3239,10 @@ MD0348:
   refuses: true
   fix: |
     Read the per-row results on their own, or gather them for the study, rather than joining
-    them by sample with another input. A step crossing a table reads the table on its own,
-    after the sample, and takes every sample without a folded fact.
+    them by sample with another input; no step after the cross may join, group or merge parts
+    by sample until the results are gathered for the study. A step crosses one table, read on
+    its own after the sample. A step that only reads a table (an index builder, say) cannot
+    take it as several items.
   explanation: |
     A step reading a sample and a table runs once per pair, so each sample has one result per
     row (#466). A join by sample expects one item per sample on each side and would pair the

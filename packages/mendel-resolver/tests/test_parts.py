@@ -154,3 +154,27 @@ def test_the_shipped_rnaseq_goal_is_unchanged(tmp_path):
         "profile": stack.measurements.profile({"read_length": 150}).model_dump(mode="json")})
     ir = _resolved(stack, goal)
     assert not [n for n in ir.nodes if n.parts is not None or n.id.startswith("split_")]
+
+
+def test_a_step_crossing_a_table_is_never_split(tmp_path):
+    """Final review 3: parts of two databases' pairs would merge into one."""
+    from emit.fixtures import tables
+
+    body = tables.LAYER["profile.contract.yml"].replace(
+        "{name: reads, type_id: fastq.reads}", "{name: reads, type_id: fastq.reads, parts: true}")
+    merger = LAYER["merge.contract.yml"].replace("lab/merge_hits", "lab/merge_profiles") \
+        .replace("MERGE_HITS", "MERGE_PROFILES").replace("hits.tsv", "profile.tsv")
+    roots = [ROOT / "registry", layer(tmp_path),
+             tables.layer(tmp_path, {"profile.contract.yml": body,
+                                     "merge_profiles.contract.yml": merger})]
+    stack = layers.load(roots)
+    from mendel_resolver.goal import Goal
+
+    goal = Goal.model_validate({
+        "have": [{"type_id": "fastq.reads"}, {"type_id": "database.index"}],
+        "want": ["profile.tsv"], "constraints": {"tables": ["database.index"]},
+        "profile": stack.measurements.profile({}).model_dump(mode="json")})
+    ir = _resolved(stack, goal)
+    assert "split_profile" not in {n.id for n in ir.nodes}
+    plain = Goal.model_validate({**goal.model_dump(mode="json"), "constraints": {}})
+    assert "split_profile" in {n.id for n in _resolved(stack, plain).nodes}

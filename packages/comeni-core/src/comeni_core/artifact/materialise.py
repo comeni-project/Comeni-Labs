@@ -40,6 +40,7 @@ from comeni_core.artifact.pipeline import (
     TableShape,
     Why,
     _no_flags_why,
+    crossed_steps,
 )
 from comeni_core.declared.constraints import Setup, evaluate, rows_of, sentence
 from comeni_core.declared.contract import ModuleContract
@@ -60,7 +61,7 @@ from comeni_core.plan.at_run import (
 from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import Grain, InputForm, Tier, ValueSource
 from comeni_core.spell.marks import LayerName, ParamValue
-from comeni_core.spell.routes import Join, Via
+from comeni_core.spell.routes import Via
 
 # ---------------- PIPELINE CONSTRUCTION ----------------
 
@@ -435,18 +436,32 @@ def _tables(channels: list[Channel], steps: list[Step], ir: PipelineIR, registry
             for fact in port.select})
         out.append(channel.model_copy(update={"table": TableShape(
             name=channel.type_id.split(".")[0], columns=channel.columns, facts=facts)}))
-    crossed = {s.id for s in steps
-               if any(i.channel in {c.name for c in out if c.table} for i in s.inputs)}
+    tabled = {c.name for c in out if c.table is not None}
+    study = {c.name for c in out if c.grain is Grain.STUDY}
     for step in steps:
-        for arg in step.call:
-            read = [i for i in step.inputs if i.port in arg.ports]
-            if len(read) > 1 and any(i.source and i.source.split(".")[0] in crossed
-                                     for i in read) and any(
-                    arg.join_for(name) is Join.BY_SAMPLE for name in arg.ports[1:]):
+        for item in step.inputs:
+            if item.select and item.channel in study - tabled:
+                # One item for the study, filtered away, and nothing after it would run.
                 raise ValueError(coded(
-                    "MD0348", f"{step.id} joins {', '.join(arg.ports)} by sample, and one of "
-                    "them has a result per row of a table for each sample — "
-                    "`mendel explain MD0348`."))
+                    "MD0347", f"{step.id} selects on {item.channel}, which is one item for the "
+                    "study, not a table of several — `mendel explain MD0347`."))
+        if len([i for i in step.inputs if i.channel in tabled]) > 1:
+            raise ValueError(coded(
+                "MD0348", f"{step.id} reads two tables; a step crosses its samples with one — "
+                "`mendel explain MD0348`."))
+    crossed = crossed_steps(steps, out)
+    for step in steps:
+        if step.id not in crossed or any(i.channel in tabled for i in step.inputs):
+            continue
+        # After the cross each sample has one item per row: a join, a group or a parts gather
+        # by sample would match one of them, or none (final review 2).
+        relates = any(len(arg.ports) > 1 for arg in step.call) or any(
+            i.by is not None or i.parts is not None for i in step.inputs)
+        if relates:
+            raise ValueError(coded(
+                "MD0348", f"{step.id} relates items by sample after a table was crossed with "
+                "the samples, and each sample has one item per row there — "
+                "`mendel explain MD0348`."))
     return out
 
 

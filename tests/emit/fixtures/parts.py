@@ -84,9 +84,9 @@ MERGE_HITS = """process MERGE_HITS {
     output:
     tuple val(meta), path("*.merged.tsv"), emit: hits
     script:
-    "cat ${hits} | sort > ${meta.id}.merged.tsv"
+    "cat ${hits} > ${meta.id}.merged.tsv"
     stub:
-    "cat ${hits} | sort > ${meta.id}.merged.tsv"
+    "cat ${hits} > ${meta.id}.merged.tsv"
 }
 """
 

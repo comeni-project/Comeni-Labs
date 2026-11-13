@@ -362,8 +362,10 @@ per item fact a step selects on (`facts`). The run stops naming the row on a bla
 name, or a file that does not exist. Each item's `meta` is `[id: <name>, <facts>]`, and a step
 reading a sample and the table runs on every pair, the item's `meta` on the sample's under the
 table's `name` (the type's family, such as `database`). Each pair publishes under
-`<sample>_<item>`; a table no row of which the step reads stops the run. A step may not join a
-crossed result by sample with another input (`MD0348`).
+`<sample>_<item>`, as does every step after it until a gather, a contract's own prefix kept and
+suffixed; a table no row of which the step reads stops the run. No step after the cross may join,
+group or merge parts by sample, and a step crosses one table (`MD0348`). A step crossing a table,
+or after one, is never split into parts.
 
 `test_data` points at a small public example, pinned to a commit. Never a laboratory's own
 path — this file is shareable, and a dataset that moves is one you cannot compare a result

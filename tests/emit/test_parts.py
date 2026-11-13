@@ -50,9 +50,31 @@ def test_the_split_spreads_into_parts(tmp_path):
 
 def test_the_merge_gathers_one_samples_parts(tmp_path):
     merge = _call(emit(_built(tmp_path)), "MERGE_HITS")
-    assert "groupKey(meta.id, meta.comeni_parts)" in merge
+    assert "groupKey(" in merge and "meta.comeni_parts)" in merge
     assert ".groupTuple()" in merge and ".collect()" not in merge
     assert "it.key !in ['part', 'comeni_parts']" in merge
+    # Final review 5: in part order, not in the order the parts finished.
+    assert ".sort { it[0].part }" in merge
+
+
+def test_a_splitter_making_no_parts_stops_the_run(tmp_path):
+    """Final review 6: a sample with no parts would vanish with the run green."""
+    assert "made no parts" in _call(emit(_built(tmp_path)), "SEARCH")
+
+
+def test_a_contracts_own_prefix_is_kept_and_suffixed(tmp_path):
+    """Final review 4: the contract's prefix used to switch the part's name off."""
+    from comeni_core.artifact.pipeline import Setting
+    from comeni_core.spell.routes import Via
+
+    pipeline = _built(tmp_path)
+    search = next(s for s in pipeline.steps if s.id == "search")
+    prefix = Setting(name="prefix", value="sorted", via=Via.EXT, key="prefix",
+                     template="${meta.id}.{value}", why=search.why)
+    steps = [s.model_copy(update={"settings": [prefix]}) if s.id == "search" else s
+             for s in pipeline.steps]
+    config = emit_config(pipeline.model_copy(update={"steps": steps}))
+    assert 'withName: SEARCH { ext.prefix = { "${meta.id}.sorted.part${meta.part}" } }' in config
 
 
 def test_each_part_publishes_under_its_own_name(tmp_path):
@@ -106,7 +128,8 @@ def test_each_sample_merges_its_own_parts(tmp_path):
          "--outdir", str(results)],
         cwd=out, capture_output=True, text=True, timeout=900)
     assert done.returncode == 0, done.stdout + done.stderr
-    merged = {p.name: sorted(p.read_text().split()) for p in (results / "merge_hits").iterdir()}
+    merged = {p.name: p.read_text().split() for p in (results / "merge_hits").iterdir()}
+    # In part order (final review 5): the fixture merger concatenates without sorting.
     assert merged == {"S_one.merged.tsv": ["S_one.1"],
                       "S_three.merged.tsv": ["S_three.1", "S_three.2", "S_three.3"]}
     published = sorted(p.name for p in (results / "search").iterdir())

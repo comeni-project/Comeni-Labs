@@ -486,6 +486,23 @@ class TableShape(BaseModel):
     """Item facts a port selects on, one column each after the files. Sorted."""
 
 
+def crossed_steps(steps, channels) -> dict[str, str]:
+    """Each step whose items are a sample paired with a row of a table, and the table's name
+    (#466): the step reading the table, and every step after it until a gather. Steps are in
+    order, so one pass carries it down."""
+    tables = {c.name: c.table.name for c in channels if c.table is not None}
+    found: dict[str, str] = {}
+    for step in steps:
+        for item in step.inputs:
+            if item.channel in tables:
+                found[step.id] = tables[item.channel]
+            elif item.source is not None and not item.gather:
+                upstream = item.source.partition(".")[0]
+                if upstream in found:
+                    found.setdefault(step.id, found[upstream])
+    return found
+
+
 class Channel(BaseModel):
     """External pipeline input, including its expression, grain, metadata, and test data."""
 
