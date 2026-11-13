@@ -334,6 +334,22 @@ class PipelineOptionalInputRevision(_Revision):
     """`off`, `optional` or `required`; `None` once withdrawn."""
 
 
+class PipelineWhole(_Subject):
+    """A tool a person keeps whole rather than running on parts of each sample (#466); keyed by
+    the tool."""
+
+    __tablename__ = "pipeline_whole"
+    __table_args__ = _subject_keys("whole")
+
+
+class PipelineWholeRevision(_Revision):
+    __tablename__ = "pipeline_whole_revision"
+    __table_args__ = _revision_keys("whole")
+
+    contract: Mapped[str] = mapped_column(String(200))
+    whole: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+
+
 class PipelineParameter(_Subject):
     __tablename__ = "pipeline_parameter"
     __table_args__ = _subject_keys("parameter")

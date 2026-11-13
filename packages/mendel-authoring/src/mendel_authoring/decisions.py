@@ -147,6 +147,14 @@ class OptionalInputChoice(_Value):
     state: InputState | None = None
 
 
+class WholeChoice(_Value):
+    """A tool a person keeps whole (#466): a step that could run on parts of a sample is not
+    split. `whole=False` is the choice withdrawn."""
+
+    contract: ContractId
+    whole: bool = True
+
+
 class Profiles(Protocol):
     def profile_of(self, entries: Sequence[MeasuredEntry]) -> DataProfile: ...
 
@@ -169,6 +177,7 @@ class Decisions(_Value):
     exclusions: list[ExclusionChoice] = Field(default_factory=list)
     sources: list[SourceChoice] = Field(default_factory=list)
     optional_inputs: list[OptionalInputChoice] = Field(default_factory=list)
+    wholes: list[WholeChoice] = Field(default_factory=list)
 
     def goal(self, measurements: Profiles) -> Goal:
         """The active goal. Only a declaration-validating registry constructs its profile."""
@@ -218,6 +227,7 @@ class Decisions(_Value):
                 ],
                 varies=[f.subject for f in self.facts if f.origin is FactOrigin.VARIES],
                 units=sorted({i.type_id for i in self.inputs if i.present and i.units}),
+                whole=sorted({w.contract for w in self.wholes if w.whole}),
             ),
             profile=measurements.profile_of(
                 [
@@ -300,4 +310,5 @@ class Decisions(_Value):
                 OptionalInputChoice(contract=c.contract, port=c.port, state=c.state)
                 for c in goal.constraints.inputs
             ],
+            wholes=[WholeChoice(contract=c) for c in goal.constraints.whole],
         )

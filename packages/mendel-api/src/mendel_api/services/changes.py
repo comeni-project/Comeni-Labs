@@ -67,6 +67,14 @@ def _optional_port(stack, contract: str, port: str) -> None:
                                "switched on or off"))
 
 
+def _on_parts(stack, contract: str) -> None:
+    """Only a tool that can run on parts of a sample is kept whole (#466)."""
+    _tool(stack, contract)
+    if not any(p.parts for p in stack.registry.get(contract).consumes):
+        raise ValueError(coded("MI0204", f"{contract} never runs on parts of a sample, so it is "
+                               "not kept whole"))
+
+
 def check(change: DecisionChange) -> None:
     """Refuse what names something undeclared, before anything moves (`MI0204`, `MI0208`)."""
     stack = registry.stack()
@@ -92,6 +100,8 @@ def check(change: DecisionChange) -> None:
         _optional_port(stack, *source_of(subject))
         if not change.retract and change.value not in {s.value for s in InputState}:
             raise ValueError(coded("MI0204", f"{change.value!r} is not off, optional or required"))
+    elif kind == "whole":
+        _on_parts(stack, subject)
 
 
 def retracts_something(draft_id: str, change: DecisionChange) -> bool:
@@ -124,6 +134,8 @@ def retracts_something(draft_id: str, change: DecisionChange) -> bool:
         contract, port = source_of(subject)
         return any((c.contract, c.port) == (contract, port) and c.state
                    for c in current.optional_inputs)
+    if change.kind == "whole":
+        return any(w.contract == subject and w.whole for w in current.wholes)
     if change.kind == "asked":
         key = " ".join(subject.split()).casefold()
         return any(" ".join(a.phrase.split()).casefold() == key
@@ -244,13 +256,13 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
         if change.retract:
             return decisions.retract_asked(draft_id, subject, **said) is not None
         decisions.set_asked(draft_id, subject, **said, **heard)
-    elif kind in ("role", "exclude", "source", "optional_input"):
+    elif kind in ("role", "exclude", "source", "optional_input", "whole"):
         check(change)
         if change.retract:
             if not retracts_something(draft_id, change):
                 return False
             family = {"role": "role", "exclude": "exclusion", "source": "source",
-                      "optional_input": "optional_input"}[kind]
+                      "optional_input": "optional_input", "whole": "whole"}[kind]
             key = (decisions.exclusion_key(_site(change), change.value) if kind == "exclude"
                    else subject)
             decisions.release_intent(draft_id, family, key, who=who)
@@ -258,6 +270,8 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             decisions.switch_off_role(draft_id, subject, **said)
         elif kind == "exclude":
             decisions.exclude_producer(draft_id, _site(change), str(change.value), **said)
+        elif kind == "whole":
+            decisions.keep_whole(draft_id, subject, **said)
         elif kind == "optional_input":
             decisions.set_optional_input(draft_id, *source_of(subject), str(change.value),
                                          **said)
@@ -293,6 +307,10 @@ def describe(change: DecisionChange) -> str:
 
     stack = registry.stack()
     subject = change.subject
+    if change.kind == "whole":
+        tool = _process(stack, subject)
+        return (f"{tool} runs on parts of each sample" if change.retract
+                else f"{tool} runs on each sample whole")
     if change.kind == "units":
         return (f"a sample may span several rows of {subject}" if change.value
                 else f"each sample is one row of {subject}")

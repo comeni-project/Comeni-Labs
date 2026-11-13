@@ -187,6 +187,23 @@ class GuardView(BaseModel):
     lookup: AtRunView
 
 
+class PartsView(BaseModel):
+    """A step that can run on parts of each sample (#466): whether it does, the tools that split
+    and merge, and why. Shown whether it is on or kept whole, so the card offers the switch."""
+
+    on: bool
+    splitter: str
+    mergers: list[str]
+    because: str
+
+
+def parts_view(parts) -> PartsView | None:
+    if parts is None:
+        return None
+    return PartsView(on=parts.on, splitter=parts.splitter, because=parts.because,
+                     mergers=sorted(set(parts.mergers.values())))
+
+
 def guard_view(guard) -> GuardView | None:
     if guard is None:
         return None
@@ -354,6 +371,9 @@ class StepView(BaseModel):
     takes_samples: GuardView | None = None
     """Which samples this step takes, when each sample's tool is chosen per sample and only
     some come here (#466); `None` when every sample does."""
+    parts: PartsView | None = None
+    """Whether this step runs on parts of each sample, and the switch's state (#466); `None`
+    for a step that cannot."""
     settings: list[SettingView]
     """**The parameters themselves, not a count.** A node shows `N settings` from `len()`; the
     card needs the rows, and a second request to fetch them would make opening a card a network
@@ -529,6 +549,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                  ports=ports_of(step.id),
                  checked_per_sample=[rule.says for rule in step.sample_rules],
                  takes_samples=guard_view(step.guard),
+                 parts=parts_view(step.parts),
             settings=[
                 SettingView(
                     name=setting.name,

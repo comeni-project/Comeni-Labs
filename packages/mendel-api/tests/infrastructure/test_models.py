@@ -80,6 +80,9 @@ def test_the_registry_is_not_in_the_database():
         # A person's choice for a tool's optional input (#460), a family like source.
         "pipeline_optional_input",
         "pipeline_optional_input_revision",
+        # A tool a person keeps whole rather than on parts (#466), a family like role.
+        "pipeline_whole",
+        "pipeline_whole_revision",
         "pipeline_parameter",
         "pipeline_parameter_revision",
         "pipeline_review",

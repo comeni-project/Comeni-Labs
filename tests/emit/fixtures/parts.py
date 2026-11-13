@@ -9,7 +9,6 @@ LAYER = {
     "hits.family.yml": "declares: family\nid: hits\ndescription: Hits of reads in a genome\n",
     "hits.tsv.yml": "declares: vocabulary\nid: hits.tsv\nstates: []\ngrain: sample\n",
     "parts.role.yml": "declares: role\nroles:\n"
-                      "  - {id: splitting, explain: Splits an item into parts.}\n"
                       "  - {id: searching, explain: Searches reads in a genome.}\n",
     "split.contract.yml": """declares: contract
 id: lab/split_reads@1.0.0

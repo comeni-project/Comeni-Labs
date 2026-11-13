@@ -35,7 +35,8 @@ def test_every_kind_is_listed():
     # person's structural intent (A1), optional inputs (#460) and an input's lanes (#466), read
     # by the resolver's goal in `test_intent_changes.py`.
     assert declared - set(KINDS) == {"producer", "retain", "observation",
-                                     "role", "exclude", "source", "optional_input", "units"}
+                                     "role", "exclude", "source", "optional_input", "units",
+                                     "whole"}
 
 
 def test_a_want_is_read_by_the_goal_the_memory_and_the_card(clean):

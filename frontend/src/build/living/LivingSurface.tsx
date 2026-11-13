@@ -69,6 +69,7 @@ export function LivingSurface({
   declarations, onCorrect, onRelease, onUnits, onDisagreement, correcting = false,
   onSetParam,
   onSwitchInput,
+  onWhole,
   onApplyChange,
   onEdit,
   onRename,
@@ -111,6 +112,8 @@ export function LivingSurface({
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
   /** Switch a tool's optional input (issue 460). */
   onSwitchInput?: (contract: string, port: string, state: "off" | "optional" | "required") => void;
+  /** Keep a tool whole, or let it run on parts of each sample again (issue 466). */
+  onWhole?: (contract: string, whole: boolean) => void;
   onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
   /** A direct change to a step already drawn — swap, settings, remove — as the whole next graph,
    *  for the session's edit verb to save, stamp as the person's and write a receipt for. */
@@ -353,6 +356,7 @@ export function LivingSurface({
             onEdit={onEdit}
             onSetParam={onSetParam}
             onSwitchInput={onSwitchInput}
+            onWhole={onWhole}
             onApplyChange={onApplyChange}
             suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
             questionRequest={questionRequest}
@@ -520,6 +524,7 @@ export function LivingSurface({
           onEdit={onEdit}
           onSetParam={onSetParam}
           onSwitchInput={onSwitchInput}
+            onWhole={onWhole}
           onApplyChange={onApplyChange}
           suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
           questionRequest={questionRequest}

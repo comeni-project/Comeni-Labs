@@ -9,7 +9,7 @@ import { StepSheet } from "./StepSheet";
 function sheet(overrides = {}) {
   const props = {
     node: "star_align", step: FAKE_STEPS.star_align as AnsweredStep, graph: FAKE_SESSION.graph, requests: [],
-    onSetParam: vi.fn(), onEdit: vi.fn(), onClose: vi.fn(), onSwitchInput: vi.fn(), ...overrides,
+    onSetParam: vi.fn(), onEdit: vi.fn(), onClose: vi.fn(), onSwitchInput: vi.fn(), onWhole: vi.fn(), ...overrides,
   };
   render(<QueryClientProvider client={new QueryClient()}><StepSheet {...props} /></QueryClientProvider>);
   return props;
@@ -72,5 +72,40 @@ describe("a step's optional inputs (issue 460)", () => {
     const props = sheet({ node: "quast", step: QUAST, onSwitchInput: vi.fn() });
     fireEvent.click(screen.getByRole("radio", { name: "Optional" }));
     expect(props.onSwitchInput).toHaveBeenCalledWith("nf-core/quast@5.3.0", "fasta", "optional");
+  });
+});
+
+describe("a step that runs on parts of each sample (issue 466)", () => {
+  const SEARCH = {
+    ...FAKE_STEPS.star_align, id: "search", contract_id: "lab/search@1.0.0", settings: [],
+    parts: { on: true, splitter: "lab/split_reads@1.0.0", mergers: ["lab/merge_hits@1.0.0"],
+             because: "lab/search@1.0.0 can run on parts of fastq.reads: lab/split_reads@1.0.0 splits each sample, and lab/merge_hits@1.0.0 merges its hits" },
+  } as unknown as AnsweredStep;
+
+  it("says how it is split and merged, and why", () => {
+    sheet({ node: "search", step: SEARCH });
+    const region = screen.getByRole("region", { name: "Runs in parts" });
+    expect(within(region).getByText(/can run on parts of fastq.reads/)).toBeInTheDocument();
+    expect(within(region).getByRole("checkbox", { name: "Run each sample whole" })).not.toBeChecked();
+  });
+
+  it("keeps it whole as the person's change, and back", () => {
+    const props = sheet({ node: "search", step: SEARCH, onWhole: vi.fn() });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Run each sample whole" }));
+    expect(props.onWhole).toHaveBeenCalledWith("lab/search@1.0.0", true);
+  });
+
+  it("offers it back when the step is kept whole", () => {
+    const whole = { ...SEARCH, parts: { ...(SEARCH as { parts: object }).parts, on: false } } as unknown as AnsweredStep;
+    const props = sheet({ node: "search", step: whole, onWhole: vi.fn() });
+    const box = screen.getByRole("checkbox", { name: "Run each sample whole" });
+    expect(box).toBeChecked();
+    fireEvent.click(box);
+    expect(props.onWhole).toHaveBeenCalledWith("lab/search@1.0.0", false);
+  });
+
+  it("says nothing for a step that cannot run on parts", () => {
+    sheet();
+    expect(screen.queryByRole("region", { name: "Runs in parts" })).toBeNull();
   });
 });

@@ -2333,6 +2333,8 @@ export interface components {
             varies?: string[];
             /** Units */
             units?: string[];
+            /** Whole */
+            whole?: string[];
         };
         /**
          * Constraints
@@ -2357,6 +2359,8 @@ export interface components {
             varies?: string[];
             /** Units */
             units?: string[];
+            /** Whole */
+            whole?: string[];
         };
         /** Constructor */
         Constructor: {
@@ -2515,7 +2519,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source" | "optional_input" | "units";
+            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source" | "optional_input" | "units" | "whole";
             /** Subject */
             subject: string;
             /** Value */
@@ -3277,11 +3281,12 @@ export interface components {
         /**
          * Grain
          * @description How many items a channel carries relative to the analysis, and what a fact is about
-         *     (#466): one for the whole study, or one per sample. `group`, `unit` and `part` join with the
-         *     stages that give them meaning (per-sample design, Goal A).
+         *     (#466): one for the whole study, one per sample, or a part of one sample's item between a
+         *     splitter and its merger. Groups and lanes are declared on ports and channels instead (`by`,
+         *     `Channel.units`).
          * @enum {string}
          */
-        Grain: "study" | "sample";
+        Grain: "study" | "sample" | "part";
         /**
          * GuardView
          * @description The samples a step takes when each sample's tool is chosen per sample (#466): the
@@ -3983,6 +3988,21 @@ export interface components {
             } | null;
             /** Because */
             because: string | null;
+        };
+        /**
+         * PartsView
+         * @description A step that can run on parts of each sample (#466): whether it does, the tools that split
+         *     and merge, and why. Shown whether it is on or kept whole, so the card offers the switch.
+         */
+        PartsView: {
+            /** On */
+            on: boolean;
+            /** Splitter */
+            splitter: string;
+            /** Mergers */
+            mergers: string[];
+            /** Because */
+            because: string;
         };
         /**
          * Phase
@@ -5019,6 +5039,7 @@ export interface components {
              */
             checked_per_sample: string[];
             takes_samples?: components["schemas"]["GuardView"] | null;
+            parts?: components["schemas"]["PartsView"] | null;
             /** Settings */
             settings: components["schemas"]["SettingView"][];
         };

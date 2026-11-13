@@ -228,6 +228,25 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     },
   });
 
+  // **A tool kept whole, or run on parts of each sample again** (issue 466): one DecisionChange,
+  // `whole`, retracted to let the step split again.
+  const keeping = useMutation({
+    mutationFn: (input: { contract: string; whole: boolean }) => {
+      const current = session.data;
+      if (!current) throw new Error("Reload the session before changing a step");
+      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
+        change: { kind: "whole", subject: input.contract, retract: !input.whole },
+        expected_decision_revision: current.decision_revision ?? 0,
+        expected_draft_revision: current.revision, expected_session_version: current.row_version,
+      });
+    },
+    onSuccess: () => void refresh(),
+    onError: error => {
+      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
+      void refresh();
+    },
+  });
+
   // **The model's suggestions wait for one click** (Part I.0): applied as the person's own change,
   // or set aside.
   const suggestion = useMutation({
@@ -294,6 +313,7 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     correcting: correction.isPending,
     switchInput: (contract: string, port: string, state: "off" | "optional" | "required") =>
       switching.mutate({ contract, port, state }),
+    keepWhole: (contract: string, whole: boolean) => keeping.mutate({ contract, whole }),
     // **A sample may span several rows** (issue 466): one change, `units`.
     spanRows: (type_id: string, on: boolean) => {
       const current = session.data;

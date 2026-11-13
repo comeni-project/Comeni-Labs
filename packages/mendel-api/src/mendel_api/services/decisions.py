@@ -21,6 +21,7 @@ from mendel_authoring.decisions import (
     FactOrigin,
     InputDecision,
     OptionalInputChoice,
+    WholeChoice,
     ParameterChoice,
     ProducerChoice,
     RoleChoice,
@@ -45,6 +46,8 @@ from mendel_api.models import (
     PipelineObservation,
     PipelineOptionalInput,
     PipelineOptionalInputRevision,
+    PipelineWhole,
+    PipelineWholeRevision,
     PipelineParameter,
     PipelineParameterRevision,
     PipelineProducer,
@@ -73,6 +76,7 @@ _FAMILIES = {
     "exclusion": (PipelineExclusion, PipelineExclusionRevision),
     "source": (PipelineSource, PipelineSourceRevision),
     "optional_input": (PipelineOptionalInput, PipelineOptionalInputRevision),
+    "whole": (PipelineWhole, PipelineWholeRevision),
 }
 
 
@@ -408,6 +412,8 @@ def read(draft_id):
                                     state=InputState(r.state) if r.state else None)
                 for s, r in _current(db, draft_id, "optional_input")
             ],
+            wholes=[WholeChoice(contract=r.contract, whole=r.whole)
+                    for s, r in _current(db, draft_id, "whole")],
         )
 
 
@@ -460,6 +466,8 @@ def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):
                   "state": c.state.value if c.state else None})
                 for c in decisions.optional_inputs
             ],
+            "whole": [(w.contract, {"contract": w.contract, "whole": True})
+                      for w in decisions.wholes if w.whole],
         }
         for family, values in families.items():
             included = {key for key, _ in values}
@@ -640,6 +648,7 @@ _FIELDS = {
     "exclusion": ("type_id", "states", "contract", "excluded"),
     "source": ("consumer", "port", "producer"),
     "optional_input": ("contract", "port", "state"),
+    "whole": ("contract", "whole"),
 }
 
 _WITHDRAWN = {
@@ -651,6 +660,7 @@ _WITHDRAWN = {
     "exclusion": ("excluded", False),
     "source": ("producer", None),
     "optional_input": ("state", None),
+    "whole": ("whole", False),
 }
 """The field a retraction sets, and to what, per family."""
 
@@ -843,7 +853,16 @@ def set_optional_input(draft_id, contract, port, state, *, who, actor_kind=Actor
                       actor_kind=actor_kind, proposal_id=proposal_id).id
 
 
-_INTENTS = ("role", "exclusion", "source", "optional_input")
+def keep_whole(draft_id, contract, *, who, actor_kind=ActorKind.PERSON, proposal_id=None,
+               expected_revision=None):
+    """A tool a person keeps whole rather than running on parts of each sample (#466)."""
+    with session_scope() as db:
+        draft = _draft(db, draft_id, expected_revision)
+        return _write(db, draft, "whole", contract, {"contract": contract, "whole": True},
+                      who=who, actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+_INTENTS = ("role", "exclusion", "source", "optional_input", "whole")
 
 
 def release_intent(draft_id, family, key, *, who, expected_revision=None):

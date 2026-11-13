@@ -181,10 +181,11 @@
             "type": "object"
           },
           "Grain": {
-            "description": "How many items a channel carries relative to the analysis, and what a fact is about\n(#466): one for the whole study, or one per sample. `group`, `unit` and `part` join with the\nstages that give them meaning (per-sample design, Goal A).",
+            "description": "How many items a channel carries relative to the analysis, and what a fact is about\n(#466): one for the whole study, one per sample, or a part of one sample's item between a\nsplitter and its merger. Groups and lanes are declared on ports and channels instead (`by`,\n`Channel.units`).",
             "enum": [
               "study",
-              "sample"
+              "sample",
+              "part"
             ],
             "title": "Grain",
             "type": "string"
@@ -308,6 +309,11 @@
             "default": null,
             "title": "By"
           },
+          "parts": {
+            "default": false,
+            "title": "Parts",
+            "type": "boolean"
+          },
           "required": {
             "default": true,
             "title": "Required",
@@ -331,6 +337,18 @@
       "label": "Output",
       "named": true,
       "fields": {
+        "$defs": {
+          "Grain": {
+            "description": "How many items a channel carries relative to the analysis, and what a fact is about\n(#466): one for the whole study, one per sample, or a part of one sample's item between a\nsplitter and its merger. Groups and lanes are declared on ports and channels instead (`by`,\n`Channel.units`).",
+            "enum": [
+              "study",
+              "sample",
+              "part"
+            ],
+            "title": "Grain",
+            "type": "string"
+          }
+        },
         "additionalProperties": false,
         "properties": {
           "name": {
@@ -371,6 +389,17 @@
             ],
             "default": null,
             "title": "Produced When"
+          },
+          "fans_out": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Grain"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "position": {
             "title": "Position",
@@ -674,10 +703,11 @@
       "fields": {
         "$defs": {
           "Grain": {
-            "description": "How many items a channel carries relative to the analysis, and what a fact is about\n(#466): one for the whole study, or one per sample. `group`, `unit` and `part` join with the\nstages that give them meaning (per-sample design, Goal A).",
+            "description": "How many items a channel carries relative to the analysis, and what a fact is about\n(#466): one for the whole study, one per sample, or a part of one sample's item between a\nsplitter and its merger. Groups and lanes are declared on ports and channels instead (`by`,\n`Channel.units`).",
             "enum": [
               "study",
-              "sample"
+              "sample",
+              "part"
             ],
             "title": "Grain",
             "type": "string"

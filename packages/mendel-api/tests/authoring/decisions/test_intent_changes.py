@@ -147,3 +147,36 @@ def test_units_on_an_input_the_goal_does_not_have_are_refused():
     with pytest.raises(ValueError, match="MI0204"):
         changes.apply(_draft(), DecisionChange(kind="units", subject="fastq.reads", value=True),
                       who="ana")
+
+
+@pytest.fixture
+def with_parts(tmp_path, monkeypatch):
+    """The curated registry plus a search step that can run on parts (#466, stage 6)."""
+    from mendel_resolver import layers
+    from support.paths import ROOT
+
+    from emit.fixtures.parts import layer
+
+    stacked = layers.load([ROOT / "registry", layer(tmp_path)])
+    monkeypatch.setattr(registry, "stack", lambda: stacked)
+
+
+SEARCH = "lab/search@1.0.0"
+
+
+def test_a_whole_change_keeps_a_step_whole_and_back(with_parts):
+    draft = _draft()
+    whole = DecisionChange(kind="whole", subject=SEARCH)
+    assert changes.apply(draft, whole, who="ana")
+    assert _constraints(draft).whole == [SEARCH]
+    assert changes.describe(whole) == "SEARCH runs on each sample whole"
+    back = DecisionChange(kind="whole", subject=SEARCH, retract=True)
+    assert changes.describe(back) == "SEARCH runs on parts of each sample"
+    assert changes.apply(draft, back, who="ana")
+    assert _constraints(draft).whole == []
+    assert not changes.apply(draft, back, who="ana")
+
+
+def test_keeping_whole_a_tool_that_never_runs_on_parts_is_refused(with_parts):
+    with pytest.raises(ValueError, match="MI0204"):
+        changes.check(DecisionChange(kind="whole", subject=STAR))

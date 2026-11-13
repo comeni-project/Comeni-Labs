@@ -106,8 +106,9 @@ def review_level_for(tier: Tier) -> ReviewLevel:
 
 class Grain(StrEnum):
     """How many items a channel carries relative to the analysis, and what a fact is about
-    (#466): one for the whole study, or one per sample. `group`, `unit` and `part` join with the
-    stages that give them meaning (per-sample design, Goal A)."""
+    (#466): one for the whole study, one per sample, or a part of one sample's item between a
+    splitter and its merger. Groups and lanes are declared on ports and channels instead (`by`,
+    `Channel.units`)."""
 
     STUDY = "study"
     """One item for the analysis, such as a reference genome or annotation, emitted as a value
