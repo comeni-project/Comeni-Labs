@@ -18,7 +18,7 @@ from comeni_core.diagnostics import coded
 from comeni_flow.interpret import Refused
 from comeni_vendor.ops import PREFIX, REPOS, SOURCE_LICENCE
 from mendel_compiler.modulespec import ModuleSpec
-from mendel_forge.forging import rules
+from mendel_forge.forging import rules, validate
 from mendel_forge.forging.assemble import ModuleOrigin, Proof, prove, write_layer
 from mendel_forge.forging.checks import QuestionFinding
 from mendel_forge.forging.model import (
@@ -579,9 +579,14 @@ def assemble(adaptation_id: str) -> AssemblyView:
     out = draft_dir(adaptation_id)
     set_phase(adaptation_id, Phase.ASSEMBLING)
     files: list[Path] = []
+    unproven = validate.unproven({k: i.value for k, i in state.items.items()
+                                  if i.status is Status.APPROVED})
     try:
-        files = _write_draft(adaptation_id, state, out)
-        proof = prove(active_registry(), pending_layers(adaptation_id), out)
+        if unproven:
+            proof = _failed("; ".join(p.says for p in unproven), Piece.MEASURERS)
+        else:
+            files = _write_draft(adaptation_id, state, out)
+            proof = prove(active_registry(), pending_layers(adaptation_id), out)
     except ValidationError as error:  # a contract the registry's model refuses
         proof = _failed(str(error), Piece.CONTRACT)
     except Exception as error:

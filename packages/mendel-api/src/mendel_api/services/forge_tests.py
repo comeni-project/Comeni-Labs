@@ -86,10 +86,12 @@ def submit_all(adaptation_id: str) -> None:
         _record(adaptation_id, attempt, "(all)", drafted, None, repr(error), now)
         conclude(adaptation_id)
         return
+    folder = forging.draft_dir(adaptation_id) / "measurers" / "measures"
+    drafted_parsers = {p.parent.name for p in folder.glob("*/measurer.yml")}
     for test in tests:
         run_id, says = None, None
         try:
-            run_id = _submit(test, stack)
+            run_id = _submit(test, stack, drafted_parsers)
         except (ValueError, KeyError, OSError, RunnerUnavailable) as error:
             log.warning("forge test %s of %s did not start: %s", test.name, adaptation_id, error)
             says = str(error)
@@ -97,8 +99,8 @@ def submit_all(adaptation_id: str) -> None:
     conclude(adaptation_id)
 
 
-def _submit(test: ToolTest, stack: layers.Layers) -> str:
-    pipeline = build_test_pipeline(test, stack)
+def _submit(test: ToolTest, stack: layers.Layers, drafted: set[str]) -> str:
+    pipeline = build_test_pipeline(test, stack, parsers=drafted)
     archive = bundle.archive(pipeline_file.dump(pipeline), pipeline,
                              module_files(pipeline, stack))
     return runner().submit(archive, f"forge test: {test.contract} {test.name}",

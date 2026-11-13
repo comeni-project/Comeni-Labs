@@ -15,6 +15,7 @@ cites its entry; the long form is in [the archive](journal/archive/).
   (#465, #217), per-sample stages 1–6 (#466) and the forge drafting measurers (5.1, #487) on the
   branch, registry on a local `measurers` branch. Next: part 6 (#462) for the full loop; then
   browser checks and the QUAST walk, then tune how much the AI does. (11-13)
+  **After merge:** bump the registry's `ENGINE_REF`, or its CI lacks MD0027 (#487). (11-13)
 - **Walks run on GPT** through the ChatGPT subscription (#457), not local models. (11-10)
 - **All of it is on `main`** (PR #402, with a behaviour-preserving refactoring campaign). Left for
   an authorised behaviour pass: `SampleUpload.tsx`'s hook warning, Node under Vite's floor. (10-26)

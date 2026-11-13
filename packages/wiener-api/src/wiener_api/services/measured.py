@@ -27,6 +27,10 @@ def _allowed(pipeline) -> tuple[set[str], set[str], set[tuple[str, str]]]:
     processes = {step.process.lower() for step in pipeline.steps
                  if step.module.contract_id.startswith(MEASURING)}
     facts = {confirm.measurement for confirm in pipeline.confirms}
+    # A fact the pipeline was built to produce: a forge test's parser, or a build that wants a
+    # measurement (#487). Declared by the pipeline as `measurement.<id>`, so still closed.
+    facts |= {wanted.removeprefix("measurement.") for wanted in pipeline.intent.want
+              if wanted.startswith("measurement.")}
     decided = set()
     for step in pipeline.steps:
         for setting in step.settings:

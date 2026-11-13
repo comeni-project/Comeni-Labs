@@ -223,3 +223,11 @@ def test_the_bundle_holds_the_generated_measuring_step(stack):
     assert isinstance(main, bytes) and b"MEASURE_GENOME_LENGTH_FAI" in main
     assert any(name.endswith("pieces/measures/genome_length_fai/fai.py") for name in files)
     assert "modules/nf-core/samtools/faidx/main.nf" in files
+
+
+def test_only_the_drafts_own_parsers_run(stack):
+    """#487 review I2: a re-forge's test runs the parsers it drafted, not the registry's of the
+    same tool, whose fact for the same measurement would stand in for a drafted one."""
+    from mendel_forge.testing import parsers_for
+    assert parsers_for(_faidx(), stack, only={"something_else"}) == []
+    assert len(parsers_for(_faidx(), stack, only={"genome_length_fai"})) == 1

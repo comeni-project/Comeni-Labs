@@ -259,3 +259,23 @@ def test_a_drafted_measurement_counts_and_its_id_matches_its_key(stack, faidx_it
     items["measurers:measurement:n50"] = {**value, "id": "n51"}
     assert any("measurement ID must match its item key" in f
                for f in _measurer_says(stack, items))
+
+
+def test_assembly_finds_a_measurer_no_test_proves_any_more(faidx_items):
+    """#487 review I1: removing a test is not validated, so assembly asks again."""
+    from mendel_forge.forging.validate import unproven
+    from support.forge_measurer import KEY
+    assert unproven(faidx_items) == []
+    items = {k: v for k, v in faidx_items.items() if not k.startswith("tests:")}
+    (problem,) = unproven(items)
+    assert problem.code == "MF0507" and KEY in problem.says and "'fai'" in problem.says
+
+
+def test_two_measurers_of_one_measurement_are_refused(stack, faidx_items):
+    """#487 review I2: a run keeps one fact per measurement and sample, so one parser's value
+    would stand for the other's failure."""
+    from support.forge_measurer import KEY
+    items = {**faidx_items, "measurers:measurer:genome_length_again": faidx_items[KEY]}
+    found = _measurer_says(stack, items)
+    assert any("genome_length_again" in f and "genome_length_fai" in f
+               and "also measures 'genome_length'" in f for f in found), found

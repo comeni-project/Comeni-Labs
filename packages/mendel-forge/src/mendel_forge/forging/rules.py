@@ -31,7 +31,7 @@ DEPENDS: dict[Piece, frozenset[Piece]] = {
     Piece.PARAMETERS: frozenset({Piece.RULES, Piece.TESTS}),
     Piece.VOCABULARY: frozenset({Piece.RULES, Piece.MEASURERS}),
     Piece.RULES: frozenset({Piece.TESTS}),
-    Piece.TESTS: frozenset(),
+    Piece.TESTS: frozenset({Piece.MEASURERS}),
     Piece.MEASURERS: frozenset(),
 }
 """Declared, not inferred: which pieces an approved change upstream re-opens (transitively)."""

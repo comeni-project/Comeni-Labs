@@ -170,7 +170,10 @@ def test_place_drops_assertion_only(tmp_path, checkout):
     """A tool that now measures an `assertion_only` measurement re-declares it without it."""
     measured = {k: v for k, v in _registry_measurement("duplicate_rate").items()
                 if k not in ("assertion_only", "assertion_only_because")}
-    values = {**_values(), "measurers:measurement:duplicate_rate": measured}
+    from support.forge_measurer import measurer
+    values = {**_values(), "measurers:measurement:duplicate_rate": measured,
+              "measurers:measurer:duplicate_rate_bam": {
+                  **measurer(), "measures": "duplicate_rate", "output": "bam"}}
     placed = place(_draft(tmp_path, values), checkout, "nf-core/star/align", FACTS)
     target = checkout / "vocabulary/measurements/duplicate_rate.yml"
     assert target in placed
@@ -194,3 +197,12 @@ def test_place_adds_a_measurer_folder(tmp_path, checkout):
     assert {folder / "measurer.yml", folder / "piece/bam_check.py",
             folder / "piece/test_bam_check.py"} <= set(placed)
     assert check(checkout) == []
+
+
+def test_place_keeps_assertion_only_when_nothing_measures_it(tmp_path, checkout):
+    """#487 review I3: only a measurer in the draft may make a measurement measurable."""
+    measured = {k: v for k, v in _registry_measurement("duplicate_rate").items()
+                if k not in ("assertion_only", "assertion_only_because")}
+    values = {**_values(), "vocabulary:measurement:duplicate_rate": measured}
+    with pytest.raises(ValueError, match="MF0517.*vocabulary/measurements/duplicate_rate.yml"):
+        place(_draft(tmp_path, values), checkout, "nf-core/star/align", FACTS)

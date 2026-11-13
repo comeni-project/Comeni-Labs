@@ -251,6 +251,21 @@ def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
     return [Problem(code="MF0507", says=says) for says in problems]
 
 
+def _unproven_says(key: str, output: str) -> str:
+    return f"{key}: no test expects output {output!r}, so the parser cannot be proven"
+
+
+def unproven(items: dict[str, JsonValue]) -> list[Problem]:
+    """Measurers whose output no test expects: asked again at assembly, since removing a test is
+    a decision nothing validates (#487 review I1)."""
+    expected = {e.port for key in items if key.startswith("tests:test:")
+                for e in TestDraft.model_validate(items[key]).expect}
+    return [Problem(code="MF0507", says=_unproven_says(key, value["output"]))
+            for key, value in sorted(items.items())
+            if key.startswith("measurers:measurer:") and isinstance(value, dict)
+            and value.get("output") not in expected]
+
+
 def _measurer_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
     """A drafted measurer must measure something known, read an output of this contract that a
     test expects (or nothing proves it), and keep the pieces' rules (MD0027, #487)."""
@@ -265,8 +280,15 @@ def _measurer_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem
         value = items[key] if isinstance(items[key], dict) else {}
         if value.get("id") != key.removeprefix("measurers:measurement:"):
             problems.append(f"{key}: measurement ID must match its item key")
+    first: dict[str, str] = {}
     for key in sorted(k for k in items if k.startswith("measurers:measurer:")):
         name = key.removeprefix("measurers:measurer:")
+        measures = items[key].get("measures") if isinstance(items[key], dict) else None
+        if measures in first:
+            problems.append(f"{key}: {first[measures]} also measures {measures!r}; a run keeps "
+                            "one fact per measurement, so keep one measurer")
+        elif measures:
+            first[measures] = name
         if not name.isidentifier():
             problems.append(f"{key}: {name!r} is not a Python name; its parser is imported by "
                             "it, so use letters, digits and '_'")
@@ -278,8 +300,7 @@ def _measurer_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem
             problems.append(f"{key}: reads output {draft.output!r}, which this contract does not "
                             "produce")
         elif draft.output not in expected:
-            problems.append(f"{key}: no test expects output {draft.output!r}, so the parser "
-                            "cannot be proven")
+            problems.append(_unproven_says(key, draft.output))
         reached = piece_problems(draft.code)
         if reached:
             problems.append(f"{key}: MD0027 its code reaches past what a piece may import or "

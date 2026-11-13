@@ -128,16 +128,23 @@ def place(draft: Path, checkout: Path, module_id: str, tool: ToolFacts) -> list[
         if relative == Path("vocabulary/roles/forge.yml"):
             placed += _roles(path, checkout)
         else:
-            placed += _shared(path, checkout / relative, relative)
+            placed += _shared(path, checkout / relative, relative, _measured(draft))
     placed += _tool_yml(checkout, tool)
     return placed
 
 
-def _shared(source: Path, target: Path, relative: Path) -> list[Path]:
+def _measured(draft: Path) -> set[str]:
+    """The measurements the draft's own measurers produce."""
+    return {yaml.safe_load(p.read_text()).get("measures")
+            for p in (draft / "measurers" / "measures").glob("*/measurer.yml")}
+
+
+def _shared(source: Path, target: Path, relative: Path,
+            measured: set[str] = frozenset()) -> list[Path]:
     if target.exists():
         if filecmp.cmp(source, target, shallow=False):
             return []
-        if _drops_assertion_only(source, target):
+        if target.stem in measured and _drops_assertion_only(source, target):
             shutil.copy(source, target)  # this tool now measures it (#487)
             return [target]
         missing = _states_missing(source, target)

@@ -66,14 +66,16 @@ def _steps(test: ToolTest, stack: Layers) -> list[tuple[str, ModuleContract, dic
     return [*setups, (TOOL, stack.registry.get(test.contract), test.params)]
 
 
-def parsers_for(test: ToolTest, stack: Layers) -> list[MeasureStep]:
+def parsers_for(test: ToolTest, stack: Layers,
+                only: set[str] | None = None) -> list[MeasureStep]:
     """The generated steps of this tool's `by: tool` measurers whose output the test expects,
     sorted by measurer id (#487): a parser runs on the tool's real output, after it, as in a
     built pipeline. An output the test leaves unchecked proves no parser."""
     expected = {e.port for e in test.expect}
     found = [step for step in steps_for(stack.inspection, stack.registry)
              if step.format is None and step.measurers[0].uses == test.contract
-             and step.measurers[0].output in expected]
+             and step.measurers[0].output in expected
+             and (only is None or step.measurers[0].id in only)]
     return sorted(found, key=lambda s: s.measurers[0].id)
 
 
@@ -81,12 +83,14 @@ def _parser_node(step: MeasureStep) -> str:
     return f"measure_{step.measurers[0].id}"
 
 
-def build_test_pipeline(test: ToolTest, stack: Layers) -> Pipeline:
-    """The test as a pipeline. `ValueError` with its code when it cannot be one."""
+def build_test_pipeline(test: ToolTest, stack: Layers,
+                        parsers: set[str] | None = None) -> Pipeline:
+    """The test as a pipeline. `ValueError` with its code when it cannot be one. `parsers`
+    limits the measurers that run to these ids: a forge test runs only its draft's."""
     steps = _steps(test, stack)
     tool = stack.registry.get(test.contract)
     edges = _edges(test, steps, tool)
-    parsers = parsers_for(test, stack)
+    parsers = parsers_for(test, stack, only=parsers)
     registry = stack.registry.with_contracts([p.contract for p in parsers])
     fed = {(e.to_node, e.to_port) for e in edges}
     off = left_out(test, tool, fed)
