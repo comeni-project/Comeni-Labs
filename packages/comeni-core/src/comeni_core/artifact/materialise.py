@@ -29,6 +29,7 @@ from comeni_core.artifact.pipeline import (
     MetaKeyOf,
     ModuleRef,
     Pipeline,
+    PartsWiring,
     PortJoin,
     RegistryProvenance,
     RunRule,
@@ -102,12 +103,16 @@ def of(
 
     steps = []
     params_of = {channel.name: channel.param for channel in channels}
+    # Where a sample is spread into parts and gathered back (#466, stage 6).
+    spreading = {n.id for n in ir.nodes
+                 if any(o.fans_out is not None for o in registry.get(n.contract_id).produces)}
+    on_parts = {n.id for n in ir.nodes if n.parts is not None and n.parts.on}
     for node in ir.nodes:
         contract = registry.get(node.contract_id)
         entry = pinned[node.contract_id]
         wiring = _inputs(
             node, contract, incoming_edges, assigned_channels, default_channels_by_type,
-            rejoining,
+            rejoining, spreading=spreading, on_parts=on_parts,
         )
         fed = {w.port: params_of[w.channel] for w in wiring if w.channel is not None}
         settings, sample_rules = _per_sample(contract, node, _settings(node, contract), goal,
@@ -131,6 +136,7 @@ def of(
                 input_states=list(node.inputs),
                 sample_rules=sample_rules,
                 guard=node.guard,
+                parts=node.parts,
                 run_rules=_run_rules(contract, node, fed),
             )
         )
@@ -364,6 +370,8 @@ def _inputs(
     assigned_channels: dict[str, str],
     default_channels_by_type: dict[str, str],
     rejoining: Mapping[tuple[str, str], list[str]] | None = None,
+    spreading: set[str] = frozenset(),  # type: ignore[assignment]
+    on_parts: set[str] = frozenset(),  # type: ignore[assignment]
 ) -> list[StepInput]:
     """Connect each consumed port to an upstream output or an external channel.
 
@@ -388,6 +396,9 @@ def _inputs(
                     mixed=sorted((rejoining or {}).get((node.id, port.name), [])),
                     by=port.by,
                     select=_select(port),
+                    parts=(PartsWiring.SPREAD if edge.from_node in spreading
+                           else PartsWiring.GATHER if gather and edge.from_node in on_parts
+                           else None),
                 )
             )
         else:

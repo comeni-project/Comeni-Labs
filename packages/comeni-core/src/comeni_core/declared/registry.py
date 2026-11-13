@@ -25,6 +25,10 @@ def module_key(contract_id: str) -> str:
     return contract_id.rsplit("@", 1)[0]
 
 
+STRUCTURAL_ROLES = frozenset({"splitting", "merging"})
+"""Roles placed by the build around another step rather than routed (#466)."""
+
+
 class Registry(BaseModel):
     contracts: dict[str, ModuleContract]
 
@@ -96,10 +100,14 @@ class Registry(BaseModel):
         # real `star/align` has three BAM outputs — otherwise appeared once per port, tied
         # with itself, and raised a tier-4 ambiguity a human had to clear between a thing
         # and itself.
+        # A splitter or a merger makes its type from the same type, and is placed around the step
+        # that needs it, never routed as a producer (#466): routed, a merger would gather the
+        # whole study's items into one.
         matches = {
             contract.id: contract
             for contract in self.contracts.values()
             for port in contract.produces
             if port.type_id == type_id and states <= port.state
+            and not STRUCTURAL_ROLES & set(contract.roles)
         }
         return sorted(matches.values(), key=lambda c: (-c.priority, c.id))

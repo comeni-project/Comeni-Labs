@@ -104,6 +104,8 @@ def test_a_step_on_parts_is_split_and_merged(tmp_path):
     assert ("search", "hits", "merge_search_hits", "hits") in edges
     assert not [e for e in ir.edges if e.to_node == "split_search"]  # reads from the input
     assert all(order.index(e.from_node) < order.index(e.to_node) for e in ir.edges)
+    # A merger is placed, never routed: it would gather the study into one (Task 2 check).
+    assert order == ["split_search", "search", "merge_search_hits"]
 
 
 def test_a_step_kept_whole_is_todays_pipeline(tmp_path):

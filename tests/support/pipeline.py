@@ -162,6 +162,7 @@ SERIALISED_SHAPE = {
         "input_states",
         "sample_rules",
         "guard",
+        "parts",
         "run_rules",
     ],
     "ExtArgs": ["template", "why"],

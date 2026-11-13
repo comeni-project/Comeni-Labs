@@ -44,7 +44,7 @@ from comeni_core.plan.at_run import (
     SampleRule,
 )
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
-from comeni_core.plan.ir import InputRecord
+from comeni_core.plan.ir import InputRecord, Parts
 from comeni_core.plan.tiers import (
     Grain,
     InputForm,
@@ -300,6 +300,17 @@ class CallArg(BaseModel):
         return found
 
 
+class PartsWiring(StrEnum):
+    """How an input meets parts of a sample (#466, stage 6)."""
+
+    SPREAD = "spread"
+    """Reads a splitter's output: each sample's parts become items of their own, carrying
+    `meta.part` and `meta.comeni_parts`."""
+
+    GATHER = "gather"
+    """A merger reading one sample's parts: gathered per sample, sized by `meta.comeni_parts`."""
+
+
 class StepInput(BaseModel):
     """Connection from one consumed port to an upstream output or external channel."""
 
@@ -319,6 +330,8 @@ class StepInput(BaseModel):
     mixed: list[EdgeRef] = Field(default_factory=list, exclude_if=lambda m: not m)
     """Further upstream outputs feeding this input, sorted: branches of a tool chosen per
     sample rejoining here, each sample arriving from its own (#466)."""
+    parts: PartsWiring | None = Field(default=None, exclude_if=lambda parts: parts is None)
+    """Where this input spreads a sample into parts or gathers them back (#466)."""
 
     states: list[StateName] = Field(default_factory=list)
     """States carried by the upstream connection, sorted during materialisation."""
@@ -330,6 +343,11 @@ class StepInput(BaseModel):
             raise ValueError(
                 coded("MD0215", f"input {self.port} must name exactly one of `source` or `channel`")
             )
+        if self.parts is not None and self.source is None:
+            raise ValueError(f"input {self.port} {self.parts.value}s parts, which only a step "
+                             "makes")
+        if self.parts is PartsWiring.GATHER and not self.gather:
+            raise ValueError(f"input {self.port} gathers parts and does not gather")
         return self
 
 
@@ -374,6 +392,8 @@ class Step(BaseModel):
     """This step's rules each sample's facts settle (#466): a sample breaking one stops the run
     before the step runs, naming the sample and the rule."""
     guard: Guard | None = Field(default=None, exclude_if=lambda guard: guard is None)
+    parts: Parts | None = Field(default=None, exclude_if=lambda parts: parts is None)
+    """Whether this step runs on parts of a sample, with which tools and why (#466)."""
     """The samples this step takes, when each sample's tool is chosen per sample and only some
     lead here (#466): the rule, written as a lookup, and the tools whose samples it takes."""
     run_rules: list[RunRule] = Field(default_factory=list, exclude_if=lambda rules: not rules)

@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from comeni_core.artifact.pipeline import Grain, InputForm, Pipeline, Step
+from comeni_core.artifact.pipeline import Grain, InputForm, PartsWiring, Pipeline, Step
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import InputState
 from comeni_core.plan.at_run import AtRun, AtRunFallback, AtRunSource
@@ -125,6 +125,18 @@ def _port_expression(pipeline: Pipeline, step: Step, port_name: str,
         # An input whose `meta` carries a fact the run measures reads the joined channel; the
         # steps that measure it read the raw one (#217).
         expression = (measured or {}).get(wiring.channel) or _channel_name(wiring.channel)
+    if wiring.parts is PartsWiring.SPREAD:
+        # Each sample's parts become items of their own (#466, stage 6). A splitter making one
+        # part emits a path rather than a list.
+        expression += (".flatMap { meta, parts -> def list = parts instanceof List ? parts : "
+                       "[parts]; list.withIndex().collect { f, i -> [ meta + [part: i, "
+                       "comeni_parts: list.size()], f ] } }")
+    if wiring.parts is PartsWiring.GATHER:
+        # One sample's parts, gathered as soon as they are all done, never waiting for the
+        # study: `groupKey` knows how many there are.
+        return (f"{expression}.map {{ meta, f -> [ groupKey(meta.id, meta.comeni_parts), meta, "
+                "f ] }.groupTuple().map { k, metas, files -> [ metas[0].findAll { it.key !in "
+                "['part', 'comeni_parts'] }, files.flatten() ] }")
     if wiring.select:
         # Only the samples the port selects, such as a tumour (#466).
         held = " && ".join(condition(c, f"{step.id}.{port_name}") for c in wiring.select)
@@ -1353,6 +1365,9 @@ def _ext_scope(step: Step) -> list[str]:
             setting.template.replace("{value}", rendered)
         )
 
+    if step.parts is not None and step.parts.on and "prefix" not in fragments:
+        # Each part's results under a name of its own, or publishing would overwrite them (#466).
+        fragments["prefix"] = ["${meta.id}.part${meta.part}"]
     lines = []
     for key in sorted(fragments):
         joined = " ".join(fragments[key])

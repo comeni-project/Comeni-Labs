@@ -269,6 +269,7 @@ CARRIED_AS: dict[str, str] = {
     "IRNode.inputs": "steps.input_states",
     # The samples a step takes when each sample's tool is chosen per sample (#466).
     "IRNode.guard": "steps.guard",
+    "IRNode.parts": "steps.parts",
     # Written only where a person pinned a tool: the site is excluded from the IR's own dump.
     "IRNode.site": "intent.constraints.producers.site",
     # Version 7 regroups the goal: what is wanted, then what is known (Plan B, spec §8.1).

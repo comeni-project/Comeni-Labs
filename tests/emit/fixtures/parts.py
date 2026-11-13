@@ -64,7 +64,7 @@ SEARCH = """process SEARCH {
     container 'python:3.12-slim'
     input:
     tuple val(meta), path(reads)
-    path genome
+    tuple val(meta2), path(genome)
     output:
     tuple val(meta), path("*.tsv"), emit: hits
     script:
