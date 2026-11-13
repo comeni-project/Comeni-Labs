@@ -72,6 +72,7 @@ Model: `comeni_core.goal.asked.Constraints`
 | `params` | [param-override] | `[]` | a parameter you are fixing yourself |
 | `producers` | [producer-pin] | `[]` | a tool you chose for a step; left out of the file when empty |
 | `absent_roles` | [role-absence] | `[]` | a role you switched off; left out when empty |
+| `tables` | [type id] | `[]` | study inputs given as a table of several items, such as several databases: a step reading a sample and one of them runs on every pair; only an input the goal has, one item for the study (`MD0347`); left out when empty |
 | `whole` | [contract id] | `[]` | tools a person keeps whole: a step that could run on parts of each sample is not split. Left out when empty |
 | `exclusions` | [producer-exclusion] | `[]` | a tool you excluded at a site; left out when empty |
 | `sources` | [source-pin] | `[]` | the tool you chose to feed a step's input; left out when empty |

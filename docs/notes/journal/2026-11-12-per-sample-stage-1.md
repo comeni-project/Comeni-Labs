@@ -64,3 +64,13 @@ anything reads them (a one-lane sample passes straight on); a fact folds over th
 by case. Part B, proven with fixture contracts under Nextflow: keys and groups, a tumour and a
 normal paired on a patient, and a sample reading the control it names.
 
+
+## Stage 6: fan-out (11-13)
+
+[The plan](../../superpowers/plans/2026-11-13-per-sample-stage-6.md). Part A: a step whose port
+can run on parts is split before it and merged after it whenever the registry has a splitter
+(role `splitting`) and a merger for each output read, and its only per-sample input is the split
+one. Each sample's parts merge as soon as they are done, and a person can keep the step whole
+(a `whole` decision). Part B: a study input may be a table of several items, and a step reading
+a sample and the table runs on every pair, each published under its own name. Both are proven
+with fixture contracts under Nextflow; no shipped tool splits or reads a table yet.

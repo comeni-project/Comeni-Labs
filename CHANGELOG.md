@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- A second table (#466): `Constraints.tables` names study inputs given as several items (MD0347); their channel carries a `TableShape` (`name`, file `columns`, item `facts`). A port may select on a fact describing its own type, a table row's fact, which is a column of that table rather than of the samplesheet. MD0348 refuses a by-sample join after a cross.
+
 - Parts (#466): a port may run on parts of a sample's item (`parts`), and a splitter's output fans out (`fans_out: part`, `Grain.PART`), MD0346. `Constraints.whole` names the tools a person keeps whole; `IRNode.parts` and `Step.parts` record each step that can run on parts, and `StepInput.parts` says where parts spread and gather. Splitting and merging tools are never routed as producers.
 
 - Relations between samples (#466): measurement kinds `key` and `sample_ref`, read only from samplesheet rows (MD0342); a port gathers per key (`by`, MD0343) or selects samples by their facts (`select`); a shared slot joins `by_key` or `by_ref` on an `NfInput.key` (MD0344). Each relation is a samplesheet column (`StepInput.by`, `StepInput.select`, `CallArg.key`).
@@ -154,6 +156,8 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- A step reading a sample and a table runs on every pair (`combine`, then `multiMap` into its two inputs), the row's `meta` on the sample's under the table's name; each pair publishes under its own name; a blank or repeated row name, a missing file, or a table none of whose rows the step reads stops the run (#466). A crossed step that takes only some samples or reads a fold is refused (MD0348).
+
 - A sample's parts run in parallel and merge per sample, gathered with a `groupKey` sized by the splitter's own count, so one sample never waits for another's; a splitter making one part still flows; each part publishes under its own name (#466).
 
 - A group runs once with its own samples, gathered with a `groupKey` sized from the sheet; a pair joins one member per key, a patient with two normals stopping the run naming it; a sample reads the control it names, which may feed several, and a reference to no row stops the run naming both (#466).
@@ -246,6 +250,8 @@ or a complete commit history.
   questions are not asked again. Build and Spawn are consolidated into one authoring flow.
 
 ### mendel-api
+
+- A study input may be a table of several items (#466): a `tables` change from a checkbox on the input in *What was understood*, offered only on inputs the study shares, while the lanes checkbox is now offered only on per-sample ones; inputs store it (`pipeline_input_revision.table`), and suggestions and turns move to shapes 6 and 10.
 
 - A step that runs on parts of each sample says so on its card, with the tools and why, and *Run each sample whole* keeps it whole: a `whole` change, stored as its own decision family (`pipeline_whole`). Previews, suggestions, turns and drafts move to shapes 9, 5, 9 and 4 (#466).
 
@@ -525,6 +531,8 @@ or a complete commit history.
   Telemetry mapping stays pure, with export handled outside the package.
 
 ### wiener-api
+
+- The run form composes each table input with a `name` per row, its files and its item facts, and sends it under its own parameter (`input_tables`, #466).
 
 - The run reads which tool each sample went through when it was chosen per sample, and the run page says so (#466).
 

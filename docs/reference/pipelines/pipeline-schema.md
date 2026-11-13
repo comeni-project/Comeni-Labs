@@ -356,6 +356,15 @@ A channel marked `optional: true` (#460) is one each run may leave empty. Its
 `params.<name> ? <expression> : Channel.value(<empty tuple>)`. It is optional only when every
 step it feeds has it as an optional input; one step that needs it every run makes it required.
 
+A channel with a `table` (#466) is a study input given as several items, such as several
+databases. Its parameter is a CSV with a `name` column, the table's file `columns`, and one column
+per item fact a step selects on (`facts`). The run stops naming the row on a blank or repeated
+name, or a file that does not exist. Each item's `meta` is `[id: <name>, <facts>]`, and a step
+reading a sample and the table runs on every pair, the item's `meta` on the sample's under the
+table's `name` (the type's family, such as `database`). Each pair publishes under
+`<sample>_<item>`; a table no row of which the step reads stops the run. A step may not join a
+crossed result by sample with another input (`MD0348`).
+
 `test_data` points at a small public example, pinned to a commit. Never a laboratory's own
 path — this file is shareable, and a dataset that moves is one you cannot compare a result
 against next year.

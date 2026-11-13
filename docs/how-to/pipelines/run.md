@@ -49,6 +49,13 @@ blank. The pipeline merges each sample's lanes before anything reads them; a one
 passes straight on. Lanes of one sample that disagree, one paired and one single-end say, stop the
 run naming the sample, and so does a repeated `sample` and `unit`.
 
+If you said an input is a table of several items (in *What was understood*, on an input the whole
+study shares, such as a database), the run form asks for it as a table of its own: one row per
+item, each with a `name` you choose, its files, and any fact a step selects rows by. Every
+sample runs against every row a step reads, and each result is named after the sample and the
+row. A blank or repeated name, a file that does not exist, or a table none of whose rows a step
+reads stops the run, naming what is wrong.
+
 Where a step relates samples, the samplesheet has a column for each relation: a key such as
 `patient` or `group` (letters, digits and `_ . -`), a fact a step selects on such as `status`,
 or a reference such as `control`, which names another row's `sample` or stays blank. A
