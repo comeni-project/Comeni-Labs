@@ -195,10 +195,15 @@ class Constraints(BaseModel):
     """Inputs whose rows may repeat a sample, such as a sample sequenced over several lanes
     (#466): the build merges each sample's rows before anything reads them. Sorted."""
 
+    whole: list[ContractId] = Field(default_factory=list, exclude_if=lambda whole: not whole)
+    """Tools a person keeps whole (#466): a step that could run on parts of a sample is not
+    split. Sorted."""
+
     @model_validator(mode="after")
     def _varies_sorted(self) -> "Constraints":
         object.__setattr__(self, "varies", sorted(set(self.varies)))
         object.__setattr__(self, "units", sorted(set(self.units)))
+        object.__setattr__(self, "whole", sorted(set(self.whole)))
         return self
 
     @model_validator(mode="before")

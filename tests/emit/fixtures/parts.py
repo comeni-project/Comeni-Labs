@@ -97,7 +97,7 @@ MODULES = {"modules/lab/split_reads/main": SPLIT_READS, "modules/lab/search/main
 def layer(tmp_path: Path, extra: dict[str, str] | None = None,
           without: tuple[str, ...] = ()) -> Path:
     root = tmp_path / "parts"
-    root.mkdir(exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True)
     for name, body in {**LAYER, **(extra or {})}.items():
         if name not in without:
             (root / name).write_text(body)

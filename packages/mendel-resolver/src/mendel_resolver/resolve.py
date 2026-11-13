@@ -41,7 +41,15 @@ from comeni_core.plan.decision import (
     SourceAsked,
     SourceDecision,
 )
-from comeni_core.plan.ir import EntryType, IREdge, IRNode, PipelineIR, ResolvedValue, Tier
+from comeni_core.plan.ir import (
+    EntryType,
+    IREdge,
+    IRNode,
+    Parts,
+    PipelineIR,
+    ResolvedValue,
+    Tier,
+)
 from comeni_core.plan.tiers import Grain, PremiseOrigin, ValueSource
 
 from mendel_resolver import at_run
@@ -140,8 +148,9 @@ def resolve(
     _check_units(goal, vocabulary)
     args = dict(vocabulary=vocabulary, layer_names=layer_names, prior=prior,
                 facts_read=facts_read, inspection=inspection)
-    return _with_units(_resolve_branches(goal, registry, rules, measurements, resolver, args),
-                       goal, registry)
+    ir = _with_units(_resolve_branches(goal, registry, rules, measurements, resolver, args),
+                     goal, registry)
+    return _with_parts(ir, goal, registry, vocabulary)
 
 
 def _resolve_branches(goal: Goal, registry: Registry, rules: RuleTable,
@@ -1226,6 +1235,109 @@ def _with_units(ir: PipelineIR, goal: Goal, registry: Registry) -> PipelineIR:
         ir.edges.extend(IREdge(from_node=node_id, from_port=out.name, to_node=node,
                                to_port=port, type_id=type_id, states=states)
                         for node, port in readers)
+        order = {n.id: k for k, n in enumerate(ir.nodes)}
+        ir.edges.sort(key=lambda e: order[e.to_node])
+    return ir
+
+
+def _by_priority(contracts) -> list:
+    return sorted(contracts, key=lambda c: (-c.priority, c.id))
+
+
+def _splitting(node: IRNode, goal: Goal, registry: Registry, vocabulary: Vocabulary,
+               ir: PipelineIR):
+    """The splitter and mergers for a step that can run on parts, or None where a split is not
+    plainly safe (stage 6): the step's only per-sample input is its `parts` port, it takes every
+    sample, and the registry splits that input and merges each output something reads."""
+    contract = registry.get(node.contract_id)
+    off = {r.port for r in node.inputs if r.state is InputState.OFF}
+    fed = {e.to_port: e for e in ir.edges if e.to_node == node.id}
+    have = {g.type_id for g in goal.have}
+    on_parts = [p for p in contract.consumes if p.parts and p.name not in off]
+    if len(on_parts) != 1 or node.guard is not None:
+        return None
+    (port,) = on_parts
+    type_id = fed[port.name].type_id if port.name in fed \
+        else node.entry_type(port.name, port.type_id)
+    for other in contract.consumes:
+        if other is port or other.name in off or other.grain is Grain.STUDY:
+            continue
+        other_type = fed[other.name].type_id if other.name in fed \
+            else node.entry_type(other.name, other.type_id)
+        if other.name not in fed and other_type not in have:
+            continue  # not read in this pipeline
+        if Grain(vocabulary.grains.get(other_type, Grain.SAMPLE)) is not Grain.STUDY:
+            return None
+    splitters = _by_priority(
+        c for c in registry.all() if "splitting" in c.roles
+        and c.consumes and c.consumes[0].type_id == type_id
+        and any(o.type_id == type_id and o.fans_out is Grain.PART for o in c.produces))
+    if not splitters:
+        return None
+    read = {e.from_port for e in ir.edges if e.from_node == node.id}
+    read |= {o.name for o in contract.produces if o.type_id in goal.want}
+    mergers = {}
+    for out in (o for o in contract.produces if o.name in sorted(read)):
+        found = _by_priority(
+            c for c in registry.all() if "merging" in c.roles
+            and any(p.type_id == out.type_id and p.many for p in c.consumes)
+            and any(p.type_id == out.type_id for p in c.produces))
+        if not found:
+            return None
+        mergers[out.name] = found[0]
+    if not mergers:
+        return None
+    return port, type_id, splitters[0], mergers
+
+
+def _with_parts(ir: PipelineIR, goal: Goal, registry: Registry,
+                vocabulary: Vocabulary) -> PipelineIR:
+    """Each step that can run on parts of a sample is split before it and merged after it, by
+    default (#466, stage 6). A tool in `constraints.whole` keeps only the record, so the person
+    can turn the split back on."""
+    for node in list(ir.nodes):
+        found = _splitting(node, goal, registry, vocabulary, ir)
+        if found is None:
+            continue
+        port, type_id, splitter, mergers = found
+        merged = ", ".join(f"{m.id} merges its {name}" for name, m in sorted(mergers.items()))
+        because = (f"{node.contract_id} can run on parts of {type_id}: {splitter.id} splits "
+                   f"each sample, and {merged}")
+        on = node.contract_id not in goal.constraints.whole
+        node.parts = Parts(on=on, splitter=splitter.id, because=because,
+                           mergers={name: m.id for name, m in sorted(mergers.items())})
+        if not on:
+            continue
+        structural = ResolvedValue(value=None, tier=Tier.STRUCTURAL, reason=because)
+        split_id = f"split_{node.id}"
+        split_out = next(o for o in splitter.produces if o.fans_out is Grain.PART)
+        at = ir.nodes.index(node)
+        ir.nodes.insert(at, IRNode(
+            id=split_id, contract_id=splitter.id, presence=structural,
+            selection=ResolvedValue(value=splitter.id, tier=Tier.CONVENTION,
+                                    reason=f"registry priority {splitter.priority}")))
+        entering = [e for e in ir.edges if (e.to_node, e.to_port) == (node.id, port.name)]
+        for edge in entering:
+            edge.to_node, edge.to_port = split_id, splitter.consumes[0].name
+        ir.edges.append(IREdge(from_node=split_id, from_port=split_out.name, to_node=node.id,
+                               to_port=port.name, type_id=type_id,
+                               states=entering[0].states if entering else frozenset()))
+        after = ir.nodes.index(node) + 1
+        for name, merger in sorted(mergers.items(), reverse=True):
+            merge_id = f"merge_{node.id}_{name}"
+            out = next(o for o in registry.get(node.contract_id).produces if o.name == name)
+            into = next(p for p in merger.consumes if p.type_id == out.type_id and p.many)
+            made = next(p for p in merger.produces if p.type_id == out.type_id)
+            ir.nodes.insert(after, IRNode(
+                id=merge_id, contract_id=merger.id, presence=structural,
+                selection=ResolvedValue(value=merger.id, tier=Tier.CONVENTION,
+                                        reason=f"registry priority {merger.priority}")))
+            for edge in ir.edges:
+                if (edge.from_node, edge.from_port) == (node.id, name):
+                    edge.from_node, edge.from_port = merge_id, made.name
+            ir.edges.append(IREdge(from_node=node.id, from_port=name, to_node=merge_id,
+                                   to_port=into.name, type_id=out.type_id,
+                                   states=frozenset(out.state)))
         order = {n.id: k for k, n in enumerate(ir.nodes)}
         ir.edges.sort(key=lambda e: order[e.to_node])
     return ir

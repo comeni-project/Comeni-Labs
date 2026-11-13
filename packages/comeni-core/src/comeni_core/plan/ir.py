@@ -114,6 +114,19 @@ class EntryType(BaseModel):
     type_id: TypeId
 
 
+class Parts(BaseModel):
+    """A step that can run on parts of a sample's item (#466): split before it by `splitter`
+    and merged after it, per output something reads, by `mergers`. Recorded whether it is `on`
+    or the person keeps the step whole (`constraints.whole`), so the switch works both ways."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    on: bool
+    splitter: ContractId
+    mergers: dict[PortName, ContractId]
+    because: str = Field(min_length=1)
+
+
 class IRNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -143,6 +156,8 @@ class IRNode(BaseModel):
     such a port has no single type of its own, so its channel is chosen by this one. In
     contract port order."""
     guard: Guard | None = Field(default=None, exclude_if=lambda guard: guard is None)
+    parts: Parts | None = Field(default=None, exclude_if=lambda parts: parts is None)
+    """Whether this step runs on parts of a sample, and with which tools (#466)."""
     """The samples this step takes, when only some samples' tool choice leads here (#466)."""
 
     def entry_type(self, port: str, default: str) -> str:
