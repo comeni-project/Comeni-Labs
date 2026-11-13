@@ -104,15 +104,15 @@ and F.
   - `lab/merge_hits@1.0.0`: merging, `hits.tsv` `many: true` in, `hits.tsv` out;
   - the three Nextflow modules, in the style of `relations.py`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - the fixture layer loads;
   - each MD0346 case above is refused with its code;
   - a contract round-trips with `parts` and `fans_out`, and one without them serialises as
     before (digests unchanged: compare against a shipped contract's digest).
-- [ ] **Step 2: Run them.** Expected: FAIL (unknown fields).
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run them.** Expected: PASS. Also run `uv run pytest packages/mendel-resolver/tests -q -x`.
-- [ ] **Step 5: Commit** `feat: a step may run on parts of a sample (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL (unknown fields).
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run them.** Expected: PASS. Also run `uv run pytest packages/mendel-resolver/tests -q -x`.
+- [x] **Step 5: Commit** `feat: a step may run on parts of a sample (#466)`.
 
 ### Task 2: The split and the merge placed
 
@@ -141,7 +141,7 @@ and F.
     and exclude them in `router` only if the test fails.
 - Test: `packages/mendel-resolver/tests/test_parts.py`
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - the fixture goal (`fastq.reads` and `genome.fasta` → `hits.tsv`) has the node order
     `split_search` → `search` → `merge_search_hits`, with `search.parts.on` and its reason;
   - with `whole: [lab/search@1.0.0]`, the IR equals the IR built without the splitter layer,
@@ -150,10 +150,10 @@ and F.
     `parts` record;
   - building twice gives byte-identical IR;
   - the shipped RNA-seq goal is unchanged.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run them, and the resolver suite.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat: steps that can run on parts are split and merged (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run them, and the resolver suite.** Expected: PASS.
+- [x] **Step 5: Commit** `feat: steps that can run on parts are split and merged (#466)`.
 
 ### Task 3: Parts in the run
 
@@ -180,21 +180,21 @@ and F.
 - Test: `tests/emit/test_parts.py` (new, pure) and `tests/emit/test_parts_run.py` (new,
   `@pytest.mark.slow`, under Nextflow).
 
-- [ ] **Step 1: Write the failing pure tests:**
+- [x] **Step 1: Write the failing pure tests:**
   - the emitted `SPLIT_READS` output feeds `SEARCH` through the `flatMap`;
   - `MERGE_HITS` reads the `groupKey` gather;
   - downstream reads `MERGE_HITS.out.hits`;
   - the `ext.prefix` line is present;
   - `pipeline.yml` round-trips;
   - a sample rule on `search` is still emitted on the split call.
-- [ ] **Step 2: Write the failing slow test.** Two samples: the fixture splitter makes 1 part of
+- [x] **Step 2: Write the failing slow test.** Two samples: the fixture splitter makes 1 part of
   one and 3 of the other.
   - each sample's merged `hits` lists exactly its own parts (Review Focus 1 and 2);
   - the published search outputs have 4 distinct names.
-- [ ] **Step 3: Run them.** Expected: FAIL.
-- [ ] **Step 4: Implement.**
-- [ ] **Step 5: Run them.** Expected: PASS, including `uv run pytest tests/emit -q -m slow -k parts`.
-- [ ] **Step 6: Commit** `feat: parts run in parallel and merge per sample (#466)`.
+- [x] **Step 3: Run them.** Expected: FAIL.
+- [x] **Step 4: Implement.**
+- [x] **Step 5: Run them.** Expected: PASS, including `uv run pytest tests/emit -q -m slow -k parts`.
+- [x] **Step 6: Commit** `feat: parts run in parallel and merge per sample (#466)`.
 
 ### Task 4: The switch, in the builder
 
@@ -218,25 +218,25 @@ and F.
   - a `Settings.test.tsx` case;
   - `make test-db` after the migration.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - the view carries `parts` for the fixture build;
   - the `whole` change rebuilds without the split, and turning it back on restores it;
   - the checkbox sends `{kind: "whole", ...}`.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run them.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat: a person can keep a step whole (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run them.** Expected: PASS.
+- [x] **Step 5: Commit** `feat: a person can keep a step whole (#466)`.
 
 ### Task 5: Part A docs and checks
 
-- [ ] **Step 1:**
+- [x] **Step 1:**
   - `contract-schema.md`: `parts` and `fans_out`;
   - `goal-schema.md`: `whole`;
   - `pipeline-schema.md`: `StepInput.parts` and `Step.parts`;
   - `CHANGELOG.md`.
-- [ ] **Step 2:** `make check`, `make guards`, slow, `npx vitest run`, `npx tsc -b`, each run
+- [x] **Step 2:** `make check`, `make guards`, slow, `npx vitest run`, `npx tsc -b`, each run
   separately. Expected: all green.
-- [ ] **Step 3: Commit** `docs: parts (#466)`.
+- [x] **Step 3: Commit** `docs: parts (#466)`.
 
 ---
 
@@ -274,16 +274,16 @@ and F.
   - its module.
 - Test: `packages/mendel-resolver/tests/test_tables.py` (new), `tests/emit/test_tables.py` (new).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - each MD0347 case;
   - the channel's `table` columns and facts;
   - the emitted table channel and its checks, including a blank name, a repeated name and a
     missing file (Review Focus 5) in a slow test with a two-row table;
   - without `tables`, the pipeline is today's exactly.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run them.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat: a run input may be a table of several items (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run them.** Expected: PASS.
+- [x] **Step 5: Commit** `feat: a run input may be a table of several items (#466)`.
 
 ### Task 7: Every sample against every row
 
@@ -303,7 +303,7 @@ and F.
 - Modify: `packages/comeni-core/src/comeni_core/diagnostics.yml`: MD0348.
 - Test: `tests/emit/test_tables.py`, `tests/emit/test_tables_run.py` (new, slow).
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - pure: the combine, the `multiMap`, the meta key, the `select` on `db_type` filtering items
     and the prefix;
   - MD0348 for a by-sample join downstream;
@@ -311,10 +311,10 @@ and F.
     (Review Focus 4);
   - slow: a `select: {db_type: short}` leaves 2;
   - slow: a sample left with no row stops the run naming it.
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run them.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat: a step crosses each sample with each row of a table (#466)`.
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run them.** Expected: PASS.
+- [x] **Step 5: Commit** `feat: a step crosses each sample with each row of a table (#466)`.
 
 ### Task 8: The table in the builder and the run form
 
@@ -336,22 +336,53 @@ and F.
 - Test: an API test, Wiener `input_tables` and route tests, and `CurrentFacts`, `Submit` and
   `Samplesheet` vitest cases.
 
-- [ ] **Step 1: Write the failing tests.**
-- [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run them.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat: a second table in the builder and the run form (#466)`.
+- [x] **Step 1: Write the failing tests.**
+- [x] **Step 2: Run them.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run them.** Expected: PASS.
+- [x] **Step 5: Commit** `feat: a second table in the builder and the run form (#466)`.
 
 ### Task 9: Docs, checks and review
 
-- [ ] **Step 1: Docs:**
+- [x] **Step 1: Docs:**
   - `goal-schema.md`: `tables`;
   - `pipeline-schema.md`: `Channel.table`;
   - `run.md`: the table editor;
   - `CHANGELOG.md`;
   - the journal note.
-- [ ] **Step 2:** the full checks, each run separately. Expected: all green.
-- [ ] **Step 3:** a fresh opus reviewer on the stage, with this Review Focus.
+- [x] **Step 2:** the full checks, each run separately. Expected: all green.
+- [x] **Step 3:** a fresh opus reviewer on the stage, with this Review Focus.
   - Fix the Critical and Important findings with tests that fail first.
   - Post the minors to #489.
-- [ ] **Step 4:** tick this plan, and record the deviations.
+- [x] **Step 4:** tick this plan, and record the deviations.
+
+---
+
+## Deviations
+
+- **Splitters and mergers are never routed** (Task 3). Routed, the fixture merger became the
+  wanted output's producer and gathered the study into one, so `Registry.producers_of` excludes
+  the `splitting` and `merging` roles.
+- **The switch is on the living builder's step sheet** (Task 4), not `Settings.tsx`: that is
+  the card the builder opens, beside the optional-input switches. `whole` is its own decision
+  family (`pipeline_whole`), and drafts moved to shape 4 because `Grain` gained `part`.
+- **`Parts` uses declared shapes** (Task 5): mergers are a list of `PartsMerger` records and the
+  reason is a `Line`, because a pipeline is a model payload.
+- **Tasks 6 and 7 landed as one commit.** A table's items sit on `meta` under the type's family
+  (`database`), not the channel name. Item facts are table columns, not samplesheet columns, so
+  `_relations` and the pipeline validator skip them. MD0344 lets a port select on its own type's
+  fact.
+- **The builder's checkboxes read each input's grain** from the built channels (Task 8): lanes
+  only on per-sample inputs, which fixes a stage 5 minor, and a table only on study inputs.
+  Wiener's view separates a table's file `columns` from its optional `facts`.
+- **Final review fixes** (`ce5ba542`):
+  - the cross is a pass over finished calls, so a branch's filter, a tool rule or measured facts
+    wrap the sample input before the pairs are made;
+  - every step after a cross is named per pair until a gather, and a join, group or parts
+    gather there is refused (MD0348), as is a step reading two tables;
+  - a select on a study input that is not a table is refused (MD0347);
+  - a step crossing a table, or after one, is never split;
+  - a contract's own prefix is suffixed, not dropped;
+  - parts gather on the sample's whole `meta` and merge in part order;
+  - a splitter making no parts stops the run.
+  The minors are on #489.
