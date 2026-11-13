@@ -195,6 +195,10 @@ class Constraints(BaseModel):
     """Inputs whose rows may repeat a sample, such as a sample sequenced over several lanes
     (#466): the build merges each sample's rows before anything reads them. Sorted."""
 
+    tables: list[TypeId] = Field(default_factory=list, exclude_if=lambda tables: not tables)
+    """Study inputs a person supplies as a table of several items, such as several databases
+    (#466): a step reading a sample and one of them runs on every pair. Sorted."""
+
     whole: list[ContractId] = Field(default_factory=list, exclude_if=lambda whole: not whole)
     """Tools a person keeps whole (#466): a step that could run on parts of a sample is not
     split. Sorted."""
@@ -204,6 +208,7 @@ class Constraints(BaseModel):
         object.__setattr__(self, "varies", sorted(set(self.varies)))
         object.__setattr__(self, "units", sorted(set(self.units)))
         object.__setattr__(self, "whole", sorted(set(self.whole)))
+        object.__setattr__(self, "tables", sorted(set(self.tables)))
         return self
 
     @model_validator(mode="before")

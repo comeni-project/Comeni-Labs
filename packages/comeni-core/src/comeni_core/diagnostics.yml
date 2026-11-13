@@ -3216,6 +3216,35 @@ MD0346:
     Parts exist only between the splitter and the merger, carrying `meta.part`, so a port that
     gathers or selects, or a type whose items are parts, would have nothing to split or merge.
 
+MD0347:
+  emitted_by: resolver
+  concern: validation
+  says: "an input that cannot be a table of several items is said to be one"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Name in `tables` only an input the goal has whose type is one item for the study, such as
+    a reference database. A per-sample input with several rows per sample is `units` instead.
+  explanation: |
+    A table input gives several items where the study usually has one, such as several
+    databases to profile every sample against (#466). Each sample is paired with each row, so
+    only a study-wide input can be one.
+
+MD0348:
+  emitted_by: core
+  concern: validation
+  says: "a step crossing a table is wired in a way that would mis-pair its samples and rows"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Read the per-row results on their own, or gather them for the study, rather than joining
+    them by sample with another input. A step crossing a table reads the table on its own,
+    after the sample, and takes every sample without a folded fact.
+  explanation: |
+    A step reading a sample and a table runs once per pair, so each sample has one result per
+    row (#466). A join by sample expects one item per sample on each side and would pair the
+    other input with only one of those results.
+
 MD0501:
   emitted_by: resolver
   concern: validation

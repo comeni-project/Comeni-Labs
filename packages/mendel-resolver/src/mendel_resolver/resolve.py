@@ -147,6 +147,7 @@ def resolve(
     """
     measurements.check_varies(goal)
     _check_units(goal, vocabulary)
+    _check_tables(goal, vocabulary)
     args = dict(vocabulary=vocabulary, layer_names=layer_names, prior=prior,
                 facts_read=facts_read, inspection=inspection)
     ir = _with_units(_resolve_branches(goal, registry, rules, measurements, resolver, args),
@@ -1187,6 +1188,17 @@ def _check_units(goal: Goal, vocabulary: Vocabulary) -> None:
             raise ValueError(coded(
                 "MD0340", f"{type_id} cannot span several rows per sample: only an input the "
                 "goal has, with one item per sample, can — `mendel explain MD0340`."))
+
+
+def _check_tables(goal: Goal, vocabulary: Vocabulary) -> None:
+    """Only an input the goal has, one item for the study, may be a table of several (MD0347)."""
+    have = {given.type_id for given in goal.have}
+    for type_id in goal.constraints.tables:
+        grain = Grain(vocabulary.grains.get(type_id, Grain.SAMPLE))
+        if type_id not in have or grain is not Grain.STUDY:
+            raise ValueError(coded(
+                "MD0347", f"{type_id} cannot be a table of several items: only an input the "
+                "goal has, with one item for the study, can — `mendel explain MD0347`."))
 
 
 def _with_units(ir: PipelineIR, goal: Goal, registry: Registry) -> PipelineIR:

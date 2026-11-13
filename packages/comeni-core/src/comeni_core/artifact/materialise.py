@@ -37,6 +37,7 @@ from comeni_core.artifact.pipeline import (
     SheetFact,
     Step,
     StepInput,
+    TableShape,
     Why,
     _no_flags_why,
 )
@@ -59,7 +60,7 @@ from comeni_core.plan.at_run import (
 from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
 from comeni_core.plan.tiers import Grain, InputForm, Tier, ValueSource
 from comeni_core.spell.marks import LayerName, ParamValue
-from comeni_core.spell.routes import Via
+from comeni_core.spell.routes import Join, Via
 
 # ---------------- PIPELINE CONSTRUCTION ----------------
 
@@ -141,8 +142,10 @@ def of(
             )
         )
     channels = _optional_channels(channels, steps, registry)
+    # A study input supplied as several items, each sample meeting each (#466, stage 6).
+    channels = _tables(channels, steps, ir, registry, set(goal.constraints.tables))
     # A key a port groups by is a column of its own, whether or not anybody said so (#466).
-    keys = sorted(_relations(ir, registry))
+    keys = sorted(_relations(ir, registry, set(goal.constraints.tables)))
     sheet_facts = _sheet_facts(ir, goal, measurements, channels, grouping=keys)
 
     return Pipeline(
@@ -165,15 +168,17 @@ def of(
     )
 
 
-def _relations(ir: PipelineIR, registry: Registry) -> set[str]:
+def _relations(ir: PipelineIR, registry: Registry, tables: set[str] = frozenset()) -> set[str]:  # type: ignore[assignment]
     """The facts a step relates samples by (#466): a key it groups by, a fact a port selects
-    on, and the key or reference a pair or a control joins on. Each is a samplesheet column."""
+    on, and the key or reference a pair or a control joins on. Each is a samplesheet column,
+    except a fact a port reading a table selects on, which is a column of that table."""
     found: set[str] = set()
     for node in ir.nodes:
         contract = registry.get(node.contract_id)
         for port in contract.consumes:
             found |= {port.by} if port.by else set()
-            found |= set(port.select or {})
+            if port.type_id not in tables:
+                found |= set(port.select or {})
         found |= {spec.key for spec in contract.nf_inputs if spec.key}
     return found
 
@@ -409,6 +414,40 @@ def _inputs(
             inputs.append(StepInput(port=port.name, channel=assigned, gather=gather,
                                     by=port.by, select=_select(port)))
     return inputs
+
+
+def _tables(channels: list[Channel], steps: list[Step], ir: PipelineIR, registry: Registry,
+            tables: set[str]) -> list[Channel]:
+    """Each study input a person supplies as a table gets its shape: its items' name on `meta`
+    (the type's family), its file columns, and the item facts a port selects on (#466).
+
+    Refuses a step joining a crossed output by sample with another channel (MD0348): each sample
+    has one result per row there, and the join would keep only one."""
+    out = []
+    for channel in channels:
+        if channel.type_id not in tables:
+            out.append(channel)
+            continue
+        facts = sorted({
+            fact for node in ir.nodes for port in registry.get(node.contract_id).consumes
+            if port.select and any(i.channel == channel.name and i.port == port.name
+                                   for s in steps if s.id == node.id for i in s.inputs)
+            for fact in port.select})
+        out.append(channel.model_copy(update={"table": TableShape(
+            name=channel.type_id.split(".")[0], columns=channel.columns, facts=facts)}))
+    crossed = {s.id for s in steps
+               if any(i.channel in {c.name for c in out if c.table} for i in s.inputs)}
+    for step in steps:
+        for arg in step.call:
+            read = [i for i in step.inputs if i.port in arg.ports]
+            if len(read) > 1 and any(i.source and i.source.split(".")[0] in crossed
+                                     for i in read) and any(
+                    arg.join_for(name) is Join.BY_SAMPLE for name in arg.ports[1:]):
+                raise ValueError(coded(
+                    "MD0348", f"{step.id} joins {', '.join(arg.ports)} by sample, and one of "
+                    "them has a result per row of a table for each sample — "
+                    "`mendel explain MD0348`."))
+    return out
 
 
 def _select(port) -> list:

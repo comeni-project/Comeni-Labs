@@ -274,8 +274,7 @@ def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
     return [
         (
             _channel_name(channel.name),
-            _optional(channel, _as_value(_with_meta(channel.expression, channel.meta),
-                                         channel.grain)),
+            _study(channel),
         )
         for channel in pipeline.channels
     ]
@@ -367,8 +366,7 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
             lines.append(
                 (
                     _channel_name(channel.name),
-                    _optional(channel, _as_value(_with_meta(channel.expression, channel.meta),
-                                                 channel.grain)),
+                    _study(channel),
                 )
             )
             continue
@@ -635,6 +633,29 @@ def _no_duplicate_ids(units: bool = False) -> str:
     )
 
 
+def _study(channel) -> str:
+    """A channel read as given: a value channel for one study item, a queue for per-sample
+    items, and a table of several study items read from its own CSV (#466)."""
+    if channel.table is not None:
+        return _table(channel)
+    return _optional(channel, _as_value(_with_meta(channel.expression, channel.meta),
+                                        channel.grain))
+
+
+def _table(channel) -> str:
+    """Several items for the study, one per row of the table at `params.<param>` (#466): each
+    named, the name its `meta.id`, with the item facts a port selects on. A blank or repeated
+    name stops the run naming the row; a file that does not exist stops it naming the file."""
+    table, param = channel.table, channel.param
+    facts = "".join(f", {fact}: row.{fact}" for fact in table.facts)
+    files = ", ".join(f"file(row.{column}, checkIfExists: true)" for column in table.columns)
+    return (f"Channel.fromPath(params.{param}, checkIfExists: true).splitCsv(header: true)"
+            ".toList().flatMap { rows -> def seen = [] as Set; rows.withIndex().collect "
+            "{ row, n -> if (!row.name) error(\"table " + param + " row ${n + 1} has no "
+            "name\"); if (!seen.add(row.name)) error(\"table " + param + ": ${row.name} is "
+            f"named twice\"); [ [id: row.name{facts}], {files} ] }} }}")
+
+
 def _as_value(expression: str, grain: Grain) -> str:
     """A study's channel becomes a value channel; a per-sample one stays a queue."""
     return f"({expression}).first()" if grain is Grain.STUDY else expression
@@ -666,7 +687,39 @@ def _call(pipeline: Pipeline, step: Step, measured: dict[str, str] | None = None
         args[0] = f"({args[0]}){injection}"
     if guard and step.sample_rules and args:
         args[0] = f"({args[0]}){_sample_guard(step)}"
+    table = _table_argument(pipeline, step)
+    if table is not None:
+        return _crossed(step, args, *table)
     return f"{step.process}({', '.join(args)})"
+
+
+def _table_argument(pipeline: Pipeline, step: Step):
+    """The call position reading a table, and the table, or None (#466)."""
+    tables = {c.name: c.table for c in pipeline.channels if c.table is not None}
+    for n, arg in enumerate(step.call):
+        read = [i for i in step.inputs if i.port in arg.ports and i.channel in tables]
+        if read:
+            if n == 0 or len(arg.ports) != 1:
+                raise ValueError(coded(
+                    "MD0348", f"{step.id} reads the table {read[0].channel} with another input "
+                    "in one tuple, or first; it reads it on its own, after the sample — "
+                    "`mendel explain MD0348`."))
+            return n, tables[read[0].channel]
+    return None
+
+
+def _crossed(step: Step, args: list[str], at: int, table) -> str:
+    """Every sample with every row of a table (#466): the pairs made once and split into the
+    call's two inputs in step, each sample's `meta` carrying the row's under the table's name.
+    A table no row of which this step reads stops the run rather than dropping every sample."""
+    name = f"ch_cross_{step.id}"
+    rows = (f"{args[at]}.ifEmpty {{ error(\"each sample meets no row of {table.name}: "
+            f"{step.process} reads none of its rows\") }}")
+    cross = (f"{name} = {args[0]}.map {{ [it] }}.combine({rows}.map {{ [it] }}).multiMap "
+             f"{{ s, t -> sample: [ s[0] + [{table.name}: t[0]] ] + s.drop(1); table: t }}")
+    called = [f"{name}.sample" if n == 0 else f"{name}.table" if n == at else arg
+              for n, arg in enumerate(args)]
+    return f"{cross}\n    {step.process}({', '.join(called)})"
 
 
 def _measuring_branch(pipeline: Pipeline) -> set[str]:
@@ -898,6 +951,14 @@ def _calls(pipeline: Pipeline) -> list[str]:
     inputs; then the record of each run-time value (#217, #466). A pipeline that decides
     nothing in the run gets exactly its calls in step order, as before."""
     _check_cells(pipeline)
+    for step in pipeline.steps:
+        folded = any(f.source is AtRunSource.FOLDED for s in step.settings if s.at_run
+                     for f in s.at_run.facts)
+        if (step.guard is not None or folded) and _table_argument(pipeline, step) is not None:
+            # Wrapping only the sample side after the pairs are made would mis-pair them.
+            raise ValueError(coded(
+                "MD0348", f"{step.id} crosses a table and takes only some samples or reads a "
+                "folded fact; it may do one — `mendel explain MD0348`."))
     branch = _measuring_branch(pipeline)
     if not branch:
         folds, folding = _folding(pipeline, {})
@@ -1280,7 +1341,7 @@ def _at_run_fragment(step: Step, setting) -> str:
             f"{_render_literal(after)} }}")
 
 
-def _ext_scope(step: Step) -> list[str]:
+def _ext_scope(step: Step, crosses: str | None = None) -> list[str]:
     """Every `ext.<key>` this step needs, composed.
 
     The contract's static flags first, then each routed setting in **name-sorted** order. With
@@ -1365,6 +1426,9 @@ def _ext_scope(step: Step) -> list[str]:
             setting.template.replace("{value}", rendered)
         )
 
+    if crosses is not None and "prefix" not in fragments:
+        # Each pair's results under a name of its own (#466).
+        fragments["prefix"] = [f"${{meta.id}}_${{meta.{crosses}.id}}"]
     if step.parts is not None and step.parts.on and "prefix" not in fragments:
         # Each part's results under a name of its own, or publishing would overwrite them (#466).
         fragments["prefix"] = ["${meta.id}.part${meta.part}"]
@@ -1542,7 +1606,8 @@ def _process_scope(pipeline: Pipeline) -> list[str]:
     """`ext.*` and directives per process, for modules that declare flags or carry settings."""
     blocks: list[str] = []
     for step in pipeline.steps:
-        blocks += _ext_scope(step)
+        table = _table_argument(pipeline, step)
+        blocks += _ext_scope(step, crosses=table[1].name if table else None)
         blocks += _directive_scope(step)
     return ["process {", *_label_scope(), *sorted(set(blocks)), "}", ""]
 

@@ -195,6 +195,8 @@ decline to curate one.
 
 | Code | Says |
 |---|---|
+| `MD0347` | an input that cannot be a table of several items is said to be one |
+| `MD0348` | a step crossing a table is wired in a way that would mis-pair its samples and rows |
 | `MD0501` | an edge names a port that does not exist on that contract |
 | `MD0502` | an edge runs the wrong way — an input feeding an output, or an output into an output |
 | `MD0503` | the source type does not satisfy what the target port requires |

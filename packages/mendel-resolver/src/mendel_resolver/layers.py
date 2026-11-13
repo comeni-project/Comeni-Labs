@@ -361,7 +361,10 @@ def _check_groups(contract, measurements: MeasurementRegistry) -> None:
                 "MD0343", f"{contract.id}'s {port.name} both selects and groups by {port.by} — "
                 "`mendel explain MD0343`."))
         for fact in sorted(port.select or {}):
-            if fact not in measurements.ids() or measurements.scope_of(fact) is not Grain.SAMPLE:
+            # A table's rows have facts of their own, such as a database's read type (#466).
+            own = fact in measurements.ids() and measurements.get(fact).describes == port.type_id
+            if not own and (fact not in measurements.ids()
+                            or measurements.scope_of(fact) is not Grain.SAMPLE):
                 raise ValueError(coded(
                     "MD0344", f"{contract.id}'s {port.name} selects on {fact}, which is not a "
                     "fact each sample has — `mendel explain MD0344`."))

@@ -472,6 +472,20 @@ class SheetFact(BaseModel):
     why: Why
 
 
+class TableShape(BaseModel):
+    """A study input supplied as a table of several items, such as several databases (#466):
+    the CSV the run reads, and the name its items take on a sample's `meta`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: NfIdentifier
+    """The key an item's `meta` takes on the sample it is paired with: the type's family."""
+    columns: list[PortName]
+    """The file columns, after `name`."""
+    facts: list[MeasurementId] = Field(default_factory=list, exclude_if=lambda f: not f)
+    """Item facts a port selects on, one column each after the files. Sorted."""
+
+
 class Channel(BaseModel):
     """External pipeline input, including its expression, grain, metadata, and test data."""
 
@@ -498,6 +512,9 @@ class Channel(BaseModel):
     meta: list[MetaEntry] = Field(default_factory=list)
     test_data: list[TestDataRef] = Field(default_factory=list)
     """Public example inputs used by the test profile, represented as a list."""
+
+    table: TableShape | None = Field(default=None, exclude_if=lambda table: table is None)
+    """Several items for the study, read from a table of its own (#466); `None` for one."""
 
     units: bool = Field(default=False, exclude_if=lambda units: not units)
     """A sample may span several rows of this input, such as its lanes (#466): the samplesheet
@@ -691,10 +708,13 @@ class Pipeline(EgressPayload):
             )
         per_sample = [c.name for c in self.channels if c.grain is Grain.SAMPLE]
         wants_table = self.input_form is InputForm.SAMPLESHEET
-        # Every fact said to vary, and every key a step groups by, has its column (#466).
+        # Every fact said to vary, and every key a step groups by, has its column (#466); a fact
+        # a port reading a table selects on is a column of that table instead.
+        tables = {c.name for c in self.channels if c.table is not None}
         varies = set(self.intent.constraints.varies) | {
             i.by for s in self.steps for i in s.inputs if i.by is not None} | {
-            c.fact for s in self.steps for i in s.inputs for c in i.select} | {
+            c.fact for s in self.steps for i in s.inputs for c in i.select
+            if i.channel not in tables} | {
             a.key for s in self.steps for a in s.call if a.key is not None}
         if varies != {f.measurement for f in self.sheet_facts}:
             raise ValueError(coded(

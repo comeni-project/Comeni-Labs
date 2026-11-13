@@ -340,10 +340,10 @@ def test_a_contract_used_by_two_steps_emits_its_process_block_once():
     pipeline = _pipeline()
     step = next(
         s for s in pipeline.steps
-        if _process_scope(types.SimpleNamespace(steps=[s])) != []
+        if _process_scope(types.SimpleNamespace(steps=[s], channels=[])) != []
     )
-    one = _process_scope(types.SimpleNamespace(steps=[step]))
-    two = _process_scope(types.SimpleNamespace(steps=[step, step]))
+    one = _process_scope(types.SimpleNamespace(steps=[step], channels=[]))
+    two = _process_scope(types.SimpleNamespace(steps=[step, step], channels=[]))
     assert two == one, "a process block emitted twice for one contract is a dedup regression"
 
 
