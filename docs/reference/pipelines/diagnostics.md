@@ -106,6 +106,7 @@ decline to curate one.
 | `MD0022` | a tool folder has no tool.yml saying what the tool is |
 | `MD0023` | a type only one tool uses sits outside that tool's types/ folder |
 | `MD0024` | a type one tool keeps as its own is used by another tool's contract |
+| `MD0027` | a measurer piece reaches outside what pieces may import or call |
 
 ## The pipeline file — a setting, an override, or the format
 
