@@ -32,6 +32,7 @@ from comeni_core.egress.forge import (
 )
 from comeni_flow.interpret import Refused
 from mendel_compiler.modulespec import ModuleSpec
+from mendel_compiler.registry_lint import ALLOWED
 from mendel_forge.forging import rules
 from mendel_forge.forging.model import Actor, Adaptation, Command, Move, Piece, Status
 from mendel_forge.forging.protocol import Phase
@@ -71,13 +72,15 @@ _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
             "forge.draft.v9": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v2": InvocationPurpose.IMPLEMENTATION,
+            "forge.measurers.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v2": InvocationPurpose.CHAT,
             "forge.chat.v3": InvocationPurpose.CHAT,
             "forge.review.v1": InvocationPurpose.REVIEW,
             "forge.review.v2": InvocationPurpose.REVIEW}
 
 
-_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v7", Piece.TESTS: "forge.tests.v2"}
+_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v7", Piece.TESTS: "forge.tests.v2",
+                 Piece.MEASURERS: "forge.measurers.v1"}
 
 _SETTLED = frozenset({Status.APPROVED, Status.REMOVED})
 
@@ -208,6 +211,7 @@ def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
         "piece": request.piece.value, "turns": turns_text,
         "types_described": described_text, "findings": findings_text, "inputs": inputs_text,
         "item_shapes": ITEM_SHAPES.read_text().rstrip("\n"),
+        "allowed_imports": ", ".join(sorted(ALLOWED)),
         "problems": ("\nYour previous reply was refused:\n- " + "\n- ".join(problems)
                      if problems else ""),
     }

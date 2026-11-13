@@ -867,3 +867,41 @@ def test_the_guide_teaches_facts_and_hit_policies():
     for shape in ('"then": {"fact":', '"hit"', "rules:derive:<fact>", '{"op": "round"}',
                   '"source": "genome_length"'):
         assert shape in guide, shape
+
+
+# ── measurers (#487) ─────────────────────────────────────────────────────────────────────────
+
+def _measurer_draft(code: str | None = None) -> dict:
+    from support.forge_measurer import measurer
+    value = {**measurer(), "output": "bam"}
+    if code is not None:
+        value["code"] = code
+    return {"items": {"measurers:measurer:genome_length_fai": value},
+            "because": {"measurers:measurer:genome_length_fai": "a summary of the output"}}
+
+
+def _ready_for_measurers(adaptation: str) -> None:
+    _ready_for_tests(adaptation)
+    forging.act(adaptation, forging.person(Move.WRITE, "tests:test:paired", expected=None,
+                                           value=TEST_DRAFT["items"]["tests:test:paired"],
+                                           because=None))
+
+
+def test_measurers_are_drafted_with_their_prompt(adaptation):
+    _ready_for_measurers(adaptation)
+    client = FakeClient(_measurer_draft())
+    forging_ai.draft_piece(adaptation, Piece.MEASURERS, client)
+    assert "comeni_inspect.outcome" in client.prompts[0] and "{{" not in client.prompts[0]
+    item = forging.load(adaptation).items["measurers:measurer:genome_length_fai"]
+    assert item.status == "proposed" and item.current.actor == "ai"
+    with session_scope() as db:
+        assert db.get(AiInvocation, item.current.invocation).prompt_id == "forge.measurers.v1"
+
+
+def test_parser_code_that_reaches_out_goes_back_once_with_why(adaptation):
+    from support.forge_measurer import measurer
+    _ready_for_measurers(adaptation)
+    client = FakeClient(_measurer_draft("import os\n" + measurer()["code"]), _measurer_draft())
+    forging_ai.draft_piece(adaptation, Piece.MEASURERS, client)
+    assert "MD0027" in client.prompts[1] and "os" in client.prompts[1]
+    assert "measurers:measurer:genome_length_fai" in forging.load(adaptation).items
