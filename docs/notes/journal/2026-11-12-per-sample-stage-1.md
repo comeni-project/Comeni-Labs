@@ -74,3 +74,15 @@ one. Each sample's parts merge as soon as they are done, and a person can keep t
 (a `whole` decision). Part B: a study input may be a table of several items, and a step reading
 a sample and the table runs on every pair, each published under its own name. Both are proven
 with fixture contracts under Nextflow; no shipped tool splits or reads a table yet.
+
+
+## Part 5.1: the forge drafts measurers (11-13)
+
+[The plan](../../superpowers/plans/2026-11-13-forge-measurers.md), from
+[the design](../../superpowers/specs/2026-11-13-forge-measurers-design.md). #487. The forge's
+last step, **Measurers**, drafts a `by: tool` parser of the forged tool's output, its tests and
+any new measurement, for a person to approve item by item. The parser is checked with `mendel
+lint`'s new MD0027 (the inspector-pieces allowlist, moved there) and never runs on Mendel's
+server: the forge's test run adds the generated measuring step after the tool, and Wiener's
+`/measured` must report a value. Its unit tests run in the registry's CI. An end-to-end test
+re-creates `genome_length_fai` from a draft to a pull request. Found and fixed on the way: #490.

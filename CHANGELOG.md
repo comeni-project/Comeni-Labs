@@ -156,6 +156,10 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- `mendel lint` checks a measurer piece's imports and calls (MD0027), whatever the layer's
+  manifest says. The inspector-pieces guard, the forge and the registry's CI use this one check
+  (#487).
+
 - A step reading a sample and a table runs on every pair (`combine`, then `multiMap` into its two inputs), the row's `meta` on the sample's under the table's name; each pair publishes under its own name; a blank or repeated row name, a missing file, or a table none of whose rows the step reads stops the run (#466). A crossed step that takes only some samples or reads a fold is refused (MD0348).
 
 - A sample's parts run in parallel and merge per sample, gathered with a `groupKey` sized by the splitter's own count, so one sample never waits for another's; a splitter making one part still flows; each part publishes under its own name (#466).
@@ -465,6 +469,14 @@ or a complete commit history.
   its final 20 records to buffered reads.
 
 ### mendel-forge
+
+- The forge drafts measurers (#487). A new last step, **Measurers**, proposes a `by: tool`
+  parser of one of the tool's outputs, with its tests, and any new measurement. The parser is
+  checked with MD0027 and is never run on Mendel's server. A forge test runs it on the tool's real
+  output in Wiener, and is green only when it reports a value. Publishing may drop
+  `assertion_only` from a measurement the tool now measures.
+- An approved new measurement from the vocabulary step is written to the draft layer; it was
+  dropped (#490).
 
 - A tool test leaves out a setting the tool can do without (#217).
 
