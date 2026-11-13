@@ -137,6 +137,9 @@ def _shared(source: Path, target: Path, relative: Path) -> list[Path]:
     if target.exists():
         if filecmp.cmp(source, target, shallow=False):
             return []
+        if _drops_assertion_only(source, target):
+            shutil.copy(source, target)  # this tool now measures it (#487)
+            return [target]
         missing = _states_missing(source, target)
         if missing == []:
             return []  # an extension the registry already has (#473)
@@ -146,6 +149,21 @@ def _shared(source: Path, target: Path, relative: Path) -> list[Path]:
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(source, target)
     return [target]
+
+
+_ASSERTION_ONLY = ("assertion_only", "assertion_only_because")
+
+
+def _drops_assertion_only(source: Path, target: Path) -> bool:
+    """Whether the draft is the registry's measurement with only `assertion_only` (and its
+    reason) dropped: what a tool that now measures it may change (#487). Compared parsed, so
+    the draft's own key order and folding do not count as a change."""
+    draft, shared = yaml.safe_load(source.read_text()), yaml.safe_load(target.read_text())
+    if not (isinstance(draft, dict) and isinstance(shared, dict)
+            and shared.get("declares") == "measurement" and shared.get("assertion_only")):
+        return False
+    kept = {k: v for k, v in shared.items() if k not in _ASSERTION_ONLY}
+    return draft == kept
 
 
 def _states_missing(source: Path, target: Path) -> list[str] | None:

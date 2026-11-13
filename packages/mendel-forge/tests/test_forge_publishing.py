@@ -156,3 +156,41 @@ def test_an_extension_the_registry_already_has_is_placed_as_nothing(tmp_path, ch
     values["vocabulary:type:qc.report"] = {"id": "qc.report", "add_states": ["brand_new"]}
     with pytest.raises(ValueError, match="MF0517.*add the states brand_new by hand"):
         place(_draft(tmp_path / "again", values), checkout, "nf-core/star/align", FACTS)
+
+
+# ── measurements and measurers (#487) ────────────────────────────────────────────────────────
+
+def _registry_measurement(name: str) -> dict:
+    data = yaml.safe_load((REGISTRY / "vocabulary/measurements" / f"{name}.yml").read_text())
+    data.pop("declares")
+    return data
+
+
+def test_place_drops_assertion_only(tmp_path, checkout):
+    """A tool that now measures an `assertion_only` measurement re-declares it without it."""
+    measured = {k: v for k, v in _registry_measurement("duplicate_rate").items()
+                if k not in ("assertion_only", "assertion_only_because")}
+    values = {**_values(), "measurers:measurement:duplicate_rate": measured}
+    placed = place(_draft(tmp_path, values), checkout, "nf-core/star/align", FACTS)
+    target = checkout / "vocabulary/measurements/duplicate_rate.yml"
+    assert target in placed
+    assert "assertion_only" not in yaml.safe_load(target.read_text())
+
+
+def test_place_refuses_another_measurement_change(tmp_path, checkout):
+    changed = {k: v for k, v in _registry_measurement("duplicate_rate").items()
+               if k not in ("assertion_only", "assertion_only_because")}
+    changed["description"] = "something else"
+    values = {**_values(), "measurers:measurement:duplicate_rate": changed}
+    with pytest.raises(ValueError, match="MF0517.*vocabulary/measurements/duplicate_rate.yml"):
+        place(_draft(tmp_path, values), checkout, "nf-core/star/align", FACTS)
+
+
+def test_place_adds_a_measurer_folder(tmp_path, checkout):
+    from support.forge_measurer import measurer
+    values = {**_values(), "measurers:measurer:bam_check": {**measurer(), "output": "bam"}}
+    placed = place(_draft(tmp_path, values), checkout, "nf-core/star/align", FACTS)
+    folder = checkout / "measurers/measures/bam_check"
+    assert {folder / "measurer.yml", folder / "piece/bam_check.py",
+            folder / "piece/test_bam_check.py"} <= set(placed)
+    assert check(checkout) == []
