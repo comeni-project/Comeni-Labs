@@ -26,6 +26,7 @@ from wiener_api.services.artifacts import (
     declared_holes,
     input_facts,
     input_shape,
+    input_tables,
     optional_columns,
     optional_holes,
     pipeline_digest,
@@ -112,12 +113,28 @@ class ArtifactStored(BaseModel):
     input_facts: list["FactColumnView"] = []
     """The samplesheet's fact columns (#466), each checked when the run starts as here."""
 
+    input_tables: list["TableInputView"] = []
+    """Study inputs supplied as tables of several items, such as databases (#466): each asked
+    for as a table of its own, under its param."""
+
     input_columns: list[str] = []
     """The samplesheet's columns, when `input_form` is `samplesheet`. Empty otherwise.
 
     `sample` is not among them and never will be: it is the identifier column every row
     carries, and it is the browser's to render. These are the *file* columns each sample
     supplies — `reads_1`, `reads_2`, `gtf`."""
+
+
+class TableInputView(BaseModel):
+    """A study input supplied as a table of several items (#466)."""
+
+    param: str
+    name: str
+    """What its rows are called on each sample, such as `database`."""
+    columns: list[str]
+    """The file columns, after `name`, which every row carries."""
+    facts: list[str] = []
+    """The item facts a step selects on, after the files; a row may leave one blank."""
 
 
 class FactColumnView(BaseModel):
@@ -258,7 +275,8 @@ async def upload_artifact(bundle: UploadFile,
                           optional=sorted(optional_holes(artifact_id) & holes),
                           rules=[RunRuleView(**r) for r in run_rules(artifact_id)],
                           input_form=form, input_columns=columns, input_facts=facts,
-                          input_optional_columns=blank)
+                          input_optional_columns=blank,
+                          input_tables=[TableInputView(**t) for t in input_tables(artifact_id)])
 
 
 @router.post("/runs", status_code=202, operation_id="submitRun", summary="Run a pipeline")

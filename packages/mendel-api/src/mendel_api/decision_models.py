@@ -211,6 +211,8 @@ class PipelineInputRevision(_Revision):
     )
     units: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     """A sample may span several rows of this input, such as its lanes (#466)."""
+    table: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    """This study input is a table of several items, such as several databases (#466)."""
 
 
 class PipelineWant(_Subject):

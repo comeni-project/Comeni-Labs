@@ -155,3 +155,41 @@ describe("inputs a run may leave empty (issue 460)", () => {
     expect(screen.getByTestId("start-run")).not.toBeDisabled();
   });
 });
+
+describe("a study input given as a table of several items (issue 466)", () => {
+  const TABLED = {
+    ...STORED,
+    declared: ["index", "input"],
+    input_tables: [{ param: "index", name: "database", columns: ["index"], facts: ["db_type"] }],
+  };
+
+  it("asks for it as a table with a name per row, not as a path", async () => {
+    vi.stubGlobal("fetch", uploads(TABLED));
+    show(<SubmitPanel draftId="abc" gated />);
+    screen.getByTestId("send-to-wiener").click();
+    await waitFor(() => expect(screen.getByTestId("table-index")).toBeTruthy());
+    expect(screen.queryByTestId("param-index")).toBeNull();
+    const table = screen.getByTestId("table-index");
+    expect(table.textContent).toContain("+ database");
+    expect(table.querySelectorAll("th")[0].textContent).toBe("name");
+    expect(screen.getByTestId("start-run").title).toMatch(/row 1: name, index/);
+  });
+
+  it("sends its rows under its own parameter", async () => {
+    const fetching = uploads(TABLED);
+    vi.stubGlobal("fetch", fetching);
+    show(<SubmitPanel draftId="abc" gated />);
+    screen.getByTestId("send-to-wiener").click();
+    await waitFor(() => expect(screen.getByTestId("table-index")).toBeTruthy());
+    const { fireEvent } = await import("@testing-library/react");
+    fireEvent.change(screen.getByLabelText("name for row 1"), { target: { value: "k2" } });
+    fireEvent.change(screen.getByLabelText("index for row 1"), { target: { value: "/db/k2" } });
+    fireEvent.change(screen.getByTestId("param-input"), { target: { value: "*.fq.gz" } });
+    expect(screen.getByTestId("start-run")).not.toBeDisabled();
+    screen.getByTestId("start-run").click();
+    const run = () => fetching.mock.calls.find(([url]) => String(url).includes("/api/runs"));
+    await waitFor(() => expect(run()).toBeTruthy());
+    const sent = JSON.parse(run()![1].body as string);
+    expect(sent.params.index).toEqual([{ name: "k2", index: "/db/k2", db_type: "" }]);
+  });
+});

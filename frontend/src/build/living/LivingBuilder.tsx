@@ -116,6 +116,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       onCorrect={living.correct}
       onRelease={living.releaseTool}
       onUnits={living.spanRows}
+      onTable={living.severalItems}
       onDisagreement={living.answerDisagreement}
       correcting={living.correcting}
       onAccept={living.accept}

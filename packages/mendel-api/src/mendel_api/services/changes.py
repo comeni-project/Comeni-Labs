@@ -183,6 +183,7 @@ def _apply_input(draft_id: str, change: DecisionChange, stack, *, said, heard) -
             present=change.value is True,
             origin=FactOrigin.OPEN if change.value is None else FactOrigin.PERSON_SAID,
             units=old.units if old else False,
+            table=old.table if old else False,
         ),
         **said,
         **heard,
@@ -288,6 +289,17 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             return False
         decisions.set_input(draft_id, current.model_copy(update={"units": bool(change.value)}),
                             **said)
+    elif kind == "tables":
+        # A study input supplied as several items, such as several databases (#466).
+        _type(stack, subject)
+        current = next((i for i in decisions.read(draft_id).inputs
+                        if i.type_id == subject and i.present), None)
+        if current is None:
+            raise ValueError(coded("MI0204", f"this pipeline takes no {subject} to be a table"))
+        if current.table == bool(change.value):
+            return False
+        decisions.set_input(draft_id, current.model_copy(update={"table": bool(change.value)}),
+                            **said)
     elif kind == "retain":
         decisions.retain_fact(draft_id, subject, who=who)
     elif kind == "observation":
@@ -311,6 +323,9 @@ def describe(change: DecisionChange) -> str:
         tool = _process(stack, subject)
         return (f"{tool} runs on parts of each sample" if change.retract
                 else f"{tool} runs on each sample whole")
+    if change.kind == "tables":
+        return (f"{subject} is a table of several items" if change.value
+                else f"{subject} is one item")
     if change.kind == "units":
         return (f"a sample may span several rows of {subject}" if change.value
                 else f"each sample is one row of {subject}")

@@ -374,6 +374,7 @@ def read(draft_id):
                     present=r.present,
                     origin=r.origin,
                     units=r.units,
+                    table=r.table,
                 )
                 for s, r in _current(db, draft_id, "input")
             ],
@@ -640,7 +641,7 @@ def assess_observation(draft_id, observation_id):
 
 
 _FIELDS = {
-    "input": ("type_id", "name", "states", "present", "origin", "units"),
+    "input": ("type_id", "name", "states", "present", "origin", "units", "table"),
     "want": ("type_id", "states", "present"),
     "producer": ("type_id", "states", "contract"),
     "parameter": ("name", "value"),

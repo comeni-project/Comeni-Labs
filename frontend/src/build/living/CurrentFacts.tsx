@@ -12,7 +12,7 @@ export function hasCurrentFacts(session: AuthoringSession): boolean {
     || (session.samples ?? []).length > 0;
 }
 
-export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUnits, openRequest = 0, disabled = false,
+export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUnits, onTable, openRequest = 0, disabled = false,
   open = false, highlight = null }: {
   session: AuthoringSession; declarations?: AuthoringVocabulary["measurements"];
   /** Open from the start — the describe page, where these answers are the page. */
@@ -21,6 +21,8 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUn
   onRelease?: (type: string, states: string[]) => Promise<unknown>;
   /** Whether a sample may span several rows of an input, such as its lanes (issue 466). */
   onUnits?: (type: string, on: boolean) => Promise<unknown>;
+  /** A study input is a table of several items, such as several databases (issue 466). */
+  onTable?: (type: string, on: boolean) => Promise<unknown>;
   /** The line an announcement points at, lit for a moment (one builder plan 3). */
   highlight?: string | null;
 }) {
@@ -37,6 +39,9 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUn
   const facts = (session.facts ?? []).filter(fact => fact.kind === "measurement");
   const absent = (session.fact_subjects ?? []).filter(subject => !facts.some(fact => fact.subject === subject));
   const inputs = session.inputs ?? [];
+  // Each input's grain, from the built pipeline's channels; unknown before a build (issue 466).
+  const grainOf = (type: string) =>
+    (session.canvas?.channels ?? []).find(c => c.type_id === type)?.grain ?? null;
   if (!facts.length && !inputs.length && !pins.length && !absent.length
     && !(session.samples ?? []).length) return null;
   return <details ref={details} className="mb-4 text-[12px]" open={editing !== null || open ? true : undefined}>
@@ -58,8 +63,21 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUn
       <span>{fact.label}: {factWords(fact.value)} · {sourceWords[fact.source]}</span>
       {onCorrect && <button type="button" disabled={disabled} className="ml-2 text-now-ink underline"
         onClick={() => setEditing(editing === fact.subject ? null : fact.subject)}>Correct {fact.label}</button>}
+      {fact.kind === "input" && fact.value === true && onTable && (() => {
+        const input = inputs.find(i => i.key === fact.subject)!;
+        if (grainOf(input.type_id) !== "study") return null;
+        return <label className="block pt-[4px] text-ink-2">
+          <input type="checkbox" className="mr-2" disabled={disabled} checked={input.table ?? false}
+            aria-label={`${input.type_id} is a table of several items`}
+            onChange={event => { void onTable(input.type_id, event.target.checked)
+              .catch(failure => setError(String(failure))); }} />
+          several of these, given as a table: every sample runs against each
+        </label>;
+      })()}
       {fact.kind === "input" && fact.value === true && onUnits && (() => {
         const input = inputs.find(i => i.key === fact.subject)!;
+        // Only a per-sample input spans rows; one the build reads once for the study does not.
+        if (grainOf(input.type_id) === "study") return null;
         return <label className="block pt-[4px] text-ink-2">
           <input type="checkbox" className="mr-2" disabled={disabled} checked={input.units ?? false}
             aria-label={`a sample may span several rows of ${input.type_id} (lanes)`}

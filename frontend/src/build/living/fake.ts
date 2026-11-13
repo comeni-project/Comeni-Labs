@@ -238,7 +238,7 @@ export const CONFLICT_SESSION = {
     blocks: turn.blocks.filter(block => block.kind === "goal_summary") })),
   phase: "building", decision_revision: 2, projection_current: false,
   facts: [{ kind: "measurement", subject: "paired", value: false, source: "person_said", states: [], pieces: [] }],
-  inputs: [{ key: "fastq.reads", type_id: "fastq.reads", present: true, origin: "person_said", states: [], units: false }],
+  inputs: [{ key: "fastq.reads", type_id: "fastq.reads", present: true, origin: "person_said", states: [], units: false, table: false }],
   pending_proposal: {
     id: "disagree-paired", kind: "disagreement", draft_revision: 4, edges: [], asked_at: "2026-10-27T09:00:00+00:00",
     options: ["keep_current", "use_measurement", "correct", "unknown"],

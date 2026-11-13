@@ -324,6 +324,16 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
         expected_draft_revision: current.revision, expected_session_version: current.row_version,
       }).then(() => refresh());
     },
+    // **A study input given as several items** (issue 466): one change, `tables`.
+    severalItems: (type_id: string, on: boolean) => {
+      const current = session.data;
+      if (!current) return Promise.reject(new Error("Reload the session before changing an input"));
+      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
+        change: { kind: "tables", subject: type_id, value: on },
+        expected_decision_revision: current.decision_revision ?? 0,
+        expected_draft_revision: current.revision, expected_session_version: current.row_version,
+      }).then(() => refresh());
+    },
     releaseTool: (type_id: string, states: string[]) => correction.mutateAsync({
       release: { type_id, states }, value: null }),
     correct: (subject: string, value: FactValue, kind: "input" | "measurement") =>

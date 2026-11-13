@@ -2333,6 +2333,8 @@ export interface components {
             varies?: string[];
             /** Units */
             units?: string[];
+            /** Tables */
+            tables?: string[];
             /** Whole */
             whole?: string[];
         };
@@ -2359,6 +2361,8 @@ export interface components {
             varies?: string[];
             /** Units */
             units?: string[];
+            /** Tables */
+            tables?: string[];
             /** Whole */
             whole?: string[];
         };
@@ -2519,7 +2523,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source" | "optional_input" | "units" | "whole";
+            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source" | "optional_input" | "units" | "whole" | "tables";
             /** Subject */
             subject: string;
             /** Value */
@@ -3338,6 +3342,11 @@ export interface components {
              * @default false
              */
             units: boolean;
+            /**
+             * Table
+             * @default false
+             */
+            table: boolean;
         };
         /**
          * InputState

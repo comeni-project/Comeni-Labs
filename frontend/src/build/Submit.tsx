@@ -74,8 +74,17 @@ export function SubmitForm({ submit }: { submit: Submit }) {
               onChange={submit.setRows}
             />
           )}
+          {submit.tables.map((table) => (
+            <div key={table.param} className="flex flex-col gap-1">
+              <span className="font-data text-body text-ink-3">{table.param}</span>
+              <Samplesheet testId={`table-${table.param}`} id="name" noun={table.name}
+                           columns={[...table.columns, ...(table.facts ?? [])]} rows={table.rows}
+                           onChange={(next) => submit.setTable(table.param, next)} />
+            </div>
+          ))}
           {submit.artifact.declared
             .filter((name) => !(submit.columns !== null && name === "input"))
+            .filter((name) => !submit.tables.some((t) => t.param === name))
             .map((name) => (
             <label key={name} className="flex flex-wrap items-center gap-2">
               <span className="font-data text-body w-28 text-ink-3">{name}</span>

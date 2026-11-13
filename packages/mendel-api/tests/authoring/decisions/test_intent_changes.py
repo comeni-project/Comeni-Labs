@@ -179,3 +179,24 @@ def test_a_whole_change_keeps_a_step_whole_and_back(with_parts):
 def test_keeping_whole_a_tool_that_never_runs_on_parts_is_refused(with_parts):
     with pytest.raises(ValueError, match="MI0204"):
         changes.check(DecisionChange(kind="whole", subject=STAR))
+
+
+def test_a_tables_change_says_an_input_is_several_items():
+    """Several databases, each sample profiled against each (#466, stage 6)."""
+    draft = _draft()
+    assert changes.apply(draft, DecisionChange(kind="input", subject="genome.fasta", value=True),
+                         who="ana")
+    several = DecisionChange(kind="tables", subject="genome.fasta", value=True)
+    assert changes.apply(draft, several, who="ana")
+    assert _constraints(draft).tables == ["genome.fasta"]
+    assert changes.describe(several) == "genome.fasta is a table of several items"
+    assert not changes.apply(draft, several, who="ana")
+    assert changes.apply(draft, DecisionChange(kind="tables", subject="genome.fasta",
+                                               value=False), who="ana")
+    assert _constraints(draft).tables == []
+
+
+def test_tables_on_an_input_the_goal_does_not_have_are_refused():
+    with pytest.raises(ValueError, match="MI0204"):
+        changes.apply(_draft(), DecisionChange(kind="tables", subject="genome.fasta", value=True),
+                      who="ana")

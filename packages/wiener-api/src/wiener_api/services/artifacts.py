@@ -187,6 +187,20 @@ def input_facts(artifact_id: str) -> list[dict]:
              "auto": f.auto, "why": f.why.reason} for f in pipeline.sheet_facts]
 
 
+def input_tables(artifact_id: str) -> list[dict]:
+    """Each study input supplied as a table of several items (#466): its param, the name its
+    rows take on a sample, its file columns, and the item facts a step selects on (a row may
+    leave one blank, and then no step selecting on it reads that row).
+    The run sheet composes it as it composes the samplesheet, and the launcher writes it as a
+    CSV in the workdir."""
+    pipeline = _pipeline(artifact_id)
+    if pipeline is None:
+        return []
+    return [{"param": c.param, "name": c.table.name, "columns": list(c.table.columns),
+             "facts": list(c.table.facts)}
+            for c in pipeline.channels if c.table is not None]
+
+
 def _pipeline(artifact_id: str):
     """The artifact's `pipeline.yml`, or `None` when there is none it can read."""
     from comeni_core import yaml_strict

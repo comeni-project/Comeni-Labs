@@ -442,6 +442,11 @@ export interface components {
              */
             input_facts: components["schemas"]["FactColumnView"][];
             /**
+             * Input Tables
+             * @default []
+             */
+            input_tables: components["schemas"]["TableInputView"][];
+            /**
              * Input Columns
              * @default []
              */
@@ -1286,6 +1291,23 @@ export interface components {
              * @constant
              */
             executor: "local";
+        };
+        /**
+         * TableInputView
+         * @description A study input supplied as a table of several items (#466).
+         */
+        TableInputView: {
+            /** Param */
+            param: string;
+            /** Name */
+            name: string;
+            /** Columns */
+            columns: string[];
+            /**
+             * Facts
+             * @default []
+             */
+            facts: string[];
         };
         /**
          * TaskOut

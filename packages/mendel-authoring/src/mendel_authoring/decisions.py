@@ -79,6 +79,8 @@ class InputDecision(_Value):
     origin: FactOrigin = FactOrigin.PERSON_SAID
     units: bool = False
     """A sample may span several rows of this input, such as its lanes (#466)."""
+    table: bool = False
+    """This study input is a table of several items, such as several databases (#466)."""
 
 
 class WantDecision(_Value):
@@ -228,6 +230,7 @@ class Decisions(_Value):
                 varies=[f.subject for f in self.facts if f.origin is FactOrigin.VARIES],
                 units=sorted({i.type_id for i in self.inputs if i.present and i.units}),
                 whole=sorted({w.contract for w in self.wholes if w.whole}),
+                tables=sorted({i.type_id for i in self.inputs if i.present and i.table}),
             ),
             profile=measurements.profile_of(
                 [
@@ -268,6 +271,7 @@ class Decisions(_Value):
                 InputDecision(
                     key=input_key(i), type_id=i.type_id, name=i.name, states=sorted(i.states),
                     units=i.type_id in goal.constraints.units,
+                    table=i.type_id in goal.constraints.tables,
                 )
                 for i in goal.have
             ],

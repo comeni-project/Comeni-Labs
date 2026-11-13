@@ -34,25 +34,38 @@ export type FactColumn = components["schemas"]["FactColumnView"];
  *  *file* columns each sample supplies, and this is what ties them together. */
 export const SAMPLE = "sample";
 
-export function Samplesheet({ columns, facts = [], rows, onChange }: {
+export function Samplesheet({ columns, facts = [], rows, onChange, id = SAMPLE, noun = "sample",
+  testId = "samplesheet" }: {
   columns: string[];
   facts?: FactColumn[];
   rows: Row[];
   onChange: (rows: Row[]) => void;
+  /** The identifier column every row carries: `sample`, or `name` for a table of a study input's
+   *  items, such as databases (issue 466). */
+  id?: string;
+  /** What one row is, for the add button. */
+  noun?: string;
+  testId?: string;
 }) {
   const byColumn = Object.fromEntries(facts.map((f) => [f.column, f]));
-  const headers = [SAMPLE, ...columns, ...facts.map((f) => f.column)];
+  const headers = [id, ...columns, ...facts.map((f) => f.column)];
 
   const set = (index: number, column: string, value: string) =>
     onChange(rows.map((row, n) => (n === index ? { ...row, [column]: value } : row)));
 
   return (
-    <div className="flex flex-col gap-2" data-testid="samplesheet">
-      <p className="text-secondary text-ink-3">
-        One row per sample. The columns are this pipeline's per-sample inputs, and a row is
-        what ties a sample's reads to <b className="font-normal text-ink-2">its own</b> annotation
-        — which two separate globs cannot do.
-      </p>
+    <div className="flex flex-col gap-2" data-testid={testId}>
+      {id === SAMPLE ? (
+        <p className="text-secondary text-ink-3">
+          One row per sample. The columns are this pipeline's per-sample inputs, and a row is
+          what ties a sample's reads to <b className="font-normal text-ink-2">its own</b> annotation
+          — which two separate globs cannot do.
+        </p>
+      ) : (
+        <p className="text-secondary text-ink-3">
+          One row per {noun}, each with a name you choose. Every sample runs against every row.
+        </p>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
@@ -84,7 +97,7 @@ export function Samplesheet({ columns, facts = [], rows, onChange }: {
                         aria-label={`${column} for row ${index + 1}`}
                         value={row[column] ?? ""}
                         onChange={(event) => set(index, column, event.target.value)}
-                        placeholder={column === SAMPLE ? "a name you choose" : "a path"}
+                        placeholder={column === id ? "a name you choose" : "a path"}
                         className={CELL}
                       />
                     )}
@@ -118,7 +131,7 @@ export function Samplesheet({ columns, facts = [], rows, onChange }: {
         className="self-start px-3 py-1 border border-line-2 bg-transparent text-body
                    text-ink-2 cursor-pointer lift"
       >
-        + sample
+        + {noun}
       </button>
     </div>
   );
@@ -158,8 +171,8 @@ function FactCell({ fact, label, value, onChange }: {
  * explained is a round trip a person had to make to learn what the page already knew.
  */
 export function incomplete(rows: Row[], columns: string[], facts: FactColumn[] = [],
-  optional: string[] = []): string[] {
-  const needed = [SAMPLE, ...columns.filter((c) => !optional.includes(c)),
+  optional: string[] = [], id: string = SAMPLE): string[] {
+  const needed = [id, ...columns.filter((c) => !optional.includes(c)),
     ...facts.filter((f) => f.required).map((f) => f.column)];
   return rows.flatMap((row, index) => {
     // A number is checked as the pipeline will check it, so a bad cell is named here rather

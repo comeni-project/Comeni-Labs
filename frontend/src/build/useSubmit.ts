@@ -38,6 +38,8 @@ export function useSubmit(draftId: string | null, name = "") {
   /** The samplesheet, when the artifact says its input is one. **Rows, not a path** — Wiener
    *  writes them as a CSV into the run's workdir, so Mendel never sees a sample identifier. */
   const [rows, setRows] = useState<Row[]>([]);
+  /** Each study input given as a table of several items, by its param (issue 466). */
+  const [tables, setTables] = useState<Record<string, Row[]>>({});
 
   const send = useMutation({
     mutationFn: async () => {
@@ -55,6 +57,8 @@ export function useSubmit(draftId: string | null, name = "") {
       // **One empty row, so the table is visibly a table.** A samplesheet with no rows is
       // indistinguishable from a control that has not loaded, and `incomplete` names what is
       // missing in it — which a zero-row table cannot.
+      setTables(Object.fromEntries((stored.input_tables ?? []).map((t) =>
+        [t.param, [Object.fromEntries(["name", ...t.columns, ...(t.facts ?? [])].map((c) => [c, ""]))]])));
       setRows(
         stored.input_form === "samplesheet"
           ? [Object.fromEntries([SAMPLE, ...stored.input_columns,
@@ -72,7 +76,8 @@ export function useSubmit(draftId: string | null, name = "") {
         // already has a CSV gives its path, and the editor is a convenience over that.
         // Trimmed, so a value that is only spaces is empty here as it is in the check above:
         // Groovy would read "  " as given (second review).
-        params: Object.fromEntries(Object.entries(sheet ? { ...values, input: rows } : values)
+        params: Object.fromEntries(Object.entries({ ...(sheet ? { ...values, input: rows } : values),
+                                                    ...tables })
           .map(([name, value]) => [name, typeof value === "string" ? value.trim() : value])),
         executor: "local",
       }),
@@ -87,10 +92,13 @@ export function useSubmit(draftId: string | null, name = "") {
       // there is not an unfilled field, it is a field this form does not use. An optional
       // input left empty is a run without it (issue 460), sent as "".
       .filter(([name, value]) => value.trim() === "" && !(sheet && name === "input")
-                                 && !optional.has(name))
+                                 && !optional.has(name) && !(name in tables))
       .map(([name]) => name),
     ...(sheet ? incomplete(rows, artifact?.input_columns ?? [], artifact?.input_facts ?? [],
       artifact?.input_optional_columns ?? []) : []),
+    // A table's name and files are needed; its item facts may be blank (issue 466).
+    ...(artifact?.input_tables ?? []).flatMap((t) =>
+      incomplete(tables[t.param] ?? [], t.columns, [], [], "name")),
   ];
   // The constraints a run must settle, checked here before sending; the pipeline checks them
   // again at its start.
@@ -109,6 +117,9 @@ export function useSubmit(draftId: string | null, name = "") {
     facts: artifact?.input_facts ?? [],
     rows,
     setRows,
+    /** Each table input and its rows (issue 466). */
+    tables: (artifact?.input_tables ?? []).map((t) => ({ ...t, rows: tables[t.param] ?? [] })),
+    setTable: (param: string, next: Row[]) => setTables((all) => ({ ...all, [param]: next })),
     set: (name: string, value: string) => setValues((v) => ({ ...v, [name]: value })),
     send: () => send.mutate(),
     sending: send.isPending,

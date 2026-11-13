@@ -198,3 +198,22 @@ def test_lanes_add_an_optional_unit_column(tmp_path):
     artifact = _artifact(tmp_path, _pipeline("samplesheet", channel))
     assert input_shape(artifact) == ("samplesheet", ["reads_1", "reads_2", "unit"])
     assert optional_columns(artifact) == ["unit"]
+
+
+def test_a_table_input_is_asked_for_as_its_own_table(tmp_path):
+    """A study input supplied as several items, such as databases (#466, stage 6): the run
+    sheet composes it with a `name` per row, its file columns and its item facts."""
+    from wiener_api.services.artifacts import input_tables
+
+    table = (_channel("index", "index", "study", ["index"])
+             + "  table:\n    name: database\n    columns: [index]\n    facts: [db_type]\n")
+    body = _pipeline("direct", _channel("reads", "input", "sample", []) + table)
+    assert input_tables(_artifact(tmp_path, body)) == [
+        {"param": "index", "name": "database", "columns": ["index"], "facts": ["db_type"]}]
+
+
+def test_a_pipeline_without_tables_has_none(tmp_path):
+    from wiener_api.services.artifacts import input_tables
+
+    body = _pipeline("direct", _channel("reads", "input", "sample", []))
+    assert input_tables(_artifact(tmp_path, body)) == []

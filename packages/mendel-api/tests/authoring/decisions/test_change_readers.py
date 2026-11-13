@@ -36,7 +36,7 @@ def test_every_kind_is_listed():
     # by the resolver's goal in `test_intent_changes.py`.
     assert declared - set(KINDS) == {"producer", "retain", "observation",
                                      "role", "exclude", "source", "optional_input", "units",
-                                     "whole"}
+                                     "whole", "tables"}
 
 
 def test_a_want_is_read_by_the_goal_the_memory_and_the_card(clean):
