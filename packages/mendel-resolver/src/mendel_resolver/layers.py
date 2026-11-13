@@ -192,6 +192,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         roles.check(contract.id, contract.roles)
         _check_facts_read(contract, measurements)
         _check_groups(contract, measurements)
+        _check_parts(contract)
     # A `by: tool` measurer names a tool's contract, which may come from any layer (#465).
     inspection, refused_tools = inspection.check_tools(registry)
     refused_pieces = [*refused_pieces, *refused_tools]
@@ -320,6 +321,26 @@ def _no_key_measured(catalogue, measurements: MeasurementRegistry) -> None:
             raise ValueError(coded(
                 "MD0342", f"measurer {key} measures {measurer.measures}, a key, which only a "
                 "samplesheet row gives — `mendel explain MD0342`."))
+
+
+def _check_parts(contract) -> None:
+    """Only a splitter fans out, to parts of the one type it reads; a port on parts reads one
+    sample's item and nothing more (MD0346, #466)."""
+    from comeni_core.plan.tiers import Grain
+
+    fanned = [p for p in contract.produces if p.fans_out is not None]
+    if fanned and ("splitting" not in contract.roles or len(contract.consumes) != 1
+                   or any(p.type_id != contract.consumes[0].type_id for p in fanned)):
+        raise ValueError(coded(
+            "MD0346", f"{contract.id} fans out {', '.join(p.name for p in fanned)}; only a "
+            "splitter (role `splitting`) fans out, to parts of the one type it reads — "
+            "`mendel explain MD0346`."))
+    for port in contract.consumes:
+        if port.parts and (port.many or port.by is not None or port.select
+                           or port.grain is Grain.STUDY):
+            raise ValueError(coded(
+                "MD0346", f"{contract.id}'s {port.name} runs on parts of one sample's item, so "
+                "it may not gather, group, select or read the study — `mendel explain MD0346`."))
 
 
 def _check_groups(contract, measurements: MeasurementRegistry) -> None:

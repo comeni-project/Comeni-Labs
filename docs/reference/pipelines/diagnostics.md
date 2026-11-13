@@ -65,6 +65,7 @@ decline to curate one.
 | `MD0343` | a port groups by something that is not a key, or groups without gathering |
 | `MD0344` | a port selects on a fact samples lack, or a pair or a control joins on something that is not a key or a reference |
 | `MD0345` | a rule reads a key's or a reference's value, a laboratory's identifier |
+| `MD0346` | a contract or type declares parts where only a splitter may |
 | `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
 | `MD0602` | a contract's constraint names an input or param it does not declare |
 | `MD0603` | no combination of inputs and params satisfies a contract's constraints |

@@ -116,6 +116,10 @@ class Grain(StrEnum):
     SAMPLE = "sample"
     """One queued item per sample."""
 
+    PART = "part"
+    """A piece of one sample's item, split to run in parallel and merged back per sample
+    (stage 6). Only a splitter's output fans out to it; no type and no fact has it."""
+
 
 class InputForm(StrEnum):
     """How a laboratory supplies per-sample pipeline inputs."""

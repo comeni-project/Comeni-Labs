@@ -72,6 +72,11 @@ class TypeDeclaration(BaseModel):
     @model_validator(mode="after")
     def _an_entry_channel_names_no_param_of_its_own(self) -> "TypeDeclaration":
         """Refuse hard-coded parameter names while allowing `{param}` or no parameter."""
+        if self.grain is Grain.PART:
+            # A part exists only between a splitter and its merger (#466).
+            raise ValueError(coded(
+                "MD0346", f"type {self.id!r} declares grain `part`; a part is only ever a "
+                "splitter's output — `mendel explain MD0346`."))
         if self.entry_channel is None:
             return self
         hardcoded = extract_param_refs(self.entry_channel.replace("params.{param}", ""))

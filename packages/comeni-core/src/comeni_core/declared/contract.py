@@ -11,6 +11,7 @@ from pydantic import (
     SerializerFunctionWrapHandler,
     ValidationError,
     field_serializer,
+    field_validator,
     model_serializer,
     model_validator,
 )
@@ -105,6 +106,9 @@ class InputPort(BaseModel):
     """With `many`, gather per value of this key rather than over the study (#466): a
     co-assembler reads every sample of one group in one call. The key comes from each
     samplesheet row."""
+    parts: bool = Field(default=False, exclude_if=lambda parts: not parts)
+    """The process may run once per part of this port's item, split before it and merged after
+    it (#466): an aligner can run on chunks of a sample's reads."""
     required: bool = True
     """Whether the process can run without this input (#460). An optional input is left out
     unless switched on, and its `nf_inputs` entry says what to pass instead (`absent`)."""
@@ -198,6 +202,16 @@ class OutputPort(BaseModel):
     produced_when: dict[str, Any] | None = None
     """When the process writes this output (#460): `None` is always, otherwise a `when` over
     `given.<input>` and `param.<name>` facts. QUAST's misassemblies exist only with a reference."""
+    fans_out: Grain | None = Field(default=None, exclude_if=lambda grain: grain is None)
+    """`part`: one item in becomes several out, each a part of the item (#466). Only a splitter
+    declares it."""
+
+    @field_validator("fans_out")
+    @classmethod
+    def _only_parts(cls, grain: Grain | None) -> Grain | None:
+        if grain is not None and grain is not Grain.PART:
+            raise ValueError(f"an output fans out only to `part`, not {grain.value}")
+        return grain
 
     @model_validator(mode="before")
     @classmethod

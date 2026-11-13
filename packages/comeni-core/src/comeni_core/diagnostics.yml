@@ -3201,6 +3201,21 @@ MD0345:
     (#466). Its value comes from each samplesheet row and stays in the run: a rule reading it
     would put it on every sample's `meta` and into the run's record of decided values.
 
+MD0346:
+  emitted_by: resolver
+  concern: loading
+  says: "a contract or type declares parts where only a splitter may"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Declare `fans_out: part` only on a splitter (role `splitting`), on an output of the one type
+    it reads. Declare `parts: true` only on a port that reads one sample's item: not with
+    `many`, `by`, `select` or `grain: study`. No type's grain is `part`.
+  explanation: |
+    A step that can run on parts of a sample is split before it and merged after it (#466).
+    Parts exist only between the splitter and the merger, carrying `meta.part`, so a port that
+    gathers or selects, or a type whose items are parts, would have nothing to split or merge.
+
 MD0501:
   emitted_by: resolver
   concern: validation
