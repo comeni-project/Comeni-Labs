@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- Parts (#466): a port may run on parts of a sample's item (`parts`), and a splitter's output fans out (`fans_out: part`, `Grain.PART`), MD0346. `Constraints.whole` names the tools a person keeps whole; `IRNode.parts` and `Step.parts` record each step that can run on parts, and `StepInput.parts` says where parts spread and gather. Splitting and merging tools are never routed as producers.
+
 - Relations between samples (#466): measurement kinds `key` and `sample_ref`, read only from samplesheet rows (MD0342); a port gathers per key (`by`, MD0343) or selects samples by their facts (`select`); a shared slot joins `by_key` or `by_ref` on an `NfInput.key` (MD0344). Each relation is a samplesheet column (`StepInput.by`, `StepInput.select`, `CallArg.key`).
 
 - Lanes and folds (#466): `Constraints.units` names inputs whose rows may repeat a sample, carried on the channel (`Channel.units`), which makes the input a samplesheet (MD0340); a port may gather at `grain: sample` (a sample's rows). A run-time fact may be folded over the study (`AtRunSource.FOLDED`, `AtRunFact.folds` and `using`).
@@ -115,6 +117,8 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- Parts (#466): a step that can run on parts of each sample is split before it and merged after it whenever the registry has a splitter and a merger and the step's only per-sample input is the split one, unless the person keeps it whole.
+
 - Lanes and folds (#466): an input whose rows may repeat a sample gets the type's `merging` step before anything reads it (MD0341). `aggregate` folds over `study` (was `cohort`) with `agree`, `all`, `any`, `count` and `distinct` beside `max`, `min` and `mean`, at build time from known values and in the run otherwise.
 
 - A tool chosen per sample (#466): an `implementation` decision whose rows wait only on facts said to vary is a branch point (`at_run.branch_points`); the goal is routed once per tool and the routes merged, each branch's steps guarded; its fallback is asked once (`<step>.if_no_row.implementation:<role>`); routes that differ before the choice are refused (MD0339).
@@ -149,6 +153,8 @@ or a complete commit history.
 - Profile validation occurs at the resolver boundary, not only in the CLI.
 
 ### mendel-compiler
+
+- A sample's parts run in parallel and merge per sample, gathered with a `groupKey` sized by the splitter's own count, so one sample never waits for another's; a splitter making one part still flows; each part publishes under its own name (#466).
 
 - A group runs once with its own samples, gathered with a `groupKey` sized from the sheet; a pair joins one member per key, a patient with two normals stopping the run naming it; a sample reads the control it names, which may feed several, and a reference to no row stops the run naming both (#466).
 
@@ -240,6 +246,8 @@ or a complete commit history.
   questions are not asked again. Build and Spawn are consolidated into one authoring flow.
 
 ### mendel-api
+
+- A step that runs on parts of each sample says so on its card, with the tools and why, and *Run each sample whole* keeps it whole: a `whole` change, stored as its own decision family (`pipeline_whole`). Previews, suggestions, turns and drafts move to shapes 9, 5, 9 and 4 (#466).
 
 - A step only some samples take says which, with its rule, on its card and its canvas node (#466); previews migrate to shape 8.
 

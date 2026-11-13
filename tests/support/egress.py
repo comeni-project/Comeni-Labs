@@ -88,6 +88,9 @@ FREE_TEXT_FIELDS = {
     ("RunRule", "says"),
     # A tool's rule each sample's facts settle (#466), as a person reads it.
     ("SampleRule", "says"),
+    # Why a step runs on parts of each sample (#466): the engine's sentence naming the tool,
+    # the type, the splitter and the mergers, all declared ids. No lab data.
+    ("Parts", "because"),
     # One per decision kind since A16 split `DecisionRecord` into three. Four entries
     # became six by a refactor rather than by a new field crossing the boundary — which is
     # exactly the sort of change this literal list exists to make someone notice.

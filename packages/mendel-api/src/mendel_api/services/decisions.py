@@ -21,12 +21,12 @@ from mendel_authoring.decisions import (
     FactOrigin,
     InputDecision,
     OptionalInputChoice,
-    WholeChoice,
     ParameterChoice,
     ProducerChoice,
     RoleChoice,
     SourceChoice,
     WantDecision,
+    WholeChoice,
 )
 from mendel_authoring.payloads import source_subject
 from sqlalchemy import select
@@ -46,8 +46,6 @@ from mendel_api.models import (
     PipelineObservation,
     PipelineOptionalInput,
     PipelineOptionalInputRevision,
-    PipelineWhole,
-    PipelineWholeRevision,
     PipelineParameter,
     PipelineParameterRevision,
     PipelineProducer,
@@ -60,6 +58,8 @@ from mendel_api.models import (
     PipelineSourceRevision,
     PipelineWant,
     PipelineWantRevision,
+    PipelineWhole,
+    PipelineWholeRevision,
 )
 from mendel_api.services import registry
 

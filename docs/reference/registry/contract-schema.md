@@ -71,6 +71,7 @@ Model: `comeni_core.declared.contract.InputPort`
 | `many` | boolean | `false` | `true` gathers every item of a finer grain into one invocation, with `grain: study`: MultiQC reads every sample's report at once. Without `grain: study` it is refused (`MD0331`) |
 | `by` | measurement id | — | with `many: true`, gather per value of this `key` rather than over the study: a co-assembler reads every sample of one group in one call, each group as soon as its own samples are done (`MD0343`) |
 | `select` | {measurement: condition} | — | only the samples meeting these conditions, written as a rule's `when`: a tumour port selects `{status: tumor}` (`MD0344`) |
+| `parts` | boolean | `false` | the process may run once per part of this port's item: the build splits each sample before the step and merges each output after it, when the registry has a splitter (role `splitting`) for the type and a merger (role `merging`) for each output read, and the step's only per-sample input is this port. A person may keep the step whole (`constraints.whole`). Not with `many`, `by`, `select` or `grain: study` (`MD0346`) |
 | `required` | boolean | `true` | `false` for an input the process can run without. Left out, it gets `[]` in its tuple position; an `nf_inputs` entry whose ports are all optional declares `absent` |
 
 **The three requirement levels are the point.** `state_required` excludes; `state_preferred`
@@ -89,6 +90,7 @@ Model: `comeni_core.declared.contract.OutputPort`
 | `state` | {string} | `{}` | states the output carries. Written in the type, `alignment.bam::coordinate_sorted`; a file that writes this key is refused (`MD0110`) |
 | `format` | {string} | `{}` | the file formats it writes, from `main.nf`, or `folder`. Shown to people and checked (`MD0109`); takes no part in matching |
 | `produced_when` | object \| null | `null` | when the process writes it: `null` is always, otherwise a condition, e.g. `{given.fasta: present}` |
+| `fans_out` | `part` | — | one item in becomes several out, each a part of it. Only a splitter (role `splitting`) declares it, on an output of the one type it reads (`MD0346`). A splitter and a merger are placed around the steps that need them and never routed as producers |
 
 **`name` is not a name for the thing** — it is the Nextflow channel the compiler reads.
 `type_id` carries the meaning. Three contracts got this backwards and `MD0105` found all three;

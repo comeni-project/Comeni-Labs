@@ -378,6 +378,13 @@ When each sample's tool is chosen per sample, a step only some samples take has 
 `takes`. Where the branches rejoin, a step input names its first producer in `source` and the
 others in `mixed`. See [a tool chosen per sample](../registry/rule-schema.md#a-tool-chosen-per-sample).
 
+A step that can run on parts of each sample has `parts`: whether it is `on`, the `splitter`, the
+`mergers` for each output read, and `because`. It is recorded when a person keeps the step whole
+too. Where it is on, the step's input from the splitter says `parts: spread` (each sample's parts
+become items carrying `meta.part`), and each merger's input says `parts: gather` (one sample's
+parts, gathered as soon as they are all done). Each part publishes under
+`<sample>.part<n>`.
+
 ### `decisions` — the review queue
 
 Every ambiguity, what was on the table, what was taken, and by whom. `human_override` **records**

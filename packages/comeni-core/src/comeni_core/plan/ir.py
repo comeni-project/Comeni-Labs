@@ -114,6 +114,15 @@ class EntryType(BaseModel):
     type_id: TypeId
 
 
+class PartsMerger(BaseModel):
+    """The tool that merges one output of a step run on parts (#466)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    port: PortName
+    contract: ContractId
+
+
 class Parts(BaseModel):
     """A step that can run on parts of a sample's item (#466): split before it by `splitter`
     and merged after it, per output something reads, by `mergers`. Recorded whether it is `on`
@@ -123,8 +132,9 @@ class Parts(BaseModel):
 
     on: bool
     splitter: ContractId
-    mergers: dict[PortName, ContractId]
-    because: str = Field(min_length=1)
+    mergers: list[PartsMerger]
+    """One per output something reads, sorted by port."""
+    because: Line
 
 
 class IRNode(BaseModel):

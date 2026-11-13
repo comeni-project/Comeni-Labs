@@ -1,11 +1,10 @@
 """A step that runs on parts of each sample says so on its card, with the switch (#466, stage 6)."""
 
+from emit.fixtures.parts import layer
 from mendel_api.services.build import step_views
 from mendel_compiler import orchestrate
 from mendel_resolver.goal import Goal
 from support.paths import ROOT
-
-from emit.fixtures.parts import layer
 
 GOAL = {"have": [{"type_id": "fastq.reads"}, {"type_id": "genome.fasta"}], "want": ["hits.tsv"]}
 

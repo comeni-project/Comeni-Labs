@@ -53,6 +53,7 @@ _PIPELINE_MODELS = frozenset(
         "SampleRule",
         "Guard",
         "Parts",
+        "PartsMerger",
         "AtRunFact",
         "AtRunRow",
         "AtRunStep",

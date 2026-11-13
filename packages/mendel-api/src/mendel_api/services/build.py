@@ -201,7 +201,7 @@ def parts_view(parts) -> PartsView | None:
     if parts is None:
         return None
     return PartsView(on=parts.on, splitter=parts.splitter, because=parts.because,
-                     mergers=sorted(set(parts.mergers.values())))
+                     mergers=sorted({m.contract for m in parts.mergers}))
 
 
 def guard_view(guard) -> GuardView | None:

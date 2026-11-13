@@ -46,6 +46,7 @@ from comeni_core.plan.ir import (
     IREdge,
     IRNode,
     Parts,
+    PartsMerger,
     PipelineIR,
     ResolvedValue,
     Tier,
@@ -1305,7 +1306,8 @@ def _with_parts(ir: PipelineIR, goal: Goal, registry: Registry,
                    f"each sample, and {merged}")
         on = node.contract_id not in goal.constraints.whole
         node.parts = Parts(on=on, splitter=splitter.id, because=because,
-                           mergers={name: m.id for name, m in sorted(mergers.items())})
+                           mergers=[PartsMerger(port=name, contract=m.id)
+                                    for name, m in sorted(mergers.items())])
         if not on:
             continue
         structural = ResolvedValue(value=None, tier=Tier.STRUCTURAL, reason=because)

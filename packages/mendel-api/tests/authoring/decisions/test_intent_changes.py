@@ -152,10 +152,9 @@ def test_units_on_an_input_the_goal_does_not_have_are_refused():
 @pytest.fixture
 def with_parts(tmp_path, monkeypatch):
     """The curated registry plus a search step that can run on parts (#466, stage 6)."""
+    from emit.fixtures.parts import layer
     from mendel_resolver import layers
     from support.paths import ROOT
-
-    from emit.fixtures.parts import layer
 
     stacked = layers.load([ROOT / "registry", layer(tmp_path)])
     monkeypatch.setattr(registry, "stack", lambda: stacked)

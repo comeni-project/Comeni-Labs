@@ -3,7 +3,8 @@ its parts yet, so they are proven with these, under Nextflow."""
 
 from pathlib import Path
 
-PROVENANCE = 'provenance: {source: test, drafted_by: test, approved_by: test, approved_at: "2026-11-13"}\n'
+PROVENANCE = ('provenance: {source: test, drafted_by: test, approved_by: test, '
+              'approved_at: "2026-11-13"}\n')
 
 LAYER = {
     "hits.family.yml": "declares: family\nid: hits\ndescription: Hits of reads in a genome\n",

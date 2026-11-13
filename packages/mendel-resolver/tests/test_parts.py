@@ -3,10 +3,9 @@
 import pytest
 from comeni_core.declared.contract import InputPort, ModuleContract, OutputPort
 from comeni_core.plan.tiers import Grain
+from emit.fixtures.parts import LAYER, layer
 from mendel_resolver import layers
 from support.paths import ROOT
-
-from emit.fixtures.parts import LAYER, layer
 
 
 def _stack(tmp_path, extra=None, without=()):
@@ -97,7 +96,7 @@ def test_a_step_on_parts_is_split_and_merged(tmp_path):
     assert nodes["merge_search_hits"].contract_id == "lab/merge_hits@1.0.0"
     parts = nodes["search"].parts
     assert parts.on and parts.splitter == "lab/split_reads@1.0.0"
-    assert parts.mergers == {"hits": "lab/merge_hits@1.0.0"}
+    assert [(m.port, m.contract) for m in parts.mergers] == [("hits", "lab/merge_hits@1.0.0")]
     assert "lab/search@1.0.0 can run on parts of fastq.reads" in parts.because
     edges = {(e.from_node, e.from_port, e.to_node, e.to_port) for e in ir.edges}
     assert ("split_search", "reads", "search", "reads") in edges
