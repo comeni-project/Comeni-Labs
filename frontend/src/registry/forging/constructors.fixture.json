@@ -1577,6 +1577,319 @@
       }
     },
     {
+      "family": "measurers:measurer",
+      "label": "Measurer",
+      "named": true,
+      "fields": {
+        "$defs": {
+          "JsonValue": {}
+        },
+        "additionalProperties": false,
+        "description": "A `by: tool` measurer of the tool being forged (#487). Only what a model or person drafts:\nthe engine fixes `by: tool`, `uses:` (this contract), `runs: [pipeline]`, `version`, and the\npiece's files, `piece/<id>.py` and `piece/test_<id>.py`.",
+        "properties": {
+          "measures": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Measures",
+            "type": "string"
+          },
+          "output": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Output",
+            "type": "string"
+          },
+          "explain": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Explain",
+            "type": "string"
+          },
+          "decided": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "default": {},
+            "title": "Decided",
+            "type": "object"
+          },
+          "code": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "tests": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Tests",
+            "type": "string"
+          }
+        },
+        "required": [
+          "measures",
+          "output",
+          "explain",
+          "code",
+          "tests"
+        ],
+        "title": "MeasurerDraft",
+        "type": "object"
+      }
+    },
+    {
+      "family": "measurers:measurement",
+      "label": "Measurement",
+      "named": true,
+      "fields": {
+        "$defs": {
+          "MeasurementKind": {
+            "enum": [
+              "integer",
+              "number",
+              "boolean",
+              "enum",
+              "key",
+              "sample_ref"
+            ],
+            "title": "MeasurementKind",
+            "type": "string"
+          },
+          "MetaValue": {
+            "additionalProperties": false,
+            "description": "Translate one declared value to the value expected in module metadata.",
+            "properties": {
+              "when": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "When"
+              },
+              "then": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Then"
+              }
+            },
+            "required": [
+              "when",
+              "then"
+            ],
+            "title": "MetaValue",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "A typed property that a goal may assert or a measurer may measure.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/MeasurementKind"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "array"
+          },
+          "extensible": {
+            "default": false,
+            "title": "Extensible",
+            "type": "boolean"
+          },
+          "assertion_only": {
+            "default": false,
+            "title": "Assertion Only",
+            "type": "boolean"
+          },
+          "assertion_only_because": {
+            "default": "",
+            "title": "Assertion Only Because",
+            "type": "string"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minimum"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Maximum"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Unit"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "cite": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cite"
+          },
+          "explain": {
+            "anyOf": [
+              {
+                "maxLength": 600,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Explain"
+          },
+          "edam": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Edam"
+          },
+          "describes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Describes"
+          },
+          "meta_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Meta Key"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "const": "second_file_present",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Row"
+          },
+          "meta_values": {
+            "items": {
+              "$ref": "#/$defs/MetaValue"
+            },
+            "title": "Meta Values",
+            "type": "array"
+          },
+          "deprecated": {
+            "default": false,
+            "title": "Deprecated",
+            "type": "boolean"
+          },
+          "replaced_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Replaced By"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "title": "Measurement",
+        "type": "object"
+      }
+    },
+    {
       "family": "parameters:none",
       "label": "Nothing needed",
       "named": false,
@@ -1618,6 +1931,26 @@
     },
     {
       "family": "rules:none",
+      "label": "Nothing needed",
+      "named": false,
+      "fields": {
+        "additionalProperties": false,
+        "description": "A piece that needs nothing, said explicitly: an empty piece is an unfinished one.",
+        "properties": {
+          "because": {
+            "title": "Because",
+            "type": "string"
+          }
+        },
+        "required": [
+          "because"
+        ],
+        "title": "NoneNeeded",
+        "type": "object"
+      }
+    },
+    {
+      "family": "measurers:none",
       "label": "Nothing needed",
       "named": false,
       "fields": {

@@ -53,6 +53,9 @@ def _approved_reforge() -> str:
                                                   value={"because": "nothing new"}, because=None))
     forging.act(adaptation_id, forging.person(Move.WRITE, "tests:test:small", expected=None,
                                               value=STAR_TEST, because=None))
+    forging.act(adaptation_id, forging.person(Move.WRITE, "measurers:none", expected=None,
+                                              value={"because": "nothing to measure"},
+                                              because=None))
     return adaptation_id
 
 

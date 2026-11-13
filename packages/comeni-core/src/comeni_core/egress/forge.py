@@ -26,6 +26,7 @@ class ForgePiece(StrEnum):
     VOCABULARY = "vocabulary"
     RULES = "rules"
     TESTS = "tests"
+    MEASURERS = "measurers"
 
 
 class ModuleFacts(EgressPayload):

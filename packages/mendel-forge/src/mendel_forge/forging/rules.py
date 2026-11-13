@@ -26,11 +26,13 @@ from mendel_forge.forging.model import (
 
 DEPENDS: dict[Piece, frozenset[Piece]] = {
     Piece.QUESTIONS: frozenset({Piece.CONTRACT}),
-    Piece.CONTRACT: frozenset({Piece.PARAMETERS, Piece.VOCABULARY, Piece.RULES, Piece.TESTS}),
+    Piece.CONTRACT: frozenset({Piece.PARAMETERS, Piece.VOCABULARY, Piece.RULES, Piece.TESTS,
+                               Piece.MEASURERS}),
     Piece.PARAMETERS: frozenset({Piece.RULES, Piece.TESTS}),
-    Piece.VOCABULARY: frozenset({Piece.RULES}),
+    Piece.VOCABULARY: frozenset({Piece.RULES, Piece.MEASURERS}),
     Piece.RULES: frozenset({Piece.TESTS}),
     Piece.TESTS: frozenset(),
+    Piece.MEASURERS: frozenset(),
 }
 """Declared, not inferred: which pieces an approved change upstream re-opens (transitively)."""
 

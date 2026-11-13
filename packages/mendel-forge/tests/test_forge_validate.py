@@ -195,3 +195,67 @@ def test_a_test_type_names_an_input_and_a_type_it_accepts(stack):
     says = sorted(p.says for p in _test_problems(items, known(stack)))
     assert says == ["tests:test:t: input 'a' does not accept 'alignment.cram'",
                     "tests:test:t: types names 'nope', not an input of this contract"]
+
+
+# ── measurers (#487) ─────────────────────────────────────────────────────────────────────────
+
+FAIDX_NF = REGISTRY / "tools/nf-core/samtools/faidx/module/main.nf"
+
+
+@pytest.fixture(scope="module")
+def faidx_items():
+    from support.forge_measurer import KEY, measurer
+    data = yaml.safe_load((REGISTRY / "tools/nf-core/samtools/faidx/contract.yml").read_text())
+    data.pop("declares")
+    test = {"inputs": {"fasta": ["genomics/genome.fasta"]},
+            "expect": [{"port": p.name, "pattern": "*"} for p in ModuleContract(**data).produces]}
+    return {**items_of(ModuleContract(**data)), "tests:test:small": test, KEY: measurer()}
+
+
+def _measurer_says(stack, items) -> list[str]:
+    return [p.says for p in check_items(items, known(stack), ModuleSpec.parse(FAIDX_NF))]
+
+
+def test_a_good_measurer_has_no_problems(stack, faidx_items):
+    assert _measurer_says(stack, faidx_items) == []
+
+
+@pytest.mark.parametrize("change, says", [
+    ({"measures": "nothing_here"}, "measures 'nothing_here', which is not a measurement"),
+    ({"output": "nope"}, "reads output 'nope', which this contract does not produce"),
+    ({"code": "import os\ndef parse(stream, decided):\n    return None\n"}, "MD0027"),
+    ({"code": "def measure(stream):\n    return None\n"}, "defines no parse(stream, decided)"),
+    ({"tests": "import x\n"}, "its tests define no test_ function"),
+])
+def test_a_wrong_measurer_says_why(stack, faidx_items, change, says):
+    from support.forge_measurer import KEY
+    items = {**faidx_items, KEY: {**faidx_items[KEY], **change}}
+    found = _measurer_says(stack, items)
+    assert len(found) == 1 and says in found[0], found
+
+
+def test_a_measurer_no_test_proves_is_refused(stack, faidx_items):
+    from support.forge_measurer import KEY
+    # faidx has one output, so the only way no test expects it is no test at all.
+    items = {k: v for k, v in faidx_items.items() if k != "tests:test:small"}
+    found = _measurer_says(stack, items)
+    assert any("no test expects output 'fai'" in f for f in found), found
+    assert KEY in found[0]
+
+
+def test_a_measurer_id_must_be_a_python_name(stack, faidx_items):
+    from support.forge_measurer import KEY
+    items = {k: v for k, v in faidx_items.items() if k != KEY}
+    items["measurers:measurer:n50-quast"] = faidx_items[KEY]
+    assert any("not a Python name" in f for f in _measurer_says(stack, items))
+
+
+def test_a_drafted_measurement_counts_and_its_id_matches_its_key(stack, faidx_items):
+    from support.forge_measurer import KEY
+    value = {"id": "n50", "kind": "integer", "description": "N50", "cite": "QUAST"}
+    items = {**faidx_items, KEY: {**faidx_items[KEY], "measures": "n50"},
+             "measurers:measurement:n50": value}
+    assert _measurer_says(stack, items) == []
+    items["measurers:measurement:n50"] = {**value, "id": "n51"}
+    assert any("measurement ID must match its item key" in f
+               for f in _measurer_says(stack, items))

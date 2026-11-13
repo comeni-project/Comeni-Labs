@@ -13,7 +13,10 @@ const LABELS: Record<string, string> = {
   description: "Description", describes: "Describes", kind: "Kind", explain: "Meaning", pattern: "Output pattern",
   ports: "Ports", param: "Setting", value: "Value", name: "Name", id: "Identifier",
   priority: "Fallback priority", priority_because: "Fallback reason",
+  measures: "Measures", output: "Reads output", decided: "Thresholds", code: "Parser code", tests: "Parser tests",
 };
+/** A measurer's parser and its tests are code: shown as written, monospaced (#487). */
+const CODE = new Set(["code", "tests"]);
 const label = (key: string) => LABELS[key] ?? key.replaceAll("_", " ");
 
 /** Keep every declared field readable, including nested conditions and test setup. */
@@ -33,7 +36,9 @@ function renderValue(value: unknown, depth = 0): ReactNode {
   if (!fields.length) return <span className="text-ink-3">None</span>;
   return <dl className={`m-0 grid grid-cols-1 ${depth === 0 ? "sm:grid-cols-[minmax(0,110px)_minmax(0,1fr)]" : ""} gap-x-3 gap-y-2`}>
     {fields.map(([key, v]) => <div key={key} className="contents">
-      <dt className="text-ink-3">{label(key)}</dt><dd className="m-0 min-w-0">{renderValue(v, depth + 1)}</dd>
+      <dt className="text-ink-3">{label(key)}</dt><dd className="m-0 min-w-0">{CODE.has(key) && typeof v === "string"
+        ? <pre className="m-0 p-2 rounded bg-surface-2 font-mono text-[12px] overflow-x-auto whitespace-pre">{v}</pre>
+        : renderValue(v, depth + 1)}</dd>
     </div>)}
   </dl>;
 }

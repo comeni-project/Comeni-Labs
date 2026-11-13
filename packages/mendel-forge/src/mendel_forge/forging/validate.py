@@ -6,6 +6,7 @@ assembled adaptation; ports must exist in the module's `main.nf`; a setting must
 somewhere. Anything else is a coded problem, and the reply is never a proposal.
 """
 
+import re
 from dataclasses import dataclass, field
 
 from comeni_core.declared.contract import InputPort, NfInput, OutputPort
@@ -13,11 +14,12 @@ from comeni_core.declared.families import family_of
 from comeni_core.declared.signature import join, split
 from comeni_core.declared.tooltest import TestDraft
 from mendel_compiler.modulespec import ModuleSpec
+from mendel_compiler.registry_lint import piece_problems
 from mendel_resolver.layers import Layers
 from pydantic import JsonValue
 
 from mendel_forge.forging.model import Adaptation, Piece, Status
-from mendel_forge.forging.values import Answer
+from mendel_forge.forging.values import Answer, MeasurerDraft
 from mendel_forge.model import Problem
 
 
@@ -191,7 +193,7 @@ def check_items(
             problems.append(Problem(code="MF0509", says=f"setting {name!r} is passed nowhere: "
                                     "give its ext key, or wire it as an input"))
     return [*problems, *_signature_problems(items, seen, introduced_types),
-            *_test_problems(items, seen)]
+            *_test_problems(items, seen), *_measurer_problems(items, seen)]
 
 
 def _names(items: dict[str, JsonValue], prefix: str) -> set[str]:
@@ -246,6 +248,46 @@ def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
             problems.append(f"{key}: output {port!r} is not a port of this contract")
         for port in sorted(makes - expected - set(test.unchecked)):
             problems.append(f"{key}: output {port!r} is neither expected nor given a reason")
+    return [Problem(code="MF0507", says=says) for says in problems]
+
+
+def _measurer_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
+    """A drafted measurer must measure something known, read an output of this contract that a
+    test expects (or nothing proves it), and keep the pieces' rules (MD0027, #487)."""
+    measurements = (seen.measurements | seen.pending
+                    | _names(items, "vocabulary:measurement:")
+                    | _names(items, "measurers:measurement:"))
+    makes = _names(items, "contract:output:")
+    expected = {e.port for key in items if key.startswith("tests:test:")
+                for e in TestDraft.model_validate(items[key]).expect}
+    problems: list[str] = []
+    for key in sorted(k for k in items if k.startswith("measurers:measurement:")):
+        value = items[key] if isinstance(items[key], dict) else {}
+        if value.get("id") != key.removeprefix("measurers:measurement:"):
+            problems.append(f"{key}: measurement ID must match its item key")
+    for key in sorted(k for k in items if k.startswith("measurers:measurer:")):
+        name = key.removeprefix("measurers:measurer:")
+        if not name.isidentifier():
+            problems.append(f"{key}: {name!r} is not a Python name; its parser is imported by "
+                            "it, so use letters, digits and '_'")
+        draft = MeasurerDraft.model_validate(items[key])
+        if draft.measures not in measurements:
+            problems.append(f"{key}: measures {draft.measures!r}, which is not a measurement in "
+                            "the registry or drafted here")
+        if draft.output not in makes:
+            problems.append(f"{key}: reads output {draft.output!r}, which this contract does not "
+                            "produce")
+        elif draft.output not in expected:
+            problems.append(f"{key}: no test expects output {draft.output!r}, so the parser "
+                            "cannot be proven")
+        reached = piece_problems(draft.code)
+        if reached:
+            problems.append(f"{key}: MD0027 its code reaches past what a piece may import or "
+                            f"call: {', '.join(reached)}")
+        elif not re.search(r"^def parse\(\s*stream\s*,\s*decided\s*\)", draft.code, re.M):
+            problems.append(f"{key}: its code defines no parse(stream, decided)")
+        if not re.search(r"^def test_", draft.tests, re.M):
+            problems.append(f"{key}: its tests define no test_ function")
     return [Problem(code="MF0507", says=says) for says in problems]
 
 

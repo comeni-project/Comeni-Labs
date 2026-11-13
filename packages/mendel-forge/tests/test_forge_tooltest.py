@@ -57,7 +57,7 @@ def test_tests_come_after_rules_and_one_is_required():
     with pytest.raises(Refused, match="MF0506"):
         _do(state, Move.WRITE, Actor.PERSON, "tests:none", value={"because": "no"})
     state = _do(state, Move.WRITE, Actor.PERSON, "tests:test:one", value=GOOD)
-    assert next_piece(state) is None
+    assert next_piece(state) is Piece.MEASURERS
 
 
 def test_a_removed_test_leaves_the_piece_unfinished():

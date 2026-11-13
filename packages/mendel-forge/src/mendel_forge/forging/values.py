@@ -7,6 +7,7 @@ Item keys: `contract:process`, `contract:input:<port>`, `contract:output:<port>`
 `parameters:param:<name>`, `parameters:ext_args`,
 `vocabulary:type:<id>`, `vocabulary:measurement:<id>`, `vocabulary:role:<name>`,
 `vocabulary:family:<id>`, `rules:rule:<role>`, `rules:derive:<fact>`, `tests:test:<name>`,
+`measurers:measurer:<id>`, `measurers:measurement:<id>`,
 `<piece>:none`,
 `questions:<subject>`.
 """
@@ -86,6 +87,25 @@ class FamilyDraft(Family):
         return value
 
 
+class MeasurerDraft(_Frozen):
+    """A `by: tool` measurer of the tool being forged (#487). Only what a model or person drafts:
+    the engine fixes `by: tool`, `uses:` (this contract), `runs: [pipeline]`, `version`, and the
+    piece's files, `piece/<id>.py` and `piece/test_<id>.py`."""
+
+    measures: str = Field(min_length=1, max_length=64)
+    """The measurement it produces: in the registry, or drafted beside it."""
+    output: str = Field(min_length=1, max_length=64)
+    """The output port of this contract its parser reads."""
+    explain: str = Field(min_length=1, max_length=300)
+    """One line: what it parses, and how the fact comes out of it."""
+    decided: dict[str, JsonValue] = {}
+    """Thresholds below which it says *undetermined*."""
+    code: str = Field(min_length=1, max_length=20000)
+    """The parser: `parse(stream, decided)` returning `Value` or `Undetermined`."""
+    tests: str = Field(min_length=1, max_length=20000)
+    """Its tests, importing the parser by the measurer's id."""
+
+
 class NoneNeeded(_Frozen):
     """A piece that needs nothing, said explicitly: an empty piece is an unfinished one."""
 
@@ -129,6 +149,8 @@ _FAMILIES: dict[str, type] = {
     "rules:rule": Decision,
     "rules:derive": Derivation,
     "tests:test": TestDraft,
+    "measurers:measurer": MeasurerDraft,
+    "measurers:measurement": Measurement,
 }
 
 

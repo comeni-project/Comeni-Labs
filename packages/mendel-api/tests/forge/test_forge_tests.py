@@ -85,6 +85,7 @@ def _assembled() -> str:
     for key in ("vocabulary:none", "rules:none"):
         _do(a, Move.WRITE, key, {"because": "nothing new"})
     _do(a, Move.WRITE, "tests:test:small", TEST)
+    _do(a, Move.WRITE, "measurers:none", {"because": "nothing to measure"})
     proof = forging.assemble(a)
     assert proof.loaded and proof.conforms, proof.problems
     return a

@@ -838,7 +838,7 @@ def test_the_guide_teaches_shared_slots_joins_and_types():
     """#464: an optional file inside a tuple, a join per port, an input of several types, and a
     row on the connected type, each spelled out with a module from the survey."""
     guide = forging_ai.ITEM_SHAPES.read_text()
-    assert forging_ai.ITEM_SHAPES.name == "items.v5.md"
+    assert forging_ai.ITEM_SHAPES.name == "items.v6.md"
     for shape in ('"accepts": [{"type_id"', '"join": {"input_index": "by_sample"',
                   '"type.reads": "alignment.bam"', '"types": {', "[]"):
         assert shape in guide, shape
