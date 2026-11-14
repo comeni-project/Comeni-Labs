@@ -10,11 +10,14 @@ refusal as FastAPI's validation shape and the UI renders `undefined` for the one
 curator needs. `REFUSES` declares it, and `test_openapi.py` holds every operation to it.
 """
 
+import logging
 from typing import Any
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+
+log = logging.getLogger(__name__)
 
 
 class Refusal(BaseModel):
@@ -26,6 +29,16 @@ class Refusal(BaseModel):
 async def refusal_handler(request: Request, exc: Exception) -> JSONResponse:
     """422 rather than 400: the body parsed and the values were wrong for it, which is what
     FastAPI already means by 422. A coded refusal is the same kind of answer."""
+    if isinstance(exc, ValidationError):
+        # **A failed shape check is said in words** (issue 494): `str()` of one is the
+        # validator's own report, its title and a documentation link, which reached a person who
+        # had only switched an input on. The full report goes to the log.
+        log.warning("refused by a shape check: %s", exc)
+        said = "; ".join(
+            f"{'.'.join(str(p) for p in e['loc']) or 'the request'}: {e['msg']}"
+            for e in exc.errors()[:3])
+        return JSONResponse(status_code=422,
+                            content={"detail": f"Mendel could not apply this: {said}"})
     return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
