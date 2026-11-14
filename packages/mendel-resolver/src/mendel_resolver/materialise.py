@@ -14,7 +14,14 @@ from comeni_core.goal.asked import Goal, GoalInput
 from comeni_core.plan.at_run import AtRunSource, MetaAtRun
 from comeni_core.plan.decision import ParamDecision, ProducerDecision
 from comeni_core.plan.draft import DraftGraph, DraftProvenance, Settled
-from comeni_core.plan.ir import IRChannel, IREdge, IRNode, PipelineIR, ResolvedValue
+from comeni_core.plan.ir import (
+    InputRecord,
+    IRChannel,
+    IREdge,
+    IRNode,
+    PipelineIR,
+    ResolvedValue,
+)
 from comeni_core.plan.tiers import Grain, Tier, ValueSource
 
 from mendel_resolver import at_run
@@ -27,6 +34,7 @@ from mendel_resolver.resolve import (
     _name_the_measurers,
     _resolve_param,
 )
+from mendel_resolver.router import _optional_states, _strongest
 
 __all__ = ["channels_of", "goal_of", "ir_of"]
 
@@ -201,6 +209,50 @@ def channels_of(graph: DraftGraph, layers: Layers) -> list[DrawnChannel]:
     ]
 
 
+def _drawn_inputs(graph: DraftGraph, contracts: dict[str, ModuleContract],
+                  goal: Goal) -> dict[str, list[InputRecord]]:
+    """Each drawn step's optional inputs, decided as the router decides them (issue 496).
+
+    Off unless something turns one on: the person's switch in the goal, a constraint row, an
+    output the drawing uses that is written only with it, or the drawing itself, where an edge
+    feeds the port or another step requires the same file from outside, so every run supplies
+    it. With no record the emitter took every optional input as on, and an unwired one became a
+    `params.*` file the run demanded."""
+    required_outside = {
+        port.type_id: contract.id
+        for node_id, contract in sorted(contracts.items())
+        for port in contract.consumes
+        if port.required and port.type_id
+        and not any(e.to_node == node_id and e.to_port == port.name for e in graph.edges)
+    }
+    found: dict[str, list[InputRecord]] = {}
+    for node in graph.nodes:
+        contract = contracts[node.id]
+        optional = {p.name: p for p in contract.consumes if not p.required}
+        if not optional:
+            continue
+        into = [e for e in graph.edges if e.to_node == node.id]
+        types = {}
+        for edge in into:
+            made = next((o for o in contracts[edge.from_node].produces
+                         if o.name == edge.from_port), None)
+            if made is not None:
+                types[edge.to_port] = made.type_id
+        on = {e.to_port: f"{e.from_node} feeds it in this pipeline" for e in into
+              if e.to_port in optional}
+        for name, port in optional.items():
+            if name not in on and port.type_id in required_outside and \
+                    required_outside[port.type_id] != contract.id:
+                on[name] = f"{required_outside[port.type_id]} reads the same file in every run"
+        used = {e.from_port for e in graph.edges if e.from_node == node.id}
+        needed = [o for o in contract.produces if o.name in used] or [None]
+        records: list[InputRecord] = []
+        for output in needed:
+            records = _strongest(records, _optional_states(goal, contract, output, types, on))
+        found[node.id] = records
+    return found
+
+
 def _depths(graph: DraftGraph) -> dict[str, int]:
     """How far along the flow each node sits — longest path from a root.
 
@@ -320,6 +372,7 @@ def ir_of(
             axis_reason=entry.axis_reason,
         )
 
+    drawn_inputs = _drawn_inputs(graph, contracts, stated if stated is not None else goal)
     nodes = []
     for node in graph.nodes:
         recorded = settled.node(node.id)
@@ -353,6 +406,7 @@ def ir_of(
                         axis_reason="whether this step exists at all",
                     ),
                 ),
+                inputs=drawn_inputs.get(node.id, []),
             )
         )
 

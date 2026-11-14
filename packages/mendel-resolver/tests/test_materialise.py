@@ -115,3 +115,33 @@ def test_a_drawn_graph_becomes_a_real_pipeline(stack):
         "fastq.reads",
         "genome.fasta",
     }
+
+
+FAIDX = "nf-core/samtools/faidx@1.24"
+
+
+def _faidx_alone() -> DraftGraph:
+    return DraftGraph(nodes=[DraftNode(id="faidx", contract_id=FAIDX)])
+
+
+def test_a_drawn_optional_input_nothing_feeds_is_off(stack):
+    """A step built in the conversation is materialised from its drawing (issue 496). Without
+    a record for each optional input, the emitter took them all as on, and faidx's own `fai`
+    became a `params.fai` the run demanded: the very index this step makes."""
+    ir = ir_of(_faidx_alone(), stack)
+    faidx = next(n for n in ir.nodes if n.id == "faidx")
+    assert faidx.inputs
+    assert {(r.port, r.state.value) for r in faidx.inputs} == {("fai", "off")}
+
+
+def test_a_persons_choice_for_a_drawn_optional_input_is_kept(stack):
+    """The confirmed goal carries the person's switch; the drawing alone cannot say it."""
+    from comeni_core.goal.asked import InputChoice
+    from comeni_core.plan.ir import InputState
+
+    goal = goal_of(_faidx_alone(), stack)
+    goal = goal.model_copy(update={"constraints": goal.constraints.model_copy(update={
+        "inputs": [InputChoice(contract=FAIDX, port="fai", state=InputState.REQUIRED)]})})
+    ir = ir_of(_faidx_alone(), stack, goal=goal)
+    faidx = next(n for n in ir.nodes if n.id == "faidx")
+    assert [(r.port, r.state) for r in faidx.inputs] == [("fai", InputState.REQUIRED)]

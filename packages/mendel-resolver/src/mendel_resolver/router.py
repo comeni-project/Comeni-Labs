@@ -496,7 +496,8 @@ _STRENGTH = {InputState.OFF: 0, InputState.OPTIONAL: 1, InputState.REQUIRED: 2}
 
 
 def _optional_states(goal: Goal, contract: ModuleContract, needed,
-                     types: dict[str, str] | None = None) -> list[InputRecord]:
+                     types: dict[str, str] | None = None,
+                     on: dict[str, str] | None = None) -> list[InputRecord]:
     """Each optional input's state (#460), sorted by port.
 
     Off unless switched on. The router only ever makes one stronger, and says why:
@@ -524,6 +525,11 @@ def _optional_states(goal: Goal, contract: ModuleContract, needed,
         records[port] = InputRecord(port=port, state=state, reason=reason,
                                     by=InputDecider.ROUTER)
 
+    # **What a drawing already wires** (issue 496): `on` names each port the drawing feeds and
+    # why. It is required, like a port a needed output depends on.
+    for port, reason in sorted((on or {}).items()):
+        if port in records:
+            raise_to(port, InputState.REQUIRED, reason)
     if needed is not None and needed.produced_when:
         for key in needed.produced_when:
             space, _, port = key.partition(".")
