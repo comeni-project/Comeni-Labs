@@ -87,9 +87,10 @@ GATK_HAVE = ["alignment.bam", "alignment.bai", "regions.bed", "dragstr.model"]
 
 
 def test_gatk_with_intervals_off_passes_an_empty_slot_in_place(tmp_path):
-    """Review focus 3: `[]` lands in intervals' position, between the index and DRAGstr."""
+    """Review focus 3: `[]` lands in intervals' position, between the index and DRAGstr. Off by
+    the person's switch: the goal has the regions, which since issue 494 would turn it on."""
     pipeline = _build(tmp_path, GATK_HAVE, "variants.vcf", GATK_ID,
-                      ("dragstr_model", InputState.REQUIRED))
+                      ("dragstr_model", InputState.REQUIRED), ("intervals", InputState.OFF))
     argument = _first_argument(_call(emit(pipeline), "GATK4_HAPLOTYPECALLER"))
     assert re.search(r"\.map \{ (\w+), (\w+), (\w+), (\w+) -> \[ \1, \2, \3, \[\], \4 \] \}$",
                      argument), argument

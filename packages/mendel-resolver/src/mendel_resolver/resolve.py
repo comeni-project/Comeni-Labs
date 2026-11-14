@@ -409,7 +409,7 @@ def _resolve_once(
     person = goal.constraints.roles_absent()
     try:
         plan = route(goal, registry, rules, resolver, premises=premises,
-                     absent_roles=absent | person, branch=branch)
+                     absent_roles=absent | person, branch=branch, grains=vocabulary.grains)
     except IntentConflict:
         raise
     except UnroutableError as exc:

@@ -58,7 +58,8 @@ def test_an_optional_port_in_a_shared_slot_is_reported_like_any_other(tmp_path):
     ports = _ports(tmp_path, ["alignment.bam", "alignment.bai", "regions.bed", "dragstr.model"],
                    "variants.vcf", GATK_ID, ("dragstr_model", InputState.REQUIRED))
     intervals = ports[("in", "intervals")]
-    assert (intervals.optional, intervals.state) == (True, "off")
+    # On as optional: the goal has the regions (issue 494).
+    assert (intervals.optional, intervals.state) == (True, "optional")
     assert ports[("in", "dragstr_model")].state == "required"
 
 

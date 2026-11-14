@@ -52,6 +52,18 @@ def test_quast_with_only_assemblies_leaves_its_optional_inputs_off(tmp_path):
     assert all(r.reason == "off: not switched on" for r in step.inputs)
 
 
+def test_an_optional_input_the_person_has_is_on_as_optional(tmp_path):
+    """The operator's decision on issue 494: a person who answered *I have it* for QUAST's
+    reference and GFF meant them to be used. They are wired as optional, not required."""
+    registry, _ = _world(tmp_path, {"quast.yml": QUAST})
+    goal = Goal(have=[GoalInput(type_id="assembly.fasta"), GoalInput(type_id="genome.fasta"),
+                      GoalInput(type_id="annotation.gff")], want=["qc.report"])
+    step = next(s for s in route(goal, registry).steps if s.contract_id == "nf-core/quast@5.3.0")
+    assert [(r.port, r.state) for r in step.inputs] == [
+        ("fasta", InputState.OPTIONAL), ("gff", InputState.OPTIONAL)]
+    assert all(r.reason.startswith("optional: you have") for r in step.inputs)
+
+
 # ── switching on, needs, and constraint checks after resolution ─────────────────────────────
 
 from comeni_core.declared.constraints import sentence  # noqa: E402
@@ -111,13 +123,18 @@ def test_a_person_switches_the_reference_on_as_optional(tmp_path):
 
 
 def test_switching_gff_on_brings_fasta_with_the_reason(tmp_path):
+    """Since issue 494 a reference the person has is on already, as optional, and says so; the
+    constraint row then has nothing to raise. Switched on *required*, the row raises it."""
     registry, _ = _world(tmp_path, {"quast.yml": QUAST})
     goal = Goal(have=[GoalInput(type_id="assembly.fasta"), GoalInput(type_id="genome.fasta"),
                       GoalInput(type_id="annotation.gff")],
                 want=["qc.report"], constraints=_choose(("gff", InputState.OPTIONAL)))
-    contract = registry.get(QUAST_ID)
     assert _records(route(goal, registry))["fasta"] == (
-        InputState.OPTIONAL, "router", sentence(contract.constraints[0]))
+        InputState.OPTIONAL, "router", "optional: you have genome.fasta")
+    required = goal.model_copy(update={"constraints": _choose(("gff", InputState.REQUIRED))})
+    contract = registry.get(QUAST_ID)
+    assert _records(route(required, registry))["fasta"] == (
+        InputState.REQUIRED, "router", sentence(contract.constraints[0]))
 
 
 def test_a_step_needing_misassemblies_makes_fasta_required(tmp_path):

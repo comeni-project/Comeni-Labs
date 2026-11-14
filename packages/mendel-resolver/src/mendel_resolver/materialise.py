@@ -210,7 +210,7 @@ def channels_of(graph: DraftGraph, layers: Layers) -> list[DrawnChannel]:
 
 
 def _drawn_inputs(graph: DraftGraph, contracts: dict[str, ModuleContract],
-                  goal: Goal) -> dict[str, list[InputRecord]]:
+                  goal: Goal, grains=None) -> dict[str, list[InputRecord]]:
     """Each drawn step's optional inputs, decided as the router decides them (issue 496).
 
     Off unless something turns one on: the person's switch in the goal, a constraint row, an
@@ -248,7 +248,8 @@ def _drawn_inputs(graph: DraftGraph, contracts: dict[str, ModuleContract],
         needed = [o for o in contract.produces if o.name in used] or [None]
         records: list[InputRecord] = []
         for output in needed:
-            records = _strongest(records, _optional_states(goal, contract, output, types, on))
+            records = _strongest(records, _optional_states(goal, contract, output, types, on,
+                                                           grains=grains))
         found[node.id] = records
     return found
 
@@ -372,7 +373,8 @@ def ir_of(
             axis_reason=entry.axis_reason,
         )
 
-    drawn_inputs = _drawn_inputs(graph, contracts, stated if stated is not None else goal)
+    drawn_inputs = _drawn_inputs(graph, contracts, stated if stated is not None else goal,
+                                 layers.vocabulary.grains)
     nodes = []
     for node in graph.nodes:
         recorded = settled.node(node.id)

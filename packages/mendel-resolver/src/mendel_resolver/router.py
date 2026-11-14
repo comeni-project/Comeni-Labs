@@ -194,6 +194,7 @@ def route(
     premises: dict[str, object] | None = None,
     absent_roles: frozenset[str] = frozenset(),
     branch: Mapping[str, str] | None = None,
+    grains: Mapping[str, object] | None = None,
 ) -> RoutePlan:
     """A rule table needs the premises it will be matched against, and says so.
 
@@ -340,7 +341,8 @@ def route(
                 route_port(port)
         records = _strongest(seen_inputs.get(chosen.id, []),
                              _optional_states(goal, chosen,
-                                              _matched_output(chosen, type_id, states), types))
+                                              _matched_output(chosen, type_id, states), types,
+                                              grains=grains))
         seen_inputs[chosen.id] = records
         off = {r.port for r in records if r.state is InputState.OFF}
         for port in chosen.consumes:
@@ -497,7 +499,8 @@ _STRENGTH = {InputState.OFF: 0, InputState.OPTIONAL: 1, InputState.REQUIRED: 2}
 
 def _optional_states(goal: Goal, contract: ModuleContract, needed,
                      types: dict[str, str] | None = None,
-                     on: dict[str, str] | None = None) -> list[InputRecord]:
+                     on: dict[str, str] | None = None,
+                     grains: Mapping[str, object] | None = None) -> list[InputRecord]:
     """Each optional input's state (#460), sorted by port.
 
     Off unless switched on. The router only ever makes one stronger, and says why:
@@ -505,12 +508,27 @@ def _optional_states(goal: Goal, contract: ModuleContract, needed,
     requires it given what is on. It never turns one on from nothing; that is a person's, a
     model's (confirmed) or a rule's. A person's *off* that a need contradicts is refused."""
     records: dict[str, InputRecord] = {}
+    ports = {p.name: p for p in contract.consumes}
     for port in contract.optional_ports():
         choice = goal.constraints.input_at(contract.id, port)
+        # **A file the person has is used** (the operator's decision on issue 494): answering *I
+        # have it* for QUAST's reference meant it to be read. On as optional, so the run may
+        # still leave it empty; a person's own switch outranks it. A per-sample file is on as
+        # required: a samplesheet cannot yet carry a sample that leaves it empty (#466).
+        had = next((a.type_id for a in ports[port].alternatives()
+                    if _have_satisfies(goal, a.type_id, frozenset(a.states))), None)
+        each = had is not None and str((grains or {}).get(had, "")) == "sample"
         records[port] = (
             InputRecord(port=port, state=choice.state, reason=f"{choice.state}: you chose it",
                         by=InputDecider.PERSON)
             if choice is not None else
+            InputRecord(port=port, state=InputState.REQUIRED,
+                        reason=f"required: you have {had} for every sample",
+                        by=InputDecider.ROUTER)
+            if each else
+            InputRecord(port=port, state=InputState.OPTIONAL,
+                        reason=f"optional: you have {had}", by=InputDecider.ROUTER)
+            if had is not None else
             InputRecord(port=port, state=InputState.OFF, reason="off: not switched on",
                         by=InputDecider.ROUTER))
 
