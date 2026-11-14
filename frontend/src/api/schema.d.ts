@@ -2063,6 +2063,13 @@ export interface components {
             measurements: {
                 [key: string]: components["schemas"]["Measurement"];
             };
+            /**
+             * Grains
+             * @default {}
+             */
+            grains: {
+                [key: string]: string;
+            };
         };
         /**
          * BeginAuthoring

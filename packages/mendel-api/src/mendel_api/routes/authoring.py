@@ -363,6 +363,9 @@ class AuthoringVocabulary(BaseModel):
     """The registry's name for each type that declares one (Part I.2): what the goal card shows."""
     measurers: list[MeasurerView] = []
     measurements: dict[str, Measurement] = {}
+    grains: dict[str, str] = {}
+    """Each type's declared grain, `study` or `sample` (issue 494): a reference genome is one
+    file for the run, never one per sample, before anything is built."""
 
 
 class AuthoringPreview(BaseModel):
@@ -482,6 +485,7 @@ def vocabulary() -> AuthoringVocabulary:
         names={t: n for t, n in sorted(stack.vocabulary.names.items()) if t in types},
         measurements=stack.measurements.measurements,
         measurers=[MeasurerView(**m.model_dump()) for m in measurers.index(stack)],
+        grains={t: str(g) for t, g in sorted(stack.vocabulary.grains.items()) if t in types},
     )
 
 

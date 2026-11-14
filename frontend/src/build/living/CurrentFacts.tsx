@@ -3,7 +3,7 @@ import type { AuthoringSession, AuthoringVocabulary } from "../../api/types";
 import { FactEditor, type FactValue } from "./FactEditor";
 import { FactHistory, factWords, sourceWords } from "./FactHistory";
 import { Samples } from "./Samples";
-import { useSubjectNames } from "./useTypeNames";
+import { useGrains, useSubjectNames } from "./useTypeNames";
 
 export type CorrectFact = (subject: string, value: FactValue, kind: "input" | "measurement") => Promise<unknown>;
 /** Whether there is any current answer to show — the describe page draws no empty section. */
@@ -42,8 +42,10 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUn
   const absent = (session.fact_subjects ?? []).filter(subject => !facts.some(fact => fact.subject === subject));
   const inputs = session.inputs ?? [];
   // Each input's grain, from the built pipeline's channels; unknown before a build (issue 466).
+  // Before a build there are no channels, so the type's declared grain answers (issue 494).
+  const declaredGrain = useGrains();
   const grainOf = (type: string) =>
-    (session.canvas?.channels ?? []).find(c => c.type_id === type)?.grain ?? null;
+    (session.canvas?.channels ?? []).find(c => c.type_id === type)?.grain ?? declaredGrain(type);
   if (!facts.length && !inputs.length && !pins.length && !absent.length
     && !(session.samples ?? []).length) return null;
   return <details ref={details} className="mb-4 text-[12px]" open={editing !== null || open ? true : undefined}>

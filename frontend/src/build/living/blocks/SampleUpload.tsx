@@ -32,6 +32,8 @@ const CHOOSE_PAIR =
   "Choose your samples' files: one file per sample, or both files of each paired sample. "
   + "Paired files are usually named _R1 and _R2, or _1 and _2.";
 const CHOOSE_ONE = "Choose one file per sample.";
+/** One file for the whole run, such as a reference genome (issue 494). */
+const CHOOSE_THE_FILE = "Choose the file.";
 
 export function SampleUpload({
   proposalId,
@@ -43,6 +45,7 @@ export function SampleUpload({
   onPicked = () => {},
   reading = null,
   files = 2,
+  once = false,
 }: {
   proposalId: string;
   label: string;
@@ -58,6 +61,8 @@ export function SampleUpload({
   reading?: SampleReading | null;
   /** The most files one sample may be: the question's `explain.files` (issue 328). */
   files?: number;
+  /** One file for the run, not one per sample (issue 494). */
+  once?: boolean;
 }) {
   const field = useId();
   const [stage, setStageOnly] = useState<Stage>({ at: "offered" });
@@ -173,7 +178,7 @@ export function SampleUpload({
         <div className="flex flex-col gap-[6px] md:items-start">
           {picker}
           <p className="m-0 text-[11.5px] text-ink-3">
-            {handBackGone ? "Choose the file again to measure it." : most > 1 ? CHOOSE_PAIR : CHOOSE_ONE}
+            {handBackGone ? "Choose the file again to measure it." : once ? CHOOSE_THE_FILE : most > 1 ? CHOOSE_PAIR : CHOOSE_ONE}
           </p>
         </div>
       )}

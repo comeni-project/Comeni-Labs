@@ -40,6 +40,14 @@ describe("a step opened over the conversation (one builder plan 3)", () => {
     expect(screen.getByRole("region", { name: "Needs you" })).toHaveTextContent("strandedness");
   });
 
+  it("puts an optional value under Optional, not Needs you (issue 494)", () => {
+    const optional = { name: "prefix", value: null, via: "ext", tier: 4, reason: "", because: "",
+      axis_reason: "", optional: true, premise: [] };
+    sheet({ step: { ...FAKE_STEPS.star_align, settings: [...FAKE_STEPS.star_align.settings, optional] } });
+    expect(screen.queryByRole("region", { name: "Needs you" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Optional to answer" })).toHaveTextContent("prefix");
+  });
+
   it("closes from × and from Back to the conversation", () => {
     const p = sheet();
     fireEvent.click(screen.getByRole("button", { name: "Close the step" }));

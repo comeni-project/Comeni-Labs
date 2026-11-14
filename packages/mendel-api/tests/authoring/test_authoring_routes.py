@@ -418,6 +418,13 @@ def test_the_goal_reads_in_the_registrys_names():
     assert all(name.strip() for name in names.values())
 
 
+def test_the_vocabulary_says_which_types_are_one_file_for_the_run():
+    """Issue 494: a reference genome was asked for as "one file per sample" before a build."""
+    grains = TestClient(create_app()).get("/api/pipeline/authoring/vocabulary").json()["grains"]
+    assert grains["genome.fasta"] == "study"
+    assert grains["fastq.reads"] == "sample"
+
+
 def test_an_edit_body_is_the_graph_and_nothing_else():
     assert set(routes.EditAuthoringDraft.model_fields) == {"graph", "expected_revision"}
 

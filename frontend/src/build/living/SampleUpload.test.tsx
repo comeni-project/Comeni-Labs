@@ -58,6 +58,13 @@ describe("uploading a sample", () => {
     await waitFor(() => expect(onAnswered).toHaveBeenCalledWith(answered, ["s_R1.fq"]));
   });
 
+  it("asks for the file, not one per sample, where it is one file for the run (issue 494)", () => {
+    render(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={vi.fn()}
+      onAnswered={vi.fn()} files={1} once />);
+    expect(screen.getByText("Choose the file.")).toBeTruthy();
+    expect(screen.queryByText(/per sample/)).toBeNull();
+  });
+
   it("asks for one file per sample where a sample is one file, and takes several (issue 466)", async () => {
     render(<SampleUpload proposalId="p-gap" label={LABEL} busy={false} onUpload={vi.fn()}
       onAnswered={vi.fn()} files={1} />);

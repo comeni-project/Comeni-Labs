@@ -30,7 +30,10 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
 }) {
   const [showSettled, setShowSettled] = useState(false);
   const settings = step?.settings ?? [];
-  const asking = [...settings.filter(open), ...settings.filter(optionalOpen)];
+  // **Needs you, then optional, apart** (issues 384, 494): counted together, an optional prefix read
+  // "Needs you · 1" beside "none need you".
+  const asking = settings.filter(open);
+  const optionalValues = settings.filter(optionalOpen);
   const measured = settings.filter((s) => s.tier === 3 && (s.evidence === "measured" || s.evidence === "read_by_ai"));
   const settled = settings.filter((s) => !asking.includes(s) && !measured.includes(s));
   const optional = (step?.ports ?? []).filter((p) => p.side === "in" && p.optional);
@@ -54,15 +57,15 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
           ×
         </button>
       </div>
-      {asking.length > 0 && (
-        <Group label="Needs you" count={asking.length}>
-          {/* What needs you first, then what is optional (issue 384). */}
-          {asking.map((setting) => (
-            <QuestionCard key={`${node}.${setting.name}`} setting={setting} step={processName(node)}
-                          onSave={(value, why) => onSetParam(node, setting.name, value, why)} onCancel={onClose} />
-          ))}
-        </Group>
-      )}
+      {([["Needs you", asking], ["Optional to answer", optionalValues]] as const).map(([label, list]) =>
+        list.length > 0 && (
+          <Group key={label} label={label} count={list.length}>
+            {list.map((setting) => (
+              <QuestionCard key={`${node}.${setting.name}`} setting={setting} step={processName(node)}
+                            onSave={(value, why) => onSetParam(node, setting.name, value, why)} onCancel={onClose} />
+            ))}
+          </Group>
+        ))}
       {measured.length > 0 && (
         <Group label="Measured" count={measured.length}>
           {measured.map((s) => <Value key={s.name} setting={s} />)}

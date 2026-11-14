@@ -4,6 +4,7 @@ import type { AuthoringProposal, SampleInspected } from "../../../api/types";
 import { Explain, uploadHeadline } from "./Explain";
 import { BlockFrame, Primary, Secondary } from "./parts";
 import { SampleUpload } from "./SampleUpload";
+import { useGrains } from "../useTypeNames";
 
 /** One thing the analysis needs that nobody has said yet, asked by the engine (14.7.3).
  *
@@ -50,6 +51,9 @@ export function GapCard({
   const suggested = block.options.find((o) => o.recommended && o.note);
   // What it is and why it is asked (Part I.1); an offer made before that carries none.
   const explained = proposal.envelope?.offer === "gap" ? proposal.envelope.explain ?? null : null;
+  const grainOf = useGrains();
+  const once = proposal.envelope?.offer === "gap" && proposal.envelope.kind === "input"
+    && grainOf(proposal.envelope.subject) === "study";
   const headline = explained ? uploadHeadline(explained) : null;
 
   const typedOption = block.options.find((o) => o.id === "value");
@@ -110,6 +114,7 @@ export function GapCard({
             onPicked={setPicked}
             reading={block.reading ?? null}
             files={explained?.files ?? 1}
+            once={once}
           />
         </div>
       )}

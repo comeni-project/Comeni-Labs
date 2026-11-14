@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { QueryClientContext, useQuery } from "@tanstack/react-query";
+import { useContext } from "react";
 
 import { get } from "../../api/client";
 import type { AuthoringVocabulary } from "../../api/types";
@@ -25,4 +26,14 @@ export function useSubjectNames(): (subject: string) => string {
     const named = typeName(subject);
     return named !== subject ? named : subject.replaceAll("_", " ");
   };
+}
+
+/** **A type's declared grain**, `study` or `sample` (issue 494), before anything is built: a
+ *  reference genome is one file for the run, never one per sample. `null` when undeclared.
+ *  Read from the vocabulary the builder already loaded, so a card drawn on its own (a test, a
+ *  preview) needs no query client and simply knows nothing. */
+export function useGrains(): (typeId: string) => string | null {
+  const client = useContext(QueryClientContext);
+  const grains = client?.getQueryData<AuthoringVocabulary>(["authoring-vocabulary"])?.grains ?? {};
+  return (typeId: string) => grains[typeId] ?? null;
 }
