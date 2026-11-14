@@ -32,6 +32,7 @@
 #   MI0200-MI0299  the API: authoring a living pipeline — sessions, turns and proposals
 #   MI0300-MI0399  the API: settings — what the menu may change
 #   MI0400-MI0499  the API: what is stored — shapes and retention
+#   MI0500-MI0599  the API: rules proposed from people's answers (#462)
 #   MW0001-MW0099  wiener: ingesting a run's events
 #   MW0100-MW0199  wiener: what is stored — shapes, parameters and retention
 #   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
@@ -3937,6 +3938,32 @@ MI0401:
   explanation: |
     A gate writes into the draft's directory while it runs. Deleting the draft underneath it
     would leave a gate reporting on a pipeline that no longer exists.
+MI0500:
+  emitted_by: api
+  concern: workflow
+  says: "a rule proposal cannot be approved as it stands"
+  fires_on: [rules]
+  refuses: true
+  fix: |
+    Read why: it was decided already, its evidence changed since it was proposed, or the
+    registry refuses the table it would put in force. Choose Propose to ask again on the
+    evidence as it is now.
+  explanation: |
+    An approval puts a rule in force for every later build. It is held to the evidence and the
+    registry as they are when the person approves it, not as they were when the model was
+    asked, so a rule nobody checked against today's answers cannot be approved.
+MI0501:
+  emitted_by: api
+  concern: workflow
+  says: "no model is set to propose rules"
+  fires_on: [rules]
+  refuses: true
+  fix: |
+    Set one in Settings → Models → Adapting tools. Rules are registry work, so they use the
+    forge's model. Without one, write the rule yourself in the installation's layer.
+  explanation: |
+    Rules are proposed by a model and checked by the engine. With no model nothing proposes
+    them; every question is still asked of a person, as before.
 MW0102:
   emitted_by: wiener-api
   concern: storage

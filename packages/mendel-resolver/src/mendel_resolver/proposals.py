@@ -10,10 +10,9 @@ A case holds what was decided, the study's facts, the answer and who gave it, an
 the pipeline and decision. Never a sample name, key, reference or file name.
 """
 
-import hashlib
-import json
 from collections import defaultdict
 
+from comeni_core.artifact.digest import digest_of_bytes
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.declared.registry import Registry
 from comeni_core.logic.when import matches
@@ -94,7 +93,8 @@ def cases_of(pipeline: Pipeline, registry: Registry, pipeline_id: str) -> list[C
     """Every tool choice and setting this pipeline decided among two or more candidates, as
     cases, sorted by target, pipeline and decision. Model answers and rule answers are kept:
     the replay compares against them."""
-    facts = {m.measurement: m.value for m in pipeline.facts.measurements
+    facts = {m.measurement: m.value for m in sorted(pipeline.facts.measurements,
+                                                    key=lambda m: m.measurement)
              if not isinstance(m.value, list)}
     found = []
     for record in pipeline.decisions:
@@ -127,8 +127,7 @@ def evidence(cases: list[Case]) -> dict[str, list[Case]]:
 def evidence_digest(cases: list[Case]) -> str:
     """The digest of these cases, independent of their order: a proposal is asked for again only
     when it moves."""
-    rows = sorted(json.dumps(case.model_dump(mode="json"), sort_keys=True) for case in cases)
-    return "sha256:" + hashlib.sha256("\n".join(rows).encode()).hexdigest()
+    return digest_of_bytes("\n".join(sorted(case.model_dump_json() for case in cases)).encode())
 
 
 # ---------------- the engine's judge ----------------

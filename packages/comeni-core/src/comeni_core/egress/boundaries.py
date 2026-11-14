@@ -18,6 +18,7 @@ from comeni_core.egress.characterisation import CharacteriseRequest
 from comeni_core.egress.forge import ForgeRequest
 from comeni_core.egress.repair import RepairRequest
 from comeni_core.egress.resolution import AmbiguityRequest
+from comeni_core.egress.rules import RuleProposalRequest
 
 
 class BoundaryFlow(StrEnum):
@@ -42,6 +43,8 @@ BOUNDARIES: dict[str, Boundary] = {
     # Forge MVP 3 (#364): public module files and registry ids in, drafted items out.
     "forge_drafting": Boundary(ForgeRequest, BoundaryFlow.FORGE),
     "characterisation": Boundary(CharacteriseRequest, BoundaryFlow.PIPELINE),
+    # #462: people's past answers and the study facts they rested on, a rule row out.
+    "rule_proposal": Boundary(RuleProposalRequest, BoundaryFlow.FORGE),
 }
 """Single declaration of all outbound boundaries and their payload models."""
 

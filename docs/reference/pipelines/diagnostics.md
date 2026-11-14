@@ -231,6 +231,8 @@ decline to curate one.
 | `MI0217` | editing opens when the walk is done |
 | `MI0218` | this older offer has no saved alternative preview |
 | `MI0219` | there is no pipeline to compile yet |
+| `MI0500` | a rule proposal cannot be approved as it stands |
+| `MI0501` | no model is set to propose rules |
 
 ## Reaching a model
 

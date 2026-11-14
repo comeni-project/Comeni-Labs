@@ -28,9 +28,10 @@ PIPELINE_DOORS = {
 this set rather than against the whole list."""
 
 
-FORGE_DOORS: set[str] = {"forge_drafting"}
+FORGE_DOORS: set[str] = {"forge_drafting", "rule_proposal"}
 """Registry authoring: public tool documentation in, reviewed registry data out, and no `Goal`
-anywhere in it. Forge MVP 3 (#364) declares the one door."""
+anywhere in it. Forge MVP 3 (#364) declares the first door; #462 the second, people's past
+answers and their study facts in, a rule row out."""
 
 
 DOORS = PIPELINE_DOORS | FORGE_DOORS
@@ -68,6 +69,11 @@ FREE_TEXT_FIELDS = {
     ("ForgeItemText", "value"),
     ("ForgeTurn", "content"),
     ("ForgeRequest", "prompt"),
+    # #462, door `rule_proposal`: the prompt, the existing rule rows as JSON (registry data),
+    # and the reason a person typed with an answer.
+    ("RuleProposalRequest", "prompt"),
+    ("RuleProposalRequest", "existing"),
+    ("CaseText", "reason"),
     # #453: each registry type's declared name and explanation (registry data), and
     # #452: the engine's own findings on the adaptation's questions. No lab data in either.
     ("KnownType", "name"),
