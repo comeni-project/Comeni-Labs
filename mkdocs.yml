@@ -108,6 +108,7 @@ nav:
           - Forge a tool: how-to/registry/forge-a-tool.md
           - Write a contract: how-to/registry/add-tool.md
           - Write a data-dependent rule: how-to/registry/write-rule.md
+          - Learn rules from your answers: how-to/registry/learned-rules.md
           - Add a lab layer: how-to/registry/add-layer.md
       - Develop the platform:
           - Contribute a change: how-to/development/contribute.md

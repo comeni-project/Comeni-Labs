@@ -97,7 +97,7 @@ The next build then settles that question by the rule.
     at least `MIN_CASES` of them.
   - `evidence_digest(cases) -> str` is the sha256 of the sorted JSON.
 
-- [ ] **Step 1: Write the failing tests.** Load a fixture pipeline built from the RNA-seq example,
+- [x] **Step 1: Write the failing tests.** Load a fixture pipeline built from the RNA-seq example,
   then edit `decisions` and `facts`.
   - `test_a_persons_tool_choice_is_evidence`: star and hisat2 fill `alignment`, with a human
     override and `read_length: 150`. Expect target key `implementation:alignment`, the facts and
@@ -107,11 +107,11 @@ The next build then settles that question by the rule.
   - `test_a_setting_answer_names_its_tool`.
   - `test_per_sample_facts_are_left_out`.
   - `test_evidence_needs_three_answers_and_its_digest_is_stable_under_order`.
-- [ ] **Step 2: Run** `uv run pytest packages/mendel-resolver/tests/test_proposals.py -q`.
+- [x] **Step 2: Run** `uv run pytest packages/mendel-resolver/tests/test_proposals.py -q`.
   Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat: cases and evidence from people's answers (#462)`.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run.** Expected: PASS.
+- [x] **Step 5: Commit** `feat: cases and evidence from people's answers (#462)`.
 
 ### Task 2: The engine's judge (pure)
 
@@ -139,7 +139,7 @@ The next build then settles that question by the rule.
   - The row's own validity (`DecisionRow.model_validate`) is checked where the reply arrives
     (Task 5). The loader check is Task 6.
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - `test_a_row_agreeing_with_every_answer_is_sound`;
   - `test_a_row_overturning_a_person_is_refused_and_names_the_case` (Review Focus 1);
   - `test_an_invented_row_is_refused` (Review Focus 2);
@@ -147,10 +147,10 @@ The next build then settles that question by the rule.
     from `registry/rules/alignment.yml` keeps its two rows first. A new row the registry's
     `read_length` rows already cover is "never fires";
   - `test_a_threshold_row_is_judged_by_its_comparison`: `when: {read_length: ">= 100"}`.
-- [ ] **Step 2: Run.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat: the engine judges a proposed rule against its evidence (#462)`.
+- [x] **Step 2: Run.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run.** Expected: PASS.
+- [x] **Step 5: Commit** `feat: the engine judges a proposed rule against its evidence (#462)`.
 
 ### Task 3: The replay (pure)
 
@@ -165,14 +165,14 @@ The next build then settles that question by the rule.
   - `replay(table: Decision, new: list[DecisionRow], cases: list[Case]) -> list[Replayed]`. It
     lists every case of the target, of any tier or author, whose first matching row is a new
     row. It is sorted with disagreements first, then by pipeline and decision.
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - `test_replay_lists_what_the_rows_would_settle`;
   - `test_replay_shows_a_models_answer_it_would_change_first`;
   - `test_replay_skips_cases_an_existing_row_settles`.
-- [ ] **Step 2: Run.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run.** Expected: PASS.
-- [ ] **Step 5: Commit** `feat: replaying a proposal over past pipelines (#462)`.
+- [x] **Step 2: Run.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run.** Expected: PASS.
+- [x] **Step 5: Commit** `feat: replaying a proposal over past pipelines (#462)`.
 
 ### Task 4: The installation's own layer
 
@@ -193,7 +193,7 @@ The next build then settles that question by the rule.
   inspect's piece paths, reports and the release label.
 - Test: `packages/mendel-api/tests/test_own_layer.py`
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
   - `test_no_own_layer_reads_the_release_alone`.
   - `test_an_own_layer_stacks_above_the_release`. A learned alignment table, the registry's rows
     plus `when: {}` → hisat2, means:
@@ -201,11 +201,11 @@ The next build then settles that question by the rule.
     - the RNA-seq goal with no `read_length` chooses hisat2;
     - the pipeline's registry provenance names both layers.
   - `test_withdrawing_moves_the_digest` (Review Focus 4).
-- [ ] **Step 2: Run** via the test DB. Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the new tests, plus `packages/mendel-api/tests -q -k "registry or build or
+- [x] **Step 2: Run** via the test DB. Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the new tests, plus `packages/mendel-api/tests -q -k "registry or build or
   blueprint or preview"`. Expected: PASS.
-- [ ] **Step 5: Commit** `feat: the installation's own registry layer, above the release (#462)`.
+- [x] **Step 5: Commit** `feat: the installation's own registry layer, above the release (#462)`.
 
 ### Task 5: The model point
 
@@ -247,17 +247,17 @@ The next build then settles that question by the rule.
 
 The request is rendered into the prompt as sorted JSON-ish text.
 
-- [ ] **Step 1: Write the failing tests** with a fake client:
+- [x] **Step 1: Write the failing tests** with a fake client:
   - `test_a_recorded_reply_becomes_rows_and_an_invocation`;
   - `test_a_row_contradicting_a_person_goes_back_once_then_fails` (spec "done when");
   - `test_a_then_outside_the_legal_answers_is_refused`;
   - `test_no_model_configured_says_so`;
   - `test_the_payload_holds_no_sample_names`: a case built from a pipeline whose samplesheet has
     sample names; none of them appear in the rendered prompt.
-- [ ] **Step 2: Run.** Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the tests and `uv run pytest tests/guards -q`. Expected: PASS.
-- [ ] **Step 5: Commit** `feat: the rule_proposal model point, checked where it arrives (#462)`.
+- [x] **Step 2: Run.** Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the tests and `uv run pytest tests/guards -q`. Expected: PASS.
+- [x] **Step 5: Commit** `feat: the rule_proposal model point, checked where it arrives (#462)`.
 
 ### Task 6: Proposals: source, storage, job, check, sink and routes
 
@@ -322,7 +322,7 @@ The request is rendered into the prompt as sorted JSON-ish text.
   - **Diagnostics:** MI0300 "a rule proposal cannot be approved as it stands" and MI0301 "no model
     is set to propose rules", both in `diagnostics.yml`.
 
-- [ ] **Step 1: Write the failing tests.** The fixture writes three kept drafts (DB rows plus
+- [x] **Step 1: Write the failing tests.** The fixture writes three kept drafts (DB rows plus
   `pipeline.yml` files) from the RNA-seq example. Each has a person's tier-4 `producer:align` →
   star, with candidates star and hisat2, and no `read_length`. The model is a fake client that
   replies with one row, `when: {}`, `then: star`.
@@ -336,10 +336,10 @@ The request is rendered into the prompt as sorted JSON-ish text.
   - `test_a_stale_or_failing_proposal_cannot_be_approved` (MI0300);
   - `test_no_model_refuses_to_start` (MI0301);
   - `test_two_hundred_kept_pipelines_read_quickly`: `read()` under 2 s.
-- [ ] **Step 2: Run** via the test DB, after `make test-db`. Expected: FAIL.
-- [ ] **Step 3: Implement.** Then run `make client`.
-- [ ] **Step 4: Run** the tests and `uv run pytest tests/guards -q`. Expected: PASS.
-- [ ] **Step 5: Commit** `feat: rule proposals: source, storage, job, check and sink (#462)`.
+- [x] **Step 2: Run** via the test DB, after `make test-db`. Expected: FAIL.
+- [x] **Step 3: Implement.** Then run `make client`.
+- [x] **Step 4: Run** the tests and `uv run pytest tests/guards -q`. Expected: PASS.
+- [x] **Step 5: Commit** `feat: rule proposals: source, storage, job, check and sink (#462)`.
 
 ### Task 7: The Learned rules page
 
@@ -365,28 +365,50 @@ The request is rendered into the prompt as sorted JSON-ish text.
 - **Empty state:** "No proposals yet. When people answer the same question in three kept
   pipelines, choose Propose."
 
-- [ ] **Step 1: Write the failing tests** with a mocked client:
+- [x] **Step 1: Write the failing tests** with a mocked client:
   - a proposal renders its row, the model's reason, evidence, check and replay;
   - Approve posts;
   - a failing check disables Approve;
   - no model disables Propose;
   - the empty state shows;
   - Withdraw posts.
-- [ ] **Step 2: Run** `npx vitest run src/registry/LearnedRules.test.tsx`. Expected: FAIL.
-- [ ] **Step 3: Implement,** following `Releases.tsx`'s structure and tokens.
-- [ ] **Step 4: Run** the tests and `npx tsc -b`. Expected: PASS.
-- [ ] **Step 5: Commit** `feat: the Learned rules page (#462)`.
+- [x] **Step 2: Run** `npx vitest run src/registry/LearnedRules.test.tsx`. Expected: FAIL.
+- [x] **Step 3: Implement,** following `Releases.tsx`'s structure and tokens.
+- [x] **Step 4: Run** the tests and `npx tsc -b`. Expected: PASS.
+- [x] **Step 5: Commit** `feat: the Learned rules page (#462)`.
 
 ### Task 8: Docs and finish
 
-- [ ] **Step 1: Write the docs.**
+- [x] **Step 1: Write the docs.**
   - A how-to: `docs/how-to/registry/learned-rules.md`, linked from `docs/how-to/index.md`;
   - the CHANGELOG, under comeni-core, mendel-resolver and mendel-api;
   - the journal note;
   - `docs/notes/now.md`, which must stay ≤150 lines;
   - the diagnostics doc, regenerated.
-- [ ] **Step 2: Run the full checks**, each separately and alone on the DB: `make check`,
+- [x] **Step 2: Run the full checks**, each separately and alone on the DB: `make check`,
   `make guards`, `make slow`, `npx vitest run`, `npx tsc -b`. Expected: all pass.
-- [ ] **Step 3: Commit** `docs: learned rules (#462)` and tick this plan.
+- [x] **Step 3: Commit** `docs: learned rules (#462)` and tick this plan.
 - [ ] **Step 4: Run the final review.** A fresh reviewer on the most capable model reviews the
   branch range. Fix Critical and Important findings test-first, and add Minors to #489.
+
+## Deviations
+
+- **Diagnostics.** MI0300 and MI0301 were taken by settings, so a new band was opened:
+  MI0500-MI0599. MI0500 means it cannot be approved, and MI0501 means no model.
+- **`registry_roots()` and `own_layer()`** are module functions in `settings.py`, beside
+  `active_registry()`. The stack digest is `registry.combine()`, and `blueprint.registry_digest`
+  delegates to it.
+- **A learned row is narrowed** (`table_with(cases=)`). It gains `fact: absent` for each fact
+  the existing rows test that none of its answers had. The loader's MD0323 models no unknown
+  fact, and would otherwise read the row as dead.
+- **No mapping may cross a door.** So a case's facts are `list[FactValue]`, and the existing
+  rows are JSON `Text`. Three new free-text fields were added. Only integer, number, boolean and
+  enum facts are sent.
+- **The evidence digest** uses comeni-core's `digest_of_bytes`, because `mendel-resolver` may not
+  import `hashlib` or `json`.
+- **"No rule" is stored** as status `no_rule`, so it is not asked again until the evidence moves.
+  It is listed under *Not proposed*.
+- **`running`** is `jobs.running(JOB_ID)`, set by the route.
+- **The browser check** is deferred to the push's end-of-push browser pass.
+- **The "done when" tier.** The tier-3 case needs a fact-bearing row (`paired: true`). A `when:
+  {}` row is tier 2 by `tier_of_row`.

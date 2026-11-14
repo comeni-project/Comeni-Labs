@@ -86,3 +86,16 @@ lint`'s new MD0027 (the inspector-pieces allowlist, moved there) and never runs 
 server: the forge's test run adds the generated measuring step after the tool, and Wiener's
 `/measured` must report a value. Its unit tests run in the registry's CI. An end-to-end test
 re-creates `genome_length_fai` from a draft to a pull request. Found and fixed on the way: #490.
+
+
+## Part 6: rules learned from people's answers (11-14)
+
+[The plan](../../superpowers/plans/2026-11-13-rule-proposals.md), from
+[the design](../../superpowers/specs/2026-11-13-rule-proposals-design.md). #462. The loop closes:
+a person's tier-4 answers in three kept pipelines are sent, as study facts and answers only, to
+the forge's model, which proposes rule rows. The engine judges them against every answer, the
+loader checks the table, and a replay shows what they would change. An approved table goes to
+the installation's own layer, which every build stacks above the release, so the next build
+answers at tier 3 citing the kept pipelines; withdrawing brings the question back. A learned
+row is narrowed to `absent` on the facts the existing rows test, because the loader (MD0323)
+models no unknown fact. `MIN_CASES` is the first knob for tuning how much the AI does.

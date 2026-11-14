@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- Rule proposals (#462): a door, `rule_proposal` (`RuleProposalRequest`): a target, the existing rows, the facts a row may test, the legal answers, and each person's answer with its study facts and reason. Codes MI0500 and MI0501.
+
 - A second table (#466): `Constraints.tables` names study inputs given as several items (MD0347); their channel carries a `TableShape` (`name`, file `columns`, item `facts`). A port may select on a fact describing its own type, a table row's fact, which is a column of that table rather than of the samplesheet. MD0348 refuses a by-sample join after a cross.
 
 - Parts (#466): a port may run on parts of a sample's item (`parts`), and a splitter's output fans out (`fans_out: part`, `Grain.PART`), MD0346. `Constraints.whole` names the tools a person keeps whole; `IRNode.parts` and `Step.parts` record each step that can run on parts, and `StepInput.parts` says where parts spread and gather. Splitting and merging tools are never routed as producers.
@@ -118,6 +120,8 @@ or a complete commit history.
   null answer. Human and model attribution does not resolve that ambiguity.
 
 ### mendel-resolver
+
+- Rule proposals (#462): `proposals` turns a kept pipeline's decisions into cases, gathers a person's tier-4 answers per target (`MIN_CASES = 3`), judges a proposed row against them (contradicted, unsupported or never firing), narrows it to where the existing rows missed, and replays it over every past decision of its target.
 
 - Parts (#466): a step that can run on parts of each sample is split before it and merged after it whenever the registry has a splitter and a merger and the step's only per-sample input is the split one, unless the person keeps it whole.
 
@@ -254,6 +258,8 @@ or a complete commit history.
   questions are not asked again. Build and Spawn are consolidated into one authoring flow.
 
 ### mendel-api
+
+- Learned rules (#462): `/api/rules/...` proposes rules from people's answers in kept pipelines, one model call per target whose evidence moved (`rule_proposal` table, job `propose_rules`), checks each against the registry, and on approval writes it to the installation's own layer (`MENDEL_OWN_LAYER`, default `<workspace>/layer`), which every build now stacks above the release.
 
 - A study input may be a table of several items (#466): a `tables` change from a checkbox on the input in *What was understood*, offered only on inputs the study shares, while the lanes checkbox is now offered only on per-sample ones; inputs store it (`pipeline_input_revision.table`), and suggestions and turns move to shapes 6 and 10.
 
@@ -577,6 +583,8 @@ or a complete commit history.
 - Shared pure graph layout supports the build and run canvases.
 
 ### frontend
+
+- **Registry → Learned rules** (#462): each proposed rule with the model's reason, its evidence, the engine's check and what it would change; Approve, Reject, and Withdraw for a rule in use.
 
 - The upload takes every sample at once; current answers list each sample with its measurements, filtered, sorted and grouped (#466).
 
