@@ -155,15 +155,29 @@ def cite_for(cases: list[Case]) -> str:
     return f"kept pipelines {pipelines}, decision {decisions}"
 
 
+def _narrowed(row: DecisionRow, existing: Decision, cases: list[Case]) -> DecisionRow:
+    """The row, saying `absent` for each fact the existing rows test that none of the answers it
+    reaches had. That is why the question was asked, and the loader reads a row after them that
+    does not say so as one that never fires (MD0323)."""
+    reached = [case for case in cases if case.evidence and matches(row.when, _premises(case))]
+    tested = sorted({fact for old in existing.rows for fact in old.when} - set(row.when))
+    missing = [fact for fact in tested if reached and not any(fact in c.facts for c in reached)]
+    if not missing:
+        return row
+    return row.model_copy(update={"when": {**row.when, **dict.fromkeys(missing, "absent")}})
+
+
 def table_with(target: DecisionTarget, existing: Decision | None, rows: list[DecisionRow],
-               cite: str) -> Decision:
+               cite: str, *, cases: list[Case] | None = None) -> Decision:
     """The table a proposal would put in force: the existing rows first, then the new ones.
 
     Appended, because the question was asked only where every existing row missed (`hit:
-    first`), so the new rows only ever fire there."""
+    first`), so the new rows only ever fire there. Given the cases, each new row is narrowed to
+    the facts those rows found missing."""
     cited = [row.model_copy(update={"cite": cite}) for row in rows]
     if existing is None:
         return Decision(decides=target, rows=cited, because=LEARNED)
+    cited = [_narrowed(row, existing, cases or []) for row in cited]
     return existing.model_copy(update={"rows": [*existing.rows, *cited]})
 
 

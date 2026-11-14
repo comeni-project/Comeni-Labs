@@ -206,3 +206,13 @@ def test_replay_skips_cases_an_existing_row_settles():
     new = _rows(({"organism": "human"}, STAR))
     replayed = replay(table_with(ALIGNMENT, existing_alignment(), new, "c"), new, cases)
     assert [r.pipeline for r in replayed] == ["q0", "q1", "q2"]
+
+
+def test_a_new_row_is_narrowed_to_where_the_existing_rows_missed():
+    """The question was asked because the facts the existing rows test were missing; the engine
+    says so in the row (`absent`), or the loader reads it as dead (MD0323)."""
+    cases = _cases([(f"p{n}", {"paired": True}, HISAT2) for n in range(3)])
+    new = _rows(({"paired": True}, HISAT2))
+    table = table_with(ALIGNMENT, existing_alignment(), new, cite_for(cases), cases=cases)
+    assert table.rows[2].when == {"paired": True, "read_length": "absent"}
+    assert judge(table, table.rows[2:], cases) == []

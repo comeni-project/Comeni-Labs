@@ -18,7 +18,6 @@ expiry to get wrong — the same shape `services/registry.py` uses.
 from functools import lru_cache
 from typing import Literal
 
-from comeni_core.artifact.digest import digest_of_directory
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.draft import DraftGraph
@@ -30,7 +29,7 @@ from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel
 
 from mendel_api.services import registry
-from mendel_api.settings import active_registry, settings
+from mendel_api.settings import registry_roots, settings
 
 # The five-module RNA-seq spine. **The screen has to open on something** and nothing can author a
 # goal until the prompt door exists, which is after #69 — so until then this is what a person
@@ -681,13 +680,13 @@ def _built(goal_json: str, registry_digest: str) -> BuiltPipeline:
     outlives the thing it was computed from."""
     built = orchestrate.build(
         Goal.model_validate_json(goal_json),
-        registry_root=active_registry(),
+        registry_roots=registry_roots(),
     )
     return _view(built.ir, built.pipeline, built.layers)
 
 
 def of(goal: Goal) -> BuiltPipeline:
-    return _built(goal.model_dump_json(), str(digest_of_directory(active_registry())))
+    return _built(goal.model_dump_json(), registry.digest())
 
 
 def drawn(graph: DraftGraph, *, by: str = "") -> BuiltPipeline:

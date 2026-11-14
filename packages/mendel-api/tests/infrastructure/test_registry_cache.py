@@ -131,7 +131,7 @@ def test_a_copy_with_the_same_times_is_hashed_on_its_own(monkeypatch, tmp_path):
         return real(root)
 
     monkeypatch.setattr(registry, "digest_of_directory", counting)
-    monkeypatch.setattr(registry, "signature", lambda: ("the same",))
+    monkeypatch.setattr(registry, "signature", lambda root=None: ("the same",))
     registry._digest_for.cache_clear()
     registry.digest()
     copy = tmp_path / "registry"
