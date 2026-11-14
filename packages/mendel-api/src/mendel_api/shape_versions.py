@@ -18,7 +18,7 @@ VERSIONS: dict[str, int] = {
     "forge_message": 1,
     "forge_revision": 2,
     "installation_setting": 1,
-    "pipeline_authoring_proposal": 9,
+    "pipeline_authoring_proposal": 10,
     "pipeline_authoring_session": 3,
     "pipeline_authoring_suggestion": 6,
     "pipeline_authoring_turn": 10,
