@@ -1,4 +1,4 @@
-"""The worker that is allowed to call a provider, and nothing else.
+"""The worker that is allowed to call a provider, and the builder agent's engine tools.
 
 **A separate process rather than a second function list, and the reason is starvation.** A model
 call takes minutes; a gate or a sweep must not wait behind one on a shared concurrency budget.
@@ -13,6 +13,7 @@ limit.
 from arq.connections import RedisSettings
 from arq.worker import func
 
+from mendel_api.agent import loop
 from mendel_api.jobs import AI_QUEUE
 from mendel_api.services import authoring_jobs, forge_review, forging_ai, proposals
 from mendel_api.settings import settings
@@ -27,6 +28,10 @@ class AIWorkerSettings:
     """
 
     functions = [
+        # The builder agent (#463): one turn per person's message. It crosses the
+        # `builder_agent` door, and runs the engine's tools in-process between model calls
+        # (resolve, compile), each inside this job's timeout.
+        func(loop.run_builder_turn, keep_result=0),
         # The builder's model calls. Answering a turn crosses door 1. Resolving a blueprint and
         # accepting a step make none and are not on this list.
         # A message waiting behind another's reply retries until that reply is written (#392).

@@ -1,5 +1,96 @@
 {
   "$defs": {
+    "AgentAsk": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "ask",
+          "default": "ask",
+          "type": "string"
+        },
+        "options": {
+          "default": [],
+          "items": {
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "question": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "question_id": {
+          "maxLength": 32,
+          "type": "string"
+        },
+        "shape": {
+          "enum": [
+            "options",
+            "number",
+            "yes_no",
+            "upload",
+            "text"
+          ],
+          "type": "string"
+        },
+        "type_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "unit": {
+          "default": "",
+          "maxLength": 20,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "question_id",
+        "question",
+        "shape"
+      ],
+      "type": "object"
+    },
+    "AgentMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "message",
+          "default": "message",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 16000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "type": "object"
+    },
     "Author": {
       "enum": [
         "person",
@@ -660,7 +751,8 @@
         "refusal",
         "stale",
         "validation",
-        "complete"
+        "complete",
+        "limit"
       ],
       "type": "string"
     },
@@ -1379,6 +1471,45 @@
       ],
       "type": "string"
     },
+    "ToolLine": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "tool",
+          "default": "tool",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "summary": {
+          "default": "",
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "label",
+        "ok"
+      ],
+      "type": "object"
+    },
     "ValueSource": {
       "enum": [
         "resolver",
@@ -1394,14 +1525,17 @@
   "items": {
     "discriminator": {
       "mapping": {
+        "ask": "#/$defs/AgentAsk",
         "change_set": "#/$defs/ChangeSet",
         "goal_summary": "#/$defs/GoalSummary",
+        "message": "#/$defs/AgentMessage",
         "narrative": "#/$defs/Narrative",
         "notice": "#/$defs/Notice",
         "question": "#/$defs/Question",
         "receipt": "#/$defs/Receipt",
         "setting_request": "#/$defs/SettingRequest",
-        "step_proposal": "#/$defs/StepProposal"
+        "step_proposal": "#/$defs/StepProposal",
+        "tool": "#/$defs/ToolLine"
       },
       "propertyName": "kind"
     },
@@ -1429,6 +1563,15 @@
       },
       {
         "$ref": "#/$defs/Notice"
+      },
+      {
+        "$ref": "#/$defs/AgentMessage"
+      },
+      {
+        "$ref": "#/$defs/ToolLine"
+      },
+      {
+        "$ref": "#/$defs/AgentAsk"
       }
     ]
   },

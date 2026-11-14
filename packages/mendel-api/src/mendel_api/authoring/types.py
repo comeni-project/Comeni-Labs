@@ -84,6 +84,8 @@ class Purpose(StrEnum):
     FAMILY = "family"
     CHAT = "chat"
     TIER4 = "tier4"
+    AGENT = "agent"
+    """The builder agent's loop (#463): every model call of an agent turn."""
     GAP = "gap"
     ASK = "ask"
     READBACK = "readback"
@@ -128,6 +130,10 @@ class BlockKind(StrEnum):
     CHANGE_SET = "change_set"
     RECEIPT = "receipt"
     NOTICE = "notice"
+    # The builder agent's (#463): its words, a line per tool it called, a question to the person.
+    MESSAGE = "message"
+    TOOL = "tool"
+    ASK = "ask"
 
 
 class NoticeKind(StrEnum):
@@ -143,6 +149,8 @@ class NoticeKind(StrEnum):
     STALE = "stale"
     VALIDATION = "validation"
     COMPLETE = "complete"
+    LIMIT = "limit"
+    """The builder agent stopped at its step or token limit (#463)."""
 
 
 class _Shape(BaseModel):
@@ -453,6 +461,36 @@ class Notice(_Block):
     code: str | None = Field(default=None, max_length=16)
 
 
+class AgentMessage(_Block):
+    """What the builder agent says, in its own words (#463)."""
+
+    kind: Literal[BlockKind.MESSAGE] = BlockKind.MESSAGE
+    text: Annotated[str, Field(max_length=16000)]
+
+
+class ToolLine(_Block):
+    """One tool the agent called: its name, a line a person reads, whether it worked, and the
+    refusal when it did not (#463)."""
+
+    kind: Literal[BlockKind.TOOL] = BlockKind.TOOL
+    name: str = Field(max_length=64)
+    label: Prose
+    ok: bool
+    summary: Prose = ""
+
+
+class AgentAsk(_Block):
+    """A question the agent put to the person, and how it is answered (#463)."""
+
+    kind: Literal[BlockKind.ASK] = BlockKind.ASK
+    question_id: str = Field(max_length=32)
+    question: Prose
+    shape: Literal["options", "number", "yes_no", "upload", "text"]
+    options: list[Prose] = []
+    unit: str = Field(default="", max_length=20)
+    type_id: str | None = Field(default=None, max_length=128)
+
+
 Block = Annotated[
     Narrative
     | GoalSummary
@@ -461,7 +499,10 @@ Block = Annotated[
     | SettingRequest
     | ChangeSet
     | Receipt
-    | Notice,
+    | Notice
+    | AgentMessage
+    | ToolLine
+    | AgentAsk,
     Field(discriminator="kind"),
 ]
 """Every block, discriminated on `kind`.

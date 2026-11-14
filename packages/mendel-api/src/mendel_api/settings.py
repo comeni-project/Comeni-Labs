@@ -95,6 +95,10 @@ class Settings(BaseSettings):
     a limit they know, not a default worth tuning — and work waiting in a queue is visible,
     where work failing on a rate limit is a retry storm.
     """
+    agent_max_steps: int = 24
+    """The most model calls one builder-agent turn makes before it stops and says so (#463)."""
+    agent_max_tokens: int = 200_000
+    """The most tokens, in and out, one builder-agent turn spends before it stops (#463)."""
     ai_job_timeout_seconds: int = 900
     """The ceiling on one AI job, and the age at which a claimed adaptation is reclaimed.
 

@@ -27,6 +27,9 @@ PURPOSES: dict[tuple[str, str], Setting] = {
     ("builder", "readback"): c.MODEL_READBACK,
     ("builder", "characterise_family"): c.MODEL_TALK,
     ("builder", "characterise"): c.MODEL_TALK,
+    # The builder agent's loop (#463): the talking model, which reached tool calls natively on
+    # the subscription route (`docs/notes/agent-tool-calling-check.md`).
+    ("builder", "agent"): c.MODEL_TALK,
     ("forge", "analysis"): c.MODEL_FORGE,
     ("forge", "implementation"): c.MODEL_FORGE,
     ("forge", "repair"): c.MODEL_FORGE,
