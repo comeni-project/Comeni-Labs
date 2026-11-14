@@ -152,6 +152,8 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers,
     # Whether any port on the walk needs the type, rather than reading it only if given.
     needed: dict[str, bool] = {}
     seen_needed: set[str] = set()
+    # The roles of every tool the walk reaches: only a rule deciding one of them is this goal's.
+    reached: set[str] = set()
 
     wanted_states = {t: frozenset(states) for t, states in (required or {}).items()}
 
@@ -178,6 +180,7 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers,
                 leaves.append(type_id)
             return
         for contract in producers:
+            reached.update(contract.roles)
             for port in contract.consumes:
                 if port.type_id:
                     # Behind an optional input, even a required port only reads what is given.
@@ -196,7 +199,12 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers,
 
     from mendel_api.services import measurers
 
-    premises = _premise_measurements(stack)
+    # **Only rules for tools this goal can reach** (issue 494): a QUAST pipeline, with no reads,
+    # was asked the read length because the aligner's rule reads it.
+    premises = {
+        m: decisions for m, decisions in _premise_measurements(stack).items()
+        if any(target.of in reached for d in decisions for target in d.targets())
+    }
     # **Not asked: what the pipeline measures for a setting** (#217). A fact only settings'
     # rules read, describing an input, and measured by a step the build can add, is decided in
     # the run, so nobody is stopped for it. A person may still state it; it is just not asked.

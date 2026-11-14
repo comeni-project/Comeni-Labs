@@ -62,3 +62,16 @@ def test_a_fact_is_left_unasked_only_when_this_goal_can_measure_it():
     decisions = gaps._premise_measurements(stack)["genome_length"]
     assert gaps._decided_in_the_run(stack, "genome_length", decisions, {"genome.fasta"})
     assert not gaps._decided_in_the_run(stack, "genome_length", decisions, {"fastq.reads"})
+
+
+def test_a_rule_for_a_tool_the_goal_never_reaches_asks_nothing():
+    """A QUAST pipeline, with no reads, was asked the read length (issue 494): the aligner's
+    rule reads it, and the walk asked every measurement any rule in the registry reads. A QC
+    report reaches FastQC and MultiQC, and no aligner."""
+    from mendel_api.services import gaps, registry
+
+    asked = gaps.gaps(["qc.report"], [], registry.stack())
+    assert not isinstance(asked, gaps.Unreachable)
+    assert "read_length" not in {g.subject for g in asked}
+    counts = gaps.gaps(["counts.matrix"], [], registry.stack())
+    assert "read_length" in {g.subject for g in counts}, "the walk no longer asks it at all"
