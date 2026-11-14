@@ -45,6 +45,7 @@ export function FormatFlow({ page, total }: { page: CataloguePage; total: number
   const names = (rows: FlowRow[]) => rows.map((r) => r.format);
   const links = useFlow(names(left), names(right)).data ?? [];
   const drawn = ribbons(links, names(left), names(right), reads, makes);
+  const rows = Math.max(1, left.length, right.length);
   const hint = reads && makes ? `${total.toLocaleString("en")} modules read ${reads} and make ${makes}.`
     : reads ? `What ${reads} turns into. Pick a format on the right to narrow down.`
       : makes ? `What ${makes} comes from. Pick a format on the left to narrow down.`
@@ -59,7 +60,9 @@ export function FormatFlow({ page, total }: { page: CataloguePage; total: number
       <div className="format-flow">
         <Side label="Reads" total={Object.keys(page.counts.reads).length} rows={left} picked={reads} query={findReads}
               onQuery={setFindReads} onPick={(f) => filters.set("reads", f === reads ? [] : [f])} />
-        <svg aria-hidden="true" className="ribbons" viewBox={`0 0 100 ${SHOWN * ROW}`} preserveAspectRatio="none">
+        {/* As tall as the rows shown (issue 494): a search leaving two formats kept seven rows' height. */}
+        <svg aria-hidden="true" className="ribbons" viewBox={`0 0 100 ${rows * ROW}`} preserveAspectRatio="none"
+             style={{ height: `${(210 / SHOWN) * rows}px` }}>
           {drawn.map((r) => (
             <path key={r.key} d={r.d} strokeWidth={r.width} vectorEffect="non-scaling-stroke"
                   data-lit={r.lit} />
