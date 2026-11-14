@@ -86,10 +86,12 @@ def submit_all(adaptation_id: str) -> None:
         _record(adaptation_id, attempt, "(all)", drafted, None, repr(error), now)
         conclude(adaptation_id)
         return
+    folder = forging.draft_dir(adaptation_id) / "measurers" / "measures"
+    drafted_parsers = {p.parent.name for p in folder.glob("*/measurer.yml")}
     for test in tests:
         run_id, says = None, None
         try:
-            run_id = _submit(test, stack)
+            run_id = _submit(test, stack, drafted_parsers)
         except (ValueError, KeyError, OSError, RunnerUnavailable) as error:
             log.warning("forge test %s of %s did not start: %s", test.name, adaptation_id, error)
             says = str(error)
@@ -97,8 +99,8 @@ def submit_all(adaptation_id: str) -> None:
     conclude(adaptation_id)
 
 
-def _submit(test: ToolTest, stack: layers.Layers) -> str:
-    pipeline = build_test_pipeline(test, stack)
+def _submit(test: ToolTest, stack: layers.Layers, drafted: set[str]) -> str:
+    pipeline = build_test_pipeline(test, stack, parsers=drafted)
     archive = bundle.archive(pipeline_file.dump(pipeline), pipeline,
                              module_files(pipeline, stack))
     return runner().submit(archive, f"forge test: {test.contract} {test.name}",
@@ -130,6 +132,33 @@ def green(test: ToolTest, process: str, files: list[str]) -> list[Problem]:
     ]
 
 
+def parsers_green(measurers: dict[str, str], facts: list[dict]) -> list[Problem]:
+    """Each drafted parser (`{measurer id: measurement}`) reported a value for its measurement
+    in the run (#487). One that said *undetermined* fails with its reason: the tool's own test
+    data is what it must handle."""
+    problems = []
+    for measurer, measurement in sorted(measurers.items()):
+        mine = [f for f in facts if f.get("measurement") == measurement]
+        if any(f.get("value") is not None and f.get("undetermined") is None for f in mine):
+            continue
+        reasons = sorted({f["undetermined"] for f in mine if f.get("undetermined")})
+        says = (f"undetermined: {'; '.join(reasons)}" if reasons else "reported nothing")
+        problems.append(Problem(code="MF0515", says=f"measurer {measurer}: {says}"))
+    return problems
+
+
+def _parsers(adaptation_id: str, test: ToolTest) -> dict[str, str]:
+    """The draft's measurers of this tool whose output this test expects: what it ran."""
+    expected = {e.port for e in test.expect}
+    found = {}
+    folder = forging.draft_dir(adaptation_id) / "measurers" / "measures"
+    for path in sorted(folder.glob("*/measurer.yml")):
+        declared = yaml.safe_load(path.read_text())
+        if declared.get("uses") == test.contract and declared.get("output") in expected:
+            found[declared["id"]] = declared["measures"]
+    return found
+
+
 def _declared(adaptation_id: str, name: str) -> tuple[ToolTest, str]:
     """The test as assembled, and its tool's process, read from the draft."""
     adaptation = forging.row(adaptation_id)
@@ -146,6 +175,9 @@ def _verdict(row: ForgeTestRun, phase: str) -> tuple[str, str | None]:
         return "failed", f"the run {phase} in Wiener"
     test, process = _declared(row.adaptation, row.name)
     problems = green(test, process, runner().results(row.run_id))
+    parsers = _parsers(row.adaptation, test)
+    if parsers:
+        problems += parsers_green(parsers, runner().measured(row.run_id))
     return ("failed", "; ".join(p.says for p in problems)) if problems else ("passed", None)
 
 

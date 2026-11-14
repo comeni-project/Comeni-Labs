@@ -63,8 +63,9 @@ def test_too_many_setups_is_refused_rather_than_skipped():
     assert _codes(_tool(many)) == ["MD0607"]
 
 
-def test_the_quast_kraken2_and_gatk_fixtures_are_clean():
-    for name in ("quast", "kraken2", "gatk4_haplotypecaller"):
+def test_the_fixtures_are_clean():
+    for name in ("quast", "kraken2", "gatk4_haplotypecaller", "salmon_quant",
+                 "picard_markduplicates", "spades"):
         contract = ModuleContract.model_validate(yaml_strict.load(FIXTURES / f"{name}.yml"))
         assert check_constraints(contract) == [], name
 
@@ -100,3 +101,55 @@ def test_a_param_with_a_default_that_a_row_forbids_kills_the_input():
                      constraints=[{"when": {"given.b": "present"}, "forbids": ["k"],
                                    "because": "b cannot run with k"}])
     assert _codes(contract) == ["MD0604"]
+
+
+def _salmon(fastq_row: dict) -> ModuleContract:
+    data = yaml_strict.load(FIXTURES / "salmon_quant.yml")
+    data["constraints"][1] = fastq_row
+    return ModuleContract.model_validate(data)
+
+
+def test_a_type_no_setup_allows_is_a_gap():
+    """salmon with FASTQ reads that both need and refuse an index (#464): BAM still works."""
+    contract = _salmon({"when": {"type.reads": "fastq.reads"}, "requires": ["index"],
+                        "forbids": ["index"], "because": "contradicts itself for FASTQ"})
+    findings = check_constraints(contract)
+    gaps = [f for f in findings if f.startswith("MD0612")]
+    assert len(gaps) == 1
+    assert "with reads as fastq.reads" in gaps[0]
+    # Only BAM setups are valid, so the index is dead and the transcripts always needed: true
+    # of this contract as written, and said alongside the gap that causes them.
+    assert sorted(f.split(":")[0] for f in findings) == ["MD0604", "MD0605", "MD0612"]
+
+
+def test_types_count_toward_the_setup_bound():
+    """A port accepting three types times eleven optional inputs is 6144 setups (#464)."""
+    reads = {"name": "a", "accepts": [{"type_id": "fastq.reads"}, {"type_id": "alignment.bam"},
+                                      {"type_id": "alignment.cram"}]}
+    many = [reads, *({"name": f"o{n}", "type_id": "genome.fasta", "required": False}
+                     for n in range(11))]
+    assert _codes(_tool(many)) == ["MD0607"]
+
+
+def test_a_type_row_on_a_single_type_port_is_checked():
+    """Task 4 review: a port with one type got no type fact, so this row was never tried."""
+    contract = _tool([A], constraints=[{"when": {"type.a": "fastq.reads"}, "forbids": ["a"],
+                                        "because": "contradicts itself"}])
+    assert _codes(contract) == ["MD0603"]
+
+
+def test_an_unconnected_typed_port_does_not_count_its_types():
+    """Task 4 review: an optional port accepting three types is off, or on as one of them, so
+    it multiplies the setups by 4, not by 2 * 3."""
+    reads = {"name": "r", "required": False,
+             "accepts": [{"type_id": "fastq.reads"}, {"type_id": "alignment.bam"},
+                         {"type_id": "alignment.cram"}]}
+    few = [A, reads, *({"name": f"o{n}", "type_id": "genome.fasta", "required": False}
+                       for n in range(9))]
+    # 2^9 * (1 + 3) = 2048: within the bound; the old count, 2^10 * 3 = 3072, also was, so the
+    # check here is that it runs clean rather than refusing.
+    assert _codes(_tool(few)) == []
+    many = [A, reads, *({"name": f"o{n}", "type_id": "genome.fasta", "required": False}
+                        for n in range(10))]
+    # 2^10 * 4 = 4096 exactly at the bound; the old count, 2^11 * 3 = 6144, refused it.
+    assert _codes(_tool(many)) == []

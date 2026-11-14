@@ -28,10 +28,11 @@ from comeni_core.egress.forge import (
     KnownIds,
     KnownType,
     ModuleFacts,
-    TypeScope,
+    TypeGrain,
 )
 from comeni_flow.interpret import Refused
 from mendel_compiler.modulespec import ModuleSpec
+from mendel_compiler.registry_lint import ALLOWED
 from mendel_forge.forging import rules
 from mendel_forge.forging.model import Actor, Adaptation, Command, Move, Piece, Status
 from mendel_forge.forging.protocol import Phase
@@ -52,7 +53,7 @@ from mendel_api.services import forge_checks, forging, registry
 from mendel_api.settings import model_access
 
 PROMPTS = Path(__file__).parent.parent / "forge" / "prompts"
-ITEM_SHAPES = PROMPTS / "parts" / "items.v2.md"
+ITEM_SHAPES = PROMPTS / "parts" / "items.v6.md"
 """Every item kind and its value's shape, in one place, for each prompt that writes items
 (#468). A prompt shown only the adaptation's items cannot add the first item of a new kind."""
 CHAT_TAIL = 12
@@ -67,14 +68,19 @@ _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
             "forge.draft.v5": InvocationPurpose.IMPLEMENTATION,
             "forge.draft.v6": InvocationPurpose.IMPLEMENTATION,
             "forge.draft.v7": InvocationPurpose.IMPLEMENTATION,
+            "forge.draft.v8": InvocationPurpose.IMPLEMENTATION,
+            "forge.draft.v9": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
+            "forge.tests.v2": InvocationPurpose.IMPLEMENTATION,
+            "forge.measurers.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.chat.v2": InvocationPurpose.CHAT,
             "forge.chat.v3": InvocationPurpose.CHAT,
             "forge.review.v1": InvocationPurpose.REVIEW,
             "forge.review.v2": InvocationPurpose.REVIEW}
 
 
-_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v7", Piece.TESTS: "forge.tests.v1"}
+_DRAFTED_WITH = {Piece.QUESTIONS: "forge.questions.v7", Piece.TESTS: "forge.tests.v2",
+                 Piece.MEASURERS: "forge.measurers.v1"}
 
 _SETTLED = frozenset({Status.APPROVED, Status.REMOVED})
 
@@ -129,7 +135,7 @@ def compose(adaptation: ForgeAdaptation, state: Adaptation, piece: Piece, prompt
                        pending=sorted(seen.pending), families=sorted(seen.families),
                        pending_families=sorted(seen.pending_families),
                        described=[KnownType(id=t, name=vocabulary.names.get(t, ""),
-                                            scope=TypeScope(vocabulary.scopes.get(t, "sample")),
+                                            grain=TypeGrain(vocabulary.grains.get(t, "sample")),
                                             explain=vocabulary.explains.get(t, ""))
                                   for t in sorted(vocabulary.types)]),
         items=[ForgeItemText(key=key, value=json.dumps(item.value, sort_keys=True),
@@ -192,7 +198,7 @@ def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
         and isinstance(json.loads(i.value), dict) and "choice" in json.loads(i.value)) or "(none)"
     turns_text = "\n".join(f"{t.role.value}: {t.content}" for t in request.turns) or "(none)"
     described_text = "\n".join(
-        f"- {t.id} — {t.name or '(no name)'} — one per {t.scope.value}"
+        f"- {t.id} — {t.name or '(no name)'} — one per {t.grain.value}"
         + (f" — {_short(t.explain)}" if t.explain else "")
         for t in request.known.described) or "(none)"
     inputs_text = _arrivals(request.module.main_nf)
@@ -205,6 +211,7 @@ def _values(request: ForgeRequest, problems: list[str]) -> dict[str, str]:
         "piece": request.piece.value, "turns": turns_text,
         "types_described": described_text, "findings": findings_text, "inputs": inputs_text,
         "item_shapes": ITEM_SHAPES.read_text().rstrip("\n"),
+        "allowed_imports": ", ".join(sorted(ALLOWED)),
         "problems": ("\nYour previous reply was refused:\n- " + "\n- ".join(problems)
                      if problems else ""),
     }
@@ -299,7 +306,7 @@ def draft_piece(adaptation_id: str, piece: Piece,
                 client: Client | None = None, *, finish: bool = True) -> dict[str, int] | None:
     """Draft the next piece: one call, retried once with its problems, then proposals."""
     adaptation = forging.row(adaptation_id)
-    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v7")
+    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v9")
     client = client or _client(_PURPOSE[prompt_id])
     if client is None:
         _engine_says(adaptation_id, NO_MODEL, [NO_MODEL_DETAIL])

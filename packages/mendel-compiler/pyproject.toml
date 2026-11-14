@@ -23,6 +23,7 @@ dependencies = [
   "dag-core>=0.1.0",
   "comeni-core>=0.1.0",
   "mendel-resolver>=0.1.0",
+  "comeni-inspect>=0.1.0",
   "pydantic>=2.9",
   "jinja2>=3.1",
   "pyyaml>=6.0",
@@ -49,3 +50,4 @@ packages = ["src/mendel_compiler"]
 dag-core = { workspace = true }
 comeni-core = { workspace = true }
 mendel-resolver = { workspace = true }
+comeni-inspect = { workspace = true }

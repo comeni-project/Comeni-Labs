@@ -29,3 +29,8 @@ class TestRunner(Protocol):
     def results(self, run_id: str) -> list[str]:
         """Every published file, as `<process>/<path>`."""
         ...
+
+    def measured(self, run_id: str) -> list[dict]:
+        """Each fact the run's measuring steps reported, as `{measurement, value,
+        undetermined}`: how a drafted parser is proven on the tool's real output (#487)."""
+        ...

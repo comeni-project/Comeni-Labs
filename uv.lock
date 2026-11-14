@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -577,7 +577,6 @@ requires-dist = [
 name = "comeni-labs"
 version = "0.1.0"
 source = { virtual = "." }
-default-groups = ["dev", "docs"]
 dependencies = [
     { name = "comeni-ai" },
     { name = "comeni-core" },
@@ -1612,6 +1611,7 @@ version = "0.1.0"
 source = { editable = "packages/mendel-compiler" }
 dependencies = [
     { name = "comeni-core" },
+    { name = "comeni-inspect" },
     { name = "dag-core" },
     { name = "jinja2" },
     { name = "mendel-resolver" },
@@ -1622,6 +1622,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
+    { name = "comeni-inspect", editable = "packages/comeni-inspect" },
     { name = "dag-core", editable = "packages/dag-core" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "mendel-resolver", editable = "packages/mendel-resolver" },
@@ -1667,7 +1668,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
-    { name = "pydantic", specifier = ">=2.9" },
+    { name = "pydantic", specifier = ">=2.12" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
 
@@ -3289,7 +3290,7 @@ dependencies = [
 requires-dist = [
     { name = "comeni-core", editable = "packages/comeni-core" },
     { name = "dag-core", editable = "packages/dag-core" },
-    { name = "pydantic", specifier = ">=2.7" },
+    { name = "pydantic", specifier = ">=2.12" },
 ]
 
 [[package]]

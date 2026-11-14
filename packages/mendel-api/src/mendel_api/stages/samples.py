@@ -97,6 +97,7 @@ class _Found(NamedTuple):
     value: object
     pieces: list[str] = []
     evidence: dict | None = None
+    coverage: str | None = None
 
 
 def _record_found(
@@ -155,10 +156,18 @@ def _record_found(
             item.value,
             origin=source,
             pieces=item.pieces,
-            evidence=gathering._goal_evidence(item.evidence),
+            evidence=gathering._goal_evidence(item.evidence, item.coverage),
             ingestion_key=ingestion_key,
             invocation_id=invocation_id,
         )
+        if item.measurement in known and known[item.measurement]["source"] == "varies":
+            # One sample's value neither confirms nor contradicts *it differs between samples*
+            # (#466): the person's answer stands, and the sample's is kept, not reported against
+            # it.
+            kept.append(item.measurement)
+            decisions.acknowledge_observation(row.draft_id, observation, "retained",
+                                              who="resolver", actor_kind=ActorKind.RESOLVER)
+            continue
         if item.measurement in known:
             kept.append(item.measurement)
             if known[item.measurement].get("value") != item.value:
@@ -425,7 +434,7 @@ def record_inspection(
         )
         measured = inspection.outcome == "measured"
         found = [
-            _Found(f.measurement, f.value, f.pieces, f.evidence)
+            _Found(f.measurement, f.value, f.pieces, f.evidence, f.coverage)
             for f in (inspection.facts if measured else [])
             if f.undetermined is None
         ]
@@ -584,7 +593,15 @@ def _upload(ctx: Ctx, cmd: c.UploadSample) -> Uploaded:
         owner = db.get(PipelineAuthoringSession, cmd.session_id)
         version = db.get(PipelineDraft, owner.draft_id).decision_revision
         workflow = owner.row_version
-    inspection = inspect.inspect_sample(list(cmd.files), registry.stack(), claimed)
+    from mendel_api.services.sample_upload import samples_of
+
+    # Every sample of the upload, each measured on its own and kept with the session (#466).
+    grouped = samples_of(list(cmd.files), tuple(cmd.sizes))
+    inspections = [inspect.inspect_sample(list(sample.files), registry.stack(), claimed,
+                                          sizes=sample.sizes) for sample in grouped]
+    _keep_samples(cmd.session_id, grouped, inspections)
+    inspection = (inspections[0] if len(inspections) == 1
+                  else _agreed(inspections))
     if claimed is not None:
         end_hand_back(cmd.proposal_id, confirmed=inspection.outcome == "measured")
     # **A hand-back never starts another reading** (issue 246): a re-sent file nothing claims,
@@ -619,6 +636,82 @@ def _upload(ctx: Ctx, cmd: c.UploadSample) -> Uploaded:
         expected_session_version=workflow,
     )
     return Uploaded(inspection, answer, False)
+
+
+def _sample_name(name: str) -> str:
+    """A sample's name as the session keeps it: at most 256 characters, cut rather than refused,
+    so a long file name never fails the upload or reaches a validation message (review)."""
+    return name if len(name) <= 256 else name[:255] + "…"
+
+
+def _keep_samples(session_id: str, grouped, inspections) -> None:
+    """Every sample, with its name, its files and what was measured on it, on the session."""
+    from mendel_api.authoring.types import SampleFact, UploadedSample
+
+    kept = [
+        UploadedSample(
+            name=_sample_name(sample.name),
+            files=[_sample_name(name) for name, _ in sample.files], outcome=found.outcome,
+            facts=[SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage)
+                   for f in found.facts if f.undetermined is None],
+        ).model_dump(mode="json")
+        for sample, found in zip(grouped, inspections, strict=True)
+    ]
+    with session_scope() as db:
+        db.get(PipelineAuthoringSession, session_id).samples = kept
+
+
+def spread(kept: list[dict], measurement: str) -> list[tuple]:
+    """How the uploaded samples spread over one fact's values: `(value, count)`, most common
+    first, then in the order the values were first seen (#466)."""
+    counts: dict = {}
+    for sample in kept:
+        for fact in sample.get("facts", []):
+            if fact["measurement"] == measurement and fact.get("value") is not None:
+                key = repr(fact["value"])
+                value, count = counts.get(key, (fact["value"], 0))
+                counts[key] = (value, count + 1)
+    return sorted(counts.values(), key=lambda pair: -pair[1])
+
+
+def spread_words(found: list[tuple]) -> str:
+    """`150 in 480 samples, 75 in 20`: a spread as the card and the model say it."""
+    def shown(value) -> str:
+        return {True: "yes", False: "no"}.get(value, str(value)) if isinstance(value, bool) \
+            else str(value)
+    head, *rest = found
+    return ", ".join([f"{shown(head[0])} in {head[1]} samples",
+                      *(f"{shown(v)} in {n}" for v, n in rest)])
+
+
+def uploaded(session_id: str) -> list[dict]:
+    """The session's samples, as the last upload kept them; empty when there are none."""
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        return list(row.samples or []) if row is not None else []
+
+
+def _agreed(inspections):
+    """What several samples settle together: each fact every sample decided the same way. A fact
+    they disagree on, or one a sample did not decide (or was not read), is left out, to be asked
+    (#466)."""
+    measured = [i for i in inspections if i.outcome == "measured"]
+    if not measured:
+        return inspections[0]
+    first = measured[0]
+    values: dict[str, set] = {}
+    for found in measured:
+        for f in found.facts:
+            if f.undetermined is None:
+                values.setdefault(f.measurement, set()).add(repr(f.value))
+    # Every sample, not only those read: a sample nothing measured has not agreed (review).
+    decided = {m for m, v in values.items() if len(v) == 1 and len(measured) == len(inspections)
+               and all(any(f.measurement == m and f.undetermined is None for f in i.facts)
+                       for i in measured)}
+    return first.model_copy(update={
+        "facts": [f for f in first.facts if f.measurement in decided],
+        "steps": [*first.steps, f"measured {len(measured)} of {len(inspections)} samples"],
+    })
 
 
 @records(c.SampleInspected)

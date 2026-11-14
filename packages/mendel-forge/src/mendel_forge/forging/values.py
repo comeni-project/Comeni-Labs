@@ -6,7 +6,9 @@ Item keys: `contract:process`, `contract:input:<port>`, `contract:output:<port>`
 `contract:nf_inputs`, `contract:constraint:row<n>`, `contract:group:group<n>`,
 `parameters:param:<name>`, `parameters:ext_args`,
 `vocabulary:type:<id>`, `vocabulary:measurement:<id>`, `vocabulary:role:<name>`,
-`vocabulary:family:<id>`, `rules:rule:<role>`, `tests:test:<name>`, `<piece>:none`,
+`vocabulary:family:<id>`, `rules:rule:<role>`, `rules:derive:<fact>`, `tests:test:<name>`,
+`measurers:measurer:<id>`, `measurers:measurement:<id>`,
+`<piece>:none`,
 `questions:<subject>`.
 """
 
@@ -28,7 +30,7 @@ from comeni_core.declared.measurement import Measurement
 from comeni_core.declared.tooltest import TestDraft
 from comeni_core.declared.vocabulary import TypeDeclaration, TypeExtension
 from comeni_core.spell.marks import TypeId
-from mendel_resolver.rules.format import Decision
+from mendel_resolver.rules.format import Decision, Derivation
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -85,6 +87,25 @@ class FamilyDraft(Family):
         return value
 
 
+class MeasurerDraft(_Frozen):
+    """A `by: tool` measurer of the tool being forged (#487). Only what a model or person drafts:
+    the engine fixes `by: tool`, `uses:` (this contract), `runs: [pipeline]`, `version`, and the
+    piece's files, `piece/<id>.py` and `piece/test_<id>.py`."""
+
+    measures: str = Field(min_length=1, max_length=64)
+    """The measurement it produces: in the registry, or drafted beside it."""
+    output: str = Field(min_length=1, max_length=64)
+    """The output port of this contract its parser reads."""
+    explain: str = Field(min_length=1, max_length=300)
+    """One line: what it parses, and how the fact comes out of it."""
+    decided: dict[str, JsonValue] = {}
+    """Thresholds below which it says *undetermined*."""
+    code: str = Field(min_length=1, max_length=20000)
+    """The parser: `parse(stream, decided)` returning `Value` or `Undetermined`."""
+    tests: str = Field(min_length=1, max_length=20000)
+    """Its tests, importing the parser by the measurer's id."""
+
+
 class NoneNeeded(_Frozen):
     """A piece that needs nothing, said explicitly: an empty piece is an unfinished one."""
 
@@ -126,7 +147,10 @@ _FAMILIES: dict[str, type] = {
     "vocabulary:role": RoleDraft,
     "vocabulary:family": FamilyDraft,
     "rules:rule": Decision,
+    "rules:derive": Derivation,
     "tests:test": TestDraft,
+    "measurers:measurer": MeasurerDraft,
+    "measurers:measurement": Measurement,
 }
 
 
@@ -166,7 +190,9 @@ def items_of(contract: ModuleContract) -> dict[str, JsonValue]:
         ).model_dump(mode="json"),
     }
     for n, port in enumerate(contract.consumes):
-        items[f"contract:input:{port.name}"] = {"position": n, **port.model_dump(mode="json")}
+        # A port with `accepts` has no type of its own; an empty `type_id` would be refused.
+        dumped = port.model_dump(mode="json", exclude={"type_id"} if port.accepts else None)
+        items[f"contract:input:{port.name}"] = {"position": n, **dumped}
     for n, port in enumerate(contract.produces):
         items[f"contract:output:{port.name}"] = {"position": n, **port.model_dump(mode="json")}
     if contract.nf_inputs:
@@ -229,4 +255,5 @@ def _numbered(values: dict[str, JsonValue], prefix: str) -> list:
 
 
 def _strip(item: BaseModel, model: type[BaseModel]) -> BaseModel:
-    return model(**item.model_dump(exclude={"position"}))
+    # Only what was set: a default re-sent as a value can be refused (an empty `type_id`).
+    return model(**item.model_dump(exclude={"position"}, exclude_unset=True))

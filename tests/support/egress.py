@@ -28,9 +28,10 @@ PIPELINE_DOORS = {
 this set rather than against the whole list."""
 
 
-FORGE_DOORS: set[str] = {"forge_drafting"}
+FORGE_DOORS: set[str] = {"forge_drafting", "rule_proposal"}
 """Registry authoring: public tool documentation in, reviewed registry data out, and no `Goal`
-anywhere in it. Forge MVP 3 (#364) declares the one door."""
+anywhere in it. Forge MVP 3 (#364) declares the first door; #462 the second, people's past
+answers and their study facts in, a rule row out."""
 
 
 DOORS = PIPELINE_DOORS | FORGE_DOORS
@@ -68,6 +69,11 @@ FREE_TEXT_FIELDS = {
     ("ForgeItemText", "value"),
     ("ForgeTurn", "content"),
     ("ForgeRequest", "prompt"),
+    # #462, door `rule_proposal`: the prompt, the existing rule rows as JSON (registry data),
+    # and the reason a person typed with an answer.
+    ("RuleProposalRequest", "prompt"),
+    ("RuleProposalRequest", "existing"),
+    ("CaseText", "reason"),
     # #453: each registry type's declared name and explanation (registry data), and
     # #452: the engine's own findings on the adaptation's questions. No lab data in either.
     ("KnownType", "name"),
@@ -86,6 +92,11 @@ FREE_TEXT_FIELDS = {
     ("InputRecord", "reason"),
     # The sentence of a constraint only a run can settle, shown by the run sheet (#460).
     ("RunRule", "says"),
+    # A tool's rule each sample's facts settle (#466), as a person reads it.
+    ("SampleRule", "says"),
+    # Why a step runs on parts of each sample (#466): the engine's sentence naming the tool,
+    # the type, the splitter and the mergers, all declared ids. No lab data.
+    ("Parts", "because"),
     # One per decision kind since A16 split `DecisionRecord` into three. Four entries
     # became six by a refactor rather than by a new field crossing the boundary — which is
     # exactly the sort of change this literal list exists to make someone notice.
@@ -141,6 +152,14 @@ FREE_TEXT_FIELDS = {
     # `reason` does. Nothing newly crosses; one thing that already crossed is now legible.
     ("ResolvedValue", "axis_reason"),
     ("Why", "axis_reason"),
+    # A setting decided at run time (#217): the decision it compiles, named by its key, and
+    # why its fallback is the value it is. Both are written by the resolver from a rule and a
+    # contract, the same authors as `reason`; nothing about a sample crosses with them.
+    ("AtRun", "rule"),
+    ("AtRun", "fallback_reason"),
+    # The decisions an estimate was used for, by key (`selection:<step>`), written by the
+    # resolver; read back when the run measures the fact in full (#465).
+    ("Confirm", "used_by"),
     # Tenth, Plan 1.14 Task 8, and the **first one that is genuinely new** rather than a
     # split of something already crossing. The nine above are written by a contract author, a
     # rule author, or the resolver. This one is written by *the person answering a tier-4

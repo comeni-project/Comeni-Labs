@@ -104,10 +104,10 @@ function Row({
           <span
             data-testid="setting-value"
             className={`font-data text-secondary ${
-              setting.value === null ? "text-ink-3" : "text-ink"
+              setting.value === null && !setting.at_run ? "text-ink-3" : "text-ink"
             }`}
           >
-            {setting.value ?? "—"}
+            {setting.at_run ? "at run time" : (setting.value ?? "—")}
           </span>
         )}
       </div>
@@ -178,6 +178,7 @@ function Row({
         </div>
       )}
       <div className="text-secondary text-ink-3 pt-[7px] leading-[1.45]">{setting.reason}</div>
+      {setting.at_run && <AtRun lookup={setting.at_run} />}
       {/* **The convention you departed from, kept visible.** `reason` becomes *your* reason the
           moment you answer; `because` is the contract author's note on the default and survives
           the override, so the thing you overrode is still readable. */}
@@ -187,6 +188,42 @@ function Row({
         </div>
       )}
       <div className="text-label text-ink-3 pt-[5px] font-data">via {setting.via}</div>
+    </div>
+  );
+}
+
+/** **Decided at run time** (issues 217, 466): each sample's facts come from its samplesheet row or a
+ * measurement in the run, and the value is looked up from them. Every value it can take is listed
+ * here before the run, beside what it is when no row applies. */
+function AtRun({ lookup }: { lookup: NonNullable<Setting["at_run"]> }) {
+  return (
+    <div data-testid="setting-at-run" className="pt-[7px]">
+      <div className="text-label font-data text-ink-2">decided at run time, for each sample, from</div>
+      <ul>
+        {lookup.facts.map((f) => (
+          <li key={f.fact} data-testid="at-run-fact" className="font-data text-secondary text-ink-2">
+            {f.fact}, {f.said}{f.measured_by && f.source === "measured" ? ` by ${f.measured_by}` : ""}
+          </li>
+        ))}
+      </ul>
+      <ul className="pt-[4px]">
+        {lookup.rows.map((row) => (
+          <li key={row} data-testid="at-run-row" className="font-data text-secondary text-ink-2">
+            {row}
+          </li>
+        ))}
+      </ul>
+      <div data-testid="at-run-fallback" className="text-secondary text-ink-3 pt-[4px]">
+        if no row applies:{" "}
+        {lookup.fallback_is === "tool"
+          ? "the tool's own value"
+          : lookup.fallback_is === "question"
+            ? "an open question"
+            : lookup.fallback_is === "stop"
+              ? "the run stops and names the sample"
+              : lookup.fallback}
+        {lookup.fallback_is !== "tool" && ` (${lookup.fallback_reason})`}
+      </div>
     </div>
   );
 }
@@ -249,6 +286,34 @@ export function Settings({
           </button>
         </div>
       </div>
+
+      {(step.checked_per_sample ?? []).length > 0 && (
+        <div data-testid="checked-per-sample" className="px-[15px] py-3 border-b border-line">
+          <div className="text-label text-ink-3">checked for each sample before this step runs</div>
+          <ul className="pt-[4px]">
+            {(step.checked_per_sample ?? []).map((says) => (
+              <li key={says} className="text-secondary text-ink-2">{says}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {step.takes_samples && (
+        <div data-testid="takes-samples" className="px-[15px] py-3 border-b border-line">
+          <div className="text-secondary text-ink">
+            takes only {step.takes_samples.samples}
+          </div>
+          <div className="pt-[4px] text-label text-ink-3">
+            each sample's tool is chosen by {step.takes_samples.lookup.rule}, from{" "}
+            {step.takes_samples.lookup.facts.map((f) => `${f.fact} ${f.said}`).join("; ")}
+          </div>
+          <ul className="pt-[4px]">
+            {step.takes_samples.lookup.rows.map((row) => (
+              <li key={row} className="font-data text-label text-ink-2">{row}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {step.settings.length === 0 && (
         <p className="px-[15px] py-4 text-body text-ink-2 m-0">

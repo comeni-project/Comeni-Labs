@@ -49,6 +49,9 @@ class FactOrigin(StrEnum):
     MEASURED = "measured"
     MODEL_READ = "model_read"
     OPEN = "open"
+    VARIES = "varies"
+    """A person said it differs between samples (#466): no value, and each sample's comes from
+    its samplesheet cell or a measurement in the run. A fact's origin only."""
 
 
 class _Value(BaseModel):
@@ -74,6 +77,10 @@ class InputDecision(_Value):
     states: list[str] = Field(default_factory=list)
     present: bool = True
     origin: FactOrigin = FactOrigin.PERSON_SAID
+    units: bool = False
+    """A sample may span several rows of this input, such as its lanes (#466)."""
+    table: bool = False
+    """This study input is a table of several items, such as several databases (#466)."""
 
 
 class WantDecision(_Value):
@@ -93,9 +100,9 @@ class FactDecision(_Value):
 
     @model_validator(mode="after")
     def _unknown_has_no_value(self) -> Self:
-        if self.origin is FactOrigin.OPEN and self.value is not None:
-            raise ValueError("an unknown fact cannot carry a value")
-        if self.origin is not FactOrigin.OPEN and self.value is None:
+        if self.origin in (FactOrigin.OPEN, FactOrigin.VARIES) and self.value is not None:
+            raise ValueError("an unknown fact, or one that varies, cannot carry a value")
+        if self.origin not in (FactOrigin.OPEN, FactOrigin.VARIES) and self.value is None:
             raise ValueError("a known fact needs a value; select unknown to retract it")
         return self
 
@@ -142,6 +149,14 @@ class OptionalInputChoice(_Value):
     state: InputState | None = None
 
 
+class WholeChoice(_Value):
+    """A tool a person keeps whole (#466): a step that could run on parts of a sample is not
+    split. `whole=False` is the choice withdrawn."""
+
+    contract: ContractId
+    whole: bool = True
+
+
 class Profiles(Protocol):
     def profile_of(self, entries: Sequence[MeasuredEntry]) -> DataProfile: ...
 
@@ -164,6 +179,7 @@ class Decisions(_Value):
     exclusions: list[ExclusionChoice] = Field(default_factory=list)
     sources: list[SourceChoice] = Field(default_factory=list)
     optional_inputs: list[OptionalInputChoice] = Field(default_factory=list)
+    wholes: list[WholeChoice] = Field(default_factory=list)
 
     def goal(self, measurements: Profiles) -> Goal:
         """The active goal. Only a declaration-validating registry constructs its profile."""
@@ -211,6 +227,10 @@ class Decisions(_Value):
                     for c in self.optional_inputs
                     if c.state is not None
                 ],
+                varies=[f.subject for f in self.facts if f.origin is FactOrigin.VARIES],
+                units=sorted({i.type_id for i in self.inputs if i.present and i.units}),
+                whole=sorted({w.contract for w in self.wholes if w.whole}),
+                tables=sorted({i.type_id for i in self.inputs if i.present and i.table}),
             ),
             profile=measurements.profile_of(
                 [
@@ -218,7 +238,7 @@ class Decisions(_Value):
                         f.subject, f.value, _SOURCE[f.origin], f.by, tuple(f.pieces), f.evidence
                     )
                     for f in self.facts
-                    if f.origin is not FactOrigin.OPEN
+                    if f.origin not in (FactOrigin.OPEN, FactOrigin.VARIES)
                 ]
             ),
         )
@@ -249,7 +269,9 @@ class Decisions(_Value):
         return cls(
             inputs=[
                 InputDecision(
-                    key=input_key(i), type_id=i.type_id, name=i.name, states=sorted(i.states)
+                    key=input_key(i), type_id=i.type_id, name=i.name, states=sorted(i.states),
+                    units=i.type_id in goal.constraints.units,
+                    table=i.type_id in goal.constraints.tables,
                 )
                 for i in goal.have
             ],
@@ -271,7 +293,8 @@ class Decisions(_Value):
                     evidence=f.evidence,
                 )
                 for f in goal.profile.measurements
-            ],
+            ] + [FactDecision(subject=m, origin=FactOrigin.VARIES)
+                 for m in goal.constraints.varies],
             producers=[
                 ProducerChoice(site=p.site, contract=p.contract) for p in goal.constraints.producers
             ],
@@ -291,4 +314,5 @@ class Decisions(_Value):
                 OptionalInputChoice(contract=c.contract, port=c.port, state=c.state)
                 for c in goal.constraints.inputs
             ],
+            wholes=[WholeChoice(contract=c) for c in goal.constraints.whole],
         )

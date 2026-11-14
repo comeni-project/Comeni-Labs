@@ -7,7 +7,7 @@
 # Check changes: make test-db, then make check. Use make verify for pipeline execution checks.
 # Each target below describes a command you can run as `make <name>`.
 
-.PHONY: help registry-present buildx-present names-free prepare database-ready check verify slow guards residue links doc-paths doc-sizes test test-db lint fmt types docs docs-status static stub profile clean demo-seed demo-fake-run \
+.PHONY: help registry-present buildx-present names-free prepare database-ready check verify slow guards residue links doc-paths doc-sizes test test-db lint fmt types docs docs-status static stub clean demo-seed demo-fake-run \
 	dev dev-down dev-logs dev-refresh prod prod-down client migrate wiki wiki-tools wiki-serve \
 	ai-up ai-down ai-pull ai-logs
 
@@ -166,11 +166,9 @@ stub:  ## build the RNA-seq example and run its stub gate (Docker and Nextflow)
 	uv run mendel build examples/rnaseq.yml --out build/ --gate stub
 
 # Generate the workflow for measuring input properties; this command does not execute it.
-profile:  ## emit an input-profiling pipeline into profile-build/
-	uv run mendel profile --have fastq.reads --out profile-build/
 
 clean:  ## remove build outputs and Python test/lint caches
-	rm -rf build/ profile-build/ dist/ .pytest_cache/ .ruff_cache/
+	rm -rf build/ dist/ .pytest_cache/ .ruff_cache/
 
 # -----------------------------------------------------------------------------
 # 5. API clients, migrations, and telemetry

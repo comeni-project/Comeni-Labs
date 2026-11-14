@@ -12,7 +12,8 @@ from typing import Annotated, Literal
 from comeni_core.diagnostics import coded
 from fastapi import APIRouter, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ConfigDict
-from wiener_core.events import TaskStatus
+from wiener_core.events import EventKind, RunEvent, TaskStatus
+from wiener_core.measured import DecidedValue, MeasuredView
 from wiener_core.series import Series, series
 from wiener_core.signals import signal_of
 from wiener_core.state import Attempt, RunPhase
@@ -23,7 +24,10 @@ from wiener_api.models import Run, RunArtifact
 from wiener_api.services import deletion, launcher, stream, verbs
 from wiener_api.services.artifacts import (
     declared_holes,
+    input_facts,
     input_shape,
+    input_tables,
+    optional_columns,
     optional_holes,
     pipeline_digest,
     run_rules,
@@ -104,12 +108,48 @@ class ArtifactStored(BaseModel):
     kind of thing, and the run fails inside Nextflow minutes later.
     """
 
+    input_optional_columns: list[str] = []
+    """The file columns a row may leave blank: a single-end sample's second reads (#466)."""
+    input_facts: list["FactColumnView"] = []
+    """The samplesheet's fact columns (#466), each checked when the run starts as here."""
+
+    input_tables: list["TableInputView"] = []
+    """Study inputs supplied as tables of several items, such as databases (#466): each asked
+    for as a table of its own, under its param."""
+
     input_columns: list[str] = []
     """The samplesheet's columns, when `input_form` is `samplesheet`. Empty otherwise.
 
     `sample` is not among them and never will be: it is the identifier column every row
     carries, and it is the browser's to render. These are the *file* columns each sample
     supplies — `reads_1`, `reads_2`, `gtf`."""
+
+
+class TableInputView(BaseModel):
+    """A study input supplied as a table of several items (#466)."""
+
+    param: str
+    name: str
+    """What its rows are called on each sample, such as `database`."""
+    columns: list[str]
+    """The file columns, after `name`, which every row carries."""
+    facts: list[str] = []
+    """The item facts a step selects on, after the files; a row may leave one blank."""
+
+
+class FactColumnView(BaseModel):
+    """A samplesheet column each row states a fact in (#466)."""
+
+    column: str
+    kind: Literal["boolean", "enum", "integer", "number", "key", "sample_ref"]
+    values: list[str] = []
+    minimum: float | None = None
+    maximum: float | None = None
+    required: bool
+    """A blank cell stops the run."""
+    auto: bool = False
+    """A blank cell, or `auto`, is measured in the run."""
+    why: str
 
 
 class RunAccepted(BaseModel):
@@ -227,12 +267,16 @@ async def upload_artifact(bundle: UploadFile,
             pipeline_digest=pipeline_digest(artifact_id),
         ))
     form, columns = input_shape(artifact_id)
+    facts = [FactColumnView(**f) for f in input_facts(artifact_id)]
+    blank = optional_columns(artifact_id)
     holes = declared_holes(artifact_id)
     return ArtifactStored(artifact_id=artifact_id, digest=digest, size_bytes=size,
                           declared=sorted(holes),
                           optional=sorted(optional_holes(artifact_id) & holes),
                           rules=[RunRuleView(**r) for r in run_rules(artifact_id)],
-                          input_form=form, input_columns=columns)
+                          input_form=form, input_columns=columns, input_facts=facts,
+                          input_optional_columns=blank,
+                          input_tables=[TableInputView(**t) for t in input_tables(artifact_id)])
 
 
 @router.post("/runs", status_code=202, operation_id="submitRun", summary="Run a pipeline")
@@ -355,6 +399,35 @@ def read(run_id: str) -> dict:
         # Part H: retention deleted its working files; results and record stay.
         state["work_cleared"] = row.work_cleared_at is not None
     return state
+
+
+class MeasuredOut(BaseModel):
+    """What the run measured, beside what the pipeline was built on (#465, #217)."""
+
+    facts: list[MeasuredView]
+    decided: list[DecidedValue]
+
+
+@router.get("/runs/{run_id}/measured", operation_id="readRunMeasured",
+            summary="What the run measured, confirmed or disagreeing")
+def run_measured(run_id: str) -> MeasuredOut:
+    """Each fact a measuring step reported, compared with the estimate the build used, and
+    each value a run-time setting took. Empty for a run that measured nothing or has not
+    finished: facts are read when it completes."""
+    from wiener_core.measured import Estimate, collect, compare
+
+    from wiener_api.services.projection import _artifact_pipeline
+
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+        found = collect(RunEvent.model_validate(row.payload) for row in
+                        repository.events(session, settings.lab_id, run_id)
+                        if row.kind == EventKind.MEASURED)
+        pipeline = _artifact_pipeline(session, settings.lab_id, run_id)
+    estimates = [Estimate(measurement=c.measurement, estimate=c.estimate, used_by=c.used_by)
+                 for c in (pipeline.confirms if pipeline is not None else [])]
+    return MeasuredOut(facts=compare(found, estimates), decided=found.decided)
 
 
 @router.get("/runs/{run_id}/events", operation_id="readRunEvents",

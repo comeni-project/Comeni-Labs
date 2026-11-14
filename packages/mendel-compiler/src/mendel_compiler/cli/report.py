@@ -129,7 +129,10 @@ def _verdict(previous, fresh, changes: list) -> list[str]:
         "nextflow.config": digest_of_bytes(emit_config(fresh).encode()),
     }
     recorded = {file.name: file.digest for file in previous.emitted.files}
-    moved = sorted(name for name, digest in recorded.items() if would_be.get(name) != digest)
+    # Only what is regenerated here: a staged measuring step's files are pinned by their
+    # contract's digest and checked by `hand_edited`, not re-rendered by this report (#465).
+    moved = sorted(name for name, digest in recorded.items()
+                   if name in would_be and would_be[name] != digest)
     if not moved:
         return ["the generated pipeline is byte-identical to the one recorded"]
 

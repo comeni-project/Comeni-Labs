@@ -186,6 +186,18 @@ describe("the goal card", () => {
     expect(within(open).getByTestId("source")).toHaveTextContent("needs you");
   });
 
+  it("says a fact differs between samples, as the person said (issue 466)", () => {
+    const facts: AuthoringSession["facts"] = [
+      { kind: "measurement", subject: "paired", source: "varies", states: [], pieces: [] },
+    ];
+    mount(<GoalCard proposal={goal} vocabulary={vocabulary} busy={false} onConfirm={vi.fn()}
+                    onReject={vi.fn()} facts={facts} />);
+    const said = screen.getByRole("list", { name: "what the engine knows" });
+    const line = within(said).getByText("Paired").closest("li")!;
+    expect(line).toHaveTextContent("Differs between samples");
+    expect(within(line).getByTestId("source")).toHaveTextContent("you said");
+  });
+
   it("shows the words a fact was heard in, so a misreading is caught (issue 307)", () => {
     // Review Focus 1 of Part I.0 A: *"not paired-end"* holds *"paired-end"*; the quote is how
     // the person sees what the model took it from.

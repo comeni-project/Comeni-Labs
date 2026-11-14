@@ -26,6 +26,7 @@ from mendel_authoring.decisions import (
     RoleChoice,
     SourceChoice,
     WantDecision,
+    WholeChoice,
 )
 from mendel_authoring.payloads import source_subject
 from sqlalchemy import select
@@ -57,6 +58,8 @@ from mendel_api.models import (
     PipelineSourceRevision,
     PipelineWant,
     PipelineWantRevision,
+    PipelineWhole,
+    PipelineWholeRevision,
 )
 from mendel_api.services import registry
 
@@ -73,6 +76,7 @@ _FAMILIES = {
     "exclusion": (PipelineExclusion, PipelineExclusionRevision),
     "source": (PipelineSource, PipelineSourceRevision),
     "optional_input": (PipelineOptionalInput, PipelineOptionalInputRevision),
+    "whole": (PipelineWhole, PipelineWholeRevision),
 }
 
 
@@ -201,7 +205,8 @@ def _fact(observation, subject):
 
 def _observe(db, draft, fact, *, invocation_id=None, ingestion_key=None, heard=None,
              heard_seq=None):
-    registry.stack().measurements.check(fact.subject, fact.value)
+    if fact.origin is not FactOrigin.VARIES:
+        registry.stack().measurements.check(fact.subject, fact.value)
     if ingestion_key is not None:
         previous = db.scalar(
             select(PipelineObservation).where(
@@ -271,11 +276,15 @@ def set_fact(
     proposal_id=None,
     heard=None,
     heard_seq=None,
+    varies=False,
 ):
+    """`varies`: the person said it differs between samples (#466), which is recorded like a
+    value, with none."""
     fact = FactDecision(
         subject=subject,
         value=value,
-        origin=FactOrigin.OPEN if value is None else FactOrigin.PERSON_SAID,
+        origin=(FactOrigin.VARIES if varies
+                else FactOrigin.OPEN if value is None else FactOrigin.PERSON_SAID),
     )
     registry.stack().measurements.get(subject)
     with session_scope() as db:
@@ -298,7 +307,7 @@ def set_fact(
                     ).id
         observation = (
             _observe(db, draft, fact, heard=heard, heard_seq=heard_seq)
-            if value is not None else None
+            if value is not None or varies else None
         )
         return _write(
             db,
@@ -364,6 +373,8 @@ def read(draft_id):
                     states=r.states,
                     present=r.present,
                     origin=r.origin,
+                    units=r.units,
+                    table=r.table,
                 )
                 for s, r in _current(db, draft_id, "input")
             ],
@@ -402,6 +413,8 @@ def read(draft_id):
                                     state=InputState(r.state) if r.state else None)
                 for s, r in _current(db, draft_id, "optional_input")
             ],
+            wholes=[WholeChoice(contract=r.contract, whole=r.whole)
+                    for s, r in _current(db, draft_id, "whole")],
         )
 
 
@@ -454,6 +467,8 @@ def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):
                   "state": c.state.value if c.state else None})
                 for c in decisions.optional_inputs
             ],
+            "whole": [(w.contract, {"contract": w.contract, "whole": True})
+                      for w in decisions.wholes if w.whole],
         }
         for family, values in families.items():
             included = {key for key, _ in values}
@@ -626,7 +641,7 @@ def assess_observation(draft_id, observation_id):
 
 
 _FIELDS = {
-    "input": ("type_id", "name", "states", "present", "origin"),
+    "input": ("type_id", "name", "states", "present", "origin", "units", "table"),
     "want": ("type_id", "states", "present"),
     "producer": ("type_id", "states", "contract"),
     "parameter": ("name", "value"),
@@ -634,6 +649,7 @@ _FIELDS = {
     "exclusion": ("type_id", "states", "contract", "excluded"),
     "source": ("consumer", "port", "producer"),
     "optional_input": ("contract", "port", "state"),
+    "whole": ("contract", "whole"),
 }
 
 _WITHDRAWN = {
@@ -645,6 +661,7 @@ _WITHDRAWN = {
     "exclusion": ("excluded", False),
     "source": ("producer", None),
     "optional_input": ("state", None),
+    "whole": ("whole", False),
 }
 """The field a retraction sets, and to what, per family."""
 
@@ -837,7 +854,16 @@ def set_optional_input(draft_id, contract, port, state, *, who, actor_kind=Actor
                       actor_kind=actor_kind, proposal_id=proposal_id).id
 
 
-_INTENTS = ("role", "exclusion", "source", "optional_input")
+def keep_whole(draft_id, contract, *, who, actor_kind=ActorKind.PERSON, proposal_id=None,
+               expected_revision=None):
+    """A tool a person keeps whole rather than running on parts of each sample (#466)."""
+    with session_scope() as db:
+        draft = _draft(db, draft_id, expected_revision)
+        return _write(db, draft, "whole", contract, {"contract": contract, "whole": True},
+                      who=who, actor_kind=actor_kind, proposal_id=proposal_id).id
+
+
+_INTENTS = ("role", "exclusion", "source", "optional_input", "whole")
 
 
 def release_intent(draft_id, family, key, *, who, expected_revision=None):

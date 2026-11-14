@@ -53,6 +53,10 @@ NOT_CARRIED: dict[str, str] = {
         "renamed `Step.why`, the same shape a `Setting` carries. One word for one idea: why is "
         "this what it is."
     ),
+    "IRNode.entry_types": (
+        "used only to choose the pipeline input's channel for a port with `accepts` (#464); the "
+        "channel `StepInput.channel` names carries the matched type as `Channel.type_id`."
+    ),
     "Lockfile.contracts": (
         "carried per step as `Step.module`, so the pin sits beside the thing it pins rather "
         "than in a side file a reader has to join by hand."
@@ -263,6 +267,9 @@ CARRIED_AS: dict[str, str] = {
     "IRNode.contract_id": "steps.module.contract_id",
     # Each optional input's state, who set it and why (#460).
     "IRNode.inputs": "steps.input_states",
+    # The samples a step takes when each sample's tool is chosen per sample (#466).
+    "IRNode.guard": "steps.guard",
+    "IRNode.parts": "steps.parts",
     # Written only where a person pinned a tool: the site is excluded from the IR's own dump.
     "IRNode.site": "intent.constraints.producers.site",
     # Version 7 regroups the goal: what is wanted, then what is known (Plan B, spec §8.1).
@@ -275,6 +282,12 @@ CARRIED_AS: dict[str, str] = {
     "IREdge.states": "steps.inputs.states",
     "ParamBinding.name": "steps.settings.name",
     "ResolvedValue.value": "steps.settings.value",
+    # A setting decided at run time (#217): its lookup, beside the setting it decides.
+    "ResolvedValue.at_run": "steps.settings.at_run",
+    # The measured facts joined into an input's `meta`, on that input's channel.
+    "PipelineIR.meta_at_run": "channels.meta_at_run",
+    # Estimates measured again in the run (#465), each with what it was used for.
+    "PipelineIR.confirms": "confirms",
     "ResolvedValue.tier": "steps.why.tier",
     "ResolvedValue.source": "steps.why.source",
     "ResolvedValue.reason": "steps.why.reason",

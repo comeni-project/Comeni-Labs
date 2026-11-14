@@ -203,9 +203,11 @@ def test_md0108_a_prefix_route_on_a_module_that_ignores_it_is_refused(tmp_path):
     def add_a_dead_route(layer):
         path = next(layer.rglob("genomegenerate/contract.yml"))
         path.write_text(
+            # Into the list the contract already declares: replacing `params: []` matched
+            # nothing once each had a parameter, and the test passed over no route at all.
             _declared(path, path.read_text().replace(
-                "params: []",
-                'params:\n  - name: label\n    via: ext\n    key: prefix\n',
+                "params:\n",
+                'params:\n  - name: label\n    via: ext\n    key: prefix\n', 1,
             ))
         )
 
@@ -228,13 +230,16 @@ def test_md0108_is_silent_on_a_module_that_does_read_the_key(tmp_path):
     def add_a_live_route(layer):
         path = next(layer.rglob("sort/contract.yml"))
         path.write_text(
+            # Into the list the contract already declares: replacing `params: []` matched
+            # nothing once each had a parameter, and the test passed over no route at all.
             _declared(path, path.read_text().replace(
-                "params: []",
-                'params:\n  - name: label\n    via: ext\n    key: prefix\n',
+                "params:\n",
+                'params:\n  - name: label\n    via: ext\n    key: prefix\n', 1,
             ))
         )
 
     registry = layers.load(_layer_with(tmp_path, add_a_live_route)).registry
+    assert "label" in {p.name for p in registry.get("nf-core/samtools/sort@1.24").params}
     assert not [d for d in check(registry, MODULES) if d.code == "MD0108"]
 
 
@@ -268,7 +273,7 @@ def test_a_refused_profile_prints_a_message_a_person_can_read(tmp_path, capsys):
     """
     goal = tmp_path / "goal.yml"
     goal.write_text(
-        "version: 8\nintent: {want: [counts.matrix]}\nfacts:\n"
+        "version: 9\nintent: {want: [counts.matrix]}\nfacts:\n"
         "  inputs: [{type_id: fastq.reads}]\n"
         "  measurements: [{measurement: sample_name, value: nope, source: said}]\n"
     )

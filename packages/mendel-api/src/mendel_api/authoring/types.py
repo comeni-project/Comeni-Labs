@@ -161,6 +161,25 @@ class FactKind(StrEnum):
     MEASUREMENT = "measurement"
 
 
+class SampleFact(_Shape):
+    """One fact measured on one uploaded sample (#466)."""
+
+    measurement: str = Field(min_length=1, max_length=128)
+    value: HumanParamValue | None = None
+    coverage: Literal["head", "all"] | None = None
+
+
+class UploadedSample(_Shape):
+    """One sample of an upload, kept with the session: its name and files, and what was
+    measured on it (#466). Session state only: a sample's name never reaches a goal, a
+    pipeline, a model or a log (operator, 11-12)."""
+
+    name: str = Field(min_length=1, max_length=256)
+    files: list[str] = []
+    outcome: str = Field(min_length=1, max_length=32)
+    facts: list[SampleFact] = []
+
+
 class FactSource(StrEnum):
     """Where a fact came from, which is what the goal card and the tier-3 premise show."""
 
@@ -168,6 +187,7 @@ class FactSource(StrEnum):
     MODEL_READ = "model_read"  # the characteriser read it (14.7.7)
     PERSON_SAID = "person_said"  # the person stated it
     OPEN = "open"  # nobody knows; the tiers carry it as tier 4
+    VARIES = "varies"  # the person said it differs between samples (#466)
 
 
 class Fact(_Shape):
@@ -186,6 +206,8 @@ class Fact(_Shape):
     evidence: dict[str, int | float] | None = None
     """How much they read, counts only. Session state, not a door payload: the goal gets the
     typed `Evidence`, which holds only the counts it declares."""
+    coverage: Literal["head", "all"] | None = None
+    """How much of the data it was measured on (#465): `head` for part of it."""
     heard: Prose | None = None
     """The person's own words it was taken from, when a model heard it (Part I.0 §5.4): shown on
     the goal card so a misreading (*"not paired-end"*) is caught there. Session state only."""
@@ -194,6 +216,8 @@ class Fact(_Shape):
     def _open_has_no_value(self) -> Self:
         if self.source is FactSource.OPEN and self.value is not None:
             raise ValueError("an open fact has no value: nobody knows it")
+        if self.source is FactSource.VARIES and self.value is not None:
+            raise ValueError("a fact that differs between samples has no one value")
         return self
 
 

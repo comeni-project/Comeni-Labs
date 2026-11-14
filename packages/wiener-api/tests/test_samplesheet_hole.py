@@ -30,7 +30,7 @@ def _artifact(tmp_path, body: str) -> str:
 
 
 def _pipeline(form: str, channels: str) -> str:
-    return f"""version: 8
+    return f"""version: 9
 intent: {{want: [], constraints: {{}}}}
 facts: {{inputs: [], measurements: []}}
 registry: {{layers: [], displaced: [], unverified: []}}
@@ -48,7 +48,7 @@ gate: null
 def _channel(name: str, param: str, scope: str, columns: list[str]) -> str:
     cols = "".join(f"\n    - {c}" for c in columns) or " []"
     return (
-        f"- name: {name}\n  param: {param}\n  scope: {scope}\n"
+        f"- name: {name}\n  param: {param}\n  grain: {scope}\n"
         f"  columns:{cols}\n  type_id: a.b\n  params: [{param}]\n"
         f"  expression: \"Channel.of(params.{param})\"\n  meta: []\n  test_data: []\n"
     )
@@ -79,7 +79,7 @@ def test_a_run_scoped_channel_contributes_no_column(tmp_path):
         "samplesheet",
         _channel("reads", "input", "sample", ["reads_1", "reads_2"])
         + _channel("gtf", "gtf", "sample", ["gtf"])
-        + _channel("fasta", "fasta", "run", ["fasta"]),
+        + _channel("fasta", "fasta", "study", ["fasta"]),
     )
     _, columns = input_shape(_artifact(tmp_path, body))
     assert "fasta" not in columns
@@ -130,3 +130,90 @@ def test_the_csv_is_json_serialisable_after_materialising(tmp_path):
     rows = [{"sample": "A", "gtf": "/lab/a.gtf"}]
     written = _materialise_tables({"input": rows}, tmp_path)
     assert json.loads(json.dumps(written))["input"].endswith("input.csv")
+
+
+def test_the_run_sheet_asks_for_each_fact_as_the_pipeline_checks_it(tmp_path):
+    """A fact that differs between samples is a column of its own (#466), with its values."""
+    from wiener_api.routes.runs import FactColumnView
+    from wiener_api.services.artifacts import input_facts
+
+    body = _pipeline("samplesheet", _channel("reads", "input", "sample", ["reads_1", "reads_2"]))
+    body = body.replace("intent: {want: [], constraints: {}}",
+                        "intent: {want: [], constraints: {varies: [strandedness]}}")
+    body = body.replace("channels:\n", """sheet_facts:
+- measurement: strandedness
+  column: strandedness
+  kind: enum
+  values: [forward, reverse, unstranded]
+  required: true
+  describes: a.b
+  meta: [{key: strandedness}]
+  why: {tier: 1, source: said, reason: you said strandedness differs between samples}
+channels:
+""")
+    (fact,) = [FactColumnView(**f) for f in input_facts(_artifact(tmp_path, body))]
+    assert (fact.column, fact.kind, fact.values, fact.required, fact.auto) == (
+        "strandedness", "enum", ["forward", "reverse", "unstranded"], True, False)
+
+
+def test_a_comma_in_a_cell_stays_in_its_column(tmp_path):
+    """A sample name or a path with a comma must not shift every later cell, now that fact
+    columns follow the files (Task 8 review)."""
+    import csv
+
+    rows = [{"sample": "A, rep 1", "reads_1": "/lab/a,1.fq", "strandedness": "reverse"}]
+    written = _materialise_tables({"input": rows}, tmp_path)
+    with open(written["input"], newline="") as sheet:
+        (row,) = list(csv.DictReader(sheet))
+    assert row == {"sample": "A, rep 1", "reads_1": "/lab/a,1.fq", "strandedness": "reverse"}
+
+
+def test_a_second_file_a_row_may_leave_blank_is_optional(tmp_path):
+    """Pairing read off the row (#466): `reads_2` may stay blank on the run sheet."""
+    from wiener_api.services.artifacts import optional_columns
+
+    body = _pipeline("samplesheet", _channel("reads", "input", "sample", ["reads_1", "reads_2"]))
+    body = body.replace("intent: {want: [], constraints: {}}",
+                        "intent: {want: [], constraints: {varies: [paired]}}")
+    body = body.replace("channels:\n", """sheet_facts:
+- measurement: paired
+  column: reads_2
+  kind: boolean
+  required: false
+  from_row: second_file_present
+  describes: a.b
+  meta: [{key: paired}]
+  why: {tier: 1, source: said, reason: you said paired differs between samples}
+channels:
+""")
+    assert optional_columns(_artifact(tmp_path, body)) == ["reads_2"]
+
+
+def test_lanes_add_an_optional_unit_column(tmp_path):
+    """An input whose rows may repeat a sample (#466): each row names its unit, such as a lane;
+    a one-lane sample may leave it blank."""
+    from wiener_api.services.artifacts import optional_columns
+
+    channel = _channel("reads", "input", "sample", ["reads_1", "reads_2"]) + "  units: true\n"
+    artifact = _artifact(tmp_path, _pipeline("samplesheet", channel))
+    assert input_shape(artifact) == ("samplesheet", ["reads_1", "reads_2", "unit"])
+    assert optional_columns(artifact) == ["unit"]
+
+
+def test_a_table_input_is_asked_for_as_its_own_table(tmp_path):
+    """A study input supplied as several items, such as databases (#466, stage 6): the run
+    sheet composes it with a `name` per row, its file columns and its item facts."""
+    from wiener_api.services.artifacts import input_tables
+
+    table = (_channel("index", "index", "study", ["index"])
+             + "  table:\n    name: database\n    columns: [index]\n    facts: [db_type]\n")
+    body = _pipeline("direct", _channel("reads", "input", "sample", []) + table)
+    assert input_tables(_artifact(tmp_path, body)) == [
+        {"param": "index", "name": "database", "columns": ["index"], "facts": ["db_type"]}]
+
+
+def test_a_pipeline_without_tables_has_none(tmp_path):
+    from wiener_api.services.artifacts import input_tables
+
+    body = _pipeline("direct", _channel("reads", "input", "sample", []))
+    assert input_tables(_artifact(tmp_path, body)) == []

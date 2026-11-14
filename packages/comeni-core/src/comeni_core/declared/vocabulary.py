@@ -18,6 +18,7 @@ from comeni_core.declared.layered import (
     stack,
 )
 from comeni_core.diagnostics import coded
+from comeni_core.plan.tiers import Grain
 from comeni_core.spell.marks import GroovyExpression, NfIdentifier, TypeId
 
 if TYPE_CHECKING:  # `measurement` imports `profile`, which imports nothing from here
@@ -46,10 +47,13 @@ class TypeDeclaration(BaseModel):
     """Stable type identifier used by contracts and routing."""
     states: frozenset[str] = frozenset()
     sample_columns: int = 1
+    second_may_be_blank: bool = False
+    """Of two columns, the second may be left blank for a sample (#466): a single-end sample's
+    reads are one file."""
     """Number of input-table columns occupied by one sample of this type."""
 
-    scope: str = "sample"
-    """Default arrival scope: once per `run` or once per `sample`."""
+    grain: Grain = Grain.SAMPLE
+    """How the type arrives: once for the `study` or once per `sample` (#466)."""
 
     entry_channel: GroovyExpression | None = None
     """Groovy expression used when no upstream channel produces this type.
@@ -68,6 +72,11 @@ class TypeDeclaration(BaseModel):
     @model_validator(mode="after")
     def _an_entry_channel_names_no_param_of_its_own(self) -> "TypeDeclaration":
         """Refuse hard-coded parameter names while allowing `{param}` or no parameter."""
+        if self.grain is Grain.PART:
+            # A part exists only between a splitter and its merger (#466).
+            raise ValueError(coded(
+                "MD0346", f"type {self.id!r} declares grain `part`; a part is only ever a "
+                "splitter's output — `mendel explain MD0346`."))
         if self.entry_channel is None:
             return self
         hardcoded = extract_param_refs(self.entry_channel.replace("params.{param}", ""))
@@ -151,8 +160,10 @@ class Vocabulary(BaseModel):
     columns: dict[str, int] = {}
     """Input-table column counts keyed by type ID."""
 
-    scopes: dict[str, str] = {}
-    """Default arrival scopes keyed by type ID."""
+    blank_second: set[str] = set()
+    """Types whose second samplesheet column a sample may leave blank (#466)."""
+    grains: dict[str, Grain] = {}
+    """Each type's grain: one item for the study or one per sample (#466)."""
 
     entry_channels: dict[str, str] = {}
     """Entry-channel expressions keyed by type ID; absent entries use compiler defaults."""
@@ -179,7 +190,8 @@ class Vocabulary(BaseModel):
         types: dict[str, frozenset[str]] = {}
         test_data: dict[str, str | list[str]] = {}
         entry_channels: dict[str, str] = {}
-        scopes: dict[str, str] = {}
+        grains: dict[str, Grain] = {}
+        blank_second: set[str] = set()
         columns: dict[str, int] = {}
         params: dict[str, str] = {}
         names: dict[str, str] = {}
@@ -190,8 +202,10 @@ class Vocabulary(BaseModel):
                 coded("MD0008", f"add_states for {type_id!r}, which no layer declares")
             )
             types[type_id] = entry.states
-            scopes[type_id] = entry.scope
+            grains[type_id] = entry.grain
             columns[type_id] = entry.sample_columns
+            if entry.second_may_be_blank:
+                blank_second.add(type_id)
             if entry.entry_channel:
                 entry_channels[type_id] = entry.entry_channel
             if entry.param:
@@ -205,7 +219,8 @@ class Vocabulary(BaseModel):
         return cls(
             types=types,
             entry_channels=entry_channels,
-            scopes=scopes,
+            grains=grains,
+            blank_second=blank_second,
             columns=columns,
             params=params,
             names=names,

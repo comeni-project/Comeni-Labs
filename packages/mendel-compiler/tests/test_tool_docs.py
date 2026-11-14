@@ -35,18 +35,12 @@ def test_a_one_segment_key_is_its_own_page_rather_than_a_refusal():
     assert tool_docs._tool_of("sortmerna@4.3.6") == "sortmerna"
 
 
-def test_the_registry_groups_into_the_eight_pages_the_spec_names():
+def test_the_registry_groups_into_one_page_per_tool():
     tools = tool_docs.tools_of(_layers().registry)
-    assert sorted(tools) == [
-        "comeni/profile",
-        "nf-core/fastqc",
-        "nf-core/hisat2",
-        "nf-core/multiqc",
-        "nf-core/samtools",
-        "nf-core/star",
-        "nf-core/subread",
-        "nf-core/trimgalore",
-    ]
+    # Every tool the shipped layer declares, counted from its files.
+    shipped = sorted(str(t.parent.relative_to(ROOT / "registry/tools"))
+                     for t in (ROOT / "registry/tools").rglob("tool.yml"))
+    assert shipped and sorted(tools) == shipped
 
 
 def test_a_page_names_every_contract_and_its_process():

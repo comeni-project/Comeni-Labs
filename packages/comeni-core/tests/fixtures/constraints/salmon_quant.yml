@@ -1,0 +1,28 @@
+# nf-core/salmon/quant, as #464's module survey found it: FASTQ reads are mapped against an
+# index; BAM reads are quantified in alignment mode against the transcript FASTA instead.
+id: nf-core/salmon/quant@1.10.3
+nf_process: SALMON_QUANT
+nf_include: modules/nf-core/salmon/quant/main
+roles: [quantification]
+consumes:
+  - name: reads
+    accepts: [{type_id: fastq.reads}, {type_id: alignment.bam}]
+  - {name: index, type_id: salmon.index, required: false}
+  - {name: gtf, type_id: annotation.gtf, required: false}
+  - {name: transcript_fasta, type_id: transcripts.fasta, required: false}
+produces:
+  - {name: results, type_id: salmon.quant}
+nf_inputs:
+  - {ports: [reads]}
+  - {ports: [index, gtf, transcript_fasta], join: broadcast, absent: 4}
+constraints:
+  - when: {type.reads: alignment.bam}
+    requires: [transcript_fasta]
+    forbids: [index]
+    because: "alignment mode quantifies BAM reads against the transcripts, not an index"
+    cite: "salmon quant docs: alignment-based mode (-a, -t)"
+  - when: {type.reads: fastq.reads}
+    requires: [index]
+    because: "mapping mode maps FASTQ reads against a salmon index"
+    cite: "salmon quant docs: mapping-based mode (-i)"
+provenance: {source: test, drafted_by: test, approved_by: test, approved_at: "2026-11-10"}

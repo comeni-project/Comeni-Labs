@@ -1,4 +1,4 @@
-"""Closed planning vocabularies for resolution tier, evidence, scope, and input form."""
+"""Closed planning vocabularies for resolution tier, evidence, grain, and input form."""
 
 from enum import IntEnum, StrEnum
 from typing import NamedTuple
@@ -76,6 +76,16 @@ class PremiseOrigin(StrEnum):
     """The measurement is known to be absent."""
 
 
+class Coverage(StrEnum):
+    """How much of the data a measured fact was read from (#465)."""
+
+    HEAD = "head"
+    """Part of it: an upload's first 4 MB, a file cut short, or reading stopped early. An
+    estimate."""
+    ALL = "all"
+    """All of it, every file read to its end."""
+
+
 class ReviewLevel(StrEnum):
     NONE = "none"
     ADVISORY = "advisory"
@@ -94,14 +104,22 @@ def review_level_for(tier: Tier) -> ReviewLevel:
     return _REVIEW_BY_TIER[tier]
 
 
-class Scope(StrEnum):
-    """Channel delivery cardinality relative to one pipeline run."""
+class Grain(StrEnum):
+    """How many items a channel carries relative to the analysis, and what a fact is about
+    (#466): one for the whole study, one per sample, or a part of one sample's item between a
+    splitter and its merger. Groups and lanes are declared on ports and channels instead (`by`,
+    `Channel.units`)."""
 
-    RUN = "run"
-    """One reusable value for the run, such as a reference genome or annotation."""
+    STUDY = "study"
+    """One item for the analysis, such as a reference genome or annotation, emitted as a value
+    channel and reused by every sample."""
 
     SAMPLE = "sample"
-    """One queued value per sample."""
+    """One queued item per sample."""
+
+    PART = "part"
+    """A piece of one sample's item, split to run in parallel and merged back per sample
+    (stage 6). Only a splitter's output fans out to it; no type and no fact has it."""
 
 
 class InputForm(StrEnum):

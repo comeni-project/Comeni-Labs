@@ -46,7 +46,8 @@ def readback_context(session_id: str) -> str:
     wanted, facts, _ = gathering._gathered(session_id)
     goal = gathering.compose_goal(session_id)
     said = {FactSource.PERSON_SAID: "you said", FactSource.MEASURED: "measured",
-            FactSource.MODEL_READ: "read by AI", FactSource.OPEN: "left open"}
+            FactSource.MODEL_READ: "read by AI", FactSource.OPEN: "left open",
+            FactSource.VARIES: "you said it differs between samples"}
     lines = [
         "have: " + (", ".join(
             f"{f.subject} ({said[f.source]})" for f in facts if f.kind is FactKind.INPUT

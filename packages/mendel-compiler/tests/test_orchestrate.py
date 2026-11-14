@@ -4,9 +4,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from mendel_compiler import orchestrate, pipeline_file
+from mendel_compiler import orchestrate, pipeline_file, staging
 from mendel_compiler.emit import emit, emit_config
 from mendel_resolver.goal import Goal
+from mendel_resolver.measure_steps import steps_for
 
 ROOT = Path(__file__).resolve().parents[3]
 GOAL = ROOT / "examples" / "rnaseq.yml"
@@ -56,6 +57,9 @@ def test_the_seam_and_the_cli_agree_byte_for_byte(tmp_path):
     written = pipeline_file.write(seam, built.pipeline)
     (seam / "main.nf").write_text(emit(written))
     (seam / "nextflow.config").write_text(emit_config(written))
+    # And the staging, which writes the generated measuring steps the stamp records (#465).
+    staging.stage(written, built.layers.modules, seam,
+                  measuring=steps_for(built.layers.inspection, built.layers.registry))
     pipeline_file.stamp(seam, written)
 
     assert (seam / pipeline_file.FILENAME).read_text() == from_cli

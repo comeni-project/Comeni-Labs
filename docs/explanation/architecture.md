@@ -99,9 +99,8 @@ The compiler separates emission from its adapters. CLI commands read inputs and 
 operations; artifact-file, staging, conformance and gate modules also perform filesystem or
 subprocess work. The emission calculation can be tested from supplied models.
 
-`mendel build` reads a goal file; `mendel profile` constructs the same `Goal` in memory and
-runs the identical remaining path. A test asserts their `main.nf` are byte-identical, because
-"sugar" is a claim that decays into a second implementation unless something checks.
+`mendel build` reads a goal file and runs the one remaining path; `upgrade` replays a saved
+pipeline's decisions through the same path.
 
 ---
 
@@ -128,8 +127,7 @@ folder per tool, and **the path is the id** (#216):
 │  ├─ types/genome.index.star.yml        a type only this tool touches
 │  ├─ align/contract.yml  module.yml  module/
 │  └─ genomegenerate/…                   one folder per subtool; the folder is the id
-├─ profilers/comeni/profile/fastqc/      a use of a tool to measure the data
-├─ inspectors/                           code that measures an uploaded sample (14.7.6.2)
+├─ measurers/                            what measures data: our code, or a tool and a parser
 ├─ vocabulary/
 │  ├─ types/<type_id>.yml                states a type may carry, and how it enters a pipeline
 │  ├─ measurements/<id>.yml              kind, allowed values, bounds, unit, citation
@@ -498,36 +496,19 @@ duplicating it put the same claim in two places that could disagree.
 
 ---
 
-## 6. Profiling is a build
+## 6. Measuring is a step
 
-A measurement is a type, so `mendel profile --have fastq.reads` is
-`mendel build --want measurement.*`. The router needs no profiling code; the emitter needs
-none; the decision records are the same records.
+A measurement is a type, `measurement.<id>`, so measuring in the pipeline needs no routing code
+of its own. A **measurer** (`registry/measurers/`) produces one measurement, by our code over a
+format's records or by a tool plus a parser for its output, and declares where it runs: on the
+**server**, over an upload's head during the conversation, and in the **pipeline**, as a step
+over all the data. The same measure code is written to run in both places; the server runner is
+built, and the pipeline step is being built (#465).
 
-Two rules keep it honest.
-
-**The profile it resolves against is empty.** A build resolves tier-3 parameters against a
-profile, and a profiling build is a build — resolving one against a profile would need a
-profile to profile with. Profiling contracts therefore exit at tiers 1, 2 and 4 only, and the
-regress stops here rather than one recursion later.
-
-**`want` is what the registry can actually reach.** Declaring a measurement is how a
-laboratory *starts*, before any tool for it exists, so wanting every declared measurement
-would make the verb unroutable for exactly the people adopting it. What cannot be measured is
-named on stderr. A registry that can measure nothing at all is an error, not an empty pipeline
-that looks like success.
-
-`profile.yml` records, per measurement, `{value, source, by}` — `source: measured` and the
-contract that will produce it. **`value` is `null`**: the pipeline has been emitted, not run.
-The laboratory runs it and fills the values in, and the file is the same shape a goal accepts
-back, so the round trip is one test rather than a hope. Reporting a number Mendel has never
-looked at is precisely what invariant 15 exists to prevent.
-
-**Inspectors are the other measurer.** An inspector measures an uploaded sample's head on this
-server, during the conversation, before anything is built; a profiler measures all the data on
-the lab's machine when the pipeline runs. Both produce the same measurement ids, and a fact
-records which one measured it: `Measured.by` names a profiler's contract, `Measured.pieces` an
-inspector's format and measure. Where each runs, and what crosses, is
+A fact records what measured it: `Measured.pieces` names the format and measurer. Planned in the
+same work: each fact records how much of the data it read (`coverage: head` or `all`), and a
+setting whose fact nobody knew before the build is decided in the pipeline, from the step that
+measures it, by a lookup the build lists in full beforehand (#217). Where each runs, and what crosses, is
 [the protocol page's table](authoring-protocol.md#where-each-measurer-runs).
 
 A hand-written profile records no tool, and that absence *is* the provenance:

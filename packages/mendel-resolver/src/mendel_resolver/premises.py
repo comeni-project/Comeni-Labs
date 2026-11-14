@@ -6,7 +6,7 @@ model reads, assertions, goal structure, and derivations.
 """
 
 import math
-from typing import Any
+from typing import Any, Literal
 
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.diagnostics import coded
@@ -39,6 +39,9 @@ class Premise(BaseModel):
     because: str = ""
     cite: str = ""
     derived_from: list[str] = Field(default_factory=list)
+    coverage: Literal["head", "all"] | None = None
+    """How much of the data a measurer read: `head` for part of it. A fact derived from a `head`
+    fact is `head` too, since it is computed from an estimate (#465)."""
 
 
 _BY_SOURCE = {
@@ -93,6 +96,7 @@ def build_premises(
             origin=_BY_SOURCE[entry.source],
             by=entry.by,
             pieces=list(entry.pieces),
+            coverage=entry.coverage,
         )
     # `required_states` is the goal's own shape rather than a measurement, so it cannot
     # collide with one: `MeasurementRegistry.profile()` would have refused an undeclared key,
@@ -115,6 +119,15 @@ def build_premises(
     )
     _derive(premises, derivations)
     return premises
+
+
+def _inherited(premises: dict[str, Premise], sources) -> Literal["head", "all"] | None:
+    """A derived fact's coverage: `head` when any fact it reads is, `all` when every one was
+    measured in full, and none when a person stated one of them."""
+    read = [premises[f].coverage for f in sources if f in premises]
+    if "head" in read:
+        return "head"
+    return "all" if read and all(c == "all" for c in read) else None
 
 
 def _derive(premises: dict[str, Premise], derivations: list[Derivation]) -> None:
@@ -147,6 +160,7 @@ def _derive(premises: dict[str, Premise], derivations: list[Derivation]) -> None
                 because=row.because or derivation.because or "",
                 cite=row.cite or derivation.cite or "",
                 derived_from=sorted(row.when),
+                coverage=_inherited(premises, row.when),
             )
             break
 
@@ -155,6 +169,13 @@ _REDUCERS = {
     "max": max,
     "min": min,
     "mean": lambda values: sum(values) / len(values),
+    # `None` is undetermined: the samples do not share one value (#466).
+    "agree": lambda values: values[0] if len(set(values)) == 1 else None,
+    # True only for `true`, as the run's Groovy folds it, never for a truthy number.
+    "all": lambda values: all(value is True for value in values),
+    "any": lambda values: any(value is True for value in values),
+    "count": len,
+    "distinct": lambda values: len(set(values)),
 }
 
 
@@ -166,6 +187,8 @@ _OPS = {
     "log2": lambda value, by: math.log2(value),
     "at_most": lambda value, by: min(value, by),
     "at_least": lambda value, by: max(value, by),
+    # Half to even, as C's `printf "%.0f"`, which nf-core's modules round with (#461).
+    "round": lambda value, by: round(value),
 }
 """The whole arithmetic this format has. Issue #39.
 
@@ -208,6 +231,7 @@ def _transform(premises: dict[str, Premise], derivation: Derivation) -> None:
         because=derivation.because or "",
         cite=derivation.cite or "",
         derived_from=[derivation.source],
+        coverage=_inherited(premises, [derivation.source]),
     )
 
 
@@ -230,11 +254,19 @@ def _aggregate(premises: dict[str, Premise], derivation: Derivation) -> None:
     values = source.value if isinstance(source.value, list) else [source.value]
     if not values:
         return
+    # One value for the study says nothing of how many samples share it (final review).
+    if not isinstance(source.value, list) and derivation.aggregate.using in ("count",
+                                                                            "distinct"):
+        return
+    folded = _REDUCERS[derivation.aggregate.using](values)
+    if folded is None:
+        return
     premises[derivation.fact] = Premise(
         id=derivation.fact,
-        value=_REDUCERS[derivation.aggregate.using](values),
+        value=folded,
         origin=PremiseOrigin.DERIVED,
         because=derivation.because or "",
         cite=derivation.cite or "",
         derived_from=[derivation.aggregate.measurement],
+        coverage=_inherited(premises, [derivation.aggregate.measurement]),
     )

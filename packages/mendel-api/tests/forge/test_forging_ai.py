@@ -307,7 +307,7 @@ def test_drafting_tests_reads_the_modules_nf_test(adaptation):
     item = forging.load(adaptation).items["tests:test:paired"]
     assert item.status == "proposed" and item.current.actor == "ai"
     with session_scope() as db:
-        assert db.get(AiInvocation, item.current.invocation).prompt_id == "forge.tests.v1"
+        assert db.get(AiInvocation, item.current.invocation).prompt_id == "forge.tests.v2"
 
 
 def test_a_module_with_no_nf_test_is_drafted_from_its_meta(adaptation):
@@ -657,7 +657,7 @@ def test_family_proposals_need_human_approval_and_include_known_family_context(a
     assert "Families require human approval" in client.prompts[0]
     with session_scope() as db:
         invocation = db.get(AiInvocation, item.current.invocation)
-        assert invocation.prompt_id == "forge.draft.v7"
+        assert invocation.prompt_id == "forge.draft.v9"
     forging.act(adaptation, forging.person(Move.APPROVE, key,
         expected=item.current.n, value=None, because=None))
     assert forging.load(adaptation).items[key].status == "approved"
@@ -710,7 +710,7 @@ def test_quasts_walk_suggestions_show_engine_findings(quast):
     assert [f.code for f in context.findings] == ["MF0520", "MF0521"]
     request = forging_ai.compose(forging.row(quast), forging.load(quast), Piece.QUESTIONS,
                                  prompt="forge.questions.v4")
-    assert any(t.id == "genome.fasta" and t.scope == "run" for t in request.known.described)
+    assert any(t.id == "genome.fasta" and t.grain == "study" for t in request.known.described)
     assert {f.code for f in request.findings} == {"MF0520", "MF0521", "MF0522"}
 
 
@@ -752,7 +752,7 @@ def test_the_contract_prompt_teaches_constraints(adaptation):
     assert '"produced_when"' in sent and "contract:constraint:" in sent and '"absent"' in sent
     with session_scope() as db:
         assert db.query(AiInvocation).order_by(AiInvocation.started_at.desc()).first(
-            ).prompt_id == "forge.draft.v7"
+            ).prompt_id == "forge.draft.v9"
 
 
 def test_a_contract_item_carries_its_engine_finding_on_read(adaptation):
@@ -821,7 +821,7 @@ def test_the_guide_spells_out_a_new_type():
     """#468 walk: drafted types were bare ids, so a run-wide annotation arrived per sample
     and outputs were named "null"."""
     guide = forging_ai.ITEM_SHAPES.read_text()
-    for field in ('"scope"', '"name"', '"explain"', '"entry_channel"', "[id: f.baseName]"):
+    for field in ('"grain"', '"name"', '"explain"', '"entry_channel"', "[id: f.baseName]"):
         assert field in guide, field
 
 
@@ -832,3 +832,84 @@ def test_the_guide_leaves_out_a_default_the_module_falls_back_on(adaptation):
     client = FakeClient(reply, reply)
     forging_ai.draft_piece(adaptation, Piece.PARAMETERS, client)
     assert 'task.ext.prefix ?: "${meta.id}"`) has no\n  "default"' in client.prompts[0]
+
+
+def test_the_guide_teaches_shared_slots_joins_and_types():
+    """#464: an optional file inside a tuple, a join per port, an input of several types, and a
+    row on the connected type, each spelled out with a module from the survey."""
+    guide = forging_ai.ITEM_SHAPES.read_text()
+    assert forging_ai.ITEM_SHAPES.name == "items.v6.md"
+    for shape in ('"accepts": [{"type_id"', '"join": {"input_index": "by_sample"',
+                  '"type.reads": "alignment.bam"', '"types": {', "[]"):
+        assert shape in guide, shape
+    assert "Several optional inputs\n  share an entry only when a group says" not in guide, \
+        "the old one-group rule is gone"
+
+
+def test_contract_drafts_use_draft_v9(adaptation):
+    _answer(adaptation)
+    reply = {"items": {"contract:none": {"because": "none"}}, "because": {}}
+    client = FakeClient(reply, reply)
+    forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
+    assert "an input that takes several types" in client.prompts[0]
+
+
+def test_the_tests_drafter_names_the_type_of_its_data():
+    """Task 7 review: the tests prompt never saw `types`, so a BAM test was typed as FASTQ."""
+    text = (forging_ai.PROMPTS / "forge.tests.v2.md").read_text()
+    assert '"types": {"<input port>": "<type id>"}' in text
+    assert forging_ai._DRAFTED_WITH[forging_ai.Piece.TESTS] == "forge.tests.v2"
+
+
+def test_the_guide_teaches_facts_and_hit_policies():
+    """#461: a setting from a fact, a hit policy, and a derived fact, with STAR's index size."""
+    guide = forging_ai.ITEM_SHAPES.read_text()
+    for shape in ('"then": {"fact":', '"hit"', "rules:derive:<fact>", '{"op": "round"}',
+                  '"source": "genome_length"'):
+        assert shape in guide, shape
+
+
+# ── measurers (#487) ─────────────────────────────────────────────────────────────────────────
+
+def _measurer_draft(code: str | None = None) -> dict:
+    from support.forge_measurer import measurer
+    value = {**measurer(), "output": "bam"}
+    if code is not None:
+        value["code"] = code
+    return {"items": {"measurers:measurer:genome_length_fai": value},
+            "because": {"measurers:measurer:genome_length_fai": "a summary of the output"}}
+
+
+def _ready_for_measurers(adaptation: str) -> None:
+    _ready_for_tests(adaptation)
+    forging.act(adaptation, forging.person(Move.WRITE, "tests:test:paired", expected=None,
+                                           value=TEST_DRAFT["items"]["tests:test:paired"],
+                                           because=None))
+
+
+def test_measurers_are_drafted_with_their_prompt(before, adaptation):
+    _ready_for_measurers(adaptation)
+    client = FakeClient(_measurer_draft())
+    forging_ai.draft_piece(adaptation, Piece.MEASURERS, client)
+    assert "comeni_inspect.outcome" in client.prompts[0] and "{{" not in client.prompts[0]
+    item = forging.load(adaptation).items["measurers:measurer:genome_length_fai"]
+    assert item.status == "proposed" and item.current.actor == "ai"
+    with session_scope() as db:
+        assert db.get(AiInvocation, item.current.invocation).prompt_id == "forge.measurers.v1"
+
+
+def test_parser_code_that_reaches_out_goes_back_once_with_why(before, adaptation):
+    from support.forge_measurer import measurer
+    _ready_for_measurers(adaptation)
+    client = FakeClient(_measurer_draft("import os\n" + measurer()["code"]), _measurer_draft())
+    forging_ai.draft_piece(adaptation, Piece.MEASURERS, client)
+    assert "MD0027" in client.prompts[1] and "os" in client.prompts[1]
+    assert "measurers:measurer:genome_length_fai" in forging.load(adaptation).items
+
+
+@pytest.fixture
+def before(tmp_path, monkeypatch):
+    """The registry before `genome_length_fai` existed, which these tests draft again."""
+    from support.forge_measurer import registry_before
+    monkeypatch.setattr(settings, "registry_root", registry_before(tmp_path))
+    monkeypatch.setattr(settings, "registries_root", None)

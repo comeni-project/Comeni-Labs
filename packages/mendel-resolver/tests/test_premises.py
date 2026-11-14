@@ -262,7 +262,7 @@ def test_a_derivation_never_overwrites_an_earlier_derivation_either():
 _COHORT_MAX = {
     "fact": "cohort_max_read_length",
     "kind": "integer",
-    "aggregate": {"measurement": "read_length", "over": "cohort", "using": "max"},
+    "aggregate": {"measurement": "read_length", "over": "study", "using": "max"},
     "because": "the index is built once per run, so it must suit the longest read in it",
     "cite": "STAR manual 2.7, --sjdbOverhang",
 }
@@ -325,7 +325,7 @@ def test_a_derivation_declaring_both_rows_and_an_aggregate_is_refused():
 def test_a_list_is_refused_where_the_measurement_is_not_per_sample():
     """`check` is what stands between a goal file and routing. A list reaching a comparison
     predicate raises TypeError at resolution rather than a diagnostic at load."""
-    with pytest.raises(ValueError, match="per_sample"):
+    with pytest.raises(ValueError, match="one value for the whole study"):
         LOADED.measurements.profile({"n_samples": [1, 2, 3]})
 
 
@@ -463,3 +463,58 @@ def test_a_value_a_model_read_is_a_premise_read_by_ai():
     assert _BY_SOURCE[ValueSource.MODEL] is PremiseOrigin.MODEL_READ
     record = PremiseRecord(id="paired", value=True, origin=PremiseOrigin.MODEL_READ)
     assert record.prose() == "paired is True, read by AI"
+
+
+def _chain(source: str, steps: list[dict], kind: str = "integer") -> Derivation:
+    return Derivation.model_validate({"fact": "derived", "kind": kind, "source": source,
+                                      "transform": steps, "cite": "a fixture"})
+
+
+def test_round_rounds_half_to_even_like_printf():
+    """#461: nf-core's STAR module rounds with `printf "%.0f"`; int() alone truncates."""
+    for value, expected in ((6.43, 6), (13.77, 14), (2.5, 2), (3.5, 4)):
+        derivation = _chain("read_length", [{"op": "multiply", "by": value / 150}, {"op": "round"}])
+        premises = build_premises(goal=_goal(read_length=150), derivations=[derivation],
+                                  measurements=LOADED.measurements)
+        assert premises["derived"].value == expected, value
+        assert isinstance(premises["derived"].value, int)
+
+
+def test_star_index_size_from_genome_length():
+    """The worked case of #461: nf-core's module computes it inside main.nf; the rule shows it."""
+    steps = [{"op": "log2"}, {"op": "divide", "by": 2}, {"op": "subtract", "by": 1},
+             {"op": "at_most", "by": 14}, {"op": "round"}]
+    for length, expected in ((29903, 6), (3_100_000_000, 14)):
+        premises = build_premises(goal=_goal(genome_length=length),
+                                  derivations=[_chain("genome_length", steps)],
+                                  measurements=LOADED.measurements)
+        assert premises["derived"].value == expected, length
+
+
+def test_a_derivation_row_cannot_take_a_fact():
+    """A derivation computes a fact from rows' literals; `{fact:}` belongs to a setting (#461)."""
+    with pytest.raises(ValueError, match="MD0304"):
+        Derivation.model_validate({"fact": "x", "kind": "integer",
+                                   "rows": [{"when": {}, "then": {"fact": "read_length"},
+                                             "cite": "a fixture"}]})
+
+
+def test_coverage_reaches_the_premise_and_a_derived_fact_inherits_head():
+    """A fact computed from an estimate is an estimate (#465)."""
+    from comeni_core.declared.measurement import MeasuredEntry
+    from comeni_core.goal.profile import Evidence
+
+    profile = LOADED.measurements.profile_of([
+        MeasuredEntry("read_length", 150, ValueSource.MEASURED, None,
+                      ("fastq@1.1.0", "read_length@1.0.0"),
+                      Evidence(records=1000, coverage="head")),
+    ])
+    goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["counts.matrix"], profile=profile)
+    derived = Derivation.model_validate({
+        "fact": "half_read", "kind": "integer", "source": "read_length",
+        "transform": [{"op": "divide", "by": 2}],
+    })
+    premises = build_premises(goal=goal, derivations=[derived], measurements=LOADED.measurements)
+    assert premises["read_length"].coverage == "head"
+    assert premises["half_read"].coverage == "head"
+    assert profile.measurements[0].coverage == "head"

@@ -63,7 +63,7 @@ it("can construct nothing-needed without knowing an item key", async () => {
 });
 
 it.each([
-  ["contract:input:reads", { name: "reads", position: 0, accepts: [{ type_id: "alignment.bam", states: ["sorted"] }], cardinality: "*" }],
+  ["contract:input:reads", { name: "reads", position: 0, accepts: [{ type_id: "alignment.bam", states: ["sorted"] }], grain: "study", many: true }],
   ["contract:nf_inputs", [{ ports: ["reads", "reference"], join: "broadcast" }, { literal: false }]],
   ["vocabulary:family:assembly", { id: "assembly", description: "Assembled genomic sequences." }],
   ["vocabulary:type:qc.report", { id: "qc.report", add_states: ["assembly"] }],

@@ -172,6 +172,9 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
       for (const file of input.files) {
         form.append("files", new File([file.slice(0, HEAD_BYTES)], file.name, { type: file.type }));
       }
+      // Each file's real size, so the server can tell a whole small file from a head (#465): a
+      // fact read from the whole file is measured on all of the data, not estimated.
+      form.append("sizes", JSON.stringify(input.files.map((file) => file.size)));
       return postForm<SampleInspected>(`/pipeline/authoring/${sessionId}/samples`, form);
     },
     // **The answer carries the session as it now is** (issue 228): taken as it is, rather than
@@ -214,6 +217,25 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
       if (!current) throw new Error("Reload the session before changing an input");
       return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
         change: { kind: "optional_input", subject: `${input.contract}|${input.port}`, value: input.state },
+        expected_decision_revision: current.decision_revision ?? 0,
+        expected_draft_revision: current.revision, expected_session_version: current.row_version,
+      });
+    },
+    onSuccess: () => void refresh(),
+    onError: error => {
+      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
+      void refresh();
+    },
+  });
+
+  // **A tool kept whole, or run on parts of each sample again** (issue 466): one DecisionChange,
+  // `whole`, retracted to let the step split again.
+  const keeping = useMutation({
+    mutationFn: (input: { contract: string; whole: boolean }) => {
+      const current = session.data;
+      if (!current) throw new Error("Reload the session before changing a step");
+      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
+        change: { kind: "whole", subject: input.contract, retract: !input.whole },
         expected_decision_revision: current.decision_revision ?? 0,
         expected_draft_revision: current.revision, expected_session_version: current.row_version,
       });
@@ -291,6 +313,27 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     correcting: correction.isPending,
     switchInput: (contract: string, port: string, state: "off" | "optional" | "required") =>
       switching.mutate({ contract, port, state }),
+    keepWhole: (contract: string, whole: boolean) => keeping.mutate({ contract, whole }),
+    // **A sample may span several rows** (issue 466): one change, `units`.
+    spanRows: (type_id: string, on: boolean) => {
+      const current = session.data;
+      if (!current) return Promise.reject(new Error("Reload the session before changing an input"));
+      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
+        change: { kind: "units", subject: type_id, value: on },
+        expected_decision_revision: current.decision_revision ?? 0,
+        expected_draft_revision: current.revision, expected_session_version: current.row_version,
+      }).then(() => refresh());
+    },
+    // **A study input given as several items** (issue 466): one change, `tables`.
+    severalItems: (type_id: string, on: boolean) => {
+      const current = session.data;
+      if (!current) return Promise.reject(new Error("Reload the session before changing an input"));
+      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
+        change: { kind: "tables", subject: type_id, value: on },
+        expected_decision_revision: current.decision_revision ?? 0,
+        expected_draft_revision: current.revision, expected_session_version: current.row_version,
+      }).then(() => refresh());
+    },
     releaseTool: (type_id: string, states: string[]) => correction.mutateAsync({
       release: { type_id, states }, value: null }),
     correct: (subject: string, value: FactValue, kind: "input" | "measurement") =>

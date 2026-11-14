@@ -5,7 +5,7 @@ import subprocess
 import pytest
 import yaml
 from comeni_core.artifact.pipeline import Pipeline
-from comeni_core.plan.tiers import InputForm, Scope
+from comeni_core.plan.tiers import Grain, InputForm
 from mendel_compiler import pipeline_file
 from support.paths import ROOT
 
@@ -27,7 +27,7 @@ def test_the_spine_is_direct_and_must_stay_that_way(spine):
 
     `tests/test_counts.py` is the only check exercising the v1 criterion and it runs this shape.
     """
-    per_sample = [c.name for c in spine.channels if c.scope is Scope.SAMPLE]
+    per_sample = [c.name for c in spine.channels if c.grain is Grain.SAMPLE]
     assert per_sample == ["reads"], f"the spine's sample-scoped channels moved: {per_sample}"
     assert spine.input_form is InputForm.DIRECT
 
@@ -35,8 +35,8 @@ def test_the_spine_is_direct_and_must_stay_that_way(spine):
 def test_it_is_derived_and_not_authored(spine):
     """Two sample-scoped channels is a table; one is a glob. Nobody types this."""
     doc = yaml.safe_load(spine.model_dump_json())
-    doc["channels"][0]["scope"] = "sample"
-    doc["channels"][1]["scope"] = "sample"
+    doc["channels"][0]["grain"] = "sample"
+    doc["channels"][1]["grain"] = "sample"
     doc["input_form"] = "samplesheet"
     # Two sample-scoped channels *and* a samplesheet is the consistent pair, so this loads —
     # which is the check that the refusal below is about disagreement and not about counting.

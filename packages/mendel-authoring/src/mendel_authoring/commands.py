@@ -159,6 +159,9 @@ class UploadSample:
     files: tuple
     """`((name, head bytes), ...)`: one file, or a pair."""
     by: str
+    sizes: tuple = ()
+    """Each file's real size, as the browser read it, in `files` order; empty when unknown. A
+    head the size of its file is the whole file, so its facts cover `all` of it (#465)."""
     takes: ClassVar[frozenset[Command]] = frozenset(
         {Command.UPLOAD_SAMPLE, Command.COMPARE_EVIDENCE}
     )

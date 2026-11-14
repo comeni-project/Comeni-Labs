@@ -37,7 +37,8 @@ _TERMINAL = {RunPhase.SUCCEEDED, RunPhase.FAILED, RunPhase.CANCELLED, RunPhase.L
 
 
 def _artifact_pipeline(session, lab_id: str, run_id: str):
-    """The run's own `pipeline.yml`, for `cicd.pipeline.name` and nothing else yet.
+    """The run's own `pipeline.yml`: for `cicd.pipeline.name`, and for what the run may have
+    measured (#465).
 
     Read from the artifact Wiener owns — §12 — so this reaches no Mendel package. Returns
     `None` when it cannot be read, and the name falls back to `unknown` rather than the export
@@ -112,9 +113,46 @@ def next_seq(session: Session, lab_id: str, run_id: str) -> int:
 
 
 def record(session: Session, lab_id: str, run_id: str, payload: dict) -> RunState:
-    """Admit one weblog body, append it to the record, and refresh the projections."""
+    """Admit one weblog body, append it to the record, and refresh the projections. When the
+    run completes, what it measured is read into the record too (#465)."""
     seq = next_seq(session, lab_id, run_id)
-    return append(session, lab_id, run_id, admit(payload, run_id=run_id, seq=seq))
+    event = admit(payload, run_id=run_id, seq=seq)
+    state = append(session, lab_id, run_id, event)
+    if event.kind is EventKind.COMPLETED:
+        state = _read_measured(session, lab_id, run_id, event.at_ms) or state
+    return state
+
+
+def _read_measured(session: Session, lab_id: str, run_id: str, at_ms: int) -> RunState | None:
+    """Each fact and decided value the run published, as Wiener's own `MEASURED` events.
+    Once: a redelivered `completed` finds them recorded and adds none."""
+    from wiener_core.events import measured as measured_event
+
+    from wiener_api.services import launcher, measured
+
+    if any(row.kind == EventKind.MEASURED for row in repository.events(session, lab_id, run_id)):
+        return None
+    pipeline = _artifact_pipeline(session, lab_id, run_id)
+    if pipeline is None:
+        return None
+    facts, decided = measured.read(launcher.results_dir(run_id), pipeline)
+    state = None
+    # In a savepoint: whatever goes wrong here, the `completed` event already appended stays
+    # recorded (Task 9 review).
+    savepoint = session.begin_nested()
+    try:
+        for fact in facts:
+            state = append(session, lab_id, run_id, measured_event(
+                run_id, at_ms, next_seq(session, lab_id, run_id), fact=fact))
+        for value in decided:
+            state = append(session, lab_id, run_id, measured_event(
+                run_id, at_ms, next_seq(session, lab_id, run_id), decided=value))
+    except Exception:  # noqa: BLE001 — losing measurements must never lose the run's end
+        savepoint.rollback()
+        log.exception("run %s: completed, and its measurements could not be recorded", run_id)
+        return None
+    savepoint.commit()
+    return state
 
 
 def beat(session: Session, lab_id: str, run_id: str, at_ms: int) -> RunState:
@@ -234,7 +272,9 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
         # that only goes up is worse than no gauge.
         telemetry.in_flight(+1, _artifact_pipeline(session, lab_id, run_id))
 
-    if state.phase in _TERMINAL:
+    # A run's measurements, appended after its end, export nothing: they are not Nextflow
+    # telling Wiener how the run went (#465). Every other terminal event exports as before.
+    if state.phase in _TERMINAL and event.kind is not EventKind.MEASURED:
         if prior.phase is RunPhase.RUNNING:
             telemetry.in_flight(-1, _artifact_pipeline(session, lab_id, run_id))
         # **After the flush, like the stream publish, and for the same reason**: telemetry for

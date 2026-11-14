@@ -40,7 +40,7 @@ MODEL = "claude-opus-5"
 pytestmark = pytest.mark.skipif(not reachable(), reason="no database — run `make test-db`")
 
 
-def _graph(contract: str = STAR, mqs: int | None = 10, scope: str | None = None) -> DraftGraph:
+def _graph(contract: str = STAR, mqs: int | None = 10, grain: str | None = None) -> DraftGraph:
     return DraftGraph(
         nodes=[
             DraftNode(id="align", contract_id=contract),
@@ -55,8 +55,8 @@ def _graph(contract: str = STAR, mqs: int | None = 10, scope: str | None = None)
             ),
         ],
         channels=(
-            [DraftChannel(scope=scope, why="one annotation per sample", ports=("counts.gtf",))]
-            if scope
+            [DraftChannel(grain=grain, why="one annotation per sample", ports=("counts.gtf",))]
+            if grain
             else []
         ),
     )
@@ -218,7 +218,7 @@ def test_deleting_a_step_drops_its_entry(spawned_draft):
 def test_a_channel_scope_edit_is_the_persons(spawned_draft):
     """Splitting a channel is a judgement about the experiment — per-sample annotation over a
     shared one is a different analysis. Whoever makes it owns it."""
-    drafts.update(spawned_draft, _graph(scope="sample"))
+    drafts.update(spawned_draft, _graph(grain="sample"))
     settled = _sidecar(spawned_draft).channel(("counts.gtf",))
     assert settled is not None
     assert settled.source == ValueSource.HUMAN
@@ -229,7 +229,7 @@ def test_an_unchanged_channel_keeps_its_author(spawned_draft):
     not re-author it."""
     with session_scope() as session:
         row = session.get(PipelineDraft, spawned_draft)
-        row.graph = _graph(scope="sample").model_dump(mode="json")
+        row.graph = _graph(grain="sample").model_dump(mode="json")
         row.provenance = (
             _spawned()
             .model_copy(
@@ -250,7 +250,7 @@ def test_an_unchanged_channel_keeps_its_author(spawned_draft):
             .model_dump(mode="json")
         )
 
-    drafts.update(spawned_draft, _graph(scope="sample"))
+    drafts.update(spawned_draft, _graph(grain="sample"))
     settled = _sidecar(spawned_draft).channel(("counts.gtf",))
     assert settled.source == ValueSource.MODEL
     assert settled.by == MODEL

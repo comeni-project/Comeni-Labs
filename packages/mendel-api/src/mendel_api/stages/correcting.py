@@ -370,6 +370,7 @@ _SOURCE_WORDS = {
     "measured": "measured",
     "model_read": "read by AI",
     "open": "unknown",
+    "varies": "differs between samples",
 }
 
 

@@ -78,6 +78,8 @@ export function Port({
   // feeds, and an optional one that is off needs nothing.
   const optional = inbound && port.optional;
   const unmet = !port.met && !(optional && port.state === "off");
+  // An input of several types (issue 485) has no type until one is connected.
+  const shown = port.type_id || (port.accepts ?? []).join(" or ");
 
   return (
     <button
@@ -85,7 +87,7 @@ export function Port({
       data-side={side}
       data-met={port.met}
       data-optional={optional ? "true" : undefined}
-      aria-label={`${inbound ? "Input" : "Output"} ${port.name}: ${port.type_id}${
+      aria-label={`${inbound ? "Input" : "Output"} ${port.name}: ${shown}${
         optional ? `, optional, ${port.state ?? "off"}` : ""}${unmet ? " — nothing feeds this" : ""}`}
       data-verdict={verdict ?? ""}
       onPointerDown={(e) => {
@@ -168,7 +170,7 @@ export function Port({
                      text-ink shadow-e2 pointer-events-none"
         >
           <b className="font-semibold">{port.name}</b>
-          <span className="text-ink-3"> · {port.type_id}</span>
+          <span className="text-ink-3"> · {shown}</span>
           {optional && <span className="text-ink-3"> · optional, {port.state ?? "off"}</span>}
           {unmet && <span className="text-needs-you-ink"> · nothing feeds this</span>}
         </span>

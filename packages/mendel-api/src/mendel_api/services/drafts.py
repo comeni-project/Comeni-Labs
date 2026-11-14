@@ -375,7 +375,7 @@ def _restamped(new: DraftGraph, old: DraftGraph, prior: DraftProvenance) -> Draf
         ports = tuple(sorted(channel.ports))
         before = was_channel.get(ports)
         kept = prior.channel(ports)
-        if before is not None and before.scope == channel.scope and before.why == channel.why:
+        if before is not None and before.grain == channel.grain and before.why == channel.why:
             if kept is not None:
                 channels.append(ChannelSettled(ports=ports, settled=kept))
             continue
@@ -512,7 +512,10 @@ def keep(draft_id: str, *, by: str = "", ai: AiProvenance | None = None) -> Path
     # source lives. Deliberately not the same path, and since Plan 5A the layer carries both —
     # so `staging.stage` is one implementation shared with `mendel build` rather than a second
     # `copytree` that can go missing again.
-    staging.stage(pipeline, stack.modules, out)
+    from mendel_resolver.measure_steps import steps_for
+
+    staging.stage(pipeline, stack.modules, out,
+                  measuring=steps_for(stack.inspection, stack.registry))
     _record_kept(draft_id, fingerprint(graph), pipeline.content_digest())
     return out / "pipeline.yml"
 
@@ -604,14 +607,14 @@ def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) 
             "the selected facts changed; resolve the corrected pipeline before keeping it"))
     graph = stored.graph
     return Pipeline.of(
-        ir_of(graph, stack, by=by, provenance=stored.provenance),
+        ir_of(graph, stack, by=by, provenance=stored.provenance, goal=stored.goal),
         # **Stated by the caller, never derived from the sidecar.** `MD0225` refuses a setting
         # that claims a model settled it in a build recording that no AI point was available —
         # and deriving `available` from the very values it checks would make that circular: a
         # value claiming a model settled it would certify that a model was there to settle it.
         # So a Spawn draft kept without this is *refused*, which is the check working. Task 6's
         # authoring service is what knows the configuration and supplies it.
-        stack.registry,
+        stack.routing,
         stack.vocabulary,
         stack.measurements,
         stack.paths,

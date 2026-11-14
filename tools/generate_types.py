@@ -12,6 +12,8 @@ import textwrap
 from pathlib import Path
 
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
+from comeni_core.plan.tiers import Grain
+from mendel_resolver import layers
 
 ROOT = Path(__file__).parent.parent
 STUB = ROOT / "packages/comeni-core/src/comeni_core/goal/profile.pyi"
@@ -32,13 +34,14 @@ from typing import Literal, overload
 
 from pydantic import BaseModel
 
-from comeni_core.plan.tiers import ValueSource
+from comeni_core.plan.tiers import Coverage, ValueSource
 from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue, PieceRef
 
 class Evidence(BaseModel):
     records: int | None
     rows: int | None
     share: float | None
+    coverage: Coverage | None
 
 class Measured(BaseModel):
     measurement: MeasurementId
@@ -47,27 +50,30 @@ class Measured(BaseModel):
     by: ContractId | None
     pieces: list[PieceRef]
     evidence: Evidence | None
+    @property
+    def coverage(self) -> Coverage | None: ...
 
 class DataProfile(BaseModel):
     measurements: list[Measured]
 '''
 
 
-def _returns(measurement) -> str:
+def _returns(registry: MeasurementRegistry, measurement_id: str) -> str:
     """The declared type of `DataProfile.get(<this measurement>)`.
 
-    A `per_sample` measurement may hold a scalar or a list — a scalar being the claim that
-    the cohort is uniform — so the overload has to admit both. Emitting the scalar alone
-    would be a stub that lies about a shape the loader accepts, which is the failure mode
+    A per-sample measurement (`scope_of`, #466) may hold a scalar or a list — a scalar being the
+    claim that the cohort is uniform — so the overload has to admit both. Emitting the scalar
+    alone would be a stub that lies about a shape the loader accepts, which is the failure mode
     this file's own header calls the expensive one: stale costs autocomplete, wrong costs
     correctness.
     """
+    measurement = registry.get(measurement_id)
     if measurement.kind is MeasurementKind.ENUM:
         values = ", ".join(f'"{v}"' for v in measurement.values)
         scalar = f"Literal[{values}]"
     else:
         scalar = _RETURN[measurement.kind].removesuffix(" | None")
-    if measurement.per_sample:
+    if registry.scope_of(measurement_id) is Grain.SAMPLE:
         return f"{scalar} | list[{scalar}] | None"
     return f"{scalar} | None"
 
@@ -92,7 +98,7 @@ def generate_stub(registry: MeasurementRegistry) -> str:
     lines = _HEADER.splitlines()
     for measurement_id in registry.ids():
         argument = f'measurement_id: Literal["{measurement_id}"]'
-        returns = _returns(registry.get(measurement_id))
+        returns = _returns(registry, measurement_id)
         one_line = f"    def get(self, {argument}) -> {returns}: ..."
         split = f"    ) -> {returns}: ..."
         # An enum with several values overruns the line limit, and a generated file that
@@ -125,7 +131,8 @@ def generate_stub(registry: MeasurementRegistry) -> str:
 
 
 def main() -> int:
-    generated = generate_stub(MeasurementRegistry.load(REGISTRY))
+    # Through `layers.load`, so each measurement knows its type's grain and with it its scope.
+    generated = generate_stub(layers.load(REGISTRY).measurements)
     if "--check" in sys.argv:
         current = STUB.read_text() if STUB.exists() else ""
         if current != generated:

@@ -12,10 +12,10 @@ Both are closed against this list — an undeclared key is refused, which is wha
 declares: measurement
 id: read_length
 kind: integer
-per_sample: true
 minimum: 1
 unit: bp
 description: "Sequenced read length"
+describes: fastq.reads
 cite: "Dobin et al. 2013, doi:10.1093/bioinformatics/bts635"
 ```
 
@@ -28,10 +28,9 @@ Model: `comeni_core.declared.measurement.Measurement`
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `id` | string | *required* | what a profile and a rule call it |
-| `kind` | enum | *required* | `integer`, `number`, `boolean` or `enum` |
+| `kind` | enum | *required* | `integer`, `number`, `boolean`, `enum`, `key` or `sample_ref` |
 | `values` | [string] | `[]` | for `enum`: the permitted values |
 | `extensible` | boolean | `false` | for `enum`: whether values outside the list are allowed |
-| `per_sample` | boolean | `false` | whether each sample can have its own value |
 | `assertion_only` | boolean | `false` | **no tool can produce this** — see below |
 | `assertion_only_because` | string | `""` | why not. Required when `assertion_only` is set |
 | `minimum` | number \| null | `null` | lower bound, checked on load |
@@ -41,11 +40,20 @@ Model: `comeni_core.declared.measurement.Measurement`
 | `cite` | string \| null | `null` | where the definition comes from |
 | `explain` | string \| null | `null` | what it is and how a person finds it out, one short paragraph shown under a question about it. Read by nothing that builds |
 | `edam` | string \| null | `null` | the EDAM ontology term, when one fits |
-| `describes` | string \| null | `null` | the type this is a fact *about*, e.g. `fastq.reads` |
+| `describes` | string \| null | `null` | the type this is a fact *about*, e.g. `fastq.reads`. It sets the fact's [scope](#scope). A setting can be [decided at run time](rule-schema.md#decided-at-run-time) from it only when this is set |
+| `row` | `second_file_present` \| null | `null` | read off each sample's samplesheet row instead of measured: true when the row gives its second file. A boolean describing a type with `second_may_be_blank` (`MD0338`) |
 | `meta_key` | string \| null | `null` | the key this becomes in a Nextflow `meta` map |
 | `meta_values` | [string] | `[]` | how its values are spelled in `meta`, when they differ |
 | `deprecated` | boolean | `false` | still loads, should not be used in new rules |
 | `replaced_by` | string \| null | `null` | what to use instead |
+
+## Scope
+
+A fact is one value for the whole study or one per sample, and it takes that from the
+[grain](vocabulary-schema.md#grain-study-or-sample) of the type it `describes`. Read length
+describes reads, which arrive per sample, so a profile may carry one value per sample:
+`read_length: [150, 100]`. Genome length describes the reference, one for the study, so a list
+is refused. A measurement that describes no type, such as `organism`, is the study's.
 
 ## `assertion_only` is the honest field
 
@@ -95,6 +103,14 @@ rather than wired: `-s 2` is featureCounts' encoding of a fact, not a decision a
 | `number` | any number | `minimum`, `maximum` |
 | `boolean` | `true` / `false` | — |
 | `enum` | one of `values` | `extensible` widens it |
+| `key` | a laboratory's identifier: letters, digits and `_ . -` | — |
+| `sample_ref` | another row's `sample`, or blank | — |
+
+A `key`, such as `patient` or `group`, relates samples: a step may run once per group of it, or
+pair two samples sharing it. A `sample_ref`, such as `control`, names another sample. Both come
+from each samplesheet row: they are never measured (`MD0342`), never stated in a goal, and Mendel
+never reads their values. The run checks each cell; a `sample_ref` naming no row stops the run
+naming both.
 
 `extensible: true` is for lists that genuinely cannot be enumerated — `organism` is the example.
 It is a real weakening of the closed-vocabulary guarantee and should be rare.

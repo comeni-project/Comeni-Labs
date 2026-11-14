@@ -153,10 +153,52 @@ def input_shape(artifact_id: str) -> tuple[str, list[str]]:
     columns = sorted(
         column
         for channel in pipeline.channels
-        if channel.scope.value == "sample"
+        if channel.grain.value == "sample"
         for column in channel.columns
     )
+    # Each row names its unit, such as a lane, where a sample may span several rows (#466).
+    if any(channel.units for channel in pipeline.channels):
+        columns.append("unit")
     return (pipeline.input_form.value, columns)
+
+
+def optional_columns(artifact_id: str) -> list[str]:
+    """The file columns a row may leave blank (#466): a second file whose absence is a fact,
+    single-end reads where pairing varies."""
+    pipeline = _pipeline(artifact_id)
+    if pipeline is None:
+        return []
+    blank = {f.column for f in pipeline.sheet_facts if f.from_row is not None}
+    # A one-lane sample may leave its unit blank (#466).
+    if any(channel.units for channel in pipeline.channels):
+        blank.add("unit")
+    return sorted(blank)
+
+
+def input_facts(artifact_id: str) -> list[dict]:
+    """The samplesheet's fact columns (#466): each with its kind, allowed values and bounds,
+    whether a row must fill it and whether a blank is measured, so the run sheet can ask for it
+    the way the pipeline will check it."""
+    pipeline = _pipeline(artifact_id)
+    if pipeline is None:
+        return []
+    return [{"column": f.column, "kind": f.kind.value, "values": list(f.values),
+             "minimum": f.minimum, "maximum": f.maximum, "required": f.required,
+             "auto": f.auto, "why": f.why.reason} for f in pipeline.sheet_facts]
+
+
+def input_tables(artifact_id: str) -> list[dict]:
+    """Each study input supplied as a table of several items (#466): its param, the name its
+    rows take on a sample, its file columns, and the item facts a step selects on (a row may
+    leave one blank, and then no step selecting on it reads that row).
+    The run sheet composes it as it composes the samplesheet, and the launcher writes it as a
+    CSV in the workdir."""
+    pipeline = _pipeline(artifact_id)
+    if pipeline is None:
+        return []
+    return [{"param": c.param, "name": c.table.name, "columns": list(c.table.columns),
+             "facts": list(c.table.facts)}
+            for c in pipeline.channels if c.table is not None]
 
 
 def _pipeline(artifact_id: str):

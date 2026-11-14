@@ -14,7 +14,7 @@ from arq.connections import RedisSettings
 from arq.worker import func
 
 from mendel_api.jobs import AI_QUEUE
-from mendel_api.services import authoring_jobs, forge_review, forging_ai
+from mendel_api.services import authoring_jobs, forge_review, forging_ai, proposals
 from mendel_api.settings import settings
 
 
@@ -44,6 +44,9 @@ class AIWorkerSettings:
         func(forging_ai.draft_forge_piece, keep_result=0),
         func(forging_ai.answer_forge_message, keep_result=0),
         func(forge_review.review_forge_piece, keep_result=0),
+        # Rule proposals (#462) cross the `rule_proposal` door: past decisions and study facts,
+        # never sample data. No kept result, so the next Propose is not refused by this one.
+        func(proposals.propose_rules, keep_result=0),
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     queue_name = AI_QUEUE

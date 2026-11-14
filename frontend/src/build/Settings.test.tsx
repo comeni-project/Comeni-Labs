@@ -44,6 +44,7 @@ const STEP = {
   runs: "per_item" as const,
   reason: "a rule matched",
   ports: [],
+  checked_per_sample: [] as string[],
   settings: [
     setting("seq_platform", 4, null),
     setting("star_ignore_sjdbgtf", 2, "False"),
@@ -263,5 +264,108 @@ describe("answering a parameter", () => {
     fireEvent.click(screen.getByTestId("show-settled"));
     fireEvent.click(screen.getAllByTestId("setting-choice")[1]);
     expect(set).toHaveBeenCalledWith("index_format", "csi");
+  });
+});
+
+describe("a setting decided at run time", () => {
+  it("lists every value the run can give it, and its fallback, before the run (issue 217)", async () => {
+    show({
+      ...STEP,
+      id: "star_genomegenerate",
+      settings: [{
+        ...setting("sa_index_nbases", 3, null),
+        reason: "decided at run time by rule param:index_building:sa_index_nbases",
+        at_run: {
+          facts: [{ fact: "genome_length", source: "measured", said: "measured in the run",
+                    measured_by: "comeni/measure/genome_length_fai@1.0.0" }],
+          rule: "param:index_building:sa_index_nbases",
+          rows: ["any sample → genome_length → log2 → ÷ 2 → − 1 → at most 14 → round"],
+          fallback: null,
+          fallback_is: "tool",
+          fallback_reason: "left to the tool: without a value it uses its own",
+        },
+      }],
+    });
+    const block = await screen.findByTestId("setting-at-run");
+    expect(block.textContent).toContain("decided at run time, for each sample, from");
+    expect(screen.getByTestId("at-run-fact").textContent).toBe(
+      "genome_length, measured in the run by comeni/measure/genome_length_fai@1.0.0");
+    expect(screen.getAllByTestId("at-run-row").map((r) => r.textContent)).toEqual([
+      "any sample → genome_length → log2 → ÷ 2 → − 1 → at most 14 → round",
+    ]);
+    // STAR sizes its own index when the genome cannot be measured: not a question (final review).
+    expect(screen.getByTestId("at-run-fallback").textContent).toBe(
+      "if no row applies: the tool's own value");
+  });
+
+  it("says where each fact comes from, and that a stop names the sample (issue 466)", async () => {
+    show({
+      ...STEP,
+      id: "subread_featurecounts",
+      settings: [{
+        ...setting("min_mqs", 3, null),
+        reason: "decided at run time by rule param:quantification:min_mqs",
+        at_run: {
+          facts: [
+            { fact: "read_length", source: "cell_or_measured", measured_by: "comeni/measure/fastq@1.0.0",
+              said: "from the samplesheet, measured in the run where left blank" },
+            { fact: "strandedness", source: "cell", said: "from the samplesheet", measured_by: null },
+          ],
+          rule: "param:quantification:min_mqs",
+          rows: ["read_length >= 70 and strandedness is reverse → 10"],
+          fallback: null,
+          fallback_is: "stop",
+          fallback_reason: "a person",
+        },
+      }],
+    });
+    await screen.findByTestId("setting-at-run");
+    expect(screen.getAllByTestId("at-run-fact").map((f) => f.textContent)).toEqual([
+      "read_length, from the samplesheet, measured in the run where left blank",
+      "strandedness, from the samplesheet",
+    ]);
+    expect(screen.getByTestId("at-run-fallback").textContent).toBe(
+      "if no row applies: the run stops and names the sample (a person)");
+  });
+});
+
+
+describe("a tool rule checked per sample (issue 466)", () => {
+  it("lists it on the step, before the step runs", async () => {
+    show({ ...STEP, checked_per_sample: [
+      "`save_merged` cannot be used for a sample whose paired is false (merging needs both reads) (save_merged)"] });
+    const block = await screen.findByTestId("checked-per-sample");
+    expect(block.textContent).toContain("checked for each sample before this step runs");
+    expect(block.textContent).toContain("a sample whose paired is false");
+  });
+});
+
+
+describe("a step only some samples take (issue 466)", () => {
+  it("says which samples, and the rule that sends them", async () => {
+    show({ ...STEP, takes_samples: {
+      tools: ["nf-core/star/align@2.7.11b"],
+      samples: "samples where read_length >= 70, and any sample no row covers",
+      lookup: {
+        facts: [{ fact: "read_length", source: "cell_or_measured",
+                  said: "from the samplesheet, measured in the run where left blank",
+                  measured_by: "comeni/measure/fastq@1.0.0" }],
+        rule: "implementation:alignment",
+        rows: ["read_length >= 70 → nf-core/star/align@2.7.11b",
+               "read_length < 70 → nf-core/hisat2/align@2.2.2"],
+        fallback: "nf-core/star/align@2.7.11b", fallback_is: "value",
+        fallback_reason: "asked once",
+      },
+    } });
+    const block = await screen.findByTestId("takes-samples");
+    expect(block.textContent).toContain("takes only samples where read_length >= 70");
+    expect(block.textContent).toContain("read_length < 70 → nf-core/hisat2/align@2.2.2");
+    expect(block.textContent).toContain("from the samplesheet, measured in the run where left blank");
+  });
+
+  it("says nothing when every sample comes here", async () => {
+    show(STEP);
+    await screen.findByTestId("settings-card");
+    expect(screen.queryByTestId("takes-samples")).toBeNull();
   });
 });

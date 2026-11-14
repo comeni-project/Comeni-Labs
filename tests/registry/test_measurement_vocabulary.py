@@ -31,7 +31,7 @@ def _measured_by(loaded) -> set[str]:
         for port in contract.produces
         if port.type_id.startswith("measurement.")
     }
-    by_pieces = {piece.measures for piece in loaded.inspection.measures.values()}
+    by_pieces = {piece.measures for piece in loaded.inspection.measurers.values()}
     return by_contracts | by_pieces
 
 
@@ -89,7 +89,7 @@ def test_every_measurement_describes_what_it_is_about():
 def test_paired_and_quality_encoding_are_measured_by_inspector_pieces():
     """Neither has a contract producing it; an inspector piece is what wired them (#134)."""
     loaded = _loaded()
-    measured = {piece.measures for piece in loaded.inspection.measures.values()}
+    measured = {piece.measures for piece in loaded.inspection.measurers.values()}
     assert {"paired", "quality_encoding", "read_length"} <= measured
     assert not loaded.measurements.get("paired").assertion_only
     assert not loaded.measurements.get("quality_encoding").assertion_only

@@ -34,6 +34,7 @@ from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.logic.when import matches, tier_of_row
+from comeni_core.plan.tiers import Tier
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_resolver.rules.format import (
@@ -42,6 +43,7 @@ from mendel_resolver.rules.format import (
     DecisionRow,
     Derivation,
     Effect,
+    FactRef,
     Fired,
     Pin,
     RuleValidationError,
@@ -49,8 +51,11 @@ from mendel_resolver.rules.format import (
 from mendel_resolver.rules.validate import (
     _check_exhaustive,
     _check_when,
+    _domain_of,
+    _fact_fits,
     _fillers_by_role,
     _validate,
+    check_table,
 )
 
 
@@ -169,7 +174,24 @@ class RuleTable(BaseModel):
         # accident of which one `stack()` reached first. Same reason `roles.check` runs after
         # the registry is assembled rather than inside `Registry.kind`'s parse.
         table.check_premise_names(measurements)
+        table.check_fact_kinds(registry, measurements)
         return table
+
+    def check_fact_kinds(self, registry: Registry, measurements: MeasurementRegistry) -> None:
+        """A derived fact a setting takes (`then: {fact:}`) fits that setting's domain (#461).
+        After the stack, where every derivation is known; a measured one is checked per file."""
+        kinds = {d.fact: d.kind for d in self.derivations}
+        fillers = _fillers_by_role(registry)
+        for decision in self.decisions:
+            for target in decision.targets():
+                if target.effect is not Effect.PARAM:
+                    continue
+                for row in decision.rows:
+                    if isinstance(row.then, FactRef) and row.then.fact in kinds:
+                        layer = self.layer_of.get(decision.key(), "?")
+                        _fact_fits(row.then, _domain_of(target, registry, fillers), target,
+                                   f"rules of layer {layer!r}", measurements,
+                                   kind=kinds[row.then.fact])
 
     def check_premise_names(self, measurements: MeasurementRegistry) -> None:
         """Every `when` key across the table names a premise something supplies.
@@ -192,10 +214,20 @@ class RuleTable(BaseModel):
             _check_when(
                 decision.rows, where, measurements=measurements, facts=facts
             )
+            for row in decision.rows:
+                if isinstance(row.then, FactRef) and row.then.fact not in facts:
+                    raise RuleValidationError(coded(
+                        "MD0310", f"{where}\n  `then` takes the value of {row.then.fact!r}, "
+                        "which no measurement or derivation supplies, so this row can never "
+                        "fire."))
             # After the stack, like everything else here: `add_values` lets an overlay extend
             # an enum, so a table exhaustive against the base layer alone is not exhaustive
             # against the stack it will actually run under. Checking per file would pass it.
             _check_exhaustive(decision, where, measurements=measurements)
+            findings = check_table(decision, measurements=measurements,
+                                   derived={d.fact: d.kind for d in self.derivations})
+            if findings:
+                raise RuleValidationError(findings[0])
 
     def _no_target_is_decided_twice(self) -> None:
         """No two decisions in the assembled table land on the same target.
@@ -222,22 +254,61 @@ class RuleTable(BaseModel):
                     )
                 decided_by[target.key()] = decision.key()
 
-    def _for(self, key: str, premises: "dict[str, object]") -> Pin | None:
+    def _matching(self, key: str, premises: "dict[str, object]") -> tuple[str, list[Pin]]:
+        """The decision's hit policy, and every row that fires for `key` here, in row order."""
         for decision in self.decisions:
             # `key()` is the composite; a two-target decision answers for either of them.
             if key not in {target.key() for target in decision.targets()}:
                 continue
+            premises = _visible(decision, premises)
+            pins = []
             for row in decision.rows:
-                if matches(row.when, premises):
-                    return Pin(
-                        value=row.then,
+                gives, value = row.value(premises)
+                if gives and matches(row.when, premises):
+                    pins.append(Pin(
+                        value=value,
                         from_layer=self.layer_of.get(decision.key(), ""),
                         displaced_layer=self.displaced_layer.get(decision.key()),
                         decision=decision,
                         row=row,
                         premise=_premises_read(row, premises),
-                    )
+                    ))
+                    if decision.hit == "first":
+                        break
+            return decision.hit, pins
+        return "first", []
+
+    def _for(self, key: str, premises: "dict[str, object]") -> Pin | None:
+        hit, pins = self._matching(key, premises)
+        if hit == "unique" and len(pins) > 1:
+            return None  # a tie: `ties_for` names it, and the resolver asks
+        return pins[0] if pins else None
+
+    def decision_for(self, roles: Sequence[str], param: str,
+                     implementation: str | None = None) -> "Decision | None":
+        """The decision that settles `param` on a node filling any of `roles`, whatever the
+        premises: roles in declared order, as `value_for` tries them (#217)."""
+        for role in roles:
+            key = f"{Effect.PARAM}:{role}:{param}"
+            for decision in self.decisions:
+                targets = [t for t in decision.targets() if t.key() == key]
+                if not targets:
+                    continue
+                narrowed = targets[0].when_implementation
+                if not narrowed or implementation is None or implementation in narrowed:
+                    return decision
         return None
+
+    def ties_for(self, roles: Sequence[str], param: str, premises: "dict[str, object]", *,
+                 implementation: str | None = None) -> list[Pin]:
+        """Under `hit: unique`, the rows that all match for `param` here, when more than one
+        does; otherwise none. A tie is a question for tier 4, never settled by row order."""
+        for role in roles:
+            hit, pins = self._matching(f"{Effect.PARAM}:{role}:{param}", premises)
+            pins = [p for p in pins if _applies_to(p, implementation)]
+            if hit == "unique" and len(pins) > 1:
+                return pins
+        return []
 
     def effects_for(self, premises: "dict[str, object]") -> list["Fired"]:
         """Every effect the table produces against these premises, in key order.
@@ -247,12 +318,26 @@ class RuleTable(BaseModel):
         two that happen to agree.
         """
         fired: list[Fired] = []
+        everything = premises
         for decision in self.decisions:
-            row = next((r for r in decision.rows if matches(r.when, premises)), None)
-            if row is None:
+            premises = _visible(decision, everything)
+            fired_rows = [r for r in decision.rows
+                          if r.value(premises)[0] and matches(r.when, premises)]
+            if not fired_rows:
                 continue
+            if decision.hit == "unique" and len(fired_rows) > 1:
+                # A tie is shown as the question it becomes, never as no effect (#461).
+                numbers = [str(decision.rows.index(r) + 1) for r in fired_rows]
+                fired.extend(Fired(effect=t.effect, role=t.of, name=t.name, value=None,
+                                   tier=Tier.AMBIGUOUS,
+                                   because=f"rows {', '.join(numbers)} both match: a person "
+                                           "is asked")
+                             for t in decision.targets())
+                continue
+            row = fired_rows[0]
+            value = row.value(premises)[1]
             pin = Pin(
-                value=row.then,
+                value=value,
                 from_layer=self.layer_of.get(decision.key(), ""),
                 displaced_layer=self.displaced_layer.get(decision.key()),
                 decision=decision,
@@ -264,7 +349,7 @@ class RuleTable(BaseModel):
                         effect=target.effect,
                         role=target.of,
                         name=target.name,
-                        value=row.then,
+                        value=value,
                         tier=tier_of_row(row.when),
                         because=pin.because(),
                         cite=row.cite or decision.cite or "",
@@ -315,16 +400,28 @@ class RuleTable(BaseModel):
             for decision in self.decisions:
                 if key not in {target.key() for target in decision.targets()}:
                     continue
-                if any(matches(row.when, premises) for row in decision.rows):
+                # Under `coverage: all` an estimate is no premise: the rule misses and the
+                # person is asked, rather than the pick falling to priority (#465).
+                visible = _visible(decision, premises)
+                if any(matches(row.when, visible) for row in decision.rows):
                     continue
                 unknown = sorted(
-                    {fact for row in decision.rows for fact in row.when if fact not in premises}
+                    {fact for row in decision.rows for fact in row.when if fact not in visible}
                 )
                 return decision, unknown
         return None
 
     def presence_for(self, role: str, premises: "dict[str, object]") -> Pin | None:
         return self._for(f"{Effect.PRESENCE}:{role}", premises)
+
+
+def _visible(decision: Decision, premises: "dict[str, object]") -> "dict[str, object]":
+    """The premises this decision may read: under `coverage: all`, none measured on part of
+    the data (#465). A missing premise makes a row not match, so such a decision falls to a
+    lower tier, or is decided in the pipeline where the fact is measured in full."""
+    if decision.coverage != "all":
+        return premises
+    return {k: p for k, p in premises.items() if getattr(p, "coverage", None) != "head"}
 
 
 def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[PremiseRecord]:
@@ -338,7 +435,23 @@ def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[Prem
     does not exist. Its absence is already what the row says.
     """
     read: list[PremiseRecord] = []
-    for fact in row.when:
+    taken = [row.then.fact] if isinstance(row.then, FactRef) else []
+    named = list(dict.fromkeys([*row.when, *taken]))  # once each, in the order written
+    # A derived fact brings the facts it was computed from, so the reason says where its value
+    # came from: `star_sa_index_nbases is 6` from `genome_length is 29903, stated` (#461).
+    expanded: list[str] = []
+
+    def add(fact: str) -> None:
+        if fact in expanded:
+            return
+        expanded.append(fact)
+        for source in getattr(premises.get(fact), "derived_from", None) or ():
+            add(source)
+
+    for fact in named:
+        add(fact)
+    named = expanded
+    for fact in named:
         premise = premises.get(fact)
         if premise is None:
             continue
@@ -349,6 +462,7 @@ def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[Prem
                 origin=premise.origin,
                 by=premise.by,
                 pieces=premise.pieces,
+                coverage=getattr(premise, "coverage", None),
             )
         )
     return read

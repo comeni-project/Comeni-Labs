@@ -19,7 +19,6 @@ since 14.7.8.2 and are re-exported here. The building stage
 (`stages/building.py`) is what reads and writes them inside one transaction.
 """
 
-import hashlib
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -34,7 +33,8 @@ from mendel_compiler import layout, orchestrate
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import FlagOnlyResolver
 
-from mendel_api.settings import active_registry
+from mendel_api.services import registry
+from mendel_api.settings import registry_roots
 
 __all__ = [
     "KEEP",
@@ -62,10 +62,7 @@ def registry_digest(roots: Sequence[Path]) -> str:
     the system already prints. A stack is a digest of its layers' digests in order — order
     matters, because the same two layers stacked the other way round are a different registry.
     """
-    digests = [str(digest_of_directory(root)) for root in roots]
-    if len(digests) == 1:
-        return digests[0]
-    return "sha256:" + hashlib.sha256("\n".join(digests).encode()).hexdigest()
+    return registry.combine([str(digest_of_directory(root)) for root in roots])
 
 
 def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Blueprint, list]:
@@ -73,7 +70,7 @@ def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Bluepri
     questions stay open, visibly, for a person in the walk; nothing is guessed. The second value
     is the model calls made, always none now, kept so a later Tier-4 answers fork can return
     them for `ai_invocation`."""
-    stack = list(roots or [active_registry()])
+    stack = list(roots or registry_roots())
     built = orchestrate.build(goal, registry_roots=stack, resolver=FlagOnlyResolver())
     placed = layout.of(built.ir)
     order = [node.id for node in sorted(placed.nodes, key=lambda n: (n.rank, n.order, n.id))]
@@ -91,7 +88,6 @@ def candidates(blueprint: Blueprint, node_id: str) -> list[str]:
     """The router's own candidates at the site `node_id`'s tool was chosen at (§14.3 of the
     consultant build), in the registry's order. One that would cycle or fill an absent role
     shows up in `alternatives_of` as a refusal or as no change, never as a silent option."""
-    from mendel_api.services import registry
 
     site = blueprint.sites.get(node_id)
     if site is None:

@@ -487,7 +487,7 @@ def test_a_replayed_override_backed_by_its_record_is_still_honoured():
     )
     ir = resolve(
         goal,
-        loaded.registry,
+        loaded.routing,  # as builds route: STAR's index size is measured, not asked (#217)
         loaded.rules,
         loaded.measurements,
         vocabulary=loaded.vocabulary,

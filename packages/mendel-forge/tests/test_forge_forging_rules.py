@@ -92,7 +92,28 @@ def test_all_approved_is_ready_to_assemble():
         state = _do(state, Move.WRITE, PERSON, key, value=None)
     assert not ready_to_assemble(state), "a tool needs a test"
     state = _do(state, Move.WRITE, PERSON, "tests:test:one", value=None)
+    assert next_piece(state) is Piece.MEASURERS, "measurers come last"
+    assert not ready_to_assemble(state)
+    state = _do(state, Move.WRITE, PERSON, "measurers:none", value=None)
     assert ready_to_assemble(state)
+
+
+def test_measurers_are_the_last_piece():
+    from mendel_forge.forging.model import PIECES
+    assert PIECES[-1] is Piece.MEASURERS
+
+
+def test_changing_an_approved_output_reopens_a_measurer():
+    state = _contract_approved()
+    state = _do(state, Move.WRITE, PERSON, "contract:output:fai", value={"name": "fai"})
+    for key in ("parameters:none", "vocabulary:none", "rules:none"):
+        state = _do(state, Move.WRITE, PERSON, key, value=None)
+    state = _do(state, Move.WRITE, PERSON, "tests:test:one", value=None)
+    state = _do(state, Move.WRITE, PERSON, "measurers:measurer:genome_length_fai", value={})
+    assert state.items["measurers:measurer:genome_length_fai"].status is Status.APPROVED
+    state = _do(state, Move.CHANGE, PERSON, "contract:output:fai", value={"name": "fai2"},
+                expected=1)
+    assert state.items["measurers:measurer:genome_length_fai"].status is Status.REOPENED
 
 
 def test_the_forging_protocol_is_valid_and_draws():

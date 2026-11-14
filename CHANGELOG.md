@@ -30,6 +30,25 @@ or a complete commit history.
 
 ### comeni-core
 
+- Rule proposals (#462): a door, `rule_proposal` (`RuleProposalRequest`): a target, the existing rows, the facts a row may test, the legal answers, and each person's answer with its study facts and reason. Codes MI0500 and MI0501.
+
+- A second table (#466): `Constraints.tables` names study inputs given as several items (MD0347); their channel carries a `TableShape` (`name`, file `columns`, item `facts`). A port may select on a fact describing its own type, a table row's fact, which is a column of that table rather than of the samplesheet. MD0348 refuses a by-sample join after a cross.
+
+- Parts (#466): a port may run on parts of a sample's item (`parts`), and a splitter's output fans out (`fans_out: part`, `Grain.PART`), MD0346. `Constraints.whole` names the tools a person keeps whole; `IRNode.parts` and `Step.parts` record each step that can run on parts, and `StepInput.parts` says where parts spread and gather. Splitting and merging tools are never routed as producers.
+
+- Relations between samples (#466): measurement kinds `key` and `sample_ref`, read only from samplesheet rows (MD0342); a port gathers per key (`by`, MD0343) or selects samples by their facts (`select`); a shared slot joins `by_key` or `by_ref` on an `NfInput.key` (MD0344). Each relation is a samplesheet column (`StepInput.by`, `StepInput.select`, `CallArg.key`).
+
+- Lanes and folds (#466): `Constraints.units` names inputs whose rows may repeat a sample, carried on the channel (`Channel.units`), which makes the input a samplesheet (MD0340); a port may gather at `grain: sample` (a sample's rows). A run-time fact may be folded over the study (`AtRunSource.FOLDED`, `AtRunFact.folds` and `using`).
+
+- A tool chosen per sample (#466): `IRNode.guard` and `Step.guard` (`Guard`: the decision as a lookup giving a tool, and the tools whose samples a step takes); `StepInput.mixed` names further producers where branches rejoin; `SheetFact.from_row` is a closed vocabulary (`RowFact`). MD0339.
+
+- Mixed single-end and paired samples (#466): a type's second column may be blank (`second_may_be_blank`); a measurement may be read off the row (`row: second_file_present`, MD0338); a samplesheet fact may come from the row (`SheetFact.from_row`).
+
+- Per-sample facts (#466): `Grain` (study, sample) replaces channel `scope` and port `cardinality` (a gathering port says `grain: study, many: true`; MD0331); a measurement's scope is its type's grain, so `per_sample` is gone (a `describes` naming no type is MD0334); `constraints.varies` lists facts a person said differ between samples (MD0332). `AtRun` reads several facts, each from the samplesheet, a measurement or both, and may fall back to stopping the run; `Pipeline.sheet_facts` are samplesheet columns checked by the run (MD0335). A contract's rule may read `fact.<measurement>` (MD0336), settled per sample (`Step.sample_rules`), and refused when every sample breaks it (MD0337). SCHEMA_VERSION 9.
+
+- Measurers (#465): one `declares: measurer` replaces `declares: measure`, by our code (`by: code`, a format's records) or by a tool and a parser of its output (`by: tool`), with where it runs (`runs: [server, pipeline]`); MD0326/MD0327. `Evidence.coverage` and `PremiseRecord.coverage` (`Coverage`: head or all) say how much of the data a fact was read from. Run-time decisions (#217): `plan.at_run` (`AtRun`, `MetaAtRun`, `Confirm`), carried as `Setting.at_run`, `Channel.meta_at_run` and `Pipeline.confirms`.
+
+- Tool constraints, phase 2 (#464): an `nf_inputs` entry may mix required and optional ports and hold independent optional ones; `join` may be a map giving each later port its own (`NfInput.join_for`); conditions may test `type.<input>`, the type connected to an input with `accepts`; the constraint check tries each accepted type (MD0612). `ToolTest.types` says which accepted type a test's data is. The artifact's `CallArg.joins` carries a per-port join.
 - A contract param routed to `ext` with no template is refused when it loads if its default
   is outside the substitutable class (MD0221). QUAST's `prefix: ${meta.id}` passed every check
   and then failed every build that used it (#477).
@@ -102,6 +121,20 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- Rule proposals (#462): `proposals` turns a kept pipeline's decisions into cases, gathers a person's tier-4 answers per target (`MIN_CASES = 3`), judges a proposed row against them (contradicted, unsupported or never firing), narrows it to where the existing rows missed, and replays it over every past decision of its target.
+
+- Parts (#466): a step that can run on parts of each sample is split before it and merged after it whenever the registry has a splitter and a merger and the step's only per-sample input is the split one, unless the person keeps it whole.
+
+- Lanes and folds (#466): an input whose rows may repeat a sample gets the type's `merging` step before anything reads it (MD0341). `aggregate` folds over `study` (was `cohort`) with `agree`, `all`, `any`, `count` and `distinct` beside `max`, `min` and `mean`, at build time from known values and in the run otherwise.
+
+- A tool chosen per sample (#466): an `implementation` decision whose rows wait only on facts said to vary is a branch point (`at_run.branch_points`); the goal is routed once per tool and the routes merged, each branch's steps guarded; its fallback is asked once (`<step>.if_no_row.implementation:<role>`); routes that differ before the choice are refused (MD0339).
+
+- Per-sample facts (#466): a run-time setting may wait on several facts, from samplesheet cells or measurements; its fallback question is its own (`<step>.if_no_row.<setting>`) and may be answered with a stop; a fact must describe the input behind the step's first input. `mendel_resolver.cases` gives a rule's cases with undetermined, its gaps and overlaps; a `hit: unique` rule over a per-sample fact may not overlap (MD0333). MD0328 is retired.
+
+- Settings decided at run time (#217): a param rule waiting on one fact a pipeline measurer can measure, describing an input in the step's lineage, compiles into a lookup; discovery asks nobody, the build routes again with the measurement wanted (MD0328, MD0329). Estimates a decision used are measured again over all the data (`confirms`). `measure_steps` builds the generated measuring steps; `Layers.routing` is the registry builds route with. A decision may require `coverage: all`. An omittable setting's run-time fallback is the tool's own value.
+
+- Rules v2 (#461): a setting can take a fact's value (`then: {fact: <id>}`); `round` joins the transform chain; a decision declares `hit: first | unique`, and a tie under `unique` is asked at tier 4; load checks every case a table's rows tell apart for gaps (MD0311), dead rows (MD0323) and too many cases (MD0324), and a literal value against the tool's constraints (MD0325). A row reading a derived fact records the facts it came from. mendel-resolver needs pydantic 2.12.
+- Constraints are checked with the types routing connected (#464): a step's required inputs are routed first, its optional ones decided with their types; resolution follows the router's first matching alternative; a refused alternative leaves no steps behind; a pipeline input feeding an `accepts` input gets a channel of the type it matched.
 - Optional inputs are routed off unless switched on, made required when a later step needs what they add, and brought along by constraint rows; constraints are re-checked once parameters resolve (MD0608–MD0610) (#460).
 
 #### Added
@@ -127,6 +160,27 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- `mendel lint` checks a measurer piece's imports and calls (MD0027), whatever the layer's
+  manifest says. The inspector-pieces guard, the forge and the registry's CI use this one check
+  (#487).
+
+- A step reading a sample and a table runs on every pair (`combine`, then `multiMap` into its two inputs), the row's `meta` on the sample's under the table's name; each pair publishes under its own name; a blank or repeated row name, a missing file, or a table none of whose rows the step reads stops the run (#466). A crossed step that takes only some samples or reads a fold is refused (MD0348).
+
+- A sample's parts run in parallel and merge per sample, gathered with a `groupKey` sized by the splitter's own count, so one sample never waits for another's; a splitter making one part still flows; each part publishes under its own name (#466).
+
+- A group runs once with its own samples, gathered with a `groupKey` sized from the sheet; a pair joins one member per key, a patient with two normals stopping the run naming it; a sample reads the control it names, which may feed several, and a reference to no row stops the run naming both (#466).
+
+- A sample's lanes are merged in the run, gathered with a `groupKey` sized from the samplesheet; a one-lane sample passes straight on; lanes that disagree, or a repeated sample and unit, stop the run naming the sample. A fact folded over the study joins every sample's `meta` once every sample has its value (#466).
+
+- Each sample goes down its own branch (#466): a step the samples enter takes only those its tool's rows admit; an index waits for one of its samples; branches rejoin by mixing; each sample's tool is recorded in `decided/<role>.tool.tsv`.
+
+- A row whose second reads file is blank is a single-end sample where pairing varies; a blank required file cell stops the run naming the sample and the column (#466).
+
+- Per-sample facts (#466): the samplesheet carries fact columns, each cell checked before any sample is processed; only rows that leave a measured fact blank are measured, and the measured facts are rejoined after the measuring branch; per-sample tool rules stop a sample naming it; the decided record lists each fact's value and source.
+
+- A run-time setting is emitted as a Groovy lookup over `meta`, from the closed operations only; the measuring branch runs first and its fact is joined into the input by `meta` (`failOnMismatch`); each value used is recorded under `{outdir}/decided/` (#217). The generated measuring step's module (a launcher, the stdlib runner and the pieces) is staged and recorded in `pipeline.yml` (#465). MD0330. `mendel profile` is removed.
+
+- A shared slot passes `[]` in the position of each optional port that is off, and joins each later port its own way (#464).
 - An optional channel is emitted as `params.x ? … : <empty tuple>`, and run rules as guards at the workflow's start. `ModuleSpec.optional_emits`; MD0611 reports an optional emit a contract says is always written. Builds stop only on codes `diagnostics.yml` declares refusing (#460).
 
 #### Added
@@ -173,6 +227,8 @@ or a complete commit history.
 
 ### mendel-authoring
 
+- The memory rendered for the model says how uploaded samples spread over each fact they differ on (#466).
+
 #### Changed
 
 - The protocol engine moved to `comeni-flow`; `PROTOCOL` is declared on it through
@@ -203,6 +259,24 @@ or a complete commit history.
 
 ### mendel-api
 
+- Learned rules (#462): `/api/rules/...` proposes rules from people's answers in kept pipelines, one model call per target whose evidence moved (`rule_proposal` table, job `propose_rules`), checks each against the registry, and on approval writes it to the installation's own layer (`MENDEL_OWN_LAYER`, default `<workspace>/layer`), which every build now stacks above the release.
+
+- A study input may be a table of several items (#466): a `tables` change from a checkbox on the input in *What was understood*, offered only on inputs the study shares, while the lanes checkbox is now offered only on per-sample ones; inputs store it (`pipeline_input_revision.table`), and suggestions and turns move to shapes 6 and 10.
+
+- A step that runs on parts of each sample says so on its card, with the tools and why, and *Run each sample whole* keeps it whole: a `whole` change, stored as its own decision family (`pipeline_whole`). Previews, suggestions, turns and drafts move to shapes 9, 5, 9 and 4 (#466).
+
+- A step only some samples take says which, with its rule, on its card and its canvas node (#466); previews migrate to shape 8.
+
+- An input may span several rows per sample (#466): a `units` change, from a checkbox on the input in *What was understood*; inputs store it (`pipeline_input_revision.units`), and suggestions and turns move to shapes 4 and 8.
+
+- Several uploads (#466, #218): an upload takes any number of files, mates paired by name; each sample is measured and kept with the session, with its name and measurements (session shape 3). Facts every sample agrees on are recorded; where they differ, the question says how they spread and proposes an answer to confirm. The model's memory carries each spread, never a sample's name.
+
+- Per-sample facts (#466): the conversation offers *it differs between samples* where everything reading a fact can take a value per sample (a fact's origin `varies`); the step card lists tool rules checked per sample and where each run-time fact comes from. Stored previews, drafts, blueprints, turns and forge items migrate to the new shapes.
+
+- The measurer index lists each measurer with where it runs; the browser sends each file's real size, so a whole small file is measured on all of it (#465). A fact only settings read and the pipeline can measure is not asked (#217).
+
+- Forge drafts read item guide v4 (`forge.draft.v9`): settings from facts, hit policies and derived facts (#461); drafted rules show table findings. The builder asks for a measurement a setting's fact is derived from.
+- Forge drafts read item guide v3 (`forge.draft.v8`): shared slots, joins per port, `accepts` inputs and rows on the connected type (#464); the forge shows MD0612. A step card shows the type connected to an `accepts` input and words a condition on a type.
 - The builder still asks for an input only optional ports read, such as QUAST's reference,
   but *I don't have one* leaves it out and the conversation goes on (#481).
 - The builder asks only for the inputs of producers that can make a wanted type in its
@@ -385,6 +459,10 @@ or a complete commit history.
 
 ### comeni-inspect
 
+#### Changed
+
+- The inspection core runs on the standard library alone, and `measure_cli` runs it over whole files in a pipeline step (#465). Every fact carries `coverage`; codecs open a stream; `--as` keys a report by measurement.
+
 #### Added
 
 - A separate inspection package processes bounded uploaded samples in subprocesses, producing
@@ -398,6 +476,18 @@ or a complete commit history.
 
 ### mendel-forge
 
+- The forge drafts measurers (#487). A new last step, **Measurers**, proposes a `by: tool`
+  parser of one of the tool's outputs, with its tests, and any new measurement. The parser is
+  checked with MD0027 and is never run on Mendel's server. A forge test runs it on the tool's real
+  output in Wiener, and is green only when it reports a value. Publishing may drop
+  `assertion_only` from a measurement the tool now measures.
+- An approved new measurement from the vocabulary step is written to the draft layer; it was
+  dropped (#490).
+
+- A tool test leaves out a setting the tool can do without (#217).
+
+- Derived facts are drafted as `rules:derive:<fact>` items and assembled into the layer's `rules/derived/<fact>.yml` (#461).
+- Forge tests may leave out a port in a shared slot and name the type of their data for an `accepts` input (#464); an `accepts` input round-trips through forging's items.
 - `forging.checks` finds a type question's scope, duplicate-type and format mismatches. They are
   advice only; nothing is refused (#452).
 - Explicit Family items in Vocabulary let a reviewed new type such as `assembly.fasta` load
@@ -449,12 +539,26 @@ or a complete commit history.
 
 #### Added
 
+- `MEASURED` events, Wiener's own: what a run measured and the values its run-time settings took (`wiener_core.measured`), compared with what the pipeline was built on (#465).
+
+#### Added
+
 - A pure event fold models run state. Ingress admits declared Nextflow fields and drops
   undeclared fields; heartbeat time arrives as an internally constructed event.
 - Laboratory-authored strings are identified separately from other structured fields.
   Telemetry mapping stays pure, with export handled outside the package.
 
 ### wiener-api
+
+- The run form composes each table input with a `name` per row, its files and its item facts, and sends it under its own parameter (`input_tables`, #466).
+
+- The run reads which tool each sample went through when it was chosen per sample, and the run page says so (#466).
+
+- The run form has a `unit` column where a sample may span several rows; a fact folded over the study is read as `folded`; key and reference columns are checked as identifiers, a reference may stay blank (#466).
+
+- The run form lists the samplesheet's fact columns; a decided value lists each fact it read and where it came from (#466).
+
+- When a run completes, what its measuring steps published is read into its record, closed to what its `pipeline.yml` declares; `GET /runs/{id}/measured` says whether each estimate was confirmed (#465).
 
 - A stored artifact says which inputs a run may leave empty and the run rules between them, read from its `pipeline.yml` (#460).
 - The image pins Nextflow (26.10.2) and installs `nf-weblog@1.2.0`, which the site config loads: Nextflow 26 has no built-in weblog, so no run reported its end (#471).
@@ -479,6 +583,14 @@ or a complete commit history.
 - Shared pure graph layout supports the build and run canvases.
 
 ### frontend
+
+- **Registry → Learned rules** (#462): each proposed rule with the model's reason, its evidence, the engine's check and what it would change; Approve, Reject, and Withdraw for a rule in use.
+
+- The upload takes every sample at once; current answers list each sample with its measurements, filtered, sorted and grouped (#466).
+
+- The samplesheet editor offers each per-sample fact's values, `auto` where the run measures a blank; the run page says where each decided value's facts came from (#466).
+
+- The step card shows a setting decided at run time with every value it can take; the run page shows what the run measured and flags a disagreement (#217, #465).
 
 #### Added
 

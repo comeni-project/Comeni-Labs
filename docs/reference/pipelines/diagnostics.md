@@ -50,15 +50,31 @@ decline to curate one.
 | `MD0026` | a tool's test names a contract nothing declares |
 | `MD0110` | a contract file writes `state`, `state_required` or `states` beside the type |
 | `MD0228` | a type names a param literally in its `entry_channel` |
-| `MD0317` | an inspector piece names a type or measurement no layer declares |
-| `MD0318` | an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
-| `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
+| `MD0317` | a measurer, format or codec names a type or measurement no layer declares |
+| `MD0318` | a measurer, format or codec cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares |
+| `MD0323` | a rule row is first for no case, so it never decides |
+| `MD0324` | a rule's rows tell too many cases apart to check |
+| `MD0325` | a rule sets a value the tool's constraints refuse |
+| `MD0326` | a measurer's declaration does not fit how it says it measures: by our code, or by a tool and a parser |
+| `MD0327` | a measurer uses a tool, or an output of it, that no layer declares |
+| `MD0333` | a `hit: unique` decision over a fact that differs between samples has overlapping rows |
+| `MD0334` | a measurement describes a type no layer declares |
+| `MD0336` | a contract's rule reads a fact that is not a measurement each sample has |
+| `MD0338` | a measurement read off the row is not a boolean, or its type's second column cannot be blank |
+| `MD0342` | a measurer measures a key, which only a samplesheet row gives |
+| `MD0343` | a port groups by something that is not a key, or groups without gathering |
+| `MD0344` | a port selects on a fact samples lack, or a pair or a control joins on something that is not a key or a reference |
+| `MD0345` | a rule reads a key's or a reference's value, a laboratory's identifier |
+| `MD0346` | a contract or type declares parts where only a splitter may |
+| `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out, or joins its later inputs in mixed ways after an optional first one |
 | `MD0602` | a contract's constraint names an input or param it does not declare |
 | `MD0603` | no combination of inputs and params satisfies a contract's constraints |
 | `MD0604` | an optional input is connected in no combination the constraints allow |
 | `MD0605` | an optional input is connected in every combination the constraints allow |
 | `MD0606` | an output's `produced_when` holds in no combination the constraints allow |
 | `MD0607` | a contract has too many combinations to check |
+| `MD0612` | a type a contract's input accepts has no combination its constraints allow |
+| `MD0613` | an nf_inputs entry with several ports does not say how each later port joins the first |
 
 ## A contract disagrees with its module
 
@@ -91,6 +107,7 @@ decline to curate one.
 | `MD0022` | a tool folder has no tool.yml saying what the tool is |
 | `MD0023` | a type only one tool uses sits outside that tool's types/ folder |
 | `MD0024` | a type one tool keeps as its own is used by another tool's contract |
+| `MD0027` | a measurer piece reaches outside what pieces may import or call |
 
 ## The pipeline file — a setting, an override, or the format
 
@@ -129,6 +146,9 @@ decline to curate one.
 | `MD0231` | a registry layer has no network source in git, so this pipeline cannot be rebuilt from its file alone |
 | `MD0232` | a registry layer has uncommitted edits, so its commit does not rebuild it |
 | `MD0233` | a starter has nothing resolved to emit or publish |
+| `MD0330` | a setting decided at run time cannot be carried: it routes outside `ext`, or its template does not hold `{value}` once |
+| `MD0335` | a fact that differs between samples has no samplesheet column to carry it |
+| `MD0337` | every sample breaks a tool's rule, their facts known before the build |
 
 ## Routing and resolution
 
@@ -145,7 +165,7 @@ decline to curate one.
 | `MD0308` | a param decision sets a value some filler of the role does not declare |
 | `MD0309` | two decisions in one file decide the same key |
 | `MD0310` | a `when` clause names a premise nothing supplies, or compares one that cannot be ordered |
-| `MD0311` | a decision's rows do not cover the domain of the premise they test |
+| `MD0311` | a decision's rows do not cover every case of the premises they test |
 | `MD0312` | a scalar comparison is applied to a per-sample measurement |
 | `MD0313` | a row exits at tier 2 and cites nothing |
 | `MD0314` | a `transform` chain is applied to a per-sample measurement |
@@ -154,6 +174,12 @@ decline to curate one.
 | `MD0319` | a role you switched off is one this goal needs, so nothing can make what it wants |
 | `MD0320` | a tool you excluded was the only one that can make this step's output |
 | `MD0321` | a tool you chose to feed a step's input makes nothing that input accepts |
+| `MD0329` | routing again to add the steps that measure a run-time fact changed the pipeline instead of only adding to it |
+| `MD0331` | a port gathers (`many: true`) at a grain with nothing finer to gather |
+| `MD0332` | a fact is said to differ between samples, and it is the study's or is also stated |
+| `MD0339` | a tool chosen per sample needs routes that differ only after the choice and rejoin at one type |
+| `MD0340` | an input said to span several rows per sample is not one the goal has, one item per sample |
+| `MD0341` | an input may span several rows per sample, and nothing in the registry merges its type |
 | `MD0608` | an output a later step needs is not written with this step's settings |
 | `MD0609` | a tool's input is needed, but it was switched off or cannot be connected |
 | `MD0610` | a connection or setting is forbidden by the tool's constraints |
@@ -171,6 +197,8 @@ decline to curate one.
 
 | Code | Says |
 |---|---|
+| `MD0347` | an input that cannot be a table of several items is said to be one |
+| `MD0348` | a step crossing a table is wired in a way that would mis-pair its samples and rows |
 | `MD0501` | an edge names a port that does not exist on that contract |
 | `MD0502` | an edge runs the wrong way — an input feeding an output, or an output into an output |
 | `MD0503` | the source type does not satisfy what the target port requires |
@@ -204,6 +232,8 @@ decline to curate one.
 | `MI0217` | editing opens when the walk is done |
 | `MI0218` | this older offer has no saved alternative preview |
 | `MI0219` | there is no pipeline to compile yet |
+| `MI0500` | a rule proposal cannot be approved as it stands |
+| `MI0501` | no model is set to propose rules |
 
 ## Reaching a model
 
@@ -281,7 +311,7 @@ decline to curate one.
 | `MF0517` | the draft cannot be published: the registry's own checks refuse it |
 | `MF0518` | the pull request cannot be merged: registry CI is not green |
 | `MF0519` | the release cannot be cut |
-| `MF0520` | an input arrives at a different scope than its type |
+| `MF0520` | an input arrives at a different grain than its type |
 | `MF0521` | two inputs of one tool have the same type |
 | `MF0522` | an input's file format differs from its type's format |
 | `MF0530` | an output main.nf marks optional has no `produced_when` |

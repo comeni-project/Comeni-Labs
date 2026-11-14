@@ -18,7 +18,7 @@ process QUAST {
     ""
 }
 """)
-SCOPES = {"genome.fasta": "run", "annotation.gtf": "run"}
+SCOPES = {"genome.fasta": "study", "annotation.gtf": "study"}
 
 
 def _asked(**suggested: str) -> dict[str, dict]:
@@ -29,7 +29,7 @@ def _asked(**suggested: str) -> dict[str, dict]:
 
 def test_the_meta_name_says_how_an_input_arrives():
     assert arrival(QUAST, "consensus") == "sample"
-    assert arrival(QUAST, "fasta") == arrival(QUAST, "gff") == "run"
+    assert arrival(QUAST, "fasta") == arrival(QUAST, "gff") == "study"
     assert arrival(ModuleSpec.of("process P {\n    input:\n    path(x)\n\n    output:\n"
                                  "    path('y'), emit: y\n\n    script:\n    ''\n}"), "x") is None
 

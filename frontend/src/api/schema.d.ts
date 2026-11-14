@@ -1337,6 +1337,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/rules/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rules proposed from people's answers, refused targets, and rules in use */
+        get: operations["readRuleProposals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rules/proposals/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask the model again for each target whose answers changed */
+        post: operations["proposeRules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rules/proposals/{proposal_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put a proposed rule in force in this installation */
+        post: operations["approveRuleProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rules/proposals/{proposal_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a proposed rule */
+        post: operations["rejectRuleProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rules/learned/{name}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove a learned rule; its question is asked again */
+        post: operations["withdrawLearnedRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1553,6 +1638,46 @@ export interface components {
             files: string[];
         };
         /**
+         * AtRunFactView
+         * @description One fact a run-time setting reads, and where each sample's value comes from (#466).
+         */
+        AtRunFactView: {
+            /** Fact */
+            fact: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "cell" | "measured" | "cell_or_measured";
+            /** Said */
+            said: string;
+            /** Measured By */
+            measured_by: string | null;
+        };
+        /**
+         * AtRunView
+         * @description A setting decided at run time, as the card shows it before the run (#217, #466): the
+         *     facts it reads and where they come from, every row as a line, and what it is when no row
+         *     applies.
+         */
+        AtRunView: {
+            /** Facts */
+            facts: components["schemas"]["AtRunFactView"][];
+            /** Rule */
+            rule: string;
+            /** Rows */
+            rows: string[];
+            /** Fallback */
+            fallback: string | null;
+            /**
+             * Fallback Is
+             * @enum {string}
+             */
+            fallback_is: "value" | "tool" | "question" | "stop";
+            /** Fallback Reason */
+            fallback_reason: string;
+        };
+        /**
          * Attention
          * @description What needs a person, now.
          */
@@ -1742,6 +1867,11 @@ export interface components {
              * @default []
              */
             facts: components["schemas"]["Fact"][];
+            /**
+             * Samples
+             * @default []
+             */
+            samples: components["schemas"]["UploadedSample"][];
             /**
              * Inputs
              * @default []
@@ -2157,11 +2287,11 @@ export interface components {
             /** Name */
             name: string;
             /**
-             * Scope
+             * Grain
              * @default sample
              * @enum {string}
              */
-            scope: "run" | "sample";
+            grain: "study" | "sample";
             /** Count */
             count?: number | null;
             /** Param */
@@ -2284,6 +2414,14 @@ export interface components {
             sources?: components["schemas"]["SourcePin"][];
             /** Inputs */
             inputs?: components["schemas"]["InputChoice"][];
+            /** Varies */
+            varies?: string[];
+            /** Units */
+            units?: string[];
+            /** Tables */
+            tables?: string[];
+            /** Whole */
+            whole?: string[];
         };
         /**
          * Constraints
@@ -2304,6 +2442,14 @@ export interface components {
             sources?: components["schemas"]["SourcePin"][];
             /** Inputs */
             inputs?: components["schemas"]["InputChoice"][];
+            /** Varies */
+            varies?: string[];
+            /** Units */
+            units?: string[];
+            /** Tables */
+            tables?: string[];
+            /** Whole */
+            whole?: string[];
         };
         /** Constructor */
         Constructor: {
@@ -2341,8 +2487,8 @@ export interface components {
             name?: string | null;
             /** Explain */
             explain?: string | null;
-            /** Scope */
-            scope?: string | null;
+            /** Grain */
+            grain?: string | null;
             /**
              * Tools
              * @default []
@@ -2406,6 +2552,12 @@ export interface components {
             };
         };
         /**
+         * Coverage
+         * @description How much of the data a measured fact was read from (#465).
+         * @enum {string}
+         */
+        Coverage: "head" | "all";
+        /**
          * DataProfile
          * @description Measured properties of the input data.
          *
@@ -2456,7 +2608,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source" | "optional_input";
+            kind: "want" | "input" | "measurement" | "require" | "pin" | "parameter" | "asked" | "producer" | "retain" | "observation" | "role" | "exclude" | "source" | "optional_input" | "units" | "whole" | "tables";
             /** Subject */
             subject: string;
             /** Value */
@@ -2566,8 +2718,7 @@ export interface components {
          *     Unlisted ports retain the default one-channel-per-type behavior.
          */
         DraftChannel: {
-            /** Scope */
-            scope?: string | null;
+            grain?: components["schemas"]["Grain"] | null;
             /**
              * Why
              * @default
@@ -2808,6 +2959,22 @@ export interface components {
             rows?: number | null;
             /** Share */
             share?: number | null;
+            coverage?: components["schemas"]["Coverage"] | null;
+        };
+        /** EvidenceView */
+        EvidenceView: {
+            /** Pipeline */
+            pipeline: string;
+            /** Decision */
+            decision: string;
+            /** Facts */
+            facts: {
+                [key: string]: number | boolean | string | null;
+            };
+            /** Answer */
+            answer: number | boolean | string | null;
+            /** Reason */
+            reason: string;
         };
         /**
          * Explanation
@@ -2867,6 +3034,8 @@ export interface components {
             evidence?: {
                 [key: string]: number;
             } | null;
+            /** Coverage */
+            coverage?: ("head" | "all") | null;
             /** Heard */
             heard?: string | null;
         };
@@ -2880,7 +3049,7 @@ export interface components {
              * Origin
              * @enum {string}
              */
-            origin: "person_said" | "measured" | "model_read" | "open";
+            origin: "person_said" | "measured" | "model_read" | "open" | "varies";
             /** Selected */
             selected: boolean;
             /** Current */
@@ -2941,13 +3110,13 @@ export interface components {
          * FactOrigin
          * @enum {string}
          */
-        FactOrigin: "person_said" | "measured" | "model_read" | "open";
+        FactOrigin: "person_said" | "measured" | "model_read" | "open" | "varies";
         /**
          * FactSource
          * @description Where a fact came from, which is what the goal card and the tier-3 premise show.
          * @enum {string}
          */
-        FactSource: "measured" | "model_read" | "person_said" | "open";
+        FactSource: "measured" | "model_read" | "person_said" | "open" | "varies";
         /**
          * Finding
          * @description One declared diagnostic with optional node, port, and edge-endpoint context.
@@ -3054,6 +3223,11 @@ export interface components {
             kind: components["schemas"]["FactKind"];
             /** Why */
             why: string;
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
             /** States */
             states?: string[];
             block: components["schemas"]["Question"];
@@ -3208,10 +3382,52 @@ export interface components {
              */
             suggested: components["schemas"]["RequiredStates"][];
         };
+        /**
+         * Grain
+         * @description How many items a channel carries relative to the analysis, and what a fact is about
+         *     (#466): one for the whole study, one per sample, or a part of one sample's item between a
+         *     splitter and its merger. Groups and lanes are declared on ports and channels instead (`by`,
+         *     `Channel.units`).
+         * @enum {string}
+         */
+        Grain: "study" | "sample" | "part";
+        /**
+         * GuardView
+         * @description The samples a step takes when each sample's tool is chosen per sample (#466): the
+         *     tools whose samples come here, in a sentence, and the rule as the card shows a lookup.
+         */
+        GuardView: {
+            /** Tools */
+            tools: string[];
+            /** Samples */
+            samples: string;
+            lookup: components["schemas"]["AtRunView"];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** InUseView */
+        InUseView: {
+            /** Slug */
+            slug: string;
+            /** Target Key */
+            target_key: string;
+            /** Target */
+            target: string;
+            /** Rows */
+            rows: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Learned */
+            learned: boolean[];
+            /** Approved By */
+            approved_by: string | null;
+            /** Approved At */
+            approved_at: string | null;
+            /** Proposal */
+            proposal: string | null;
         };
         /**
          * InputChoice
@@ -3242,6 +3458,16 @@ export interface components {
             present: boolean;
             /** @default person_said */
             origin: components["schemas"]["FactOrigin"];
+            /**
+             * Units
+             * @default false
+             */
+            units: boolean;
+            /**
+             * Table
+             * @default false
+             */
+            table: boolean;
         };
         /**
          * InputState
@@ -3272,6 +3498,8 @@ export interface components {
             evidence: {
                 [key: string]: number | boolean | string;
             };
+            /** Coverage */
+            coverage?: ("head" | "all") | null;
         };
         /** ItemView */
         ItemView: {
@@ -3366,7 +3594,7 @@ export interface components {
         };
         /**
          * Measurement
-         * @description A typed property that a goal may assert or a profiling contract may measure.
+         * @description A typed property that a goal may assert or a measurer may measure.
          */
         Measurement: {
             /** Id */
@@ -3379,11 +3607,6 @@ export interface components {
              * @default false
              */
             extensible: boolean;
-            /**
-             * Per Sample
-             * @default false
-             */
-            per_sample: boolean;
             /**
              * Assertion Only
              * @default false
@@ -3415,6 +3638,8 @@ export interface components {
             describes?: string | null;
             /** Meta Key */
             meta_key?: string | null;
+            /** Row */
+            row?: "second_file_present" | null;
             /** Meta Values */
             meta_values?: components["schemas"]["MetaValue"][];
             /**
@@ -3429,7 +3654,7 @@ export interface components {
          * MeasurementKind
          * @enum {string}
          */
-        MeasurementKind: "integer" | "number" | "boolean" | "enum";
+        MeasurementKind: "integer" | "number" | "boolean" | "enum" | "key" | "sample_ref";
         /**
          * MeasurerView
          * @description One way a measurement can be measured, and where that runs (#134).
@@ -3437,18 +3662,10 @@ export interface components {
         MeasurerView: {
             /** Measurement */
             measurement: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "inspector" | "profiler";
             /** By */
             by: string;
-            /**
-             * Runs
-             * @enum {string}
-             */
-            runs: "server" | "lab" | "browser";
+            /** Runs */
+            runs: ("server" | "pipeline")[];
             /** Trusted */
             trusted: boolean;
         };
@@ -3903,6 +4120,21 @@ export interface components {
             because: string | null;
         };
         /**
+         * PartsView
+         * @description A step that can run on parts of each sample (#466): whether it does, the tools that split
+         *     and merge, and why. Shown whether it is on or kept whole, so the card offers the switch.
+         */
+        PartsView: {
+            /** On */
+            on: boolean;
+            /** Splitter */
+            splitter: string;
+            /** Mergers */
+            mergers: string[];
+            /** Because */
+            because: string;
+        };
+        /**
          * Phase
          * @description Where a session is in §2's diagram.
          *
@@ -4020,6 +4252,11 @@ export interface components {
             name: string;
             /** Type Id */
             type_id: string;
+            /**
+             * Accepts
+             * @default []
+             */
+            accepts: string[];
             /** Side */
             side: string;
             /**
@@ -4135,6 +4372,54 @@ export interface components {
          * @enum {string}
          */
         ProposalState: "pending" | "accepted" | "rejected" | "stale";
+        /** ProposalView */
+        ProposalView: {
+            /** Id */
+            id: string;
+            /** Target Key */
+            target_key: string;
+            /** Target */
+            target: string;
+            /** Rows */
+            rows: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Why */
+            why: string;
+            /** Model */
+            model: string;
+            /** Invocation */
+            invocation: string | null;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceView"][];
+            /** Check */
+            check: string[];
+            /** Replay */
+            replay: components["schemas"]["Replayed"][];
+            /** Stale */
+            stale: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ProposalsView */
+        ProposalsView: {
+            /** Proposals */
+            proposals: components["schemas"]["ProposalView"][];
+            /** Refused */
+            refused: components["schemas"]["RefusedView"][];
+            /** In Use */
+            in_use: components["schemas"]["InUseView"][];
+            /**
+             * Running
+             * @default false
+             */
+            running: boolean;
+            /** Model */
+            model: boolean;
+        };
         /**
          * Provenance
          * @description How much of one pipeline was settled without judgement — a proportion of one whole.
@@ -4330,6 +4615,21 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** RefusedView */
+        RefusedView: {
+            /** Id */
+            id: string;
+            /** Target Key */
+            target_key: string;
+            /** Target */
+            target: string;
+            /** Status */
+            status: string;
+            /** Why */
+            why: string;
+            /** Problems */
+            problems: string[];
+        };
         /** Release */
         Release: {
             /** Tag */
@@ -4414,6 +4714,24 @@ export interface components {
             unavailable?: string | null;
             /** Problem */
             problem?: string | null;
+        };
+        /**
+         * Replayed
+         * @description One past decision the proposed rows would have settled, and whether the same way.
+         */
+        Replayed: {
+            /** Pipeline */
+            pipeline: string;
+            /** Decision */
+            decision: string;
+            /** Recorded */
+            recorded: number | boolean | string | null;
+            /** Would */
+            would: number | boolean | string | null;
+            /** Agrees */
+            agrees: boolean;
+            /** By Person */
+            by_person: boolean;
         };
         /**
          * RequiredStates
@@ -4512,6 +4830,18 @@ export interface components {
             /** Text */
             text: string;
             source: components["schemas"]["TextSource"];
+        };
+        /**
+         * SampleFact
+         * @description One fact measured on one uploaded sample (#466).
+         */
+        SampleFact: {
+            /** Measurement */
+            measurement: string;
+            /** Value */
+            value?: number | boolean | string | null;
+            /** Coverage */
+            coverage?: ("head" | "all") | null;
         };
         /**
          * SampleInspected
@@ -4719,6 +5049,7 @@ export interface components {
              * @default false
              */
             optional: boolean;
+            at_run?: components["schemas"]["AtRunView"] | null;
             /** Evidence */
             evidence?: ("measured" | "read_by_ai" | "not_measured") | null;
         };
@@ -4918,6 +5249,13 @@ export interface components {
             reason: string;
             /** Ports */
             ports: components["schemas"]["PortView"][];
+            /**
+             * Checked Per Sample
+             * @default []
+             */
+            checked_per_sample: string[];
+            takes_samples?: components["schemas"]["GuardView"] | null;
+            parts?: components["schemas"]["PartsView"] | null;
             /** Settings */
             settings: components["schemas"]["SettingView"][];
         };
@@ -5081,6 +5419,28 @@ export interface components {
             node: string;
             /** Position */
             position: number;
+        };
+        /**
+         * UploadedSample
+         * @description One sample of an upload, kept with the session: its name and files, and what was
+         *     measured on it (#466). Session state only: a sample's name never reaches a goal, a
+         *     pipeline, a model or a log (operator, 11-12).
+         */
+        UploadedSample: {
+            /** Name */
+            name: string;
+            /**
+             * Files
+             * @default []
+             */
+            files: string[];
+            /** Outcome */
+            outcome: string;
+            /**
+             * Facts
+             * @default []
+             */
+            facts: components["schemas"]["SampleFact"][];
         };
         /** Upstream */
         Upstream: {
@@ -7945,6 +8305,184 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReleasesPage"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readRuleProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalsView"];
+                };
+            };
+        };
+    };
+    proposeRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalsView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    approveRuleProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalsView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    rejectRuleProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalsView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    withdrawLearnedRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalsView"];
                 };
             };
             /** @description The id in the path names nothing. */

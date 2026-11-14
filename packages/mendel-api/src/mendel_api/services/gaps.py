@@ -9,8 +9,9 @@ from collections.abc import Iterable, Mapping
 from typing import NamedTuple
 
 from comeni_core.goal.asked import Constraints
+from comeni_core.plan.tiers import Grain
 from mendel_resolver.layers import Layers
-from mendel_resolver.rules.format import Decision
+from mendel_resolver.rules.format import Decision, FactRef
 
 from mendel_api.authoring.types import Fact, FactKind
 
@@ -35,9 +36,38 @@ class Unreachable(NamedTuple):
     subject: str
 
 
+def _decided_in_the_run(stack: Layers, measurement: str, decisions: list,
+                        inputs: set[str]) -> bool:
+    """Every decision reading it settles a parameter, it describes one of this goal's inputs,
+    and a step the build can add measures it: what `mendel_resolver.at_run` decides at run
+    time. Without the input, nothing measures it, so it is asked (final review)."""
+    declared = stack.measurements.measurements.get(measurement)
+    return (
+        bool(decisions)
+        and all(target.effect == "param" for d in decisions for target in d.targets())
+        and declared is not None and declared.describes in inputs
+        and bool(stack.routing.producers_of(f"measurement.{measurement}", frozenset()))
+    )
+
+
+def can_vary(stack: Layers, gap: Gap) -> bool:
+    """Whether *it differs between samples* is an answer to this gap (#466): the fact is about
+    each sample, and everything reading it can take a value per sample, a setting's rule or a
+    module's `meta`. A tool chosen from it is one tool for the whole pipeline, so it cannot."""
+    if gap.kind is not FactKind.MEASUREMENT:
+        return False
+    measurements = stack.measurements
+    if measurements.scope_of(gap.subject) is not Grain.SAMPLE:
+        return False
+    declared = measurements.get(gap.subject)
+    if not gap.decides:
+        return bool(declared.meta_key and declared.describes)
+    return all(target.effect == "param" for d in gap.decides for target in d.targets())
+
+
 def _premise_measurements(stack: Layers) -> dict[str, list[Decision]]:
-    """Measurement ids a rule's `when` reads, directly or through a derivation, each with the
-    decisions that read it, in table order.
+    """Measurement ids a rule reads, in its `when` or as the fact a `then` takes (#461),
+    directly or through a derivation, each with the decisions that read it, in table order.
 
     A derivation reads its `source`, its aggregate's measurement, or the keys of its own rows'
     `when`, and any of those may itself be derived, so the walk follows them to declared
@@ -65,7 +95,8 @@ def _premise_measurements(stack: Layers) -> dict[str, list[Decision]]:
     for decision in stack.rules.decisions:
         measured: set[str] = set()
         for row in decision.rows:
-            for key in row.when:
+            taken = [row.then.fact] if isinstance(row.then, FactRef) else []
+            for key in [*row.when, *taken]:
                 measured |= resolve(key, frozenset())
         for measurement in sorted(measured):
             read.setdefault(measurement, []).append(decision)
@@ -166,7 +197,14 @@ def gaps(want: list[str], facts: list[Fact], stack: Layers,
     from mendel_api.services import measurers
 
     premises = _premise_measurements(stack)
-    measurable = {piece.measures for piece in measurers.usable_pieces(stack).measures.values()}
+    # **Not asked: what the pipeline measures for a setting** (#217). A fact only settings'
+    # rules read, describing an input, and measured by a step the build can add, is decided in
+    # the run, so nobody is stopped for it. A person may still state it; it is just not asked.
+    premises = {
+        m: decisions for m, decisions in premises.items()
+        if not _decided_in_the_run(stack, m, decisions, set(leaves))
+    }
+    measurable = {piece.measures for piece in measurers.usable_pieces(stack).measurers.values()}
     # **Not asked: what only a tool reads and no sample can measure** (#338). It is left
     # unknown, and each step whose tool reads it stops for it on the board, as tier 4.
     measurements = set(premises) | {

@@ -66,9 +66,10 @@ export function LivingSurface({
   onAddStep,
   onDismiss,
   vocabulary = null,
-  declarations, onCorrect, onRelease, onDisagreement, correcting = false,
+  declarations, onCorrect, onRelease, onUnits, onTable, onDisagreement, correcting = false,
   onSetParam,
   onSwitchInput,
+  onWhole,
   onApplyChange,
   onEdit,
   onRename,
@@ -104,11 +105,17 @@ export function LivingSurface({
   declarations?: AuthoringVocabulary["measurements"];
   onCorrect?: CorrectFact;
   onRelease?: (type: string, states: string[]) => Promise<unknown>;
+  /** A sample may span several rows of an input, such as its lanes (issue 466). */
+  onUnits?: (type: string, on: boolean) => Promise<unknown>;
+  /** A study input is a table of several items (issue 466). */
+  onTable?: (type: string, on: boolean) => Promise<unknown>;
   onDisagreement?: (proposal: AuthoringProposal, option: string, value?: FactValue) => Promise<unknown>;
   correcting?: boolean;
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
   /** Switch a tool's optional input (issue 460). */
   onSwitchInput?: (contract: string, port: string, state: "off" | "optional" | "required") => void;
+  /** Keep a tool whole, or let it run on parts of each sample again (issue 466). */
+  onWhole?: (contract: string, whole: boolean) => void;
   onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
   /** A direct change to a step already drawn — swap, settings, remove — as the whole next graph,
    *  for the session's edit verb to save, stamp as the person's and write a receipt for. */
@@ -337,7 +344,7 @@ export function LivingSurface({
                           onConfirm={(edited) => onAccept(goal, "keep", edited)} onReject={() => onReject(goal)} />
               </div>
             ) : (
-              <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
+              <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease} onUnits={onUnits} onTable={onTable}
                           openRequest={factsRequest} disabled={factsDisabled} onOpenQuestion={openQuestion} highlight={flash?.subject ?? null} />
             )}
           </div>
@@ -351,6 +358,7 @@ export function LivingSurface({
             onEdit={onEdit}
             onSetParam={onSetParam}
             onSwitchInput={onSwitchInput}
+            onWhole={onWhole}
             onApplyChange={onApplyChange}
             suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
             questionRequest={questionRequest}
@@ -419,7 +427,7 @@ export function LivingSurface({
             ))}
           </div>
           {left === "understood" && (
-            <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
+            <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease} onUnits={onUnits} onTable={onTable}
                         openRequest={factsRequest} disabled={factsDisabled}
                         onOpenQuestion={openQuestion} highlight={flash?.subject ?? null} />
           )}
@@ -518,6 +526,7 @@ export function LivingSurface({
           onEdit={onEdit}
           onSetParam={onSetParam}
           onSwitchInput={onSwitchInput}
+            onWhole={onWhole}
           onApplyChange={onApplyChange}
           suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
           questionRequest={questionRequest}

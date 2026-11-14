@@ -48,7 +48,7 @@ resolves differently as it changes.
 ## The file
 
 ```yaml
-version: 8
+version: 9
 
 intent:                        # what was wanted
   want: [counts.matrix]
@@ -110,6 +110,7 @@ steps:
 
 channels:                      # what the laboratory supplies
   - type_id: fastq.reads
+    grain: sample               # or study: one file for the whole analysis
     params: [input]
     expression: "Channel.fromFilePairs(params.input, checkIfExists: true)…"
     meta: [{key: single_end, value: false}, {key: strandedness, value: reverse}]
@@ -135,7 +136,7 @@ emitted:                       # what was written, and what it was written from
 gate: test                     # the strongest gate this pipeline actually passed
 ```
 
-## The eleven top-level keys
+## The top-level keys
 
 Model: `comeni_core.artifact.pipeline.Pipeline`
 
@@ -146,7 +147,9 @@ Model: `comeni_core.artifact.pipeline.Pipeline`
 | `facts` | what is known: the inputs held, and each measurement with its source |
 | `registry` | every layer that was loaded, pinned by content digest |
 | `ai` | which model, if any, touched this. `available: []` means none was wired |
-| `steps` | every process: the tool, why it was chosen, and every setting with its reason |
+| `steps` | every process: the tool, why it was chosen, and every setting with its reason. A setting decided at run time also carries its lookup (`at_run`): the fact, the step that measures it, every row and the fallback |
+| `confirms` | each estimate a decision rested on (a fact read from part of the data), the step that measures it again over all of it, and the decisions that used it. After the run, the run page shows whether they agree |
+| `sheet_facts` | the facts each sample's samplesheet row states, with their allowed values; left out when there are none |
 | `channels` | how the steps are wired to each other |
 | `decisions` | the record of every ambiguity, so a rerun replays rather than re-asks |
 | `emitted` | the files that were written, each by digest |
@@ -353,9 +356,45 @@ A channel marked `optional: true` (#460) is one each run may leave empty. Its
 `params.<name> ? <expression> : Channel.value(<empty tuple>)`. It is optional only when every
 step it feeds has it as an optional input; one step that needs it every run makes it required.
 
+A channel with a `table` (#466) is a study input given as several items, such as several
+databases. Its parameter is a CSV with a `name` column, the table's file `columns`, and one column
+per item fact a step selects on (`facts`). The run stops naming the row on a blank or repeated
+name, or a file that does not exist. Each item's `meta` is `[id: <name>, <facts>]`, and a step
+reading a sample and the table runs on every pair, the item's `meta` on the sample's under the
+table's `name` (the type's family, such as `database`). Each pair publishes under
+`<sample>_<item>`, as does every step after it until a gather, a contract's own prefix kept and
+suffixed; a table no row of which the step reads stops the run. No step after the cross may join,
+group or merge parts by sample, and a step crosses one table (`MD0348`). A step crossing a table,
+or after one, is never split into parts.
+
 `test_data` points at a small public example, pinned to a commit. Never a laboratory's own
 path — this file is shareable, and a dataset that moves is one you cannot compare a result
 against next year.
+
+### `sheet_facts` — facts each sample's row states
+
+Present when a person said a fact differs between samples (`intent.constraints.varies`, #466).
+Each is a samplesheet column with its `kind`, allowed `values` or `minimum`/`maximum`, whether a
+row must fill it (`required`) and whether a blank or `auto` is measured in the run (`auto`). The
+pipeline checks every cell before any sample is processed and stops naming the row, the sample
+and the column. Each value reaches the sample's `meta` under the fact's id and, where a module
+reads it, under the module's key (`single_end` for `paired`). A pipeline whose varying facts are
+not its columns is refused (`MD0335`). Any `sheet_facts` make the input a samplesheet.
+
+A step's `sample_rules` are the tool's rules each sample's facts settle; a setting's `at_run`
+lists every fact it reads, each with its `source`: `cell`, `measured` or `cell_or_measured`.
+
+When each sample's tool is chosen per sample, a step only some samples take has a `guard`: a
+`lookup` in the same form as `at_run`, whose rows give a tool, and the tools whose samples it
+`takes`. Where the branches rejoin, a step input names its first producer in `source` and the
+others in `mixed`. See [a tool chosen per sample](../registry/rule-schema.md#a-tool-chosen-per-sample).
+
+A step that can run on parts of each sample has `parts`: whether it is `on`, the `splitter`, the
+`mergers` for each output read, and `because`. It is recorded when a person keeps the step whole
+too. Where it is on, the step's input from the splitter says `parts: spread` (each sample's parts
+become items carrying `meta.part`), and each merger's input says `parts: gather` (one sample's
+parts, gathered as soon as they are all done). Each part publishes under
+`<sample>.part<n>`.
 
 ### `decisions` — the review queue
 

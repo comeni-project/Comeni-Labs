@@ -183,6 +183,7 @@ def test_a24_an_overlay_vocabulary_says_so(tmp_path):
         _declared(
             lab / "vocabularies" / "fastq.reads.yml",
             "states: [trimmed, deduplicated, subsampled]\n"
+            "second_may_be_blank: true\n"
         "entry_channel: \"Channel.fromFilePairs('/mnt/lab/run7/*_R{1,2}.fastq.gz')\"\n")
     )
 
@@ -213,7 +214,8 @@ def test_a35_an_overlay_replacing_states_names_itself(tmp_path):
     base, lab = _stacked(tmp_path)
     (lab / "vocabularies").mkdir(parents=True, exist_ok=True)
     (lab / "vocabularies" / "fastq.reads.yml").write_text(
-        _declared(lab / "vocabularies" / "fastq.reads.yml", "states: [phix_removed]\n")
+        _declared(lab / "vocabularies" / "fastq.reads.yml",
+                  "states: [phix_removed]\nsecond_may_be_blank: true\n")
     )
 
     with pytest.raises(UnknownStateError) as raised:

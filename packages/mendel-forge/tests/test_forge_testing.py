@@ -83,7 +83,7 @@ QUAST = (REGISTRY.parent / "packages/comeni-core/tests/fixtures/constraints/quas
 OVERLAY = {
     "assembly.family.yml": "declares: family\nid: assembly\ndescription: Genome assemblies\n",
     "assembly.fasta.yml": "declares: vocabulary\nid: assembly.fasta\nstates: []\n",
-    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\nscope: run\n",
+    "annotation.gff.yml": "declares: vocabulary\nid: annotation.gff\nstates: []\ngrain: study\n",
     "quast.contract.yml": "declares: contract\n" + QUAST,
 }
 
@@ -102,3 +102,132 @@ def test_an_optional_input_a_test_gives_no_data_is_off(tmp_path):
     quast = pipeline.steps[0]
     assert [(r.port, r.state) for r in quast.input_states] == [("fasta", "off"), ("gff", "off")]
     assert emit(pipeline).count("Channel.value([[:], []])") == 2
+
+
+# ── shared slots and accepted types (#464) ────────────────────────────────────────────────
+
+FIXTURES = REGISTRY.parent / "packages/comeni-core/tests/fixtures/constraints"
+
+
+def _overlaid(tmp_path, contract_file: str, extra: dict[str, str]):
+    files = {"x.contract.yml": "declares: contract\n" + (FIXTURES / contract_file).read_text(),
+             "roles.yml": "declares: role\nroles:\n  - {id: calling, explain: x}\n", **extra}
+    for name, body in files.items():
+        (tmp_path / name).write_text(body)
+    return layers.load([REGISTRY, tmp_path])
+
+
+def _family(name: str) -> str:
+    return f"declares: family\nid: {name}\ndescription: {name}\n"
+
+
+def _type(type_id: str, grain: str = "study") -> str:
+    return f"declares: vocabulary\nid: {type_id}\nstates: []\ngrain: {grain}\n"
+
+
+SALMON_TYPES = {"salmon.family.yml": _family("salmon"),
+                "transcripts.family.yml": _family("transcripts"),
+                "salmon.index.yml": _type("salmon.index"),
+                "salmon.quant.yml": _type("salmon.quant", "sample"),
+                "transcripts.fasta.yml": _type("transcripts.fasta")}
+
+
+def _salmon_test(**changes) -> ToolTest:
+    return ToolTest(**{"contract": "nf-core/salmon/quant@1.10.3", "name": "bam",
+                       "data_commit": "abc",
+                       "inputs": {"reads": ["a/b.bam"], "transcript_fasta": ["a/t.fa"]},
+                       "expect": [{"port": "results", "pattern": "*"}], **changes})
+
+
+def test_a_test_says_which_type_an_accepts_port_gets(tmp_path):
+    stack = _overlaid(tmp_path, "salmon_quant.yml", SALMON_TYPES)
+    pipeline = build_test_pipeline(_salmon_test(types={"reads": "alignment.bam"}), stack)
+    reads = next(c for c in pipeline.channels if c.name == "tool_reads")
+    assert reads.type_id == "alignment.bam"
+    first = build_test_pipeline(_salmon_test(inputs={"reads": ["a/b.fq.gz"], "index": ["a/i"]}),
+                                stack)
+    assert next(c for c in first.channels if c.name == "tool_reads").type_id == "fastq.reads"
+
+
+def test_a_test_naming_a_type_the_port_does_not_accept_is_refused(tmp_path):
+    stack = _overlaid(tmp_path, "salmon_quant.yml", SALMON_TYPES)
+    with pytest.raises(ValueError, match="MF0515.*alignment.cram"):
+        build_test_pipeline(_salmon_test(types={"reads": "alignment.cram"}), stack)
+
+
+def test_a_test_may_leave_out_a_port_in_a_shared_slot(tmp_path):
+    """gatk with no intervals: the tuple still has its position, as `[]`."""
+    extra = {f"{f}.family.yml": _family(f) for f in ("regions", "dragstr", "variants")}
+    extra |= {"regions.bed.yml": _type("regions.bed"),
+              "dragstr.model.yml": _type("dragstr.model", "sample"),
+              "variants.vcf.yml": _type("variants.vcf", "sample"),
+              "variants.tbi.yml": _type("variants.tbi")}
+    stack = _overlaid(tmp_path, "gatk4_haplotypecaller.yml", extra)
+    test = ToolTest(contract="nf-core/gatk4/haplotypecaller@4.6.1", name="nointervals",
+                    data_commit="abc",
+                    inputs={"input": ["a/b.bam"], "input_index": ["a/b.bam.bai"],
+                            "dragstr_model": ["a/m.txt"], "intervals": []},
+                    expect=[{"port": "vcf", "pattern": "*.vcf.gz"}])
+    pipeline = build_test_pipeline(test, stack)
+    call = next(line for line in emit(pipeline).splitlines()
+                if line.strip().startswith("GATK4_HAPLOTYPECALLER("))
+    assert "[ meta, a, b, [], c ]" in call
+    assert "tool_intervals" not in {c.name for c in pipeline.channels}
+
+
+def test_an_input_that_accepts_several_types_round_trips_through_items():
+    """An `accepts` port has no type of its own; re-forging dumped an empty `type_id`."""
+    from comeni_core import yaml_strict
+    from comeni_core.declared.contract import ModuleContract, Provenance
+    from mendel_forge.forging.values import contract_of, items_of
+
+    contract = ModuleContract.model_validate(yaml_strict.load(FIXTURES / "salmon_quant.yml"))
+    back = contract_of(items_of(contract), contract.id, contract.provenance)
+    assert back.consumes == contract.consumes
+    assert back.constraints == contract.constraints
+    assert isinstance(back.provenance, Provenance)
+
+
+# ── a drafted parser runs after the tool, on its real output (#487) ──────────────────────────
+
+def _faidx(**changes) -> ToolTest:
+    return ToolTest(**{"contract": "nf-core/samtools/faidx@1.24", "name": "one",
+                       "data_commit": "abc", "inputs": {"fasta": ["a/genome.fasta"]},
+                       "expect": [{"port": "fai", "pattern": "*.fai"}], **changes})
+
+
+def test_a_parser_of_an_expected_output_runs_after_the_tool(stack):
+    from mendel_forge.testing import parsers_for
+    assert [s.measurers[0].id for s in parsers_for(_faidx(), stack)] == ["genome_length_fai"]
+    pipeline = build_test_pipeline(_faidx(), stack)
+    ids = [s.module.contract_id for s in pipeline.steps]
+    assert ids[0] == "nf-core/samtools/faidx@1.24"
+    assert ids[1].startswith("comeni/measure/genome_length_fai@")
+    assert "MEASURE_GENOME_LENGTH_FAI" in emit(pipeline)
+
+
+def test_a_test_that_does_not_expect_the_output_runs_no_parser(stack):
+    from mendel_forge.testing import parsers_for
+    # faidx makes one output, which a valid test must expect: copied past validation to reach
+    # the filter, as a tool of two outputs would.
+    test = _faidx().model_copy(update={"expect": [], "unchecked": {"fai": "not this time"}})
+    assert parsers_for(test, stack) == []
+    ids = [s.module.contract_id for s in build_test_pipeline(test, stack).steps]
+    assert ids == ["nf-core/samtools/faidx@1.24"]
+
+
+def test_the_bundle_holds_the_generated_measuring_step(stack):
+    pipeline = build_test_pipeline(_faidx(), stack)
+    files = dict(module_files(pipeline, stack))
+    main = files["modules/comeni/measure/genome_length_fai/main.nf"]
+    assert isinstance(main, bytes) and b"MEASURE_GENOME_LENGTH_FAI" in main
+    assert any(name.endswith("pieces/measures/genome_length_fai/fai.py") for name in files)
+    assert "modules/nf-core/samtools/faidx/main.nf" in files
+
+
+def test_only_the_drafts_own_parsers_run(stack):
+    """#487 review I2: a re-forge's test runs the parsers it drafted, not the registry's of the
+    same tool, whose fact for the same measurement would stand in for a drafted one."""
+    from mendel_forge.testing import parsers_for
+    assert parsers_for(_faidx(), stack, only={"something_else"}) == []
+    assert len(parsers_for(_faidx(), stack, only={"genome_length_fai"})) == 1

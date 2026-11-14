@@ -5534,3 +5534,7 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 - 2026-11-08, #481 optional inputs in gathering: `test_dont_have_an_optional_input_leaves_it_out_and_goes_on`
   failed (the session stopped); `test_an_input_only_optional_ports_read_is_an_optional_gap`
   failed (no `optional` on a gap). Pass.
+- 2026-11-13, #487 the pieces' allowlist moved into `mendel lint` (MD0027):
+  `test_a_piece_imports_only_the_allowlist` now calls `registry_lint.piece_problems`. With
+  `import socket` appended to `fastq.py` it failed (`fastq.py reaches past the allowlist:
+  ['socket']`); restored, pass.

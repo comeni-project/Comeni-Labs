@@ -24,7 +24,7 @@ type Channel = components["schemas"]["ChannelView"];
  *
  * **Draws; decides nothing.** Positions are the blueprint's `dag-core` layout, so a step appears
  * where it will stay; a hand-added step takes the drawn layout's. How many times each part runs is
- * the server's (`ChannelView.scope`, `PortView.gathers`, `StepView.runs`) — this only chooses a
+ * the server's (`ChannelView.grain`, `PortView.gathers`, `StepView.runs`) — this only chooses a
  * stroke for it. Inputs are placed by `Sources.place`, the rule the existing canvas uses.
  *
  * **The client owns a position once somebody drags it**, and **Tidy** gives the server's layout
@@ -171,7 +171,7 @@ export function LivingCanvas({
     );
   }
 
-  const count = channels.find((c) => c.scope === "sample")?.count ?? null;
+  const count = channels.find((c) => c.grain === "sample")?.count ?? null;
   const portsOf = (node: string, side: "in" | "out") =>
     (steps[node]?.ports ?? []).filter((p) => p.side === side);
   const tipIn = (node: string, port: string): Point | null => {
@@ -327,7 +327,7 @@ export function LivingCanvas({
             const tip = tipIn(node, port);
             if (!tip) return null;
             const flow: Flow =
-              gathers(node, port) ? "gather" : channel.scope === "sample" ? "many" : "one";
+              gathers(node, port) ? "gather" : channel.grain === "sample" ? "many" : "one";
             return (
               <Flowline key={`src-${channel.name}-${node}-${port}`} testId={`flow-${channel.name}-${node}`}
                         from={edge} to={tip} flow={flow}
@@ -382,7 +382,7 @@ export function LivingCanvas({
 
       {sources.map(({ channel, box }) => (
         <SourceNode key={channel.name} at={box} name={channel.name} typeId={channel.type_id}
-                    states={channel.states} scope={channel.scope} count={channel.count ?? null} />
+                    states={channel.states} grain={channel.grain} count={channel.count ?? null} />
       ))}
 
       {ids.map((id) => {
@@ -401,6 +401,7 @@ export function LivingCanvas({
             counts={steps[id] && !isGhost ? valuesOf([steps[id]]) : undefined}
             reviewState={isGhost ? (reviews[id] === "again" ? "again" : "proposed") : reviews[id] ?? "unknown"}
             perItem={steps[id]?.runs === "per_item"}
+            takes={steps[id]?.takes_samples?.samples}
             ghost={isGhost}
             selected={selected === id}
             className={id in reveal ? "living-reveal" : played?.className}

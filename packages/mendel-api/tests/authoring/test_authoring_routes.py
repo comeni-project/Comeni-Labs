@@ -196,9 +196,10 @@ def test_accepting_a_step_moves_the_revision_and_the_preview_follows(
         ("goal", "accepted"),
         ("step", "accepted"),
     ]
-    assert history[1]["chosen_contract"] == "nf-core/star/genomegenerate@2.7.11b"
+    # The first step: samtools faidx, measuring the genome for STAR's index in the run (#217).
+    assert history[1]["chosen_contract"] == "nf-core/samtools/faidx@1.24"
     assert after["revision"] == decided["revision"]
-    assert "star_genomegenerate" in after["text"]
+    assert "samtools_faidx" in after["text"]
 
 
 @needs_db
@@ -331,8 +332,9 @@ def test_a_step_proposal_says_what_it_reads_as_well_as_what_it_makes(
 ):
     building, _ = _building(client, queue, monkeypatch)
     block = building["pending_proposal"]["block"]
-    assert block["node"] == "star_genomegenerate"
-    assert set(block["consumes"]) == {"genome.fasta", "annotation.gtf"}
+    # samtools faidx reads the genome, and an index of it it would reuse (#465).
+    assert block["node"] == "samtools_faidx"
+    assert set(block["consumes"]) == {"genome.fasta", "genome.fai"}
 
 
 @needs_db

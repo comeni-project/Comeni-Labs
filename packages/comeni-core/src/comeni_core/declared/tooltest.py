@@ -51,6 +51,9 @@ class TestDraft(_Frozen):
     expect: list[Expected] = Field(min_length=1)
     unchecked: dict[PortName, str] = {}
     """A produced port no pattern can pin, and why (a name made from the sample, say)."""
+    types: dict[PortName, str] = {}
+    """For an input that accepts several types, which one this test's data is (#464). Left out,
+    it is the input's first."""
 
 
 class ToolTest(TestDraft):

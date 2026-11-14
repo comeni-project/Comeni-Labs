@@ -18,8 +18,8 @@ expiry to get wrong — the same shape `services/registry.py` uses.
 from functools import lru_cache
 from typing import Literal
 
-from comeni_core.artifact.digest import digest_of_directory
 from comeni_core.artifact.pipeline import Pipeline
+from comeni_core.declared.constraints import condition_words
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.draft import DraftGraph
 from comeni_core.plan.tiers import PremiseOrigin
@@ -30,7 +30,7 @@ from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel
 
 from mendel_api.services import registry
-from mendel_api.settings import active_registry, settings
+from mendel_api.settings import registry_roots, settings
 
 # The five-module RNA-seq spine. **The screen has to open on something** and nothing can author a
 # goal until the prompt door exists, which is after #69 — so until then this is what a person
@@ -107,6 +107,115 @@ class DomainView(BaseModel):
     maximum: float | None = None
 
 
+class AtRunFactView(BaseModel):
+    """One fact a run-time setting reads, and where each sample's value comes from (#466)."""
+
+    fact: str
+    source: Literal["cell", "measured", "cell_or_measured"]
+    said: str
+    """`from the samplesheet`, `measured in the run`, or `from the samplesheet, measured in the
+    run where left blank`."""
+    measured_by: str | None
+
+
+class AtRunView(BaseModel):
+    """A setting decided at run time, as the card shows it before the run (#217, #466): the
+    facts it reads and where they come from, every row as a line, and what it is when no row
+    applies."""
+
+    facts: list[AtRunFactView]
+    rule: str
+    rows: list[str]
+    """`strandedness is reverse and read_length >= 70 → 10`, or `genome_length → log2 → ÷ 2 →
+    − 1 → at most 14 → round`."""
+    fallback: str | None
+    """Rendered; `None` when there is no value: the tool's own, a stop, or a question open."""
+    fallback_is: Literal["value", "tool", "question", "stop"]
+    fallback_reason: str
+
+
+_STEP_WORDS = {"add": "+ {}", "subtract": "− {}", "multiply": "× {}", "divide": "÷ {}",
+               "at_most": "at most {}", "at_least": "at least {}", "log2": "log2",
+               "round": "round"}
+
+_SAID = {"cell": "from the samplesheet", "measured": "measured in the run",
+         "cell_or_measured": "from the samplesheet, measured in the run where left blank"}
+
+
+def _number(value) -> str:
+    return str(int(value)) if isinstance(value, float) and value.is_integer() else str(value)
+
+
+def _condition_words(condition) -> str:
+    fact, test = condition.fact, condition.test.value
+    shown = ", ".join(_number(o) for o in condition.operand)
+    return {"present": f"{fact} is known", "absent": f"{fact} is not known",
+            "in": f"{fact} in {shown}", "==": f"{fact} is {shown}",
+            "!=": f"{fact} is not {shown}"}.get(test, f"{fact} {test} {shown}")
+
+
+def _row_line(row) -> str:
+    when = " and ".join(_condition_words(c) for c in row.when) or "any sample"
+    if row.takes is None:
+        return f"{when} → {_number(row.then)}"
+    chain = " → ".join(_STEP_WORDS[s.op.value].format(_number(s.by)) for s in row.transform)
+    return f"{when} → {row.takes}" + (f" → {chain}" if chain else "")
+
+
+def at_run_view(at_run) -> AtRunView | None:
+    if at_run is None:
+        return None
+    return AtRunView(
+        facts=[AtRunFactView(fact=f.measurement, source=f.source.value, said=_SAID[f.source.value],
+                             measured_by=f.measured_by) for f in at_run.facts],
+        rule=at_run.rule,
+        rows=[_row_line(row) for row in at_run.rows],
+        fallback=None if at_run.fallback is None else str(at_run.fallback),
+        fallback_is=at_run.fallback_is,
+        fallback_reason=at_run.fallback_reason,
+    )
+
+
+class GuardView(BaseModel):
+    """The samples a step takes when each sample's tool is chosen per sample (#466): the
+    tools whose samples come here, in a sentence, and the rule as the card shows a lookup."""
+
+    tools: list[str]
+    samples: str
+    """`samples where read_length >= 70`, with `, and any sample no row covers` when this
+    branch's tool is the fallback."""
+    lookup: AtRunView
+
+
+class PartsView(BaseModel):
+    """A step that can run on parts of each sample (#466): whether it does, the tools that split
+    and merge, and why. Shown whether it is on or kept whole, so the card offers the switch."""
+
+    on: bool
+    splitter: str
+    mergers: list[str]
+    because: str
+
+
+def parts_view(parts) -> PartsView | None:
+    if parts is None:
+        return None
+    return PartsView(on=parts.on, splitter=parts.splitter, because=parts.because,
+                     mergers=sorted({m.contract for m in parts.mergers}))
+
+
+def guard_view(guard) -> GuardView | None:
+    if guard is None:
+        return None
+    lookup = guard.lookup
+    taken = [" and ".join(_condition_words(c) for c in row.when) or "any sample"
+             for row in lookup.rows if row.then in guard.takes]
+    samples = "samples where " + " or ".join(dict.fromkeys(taken)) if taken else "no sample"
+    if lookup.fallback in guard.takes:
+        samples += ", and any sample no row covers"
+    return GuardView(tools=list(guard.takes), samples=samples, lookup=at_run_view(lookup))
+
+
 class SettingView(BaseModel):
     """One resolved parameter, as the settings card needs it.
 
@@ -153,6 +262,8 @@ class SettingView(BaseModel):
     optional: bool = False
     """Whether leaving this setting unanswered leaves the tool its own behaviour (`OMITTABLE`).
     An optional open value stays tier 4 and flagged, but does not stop a run (#384)."""
+    at_run: AtRunView | None = None
+    """Decided at run time from a fact the pipeline measures (#217); `value` is its fallback."""
     evidence: Evidence | None = None
     """How good the facts a rule read were (#397), from `premise`'s records: *measured* only when
     every one was measured. `None` when no rule read anything. The interface counts and names a
@@ -171,6 +282,10 @@ class PortView(BaseModel):
 
     name: str
     type_id: str
+    """The connected type; empty for an input that accepts several (#464) with nothing
+    connected yet, whose types are in `accepts`."""
+    accepts: list[str] = []
+    """The types an input with `accepts` takes, in the contract's order of preference."""
     side: str
     """`in` or `out`."""
     optional: bool = False
@@ -254,6 +369,15 @@ class StepView(BaseModel):
     """**Every port, not only the connected ones.** A wire is drawn from the layout; a port is
     drawn on the node whether anything reaches it or not — an unmet input is exactly the thing a
     reader needs to see, and it has no wire by definition."""
+    checked_per_sample: list[str] = []
+    """The tool's rules each sample's facts settle (#466): a sample breaking one stops the run
+    before this step runs."""
+    takes_samples: GuardView | None = None
+    """Which samples this step takes, when each sample's tool is chosen per sample and only
+    some come here (#466); `None` when every sample does."""
+    parts: PartsView | None = None
+    """Whether this step runs on parts of each sample, and the switch's state (#466); `None`
+    for a step that cannot."""
     settings: list[SettingView]
     """**The parameters themselves, not a count.** A node shows `N settings` from `len()`; the
     card needs the rows, and a second request to fetch them would make opening a card a network
@@ -285,8 +409,8 @@ class ChannelView(BaseModel):
 
     name: str
     """The channel's own id — `gtf`, `gtf_2`. Derived; see `Channel.name`."""
-    scope: Literal["run", "sample"] = "sample"
-    """How many times it delivers: once for the run, or once per item. `Channel.scope`, as the
+    grain: Literal["study", "sample"] = "sample"
+    """How many times it delivers: once for the study, or once per item. `Channel.grain`, as the
     artifact materialised it — the difference between one stroke and a ribbon on the canvas."""
     count: int | None = None
     """How many items, **only when a measurement said so** — `n_samples` in the goal's profile,
@@ -328,7 +452,7 @@ class BuiltPipeline(BaseModel):
 
 
 def _param(layers, contract_id: str, name: str):
-    contract = layers.registry.get(contract_id)
+    contract = layers.routing.get(contract_id)
     return next((p for p in contract.params if p.name == name), None)
 
 
@@ -350,12 +474,28 @@ def _because(layers, contract_id: str, name: str) -> str:
 
 
 def _only_with(when: dict | None) -> str | None:
-    """A condition in a few words: `{given.fasta: present}` reads "only with fasta"."""
+    """A condition in a few words: `{given.fasta: present}` reads "only with fasta", and
+    `{type.reads: alignment.cram}` "only with reads as alignment.cram" (#464)."""
     if not when:
         return None
-    parts = [key.partition(".")[2] if key.startswith("given.") or value is True
-             else f"{key.partition('.')[2]} = {value}" for key, value in when.items()]
-    return "only with " + " and ".join(parts)
+    return "only with " + condition_words(when)
+
+
+def _connected_type(pipeline, layers, step, port) -> str:
+    """The type connected to `port`: its own, or for an input with `accepts` whichever one its
+    channel or upstream output carries (#464)."""
+    if port.type_id:
+        return port.type_id
+    wiring = next((i for i in step.inputs if i.port == port.name), None)
+    if wiring is not None and wiring.channel is not None:
+        return next((c.type_id for c in pipeline.channels if c.name == wiring.channel), "")
+    if wiring is not None and wiring.source is not None:
+        node, _, output = wiring.source.partition(".")
+        upstream = next((s for s in pipeline.steps if s.id == node), None)
+        if upstream is not None:
+            made = layers.routing.get(upstream.module.contract_id).produces
+            return next((o.type_id for o in made if o.name == output), "")
+    return ""
 
 
 def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[StepView]:
@@ -370,12 +510,15 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
         step = by_id.get(node_id)
         if step is None:
             return []
-        contract = layers.registry.get(step.module.contract_id)
+        contract = layers.routing.get(step.module.contract_id)
         states = {r.port: r for r in step.input_states}
+        connected = {port.name: _connected_type(pipeline, layers, step, port)
+                     for port in contract.consumes}
         return [
             PortView(
                 name=port.name,
-                type_id=port.type_id,
+                type_id=connected[port.name],
+                accepts=[a.type_id for a in port.accepts or []],
                 side="in",
                 gathers=(node_id, port.name) in gathered,
                 optional=not port.required,
@@ -383,7 +526,8 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                 reason=states[port.name].reason if port.name in states else None,
                 adds=[o.name for o in contract.produces
                       if f"given.{port.name}" in (o.produced_when or {})],
-                met=(node_id, port.name) in fed or port.type_id in entered,
+                met=((node_id, port.name) in fed
+                     or connected[port.name] in entered),
                 # The conventional alternative — index 0 is the contract author's own first
                 # choice, the same ordering `compatibility.requires` carries.
                 states=sorted(port.alternatives()[0].states) if port.alternatives() else [],
@@ -399,6 +543,9 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
         StepView(id=step.id, process=step.process, contract_id=step.module.contract_id,
                  tier=int(step.why.tier), runs=runs[step.id], reason=step.why.reason,
                  ports=ports_of(step.id),
+                 checked_per_sample=[rule.says for rule in step.sample_rules],
+                 takes_samples=guard_view(step.guard),
+                 parts=parts_view(step.parts),
             settings=[
                 SettingView(
                     name=setting.name,
@@ -412,6 +559,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                     premise=[record.prose() for record in setting.why.premise],
                     optional=setting.via in OMITTABLE,
                     evidence=evidence_of(setting.why.premise),
+                    at_run=at_run_view(setting.at_run),
                 )
                 for setting in (step.settings)
             ],
@@ -439,7 +587,7 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
     # node was fully wired. Found by the operator dragging.
     declared: dict[str, tuple[list[str], list[str]]] = {}
     for step in pipeline.steps:
-        contract = layers.registry.get(step.module.contract_id)
+        contract = layers.routing.get(step.module.contract_id)
         declared[step.id] = (
             [port.name for port in contract.consumes],
             [port.name for port in contract.produces],
@@ -482,8 +630,8 @@ def _view(ir, pipeline, layers) -> BuiltPipeline:
     channels = [
         ChannelView(
             name=channel.name,
-            scope=channel.scope.value,
-            count=_counted(pipeline) if channel.scope.value == "sample" else None,
+            grain=channel.grain.value,
+            count=_counted(pipeline) if channel.grain.value == "sample" else None,
             param=channel.param,
             type_id=channel.type_id,
             states=port_states.get(feeds[channel.name][0], []) if feeds[channel.name] else [],
@@ -529,13 +677,13 @@ def _built(goal_json: str, registry_digest: str) -> BuiltPipeline:
     outlives the thing it was computed from."""
     built = orchestrate.build(
         Goal.model_validate_json(goal_json),
-        registry_root=active_registry(),
+        registry_roots=registry_roots(),
     )
     return _view(built.ir, built.pipeline, built.layers)
 
 
 def of(goal: Goal) -> BuiltPipeline:
-    return _built(goal.model_dump_json(), str(digest_of_directory(active_registry())))
+    return _built(goal.model_dump_json(), registry.digest())
 
 
 def drawn(graph: DraftGraph, *, by: str = "") -> BuiltPipeline:
@@ -552,7 +700,7 @@ def drawn(graph: DraftGraph, *, by: str = "") -> BuiltPipeline:
     stack = registry.stack()
     ir = ir_of(graph, stack, by=by)
     pipeline = Pipeline.of(
-        ir, stack.registry, stack.vocabulary, stack.measurements, stack.paths,
+        ir, stack.routing, stack.vocabulary, stack.measurements, stack.paths,
         goal=goal_of(graph, stack),
     )
     return _view(ir, pipeline, stack)
@@ -594,7 +742,7 @@ def _runs(pipeline) -> dict[str, str]:
     topological and a wrong order would silently under-count — a step seen before its producer
     reads `once` and never learns otherwise. A handful of passes over a handful of steps.
     """
-    sample = {channel.name for channel in pipeline.channels if channel.scope.value == "sample"}
+    sample = {channel.name for channel in pipeline.channels if channel.grain.value == "sample"}
     per_item: set[str] = set()
     moved = True
     while moved:

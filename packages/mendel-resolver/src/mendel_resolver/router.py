@@ -6,7 +6,7 @@ deterministic: unique structural fits are tier 1, registry priority is tier 2, m
 tier 3, and unresolved ties are tier 4 decisions for review.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import NamedTuple
 
 from comeni_core.declared.constraints import rows_of, sentence
@@ -193,6 +193,7 @@ def route(
     *,
     premises: dict[str, object] | None = None,
     absent_roles: frozenset[str] = frozenset(),
+    branch: Mapping[str, str] | None = None,
 ) -> RoutePlan:
     """A rule table needs the premises it will be matched against, and says so.
 
@@ -218,6 +219,24 @@ def route(
     # Each step's optional-input states across every visit: a later need may raise one an
     # earlier visit left off (final review I2), so the order of the wants cannot decide it.
     seen_inputs: dict[str, list[InputRecord]] = {}
+
+    def checkpoint() -> Callable[[], None]:
+        """The plan as it is now, and how to return to it."""
+        steps, decisions = len(plan.steps), len(plan.decisions)
+        done, seen = set(emitted), {k: list(v) for k, v in seen_inputs.items()}
+        # A revisit rewrites an earlier step's inputs in place, so those are kept too.
+        inputs = [list(step.inputs) for step in plan.steps]
+
+        def restore() -> None:
+            for step, kept in zip(plan.steps, inputs, strict=False):
+                step.inputs = kept
+            del plan.steps[steps:]
+            del plan.decisions[decisions:]
+            emitted.clear()
+            emitted.update(done)
+            seen_inputs.clear()
+            seen_inputs.update(seen)
+        return restore
 
     def satisfy(
         type_id: str,
@@ -265,21 +284,19 @@ def route(
                 missing=(type_id, frozenset(states)),
             )
 
-        choice = _choose(type_id, states, candidates, goal, rules, resolver, plan, premises)
+        choice = _choose(type_id, states, candidates, goal, rules, resolver, plan, premises,
+                         branch or {})
         if dropped:
             choice = choice._replace(
                 reason=f"you excluded {', '.join(dropped)} here; {choice.reason}"
             )
         chosen, pin = choice.contract, choice.pin
 
-        records = _strongest(seen_inputs.get(chosen.id, []),
-                             _optional_states(goal, chosen,
-                                              _matched_output(chosen, type_id, states)))
-        seen_inputs[chosen.id] = records
-        off = {r.port for r in records if r.state is InputState.OFF}
-        for port in chosen.consumes:
-            if port.name in off:
-                continue
+        # The required inputs first, so the types they were connected with are known when the
+        # optional ones are decided: a row on `type.<input>` can need one (#464).
+        types: dict[str, str] = {}
+
+        def route_port(port: InputPort) -> None:
             try:
                 source = goal.constraints.source_at(chosen.id, port.name)
                 if source is not None:
@@ -290,13 +307,15 @@ def route(
                             because=f"you chose {source.producer} to feed {chosen.id}'s "
                                     f"{port.name}",
                             only=source.producer)
-                    continue
-                _satisfy_port(
+                    types[port.name] = made.type_id
+                    return
+                types[port.name] = _satisfy_port(
                     port,
                     satisfy,
                     depth + 1,
                     visiting | {chosen.id},
                     because=f"{chosen.id} requires {port.type_id or port.name!r} here",
+                    checkpoint=checkpoint,
                 )
             except UnroutablePinError:
                 raise
@@ -304,13 +323,25 @@ def route(
                 if _comes_from_outside(port, exc, goal.constraints.source_at(chosen.id, port.name)):
                     # A switched-on optional input nothing here makes comes from outside: the
                     # pipeline gets an input for it, optional or required by its state (#460).
-                    continue
+                    return
                 if choice.pinned is None:
                     raise
                 raise UnroutablePinError(
                     f"{chosen.id} is pinned to produce {type_id}, but its inputs are "
                     f"unreachable from this goal ({exc}). Pinned by {choice.pinned}"
                 ) from exc
+
+        for port in chosen.consumes:
+            if port.required:
+                route_port(port)
+        records = _strongest(seen_inputs.get(chosen.id, []),
+                             _optional_states(goal, chosen,
+                                              _matched_output(chosen, type_id, states), types))
+        seen_inputs[chosen.id] = records
+        off = {r.port for r in records if r.state is InputState.OFF}
+        for port in chosen.consumes:
+            if not port.required and port.name not in off:
+                route_port(port)
         if chosen.id in emitted:
             for step in plan.steps:
                 if step.contract_id == chosen.id:
@@ -439,7 +470,8 @@ def _matched_output(contract: ModuleContract, type_id: str, states: frozenset[st
 _STRENGTH = {InputState.OFF: 0, InputState.OPTIONAL: 1, InputState.REQUIRED: 2}
 
 
-def _optional_states(goal: Goal, contract: ModuleContract, needed) -> list[InputRecord]:
+def _optional_states(goal: Goal, contract: ModuleContract, needed,
+                     types: dict[str, str] | None = None) -> list[InputRecord]:
     """Each optional input's state (#460), sorted by port.
 
     Off unless switched on. The router only ever makes one stronger, and says why:
@@ -479,6 +511,7 @@ def _optional_states(goal: Goal, contract: ModuleContract, needed) -> list[Input
         on = {p.name for p in contract.consumes if p.required}
         on |= {p for p, r in records.items() if r.state is not InputState.OFF}
         facts = {f"given.{p}": _On(True) for p in on}
+        facts.update({f"type.{p}": _On(t) for p, t in (types or {}).items() if p in on})
         for row in rows_of(contract):
             if not matches(row.when, facts):
                 continue
@@ -502,8 +535,10 @@ def _satisfy_port(
     depth: int,
     visiting: frozenset[str],
     because: str = "",
-) -> None:
-    """Try each alternative in declaration order and take the first that routes.
+    checkpoint: Callable[[], Callable[[], None]] | None = None,
+) -> str:
+    """Try each alternative in declaration order and take the first that routes; return its
+    type, which a row on `type.<port>` reads (#464).
 
     Order is the author's statement of preference between kinds of input — "a BAM, or
     failing that a CRAM" — so it is first-match-wins, exactly like decision-table rows.
@@ -512,18 +547,31 @@ def _satisfy_port(
     alternatives = port.alternatives()
     failures = []
     for alternative in alternatives:
+        # A refused alternative may already have emitted the steps its required inputs need;
+        # they are undone, so the next alternative starts from the same plan (#464).
+        restore = checkpoint() if checkpoint is not None else None
         try:
             satisfy(alternative.type_id, alternative.states, depth, visiting, because)
-            return
+            return alternative.type_id
         except UnroutableError as exc:
+            if restore is not None:
+                restore()
             if len(alternatives) == 1:
                 # One alternative, so its own message is the whole truth. Wrapping it
                 # would stack "no alternative for port 'reads'" once per level of a
                 # recursive route, which buries the fact at the bottom.
                 raise
-            failures.append(str(exc))
+            failures.append(exc)
+    # When nothing at all makes any alternative, the first is what the pipeline asks for from
+    # outside, so the port can still be fed as an input (#464, `_comes_from_outside`).
+    own = [(a.type_id, a.states) for a in alternatives]
+    nothing_makes = all(f.missing is not None and (f.missing[0], f.missing[1]) in own
+                        and not isinstance(f, IntentConflict | ConstraintViolation)
+                        for f in failures)
     raise UnroutableError(
-        f"no alternative for port {port.name!r} can be routed: " + "; ".join(failures)
+        f"no alternative for port {port.name!r} can be routed: "
+        + "; ".join(str(f) for f in failures),
+        missing=failures[0].missing if nothing_makes else None,
     )
 
 
@@ -568,6 +616,8 @@ class _Here(NamedTuple):
     rules: RuleTable | None
     premises: dict[str, object]
     rule_pin: Pin | None
+    branch: Mapping[str, str] = {}
+    """The tool each per-sample decision takes on this route, by decision key (#466)."""
 
     def rank(self, contract: ModuleContract) -> tuple[int, int, str]:
         return (_surplus(contract, self.type_id, self.states), -contract.priority, contract.id)
@@ -581,6 +631,7 @@ def _here(
     goal: Goal,
     rules: RuleTable | None,
     premises: dict[str, object],
+    branch: Mapping[str, str] | None = None,
 ) -> _Here:
     # A decision names a **role**, not a type. The roles in play here are the ones the
     # candidates declare, so a rule about which aligner to use is asked only where aligners
@@ -594,7 +645,8 @@ def _here(
         (p for p in (rules.implementation_for(r, premises) for r in roles) if p),
         None,
     ) if rules else None
-    here = _Here(type_id, states, candidates, [], roles, rules, premises, rule_pin)
+    here = _Here(type_id, states, candidates, [], roles, rules, premises, rule_pin,
+                 branch or {})
     return here._replace(ordered=sorted(candidates, key=here.rank))
 
 
@@ -637,6 +689,21 @@ def _by_unapplied_rule(here: _Here) -> Asked | None:
         return None
     decision, unknown = unapplied
     named = {row.then for row in decision.rows}
+    taken = here.branch.get(decision.key())
+    if taken is not None:
+        # **A tool chosen per sample** (#466): this route is the one its samples take. Nobody
+        # is asked; the step takes only the samples the rule sends it (its guard).
+        match = next((c for c in here.candidates if c.id == taken), None)
+        if match is not None:
+            rows = [row for row in decision.rows if row.then == taken]
+            return Choice(
+                match, Tier.DATA_PROFILED,
+                f"chosen per sample by {decision.key()}: for samples where "
+                + " or ".join(", ".join(f"{k} {v}" for k, v in row.when.items()) or "always"
+                              for row in rows)
+                + (f" — {rows[0].because}" if rows and rows[0].because else ""),
+                pinned=f"rule condition, per sample: {decision.key()}",
+            )
     if sum(1 for c in here.ordered if c.id in named) < 2:
         return None
     best = here.rank(here.ordered[0])
@@ -780,10 +847,12 @@ def _choose(
     resolver: AmbiguityResolver,
     plan: RoutePlan,
     premises: dict[str, object],
+    branch: Mapping[str, str] | None = None,
 ) -> Choice:
     """Which contract produces `type_id` here: decided by the chain, a person's pin wrapping it,
     and an open question answered here — the one place a record is appended to the plan."""
-    here = _here(type_id, states, candidates, goal=goal, rules=rules, premises=premises)
+    here = _here(type_id, states, candidates, goal=goal, rules=rules, premises=premises,
+                 branch=branch)
     decided = _decide(here)
     pin = goal.constraints.producer_at(Site(type_id=type_id, states=states))
     by_person = _by_person(here, decided, pin) if pin is not None else None

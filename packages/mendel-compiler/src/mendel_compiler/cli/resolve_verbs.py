@@ -1,22 +1,19 @@
-"""Run the shared resolution flow for ``build``, ``upgrade``, and ``profile``.
+"""Run the shared resolution flow for ``build`` and ``upgrade``.
 
-Upgrade replays decisions from an existing artifact, profile derives a measurement goal, and
-build reads a starter. All three then use the same orchestration, emission, staging, reporting,
-optional validation gate, and artifact-stamping sequence.
+Upgrade replays decisions from an existing artifact and build reads a starter. Both then use the
+same orchestration, emission, staging, reporting, optional validation gate, and artifact-stamping
+sequence.
 """
 
-import argparse
 import sys
 from pathlib import Path
 
-import yaml
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.diagnostics import coded
 from mendel_resolver import layers
-from mendel_resolver.goal import Goal, GoalInput
+from mendel_resolver.measure_steps import steps_for
 from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.resolve import inert_pins
-from mendel_resolver.router import UnroutableError
 
 from mendel_compiler import locate, orchestrate, pipeline_file, staging
 from mendel_compiler.cli.artifact_verbs import _refuse_a_divergent_directory
@@ -107,8 +104,6 @@ def run(args, parser) -> int:
                         file=sys.stderr,
                     )
                     return 2
-    elif args.command == "profile":
-        goal = _profiling_goal(args, loaded)
     else:
         # A starter: `pipeline.yml` with only `intent` and `facts` (Plan B, spec §8.5).
         if not args.target:
@@ -188,24 +183,8 @@ def run(args, parser) -> int:
     # `--registry` the contracts did rather than out of a `vendor/` in this repository. One
     # implementation, shared with the API's `keep`, which had no copy at all until `MD0210`
     # found it.
-    staging.stage(pipeline, built.layers.modules, args.out)
-
-    if args.command == "profile":
-        # Which contract measures what, read off the IR that was actually resolved rather
-        # than off the registry — the file records what this pipeline will produce, not
-        # what the registry could produce in principle.
-        produced = {
-            port.type_id.removeprefix("measurement."): node.contract_id
-            for node in ir.nodes
-            for port in registry.get(node.contract_id).produces
-            if port.type_id.startswith("measurement.")
-        }
-        (args.out / "profile.yml").write_text(
-            yaml.safe_dump(
-                loaded.measurements.to_measure(produced).model_dump(mode="json"),
-                sort_keys=True,
-            )
-        )
+    staging.stage(pipeline, built.layers.modules, args.out,
+                  measuring=steps_for(built.layers.inspection, built.layers.registry))
 
     # Its own section, above the review list rather than inside it. "What did my overlay
     # change" and "what must I decide" are different questions, and folding the first into
@@ -269,7 +248,7 @@ def run(args, parser) -> int:
     # container, every layer, the gate that passed and the digests of what was emitted.
     # **The directory is the artifact.**
     #
-    # This path is `build` and `upgrade` (and `profile`): they resolve a goal and write a fresh
+    # This path is `build` and `upgrade`: they resolve a goal and write a fresh
     # directory. Certifying an existing one is `publish`, which branched off above (A50) — it
     # re-resolves nothing, so it never reaches here. The gate still runs *before* the verdict is
     # stamped — A4: a `--gate` build must not leave an artifact stamped with a gate it failed.
@@ -278,43 +257,3 @@ def run(args, parser) -> int:
 
 
 
-def _profiling_goal(args: argparse.Namespace, loaded: layers.Layers) -> Goal:
-    """Sugar for `build --want measurement.*`. One resolver, one emitter, one set of
-    decision records — the verb exists for discoverability, not as a second path.
-
-    Two rules do the work.
-
-    **The profile is empty.** A build resolves tier-3 parameters against a profile, and a
-    profiling build is a build; resolving one against a profile would need a profile to
-    profile with. So profiling contracts resolve at tiers 1, 2 and 4 only, and the regress
-    stops here rather than one recursion later.
-
-    **`want` is what this registry can actually reach.** Declaring a measurement is how a
-    laboratory *starts* — before any tool for it exists — so wanting every declared
-    measurement would make the verb unroutable for exactly the people adopting it. What
-    cannot be measured is named on stderr, never dropped in silence.
-    """
-    have = args.have or []
-    reachable, unreachable = [], []
-    for measurement_id in loaded.measurements.ids():
-        type_id = f"measurement.{measurement_id}"
-        (reachable if loaded.registry.producers_of(type_id, frozenset()) else unreachable).append(
-            measurement_id
-        )
-    if not reachable:
-        raise UnroutableError(
-            f"nothing can measure anything: no contract produces a measurement.* type. "
-            f"Declared measurements: {', '.join(loaded.measurements.ids()) or '(none)'}"
-        )
-    print(f"profiling for: {', '.join(reachable)}", file=sys.stderr)
-    if unreachable:
-        print(
-            f"  NOT MEASURED  {', '.join(unreachable)} — declared, but no contract in this "
-            f"registry produces them",
-            file=sys.stderr,
-        )
-    return Goal(
-        have=[GoalInput(type_id=t) for t in have],
-        want=[f"measurement.{m}" for m in reachable],
-        profile=loaded.measurements.profile({}),
-    )

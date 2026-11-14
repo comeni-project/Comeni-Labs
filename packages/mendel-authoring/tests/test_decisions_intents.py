@@ -54,3 +54,13 @@ def test_an_optional_input_choice_round_trips_through_the_goal():
     withdrawn = Decisions(optional_inputs=[OptionalInputChoice(contract=QUAST, port="fasta",
                                                                state=None)])
     assert withdrawn.goal(MeasurementRegistry.load(REGISTRY)).constraints.inputs == []
+
+
+def test_a_tool_kept_whole_round_trips_through_the_goal():
+    from mendel_authoring.decisions import WholeChoice
+
+    decisions = Decisions(wholes=[WholeChoice(contract="lab/search@1.0.0"),
+                                  WholeChoice(contract="lab/other@1.0.0", whole=False)])
+    goal = decisions.goal(MeasurementRegistry.load(REGISTRY))
+    assert goal.constraints.whole == ["lab/search@1.0.0"]
+    assert Decisions.from_goal(goal).wholes == [WholeChoice(contract="lab/search@1.0.0")]

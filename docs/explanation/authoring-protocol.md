@@ -61,7 +61,7 @@ origin:
 
 | Origin | Meaning |
 |---|---|
-| measured | A declared inspector or profiler obtained the value. |
+| measured | A declared measurer obtained the value. |
 | person said | The person asserted the value. |
 | model read | A model read the value from admitted evidence. |
 | open | No accepted value is available. |
@@ -81,17 +81,18 @@ then follows the matching exit.
 
 ## Where each measurer runs
 
-Every declared inspection format states where it runs. That location determines what data crosses
-a boundary and which protection levels may allow it.
+Every measurer declares where it runs (`runs: [server, pipeline]`), and a format states whether it
+can run on this server. That location determines what data crosses a boundary and which
+protection levels may allow it.
 
 | Measurer | Reads | Runs on | What crosses | Allowed at |
 |---|---|---|---|---|
-| **Inspector** | The bounded head of one uploaded sample file or pair. | **this server**, in a constrained child process. | At level 0, the sample's head reaches this server; the complete file is neither uploaded nor stored. Admitted facts enter the goal. | Level 0. |
-| **Profiler** | The complete data needed by a declared profiling tool. | **the lab's machine**, inside the pipeline. | No sample data reaches this server; the lab submits the resulting profile facts. | Every implemented level. |
+| **Measurer, `server`** | The bounded head of one uploaded sample file or pair. | **this server**, in a constrained child process. | At level 0, the sample's head reaches this server; the complete file is neither uploaded nor stored. Admitted facts enter the goal. | Level 0. |
+| **Measurer, `pipeline`** | All of the data, as a step in the run: our measure code, or a tool and a parser of its output. | **the lab's machine**, inside the pipeline. | No sample data reaches this server. Reading the run's measured facts back is planned (#465). | Every implemented level. |
 | **Characteriser** | At most the admitted decoded excerpt from the sample head. | The configured model, through the AI worker. | The excerpt reaches the model; the application stores the admitted reply rather than the sample content. | Level 0. |
 
-Browser-side inspectors are a future protection option, not a currently declared execution place.
-Changing an inspector's `runs` declaration therefore requires a matching runner and an update to
+Browser-side measurers are a future protection option, not a currently declared execution place.
+Changing a measurer's `runs` declaration therefore requires a matching runner and an update to
 this boundary table.
 
 ## The blueprint decides; the walk reviews

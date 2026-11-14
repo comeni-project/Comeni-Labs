@@ -5,6 +5,6 @@ version: 1
 derives:
   - fact: cohort_max_read_length
     kind: integer
-    aggregate: {measurement: read_length, over: cohort, using: max}
+    aggregate: {measurement: read_length, over: study, using: max}
     because: "the index is built once per run, so it must suit the longest read in it"
     cite: "STAR manual 2.2.2"

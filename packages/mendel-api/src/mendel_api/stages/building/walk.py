@@ -43,7 +43,7 @@ from mendel_api.models import (
 from mendel_api.services import authoring_ai, authoring_decisions, decisions, session
 from mendel_api.services import blueprint as bp
 from mendel_api.services.session import Ctx, handles, records
-from mendel_api.settings import active_registry
+from mendel_api.settings import registry_roots
 from mendel_api.stages import _rows
 from mendel_api.stages.building import cards
 from mendel_api.stages.building.amending import project
@@ -177,7 +177,7 @@ def _placement(row: PipelineAuthoringSession, draft: PipelineDraft | None, pendi
 
 
 def registry_moved(row: PipelineAuthoringSession) -> bool:
-    return bp.registry_digest([active_registry()]) != row.registry_digest
+    return bp.registry_digest(registry_roots()) != row.registry_digest
 
 
 def re_offer(ctx: Ctx, proposal, row, db) -> StepOutcome:

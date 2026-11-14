@@ -72,6 +72,8 @@ _INPUT_OPTIONS = {
 
 
 _UNSURE = {"not_sure": "Not sure", "cant_share": "I can't share it"}
+VARIES = "varies"
+"""The answer that a fact differs between samples (#466), offered where it can (`gaps`)."""
 
 
 _SOURCE = {
@@ -94,7 +96,7 @@ def _inspectable(stack) -> tuple[dict[str, set[str]], set[str]]:
 
     pieces = measurers.usable_pieces(stack)
     measured: dict[str, set[str]] = {}
-    for measure in pieces.measures.values():
+    for measure in pieces.measurers.values():
         for fmt in pieces.formats.values():
             if fmt.record == measure.record:
                 measured.setdefault(measure.measures, set()).update(fmt.reads)
@@ -166,12 +168,16 @@ def _gap_options(gap: gaps.Gap, stack, facts: list[Fact]) -> dict[str, str]:
         # have it measured, so *not sure* is offered as that (spec §1). **Only when what they
         # have is something an inspector reads** (issue 227, decided A): an upload of a BAM
         # would end in *nothing reads this type yet*, and *not sure* stays.
-        return {
+        options = {
             **options,
             UPLOAD: "Not sure — measure it from a sample",
             "cant_share": _UNSURE["cant_share"],
         }
-    return {**options, **_UNSURE}
+    else:
+        options = {**options, **_UNSURE}
+    if gaps.can_vary(stack, gap):
+        options[VARIES] = "It differs between samples"
+    return options
 
 
 def _gap_question(gap: gaps.Gap, options: dict[str, str], stack, seq: int) -> Question:
@@ -211,11 +217,13 @@ def as_goal(stored: dict | None) -> Goal | None:
     return Goal.model_validate(stored) if stored is not None else None
 
 
-def _goal_evidence(evidence: dict | None) -> Evidence | None:
-    """Only the counts the goal's `Evidence` declares. A measure's other evidence (`min`,
-    `max`, `pairs`) stays on the session's fact and the card; the goal is reachable from the
-    doors and carries counts only."""
+def _goal_evidence(evidence: dict | None, coverage: str | None = None) -> Evidence | None:
+    """Only the counts the goal's `Evidence` declares, and how much of the data they cover
+    (#465). A measure's other evidence (`min`, `max`, `pairs`) stays on the session's fact and
+    the card; the goal is reachable from the doors and carries counts only."""
     counts = {k: evidence[k] for k in ("records", "rows", "share") if k in (evidence or {})}
+    if coverage is not None:
+        counts["coverage"] = coverage
     return Evidence(**counts) if counts else None
 
 
@@ -331,6 +339,7 @@ def offer_gap_or_card(session_id: str) -> str:
     )
     if offered is not None and (fill := _candidate_option(gap.kind, offered.value, options)):
         question = _prefilled(question, *fill, note=STATED_NOTE)
+    question = _from_uploads(session_id, gap, question, options, stack)
     cached, phrased = cached_phrasing(session_id, gap.subject)
     if phrased is not None:
         question = _phrased(question, AskedGap.model_validate(phrased), gap.kind, options)
@@ -350,6 +359,33 @@ def offer_gap_or_card(session_id: str) -> str:
         },
     )
     return "a_gap"
+
+
+UPLOADS_NOTE = "proposed from your uploads"
+"""The note on an option the uploaded samples' spread proposes (#466)."""
+
+
+def _from_uploads(session_id: str, gap, question: Question, options: dict[str, str],
+                  stack) -> Question:
+    """Where the uploaded samples disagree on the fact asked (#466): the spread, said on the
+    card, and a proposed answer that waits for the person's click (operator, 11-11). *It
+    differs between samples* where the fact can vary; otherwise which value to build for, the
+    most common proposed."""
+    from mendel_api.stages import samples
+
+    if gap.kind is not FactKind.MEASUREMENT:
+        return question
+    found = samples.spread(samples.uploaded(session_id), gap.subject)
+    if len(found) < 2:
+        return question
+    said = f"Your uploads differ: {samples.spread_words(found)}."
+    question = question.model_copy(update={"why_open": f"{said} {question.why_open}"})
+    if VARIES in options:
+        return _prefilled(question, VARIES, None, note=UPLOADS_NOTE)
+    question = question.model_copy(update={
+        "asks": f"{question.asks} Which should the pipeline be built for?"})
+    fill = _candidate_option(gap.kind, found[0][0], options)
+    return _prefilled(question, *fill, note=UPLOADS_NOTE) if fill else question
 
 
 STATED_NOTE = "suggested by AI"
@@ -585,6 +621,8 @@ def _fact_for(kind: FactKind, subject: str, option: str, value) -> Fact:
         return Fact(kind=kind, subject=subject, source=FactSource.PERSON_SAID)
     if option in _UNSURE:
         return Fact(kind=kind, subject=subject, source=FactSource.OPEN)
+    if option == VARIES:
+        return Fact(kind=kind, subject=subject, source=FactSource.VARIES)
     said = {"yes": True, "no": False, "value": value}.get(option, option)
     return Fact(kind=kind, subject=subject, value=said, source=FactSource.PERSON_SAID)
 

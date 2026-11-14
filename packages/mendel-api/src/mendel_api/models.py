@@ -379,6 +379,9 @@ class PipelineAuthoringSession(Base):
 
     __tablename__ = "pipeline_authoring_session"
     shape_version: Mapped[int] = stamp("pipeline_authoring_session")
+    samples: Mapped[Any] = mapped_column(Json, nullable=True)
+    """Every sample of the last upload, with its name, its files and its measurements (#466).
+    Deleted with the session; never copied into a goal, a pipeline or a model's payload."""
 
     retired: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     retirement_reason: Mapped[str | None] = mapped_column(
@@ -641,6 +644,8 @@ from mendel_api.decision_models import (  # noqa: E402, F401
     PipelineSourceRevision,
     PipelineWant,
     PipelineWantRevision,
+    PipelineWhole,
+    PipelineWholeRevision,
 )
 
 
@@ -930,3 +935,30 @@ class ForgeMessage(Base):
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (Index("ix_forge_message_once", "adaptation", "seq", unique=True),)
+
+
+class RuleProposal(Base):
+    """A rule a model proposed from people's answers (#462), and what a person decided.
+
+    **Stored, not recomputed**: the model is asked again for a target only when its evidence
+    digest moves, so a rejected proposal stays rejected until people answer differently. `rows`
+    are the new rows only, cited and narrowed by the engine; the table they join is the one in
+    force when a person approves them."""
+
+    __tablename__ = "rule_proposal"
+    shape_version: Mapped[int] = stamp("rule_proposal")
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    target_key: Mapped[str] = mapped_column(String(200), index=True)
+    target: Mapped[dict] = mapped_column(Json)
+    rows: Mapped[list] = mapped_column(Json, default=list)
+    why: Mapped[str] = mapped_column(Text, default="")
+    evidence_digest: Mapped[str] = mapped_column(String(71))
+    invocation: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), index=True)
+    """`proposed`, `approved`, `rejected`, `withdrawn`, `superseded`, `refused` (the reply failed
+    the engine's checks twice) or `no_rule` (the model found no pattern)."""
+    problems: Mapped[list] = mapped_column(Json, default=list)
+    decided_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

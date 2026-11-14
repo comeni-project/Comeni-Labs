@@ -115,6 +115,8 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       declarations={living.measurements}
       onCorrect={living.correct}
       onRelease={living.releaseTool}
+      onUnits={living.spanRows}
+      onTable={living.severalItems}
       onDisagreement={living.answerDisagreement}
       correcting={living.correcting}
       onAccept={living.accept}
@@ -136,6 +138,7 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
         living.edit(withNode(graph, { id: idFor(graph, contract), contract_id: contract, params: [] }))}
       onSetParam={(node, setting, value, why) => living.edit(withParam(graph, node, setting, value, why))}
       onSwitchInput={living.switchInput}
+      onWhole={living.keepWhole}
       onApplyChange={(block: ChangeBlock) =>
         living.edit(block.removes.reduce(withoutNode, graph))}
       onEdit={living.edit}

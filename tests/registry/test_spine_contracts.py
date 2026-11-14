@@ -29,9 +29,8 @@ def test_every_contract_points_at_vendored_module_code(registry):
     `key_of` derives from the contract's own `nf_include` — so a contract whose module nobody
     vendored is `None` here rather than a path that happens not to exist.
 
-    Two of the twelve are `comeni/` wrappers over an nf-core module (`profile/fastqc` includes
-    `modules/nf-core/fastqc/main`), and they resolve to the same key the nf-core contract does.
-    That is the case a per-contract directory of source would have got wrong.
+    A contract that wraps another's module resolves to the same key that contract does, which
+    is the case a per-contract directory of source would have got wrong.
     """
     missing = [c.id for c in registry.all() if module_path(c, MODULES) is None]
     assert missing == [], f"contracts whose module no layer declares: {missing}"
@@ -149,6 +148,8 @@ def test_every_shipped_rule_can_fire(registry):
     a dead rule can no longer be shipped to be recorded.
     """
     table = layers.load(ROOT / "registry").rules
-    # One decision, and it is a real one. `param:strandedness` used to sit beside it and
-    # was a translation the module already performs — see Plan 1.5.
-    assert [d.decides.key() for d in table.decisions] == ["implementation:alignment"]
+    # Two decisions, and both are real. `param:strandedness` used to sit beside the aligner and
+    # was a translation the module already performs — see Plan 1.5. STAR's index size is
+    # decided from the genome's length (#461), in the run when nobody states it (#217).
+    assert sorted(d.decides.key() for d in table.decisions) == [
+        "implementation:alignment", "param:index_building:sa_index_nbases"]

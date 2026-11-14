@@ -6,13 +6,13 @@ import { spelledStates } from "../../ui/spelled";
  *
  * Three shapes, from the design canvas's collection grammar (`LivingCollect`):
  *
- * - **one** — a run-scoped value: one stroke, *read once per task*;
+ * - **one** — a value for the whole study: one stroke, *read once per task*;
  * - **many** — a per-item channel: a three-strand ribbon, *once per item*;
  * - **gather** — the ribbon converges into a wide port: *collect all*.
  *
  * **Three strands whether N is 12 or 12,000.** The count lives on the source, never on the wire,
  * and it is only ever a number when a measurement supplied one — otherwise `×N items`. Nothing
- * here can draw a filename: the props hold a type, a scope and a count, and no field could carry
+ * here can draw a filename: the props hold a type, a grain and a count, and no field could carry
  * a path if somebody tried.
  */
 
@@ -111,20 +111,20 @@ export function Flowline({
 export const SOURCE_W = 120;
 export const SOURCE_H = 80;
 
-/** An input where it enters the pipeline: a type, a scope, and a count only if one was measured. */
+/** An input where it enters the pipeline: a type, a grain, and a count only if one was measured. */
 export function SourceNode({
   at,
   name,
   typeId,
   states,
-  scope,
+  grain,
   count,
 }: {
   at: Point;
   name: string;
   typeId: string;
   states: string[];
-  scope: "run" | "sample";
+  grain: "study" | "sample";
   count: number | null;
 }) {
   // **An input says how it is read, in its own box** (the boards): *× 12 samples* for a per-item
@@ -149,7 +149,7 @@ export function SourceNode({
         {spelledStates(states)}
       </span>
       <span className="text-[10.5px] text-ink-2">
-        {scope === "sample" ? (count === null ? "× N items" : `× ${count} samples`) : "read once per task"}
+        {grain === "sample" ? (count === null ? "× N items" : `× ${count} samples`) : "read once per task"}
       </span>
     </div>
   );

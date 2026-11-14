@@ -168,18 +168,20 @@ def test_a_value_already_of_its_kind_and_a_list_are_read_element_by_element(ever
 
 
 def test_only_a_per_sample_measurement_accepts_a_list(tmp_path):
+    """Per sample is the scope of a fact about reads (#466); one describing nothing is the
+    study's."""
     layer = _layer(
         tmp_path,
-        "cardinality",
+        "scope",
         {
-            "read_length.yml": "kind: integer\nminimum: 1\nper_sample: true\n",
+            "read_length.yml": "kind: integer\nminimum: 1\ndescribes: fastq.reads\n",
             "n_samples.yml": "kind: integer\nminimum: 1\n",
         },
     )
     registry = MeasurementRegistry.load(layer)
 
     registry.check("read_length", [100, 150])
-    with pytest.raises(BadMeasurementValueError, match="per_sample"):
+    with pytest.raises(BadMeasurementValueError, match="one value for the whole study"):
         registry.check("n_samples", [2, 3])
 
 

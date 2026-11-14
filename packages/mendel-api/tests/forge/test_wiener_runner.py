@@ -73,3 +73,18 @@ def test_a_url_means_a_runner(monkeypatch):
     monkeypatch.setattr(settings, "wiener_url", "http://wiener:8001")
     monkeypatch.setattr(settings, "wiener_token", SecretStr(TOKEN))
     assert isinstance(wiener_runner.runner(), WienerRunner)
+
+
+def test_measured_reads_each_fact_the_run_reported():
+    """#487: what a forge test's parsers measured, from Wiener's `/measured`."""
+    def handler(request):
+        assert request.url.path == "/api/runs/r1/measured"
+        return httpx.Response(200, json={"facts": [
+            {"measurement": "genome_length", "sample": "test", "value": 29903,
+             "status": "measured", "reason": None},
+            {"measurement": "n50", "sample": "test", "value": None, "status": "undetermined",
+             "reason": "no contigs"}], "decided": []})
+
+    assert _runner(handler).measured("r1") == [
+        {"measurement": "genome_length", "value": 29903, "undetermined": None},
+        {"measurement": "n50", "value": None, "undetermined": "no contigs"}]

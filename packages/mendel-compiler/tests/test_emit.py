@@ -340,10 +340,10 @@ def test_a_contract_used_by_two_steps_emits_its_process_block_once():
     pipeline = _pipeline()
     step = next(
         s for s in pipeline.steps
-        if _process_scope(types.SimpleNamespace(steps=[s])) != []
+        if _process_scope(types.SimpleNamespace(steps=[s], channels=[])) != []
     )
-    one = _process_scope(types.SimpleNamespace(steps=[step]))
-    two = _process_scope(types.SimpleNamespace(steps=[step, step]))
+    one = _process_scope(types.SimpleNamespace(steps=[step], channels=[]))
+    two = _process_scope(types.SimpleNamespace(steps=[step, step], channels=[]))
     assert two == one, "a process block emitted twice for one contract is a dedup regression"
 
 
@@ -496,3 +496,10 @@ def test_an_omittable_route_writes_nothing_for_an_unanswered_setting():
     assert {Via.EXT, Via.DIRECTIVE} == OMITTABLE
     assert not any("PL:" in line for line in _ext_scope(_step_carrying(unset_ext)))
     assert not any("cpus" in line for line in _directive_scope(_step_carrying(unset_directive)))
+
+
+def test_groovy_text_escapes_what_would_end_or_interpolate_the_string():
+    """Issue 467: a run guard's `says` inside `error "..."`."""
+    from mendel_compiler.emit import _groovy_text
+
+    assert _groovy_text('a "b" ${c} \\d') == 'a \\"b\\" \\${c} \\\\d'

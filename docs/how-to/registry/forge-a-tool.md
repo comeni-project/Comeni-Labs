@@ -21,7 +21,7 @@ registry's current contract becomes the starting proposals.
 ## Work through the pieces
 
 The pieces go in order, each once the one before it is approved: **Questions**, **Contract**,
-**Parameters**, **Vocabulary**, **Rules**, **Tests**.
+**Parameters**, **Vocabulary**, **Rules**, **Tests**, **Measurers**.
 
 For each piece, choose:
 
@@ -120,6 +120,25 @@ for the draft it ran on: any later change needs the tests run again.
 
 Without `MENDEL_WIENER_URL` set, the page says tests cannot run, and forging still works up to
 assembly.
+
+## Measure a fact from its output
+
+The last piece, **Measurers**, is for a tool whose output summarises the data in a fact a pipeline
+could decide on. For example, samtools faidx's index gives the genome's length. Most tools need
+none: choose **Nothing needed** and say why.
+
+A measurer is a short parser of one output and its tests. The AI drafts both, or you write them.
+You approve each measurer, and the measurement it produces when that is new. If the registry
+declares the measurement but says no tool measures it yet (`assertion_only`), the draft declares it
+again without that flag.
+
+The parser's code is held to the rules every measurer keeps: it imports only an allowed list, and
+it reads no files, network or processes. Code that breaks one is refused with MD0027 before you can
+approve it. The forge never runs the parser itself. **Run its tests** runs it in Wiener, on the
+tool's real test output, and a test is green only when each parser reported a value. A parser that
+reports *undetermined* fails with its reason.
+
+The output a measurer reads must be one a test expects, or nothing could prove it.
 
 ## Publish it
 

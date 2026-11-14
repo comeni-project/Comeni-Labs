@@ -1,0 +1,17 @@
+# nf-core/spades: Illumina, PacBio and Nanopore reads in one tuple, any of them (#464).
+id: nf-core/spades@4.1.0
+nf_process: SPADES
+nf_include: modules/nf-core/spades/main
+roles: [assembly]
+consumes:
+  - {name: illumina, type_id: fastq.reads, required: false}
+  - {name: pacbio, type_id: pacbio.reads, required: false}
+  - {name: nanopore, type_id: nanopore.reads, required: false}
+produces:
+  - {name: contigs, type_id: assembly.fasta}
+nf_inputs:
+  - {ports: [illumina, pacbio, nanopore], join: by_sample, absent: 4}
+groups:
+  - {kind: any_of, members: [illumina, pacbio, nanopore],
+     because: "SPAdes assembles from at least one kind of reads"}
+provenance: {source: test, drafted_by: test, approved_by: test, approved_at: "2026-11-10"}

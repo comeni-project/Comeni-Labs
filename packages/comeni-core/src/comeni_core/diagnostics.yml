@@ -23,6 +23,7 @@
 #   MD0013-MD0019, MD0021-MD0024  a layer is not arranged the way its own manifest says
 #   MD0020         a layer needs a newer Mendel than this one
 #   MD0025         a module no contract binds
+#   MD0027         a measurer piece reaches outside what pieces may import (lint)
 #   MD0228         a type names a param literally in its entry channel
 #   MF0001-MF0499  retired with the old forge (#361); the new forge allocates from MF0500
 #   MF0500-MF0599  the forge: the catalogue of upstream modules (#362)
@@ -31,6 +32,7 @@
 #   MI0200-MI0299  the API: authoring a living pipeline — sessions, turns and proposals
 #   MI0300-MI0399  the API: settings — what the menu may change
 #   MI0400-MI0499  the API: what is stored — shapes and retention
+#   MI0500-MI0599  the API: rules proposed from people's answers (#462)
 #   MW0001-MW0099  wiener: ingesting a run's events
 #   MW0100-MW0199  wiener: what is stored — shapes, parameters and retention
 #   MV0001-MV0099  comeni-vendor: fetching a tool's source into a layer
@@ -162,7 +164,7 @@ MD0110:
   emitted_by: core
   concern: loading
   says: "a contract file writes `state`, `state_required` or `states` beside the type"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Write the states in the type: `type_id: alignment.bam::coordinate_sorted`.
@@ -961,7 +963,7 @@ MD0301:
   emitted_by: resolver
   concern: routing
   says: "a rule row justifies nothing — no `because` and no `cite`, on the row or the block"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Give the row a `because:` saying why *this* answer, a `cite:` naming the evidence, or
@@ -999,7 +1001,7 @@ MD0300:
   emitted_by: resolver
   concern: routing
   says: "a rule's `then` reads as arithmetic, and `then` is emitted verbatim"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Write one row per range with a literal `then`:
@@ -1034,7 +1036,7 @@ MD0302:
   emitted_by: core
   concern: routing
   says: "a contract declares a role no layer in the stack declares"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Declare the role, or use one that exists:
@@ -1066,7 +1068,7 @@ MD0316:
   emitted_by: core
   concern: routing
   says: "a type names a family no layer in the stack declares"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Declare the family, or rename the type into one that exists. A type's family is the part
@@ -1089,8 +1091,8 @@ MD0316:
 MD0317:
   emitted_by: core
   concern: loading
-  says: "an inspector piece names a type or measurement no layer declares"
-  fires_on: [build, upgrade, profile]
+  says: "a measurer, format or codec names a type or measurement no layer declares"
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Declare the id in the vocabulary, or fix the piece. A format names the types it reads in
@@ -1103,8 +1105,8 @@ MD0317:
 MD0318:
   emitted_by: core
   concern: loading
-  says: "an inspector piece cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares"
-  fires_on: [build, upgrade, profile]
+  says: "a measurer, format or codec cannot run: its code is missing, its folder is not its id, or it needs a piece no layer declares"
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Put the piece's code where `entry:` says, inside its `piece/` folder; name the folder for
@@ -1163,7 +1165,7 @@ MD0303:
   emitted_by: resolver
   concern: routing
   says: "a measurement is declared named `required_states`, which is the goal's own shape"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Rename the measurement. A property of the data that happens to concern states is a
@@ -1195,7 +1197,7 @@ MD0304:
   emitted_by: resolver
   concern: routing
   says: "a derivation has no rows, so it can never fire"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Give it a row, or delete it:
@@ -1238,7 +1240,7 @@ MD0305:
   emitted_by: core
   concern: routing
   says: "a `when` clause uses a mapping predicate nothing implements"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     The mapping predicates are `not` and `in`:
@@ -1265,7 +1267,7 @@ MD0312:
   emitted_by: core
   concern: routing
   says: "a scalar comparison is applied to a per-sample measurement"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Reduce the cohort to one fact, then test that fact:
@@ -1283,7 +1285,7 @@ MD0312:
               - when: {cohort_max_read_length: ">= 70"}
                 then: nf-core/star/align@2.7.11b
   explanation: |
-    `read_length` is declared `per_sample`, so a profile may carry `[150, 100, 150]` — one
+    `read_length` describes reads, so it is per sample and a profile may carry `[150, 100, 150]` — one
     value per sample — and `[150, 100, 150] >= 70` has no defined meaning. Python's answer is
     `TypeError`, raised from inside the resolver, naming neither the rule nor the fact.
 
@@ -1302,7 +1304,7 @@ MD0306:
   emitted_by: resolver
   concern: routing
   says: "a decision names a role nothing fills, or a row names a contract that does not fill it"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Name a role some contract in the stack fills, and rows that fill it:
@@ -1333,7 +1335,7 @@ MD0307:
   emitted_by: resolver
   concern: routing
   says: "a decision's effect and its `name` disagree, or a presence row is not present/absent"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     A `param` effect names a parameter; the other two decide the role itself:
@@ -1359,7 +1361,7 @@ MD0308:
   emitted_by: resolver
   concern: routing
   says: "a param decision sets a value some filler of the role does not declare"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Narrow the decision to the implementations that declare the parameter:
@@ -1390,7 +1392,7 @@ MD0309:
   emitted_by: resolver
   concern: routing
   says: "two decisions in one file decide the same key"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Merge them into one block with both rows, or give them different targets. A reviewer
@@ -1415,7 +1417,7 @@ MD0310:
   emitted_by: resolver
   concern: routing
   says: "a `when` clause names a premise nothing supplies, or compares one that cannot be ordered"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Name a declared measurement, a derived fact, or a goal fact:
@@ -1443,7 +1445,7 @@ MD0313:
   emitted_by: resolver
   concern: routing
   says: "a row exits at tier 2 and cites nothing"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Give the row — or its block — a `cite:` naming the document:
@@ -1478,11 +1480,12 @@ MD0313:
 MD0311:
   emitted_by: resolver
   concern: routing
-  says: "a decision's rows do not cover the domain of the premise they test"
-  fires_on: [build, upgrade, profile]
+  says: "a decision's rows do not cover every case of the premises they test"
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
-    Cover the rest of the domain. Two complementary comparisons at one boundary are
+    Cover the rest of the domain; over several premises, the case the message names (#461).
+    Two complementary comparisons at one boundary are
     exhaustive with no bound declared anywhere:
 
         rows:
@@ -1525,7 +1528,7 @@ MD0314:
   emitted_by: resolver
   concern: routing
   says: "a `transform` chain is applied to a per-sample measurement"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Reduce the cohort first, then transform the derived fact:
@@ -1540,7 +1543,7 @@ MD0314:
             transform: [{op: subtract, by: 1}]
             cite: "STAR manual 2.2.2"
   explanation: |
-    `read_length` is declared `per_sample`, so a profile may carry `[150, 100, 150]`, and
+    `read_length` describes reads, so it is per sample and a profile may carry `[150, 100, 150]`, and
     arithmetic takes one number. Picking one silently would answer §12's cohort-versus-sample
     question with a coin flip, in a place where the answer changes what the tool receives.
 
@@ -1554,7 +1557,7 @@ MD0315:
   emitted_by: core
   concern: routing
   says: "a measurement's `assertion_only` and its reason disagree"
-  fires_on: [build, upgrade, profile]
+  fires_on: [build, upgrade]
   refuses: true
   fix: |
     Declare both, or neither:
@@ -1594,7 +1597,7 @@ MD0001:
   emitted_by: core
   concern: loading
   says: "a declared file is not valid YAML"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     The file named in the message did not parse. The parser's own complaint follows it,
@@ -1614,7 +1617,7 @@ MD0002:
   emitted_by: core
   concern: loading
   says: "a declared file does not match the schema for its kind"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     The message names the file, then one line per problem: the field path, and what was
@@ -1638,7 +1641,7 @@ MD0004:
   emitted_by: resolver
   concern: loading
   says: "a registry layer contains a symlink"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Replace the link with the file. A layer is a unit strangers distribute: a link out of it
@@ -1668,7 +1671,7 @@ MD0005:
   emitted_by: resolver
   concern: loading
   says: "a layer holds no declared data at all"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     If the layer is `registry/`, it is a git submodule and was not checked out:
@@ -1691,7 +1694,7 @@ MD0006:
   emitted_by: core
   concern: loading
   says: "a key is declared twice inside one layer"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Delete one of them. Shadowing happens *between* layers and is recorded as a
@@ -1709,7 +1712,7 @@ MD0007:
   emitted_by: core
   concern: loading
   says: "`add_states` carries other fields as well"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     `add_states` extends a declaration another layer made. To change anything else about the
@@ -1727,7 +1730,7 @@ MD0008:
   emitted_by: core
   concern: loading
   says: "`add_states` names a type no layer declares"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Extending nothing is almost always a typo in the type id, or a layer ordering mistake —
@@ -1743,7 +1746,7 @@ MD0009:
   emitted_by: core
   concern: loading
   says: "a contract requires a state no layer declares"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Vocabularies are closed (invariant 7): a contract using an undeclared state fails to
@@ -1803,7 +1806,7 @@ MD0010:
   emitted_by: core
   concern: loading
   says: "a declared file does not say what it is"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Add a `declares:` line naming what the file is:
@@ -1828,7 +1831,7 @@ MD0011:
   emitted_by: core
   concern: loading
   says: "a declared file names a kind that does not exist"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     The message names what was written and what was expected. Almost always a typo —
@@ -1847,7 +1850,7 @@ MD0012:
   emitted_by: core
   concern: loading
   says: "a vocabulary or measurement does not declare its id"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Add an `id:`:
@@ -1996,7 +1999,7 @@ MD0020:
   emitted_by: core
   concern: loading
   says: "a layer declares a registry format this Mendel does not understand"
-  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  fires_on: [build, upgrade, publish, conformance, registry lint]
   refuses: true
   fix: |
     Upgrade Mendel. Or, if the layer is a submodule you control, pin it back to a
@@ -2082,7 +2085,7 @@ MD0025:
   emitted_by: resolver
   concern: loading
   says: "a module is declared with no contract binding it"
-  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  fires_on: [build, upgrade, publish, conformance, registry lint]
   refuses: true
   fix: |
     Add a `contract.yml` beside the module's `module/` folder, binding it, or remove the
@@ -2095,7 +2098,7 @@ MD0026:
   emitted_by: resolver
   concern: loading
   says: "a tool's test names a contract nothing declares"
-  fires_on: [build, upgrade, profile, publish, conformance, registry lint]
+  fires_on: [build, upgrade, publish, conformance, registry lint]
   refuses: true
   fix: |
     Correct the test's `contract:` to the id in the tool's `contract.yml`, or remove the test
@@ -2103,6 +2106,22 @@ MD0026:
   explanation: |
     A test belongs to one contract. One that outlives its tool would never run, and would read
     as coverage the registry does not have.
+MD0027:
+  emitted_by: compiler
+  concern: layout
+  says: "a measurer piece reaches outside what pieces may import or call"
+  fires_on: [registry lint, publish]
+  refuses: true
+  fix: |
+    Read only the stream the piece is handed. Import only `comeni_inspect.outcome`,
+    `comeni_inspect.records`, `gzip`, `zlib`, `io`, `re`, `math`, `collections`,
+    `collections.abc` and `typing`, and call no `open`, `exec`, `eval`, `getattr` or the like.
+  explanation: |
+    A piece's code runs in a lab's pipeline, and a `by: code` piece on the server too. The
+    allowlist is a tripwire for ordinary access to networks, files and processes, not a Python
+    sandbox: runtime isolation comes from where a piece runs, and operators still choose which
+    layers to trust. The forge holds drafted parser code to it before a person can test or
+    publish it.
 MD0226:
   emitted_by: core
   concern: pipeline-file
@@ -2165,7 +2184,7 @@ MD0228:
   emitted_by: core
   concern: loading
   says: "a type names a param literally in its `entry_channel`"
-  fires_on: [build, upgrade, profile, publish, conformance, registry lint, docs]
+  fires_on: [build, upgrade, publish, conformance, registry lint, docs]
   refuses: true
   fix: |
     Write `params.{param}` where the literal param name is:
@@ -2211,24 +2230,27 @@ MD0228:
 MD0601:
   emitted_by: core
   concern: loading
-  says: "an nf_inputs entry cannot be emitted when its optional inputs are left out"
-  fires_on: [build, upgrade, profile, publish]
+  says: "an nf_inputs entry cannot be emitted when its optional inputs are left out, or joins its later inputs in mixed ways after an optional first one"
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
-    Give the entry that holds an optional input `absent: <width>`, the width of the empty tuple
-    the process expects (`2` for `tuple val(meta), path(x)`). Put each optional input in its own
-    entry, or put several together only when they form one `all_or_none` group. Remove `absent`
-    from an entry whose inputs are required.
+    Give an entry whose inputs can all be left out `absent: <width>`, the width of the empty
+    tuple the process expects (`2` for `tuple val(meta), path(x)`). Remove `absent` from an
+    entry with any required input: it is never left out whole, and a left-out optional input
+    gets `[]` in its own position. An entry that starts with an optional input needs its later
+    inputs to join the same way.
   explanation: |
     When an optional input is left out, the compiler still has to fill its slot in the process
-    call, and Nextflow matches tuple arity: `[[:], []]` for a two-element tuple. The width is
-    declared, not guessed, because a tuple's arity is not always one plus its ports (#460).
+    call, and Nextflow matches tuple arity. Inside a tuple that still has other files, the
+    left-out file's position gets `[]` (#464). When every file of the tuple is left out, the
+    whole tuple is an empty one, `[[:], []]` for two elements, and its width is declared, not
+    guessed, because a tuple's arity is not always one plus its ports (#460).
 
 MD0602:
   emitted_by: core
   concern: loading
   says: "a contract's constraint names an input or param it does not declare"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Spell the name as the contract declares it, case included. A condition tests
@@ -2242,7 +2264,7 @@ MD0603:
   emitted_by: core
   concern: loading
   says: "no combination of inputs and params satisfies a contract's constraints"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Read the rows together: one of them forbids what another, or a required input, needs. Remove or narrow the row that contradicts the tool's own main.nf.
@@ -2253,7 +2275,7 @@ MD0604:
   emitted_by: core
   concern: loading
   says: "an optional input is connected in no combination the constraints allow"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     A row forbids the input whenever it could be given. Narrow that row, or remove the input if the tool really never uses it.
@@ -2264,7 +2286,7 @@ MD0605:
   emitted_by: core
   concern: loading
   says: "an optional input is connected in every combination the constraints allow"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Mark it `required: true`, or relax the row that requires it unconditionally.
@@ -2275,7 +2297,7 @@ MD0606:
   emitted_by: core
   concern: loading
   says: "an output's `produced_when` holds in no combination the constraints allow"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Check the output's condition against the rows: it tests an input or a value the rows never allow.
@@ -2286,7 +2308,7 @@ MD0607:
   emitted_by: core
   concern: loading
   says: "a contract has too many combinations to check"
-  fires_on: [build, upgrade, profile, publish]
+  fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
     Reduce the optional inputs or the params its conditions test, or split the contract by mode (#464).
@@ -2342,6 +2364,36 @@ MD0611:
     and a contract that never omits it is right to say it is always written. STAR's `bam`:
     the module adds `--outSAMtype BAM Unsorted` unless `ext.args` sets another `--outSAMtype`,
     and the curated contract sets none.
+
+MD0612:
+  emitted_by: core
+  concern: loading
+  says: "a type a contract's input accepts has no combination its constraints allow"
+  fires_on: [build, upgrade, publish]
+  refuses: true
+  fix: |
+    Change the rows on `type.<input>` so that each type the input accepts has at least one
+    combination of inputs and params they allow, or remove that type from the input's `accepts`.
+  explanation: |
+    A row can depend on which type was connected to an input (#464), as salmon needs a transcript
+    FASTA for BAM reads and an index for FASTQ reads. If no combination works for one accepted
+    type, routing could connect that type and the build would always be refused. The check tries
+    each accepted type as its own case.
+
+MD0613:
+  emitted_by: core
+  concern: loading
+  says: "an nf_inputs entry with several ports does not say how each later port joins the first"
+  fires_on: [build, upgrade, publish]
+  refuses: true
+  fix: |
+    Give the entry `join: broadcast` when the later ports are one thing every sample is paired
+    against, or `join: by_sample` when they are per sample and must match. To join each port its
+    own way, give a map naming every port after the first exactly once.
+  explanation: |
+    Two ports in one process input are combined into one tuple, and how depends on what they
+    are. There is no default, because guessing wrong produces a run that succeeds with wrong
+    results (#464).
 
 MF0500:
   emitted_by: forge
@@ -2590,15 +2642,16 @@ MF0519:
 MF0520:
   emitted_by: forge
   concern: catalogue
-  says: "an input arrives at a different scope than its type"
+  says: "an input arrives at a different grain than its type"
   fires_on: [forging]
   refuses: false
   fix: |
-    Pick a type whose scope matches how the input arrives, or propose one. nf-core names the
+    Pick a type whose grain matches how the input arrives, or propose one. nf-core names the
     per-sample map `meta` and a reference's map `meta2`, `meta3` and so on.
   explanation: |
-    A type says whether it arrives once per run (a reference) or once per sample. An input whose
-    module tuple suggests the other scope is probably the wrong type. Advisory: the person decides.
+    A type says whether it arrives once for the study (a reference) or once per sample. An input
+    whose module tuple suggests the other grain is probably the wrong type. Advisory: the person
+    decides.
 MF0521:
   emitted_by: forge
   concern: catalogue
@@ -2867,6 +2920,367 @@ MA0009:
     under a key the template does not read, and the model answered a question with no
     evidence in it. That reads as a weak model rather than as a bug.
 
+MD0323:
+  emitted_by: resolver
+  concern: loading
+  says: "a rule row is first for no case, so it never decides"
+  fires_on: [build, upgrade, publish]
+  refuses: true
+  fix: |
+    Remove the row, or move it above the rows that already match everything it would. Under
+    `hit: first` the first matching row decides, so a row every case reaches only after another
+    row has matched can never be the answer.
+  explanation: |
+    The table check tries every case the rows can tell apart (#461): each value of an enum or
+    boolean, and for a number each boundary the comparisons name and a point in each interval
+    between them. A row that is first for none of them is dead: it reads as a rule and decides
+    nothing.
+
+MD0324:
+  emitted_by: resolver
+  concern: loading
+  says: "a rule's rows tell too many cases apart to check"
+  fires_on: [build, upgrade, publish]
+  refuses: true
+  fix: |
+    Use fewer boundaries or facts in one decision, or split it into a derived fact and a
+    smaller decision that reads it.
+  explanation: |
+    The check tries every case, bounded at 4096. Above the bound the rule is refused rather
+    than checked partly, so a clean result always means every case was tried.
+
+MD0325:
+  emitted_by: resolver
+  concern: loading
+  says: "a rule sets a value the tool's constraints refuse"
+  fires_on: [build, upgrade, publish]
+  refuses: true
+  fix: |
+    Choose a value the tool allows, or narrow the decision with `when_implementation:` to the
+    tools that accept it.
+  explanation: |
+    A rule decides among what a tool allows (#461); a tool's constraints say what it allows
+    (#460). A `then` that a constraint row refuses with every combination of inputs would be
+    set and then refuse the build, so the rule is refused when it loads.
+MD0326:
+  emitted_by: core
+  concern: loading
+  says: "a measurer's declaration does not fit how it says it measures: by our code, or by a tool and a parser"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    A `by: code` measurer names the `record:` shape it reads and no tool. A `by: tool` measurer
+    names its tool's contract in `uses:` and the output port its parser reads in `output:`, has
+    no `record:`, and runs only in the `pipeline`. Every measurer lists at least one place in
+    `runs:`.
+  explanation: |
+    A measurer is our own code folding a format's records, or a tool in the registry plus a
+    parser for its output (#465). The two need different fields, and a tool runs only in the
+    lab's pipeline: the server runs code from trusted layers over an upload's head, never a
+    tool.
+MD0327:
+  emitted_by: core
+  concern: loading
+  says: "a measurer uses a tool, or an output of it, that no layer declares"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Name in `uses:` a contract some layer declares, by its full id with version, and in
+    `output:` one of that contract's output ports.
+  explanation: |
+    A `by: tool` measurer's tool runs as an ordinary step and its parser reads one of its
+    outputs, so both must exist in the stack. **The measurer is not loaded; the others are**,
+    as for MD0317.
+MD0329:
+  emitted_by: resolver
+  concern: routing
+  says: "routing again to add the steps that measure a run-time fact changed the pipeline instead of only adding to it"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Report it: it is a defect in the resolver, not in the goal or the registry. Stating the
+    fact in the goal decides the setting at build time and avoids the second route meanwhile.
+  explanation: |
+    A setting decided at run time adds the steps that measure its fact by routing the goal
+    again with the measurement wanted too (#217). Measuring may add steps and never move one,
+    so a second graph that does not hold the first one whole is refused rather than emitted.
+MD0330:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a setting decided at run time cannot be carried: it routes outside `ext`, or its template does not hold `{value}` once"
+  fires_on: [build, upgrade, emit, publish]
+  refuses: true
+  fix: |
+    Route the parameter through `via: ext` with a template holding `{value}` once, plainly, or
+    state the fact the rule waits on in the goal, so the setting is decided at build time.
+  explanation: |
+    A setting decided at run time (#217) reads its measured fact from the task's `meta`, which
+    only an `ext` closure evaluated per task can see. Its value is spliced into the template
+    where `{value}` stands; a template without it, or with Groovy of its own, would put the
+    lookup somewhere nobody can check.
+
+MD0331:
+  emitted_by: core
+  concern: routing
+  says: "a port gathers (`many: true`) at a grain with nothing finer to gather"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Declare `grain: study` beside `many: true`, so the process reads every sample's item in one
+    invocation, as MultiQC reads every sample's report. Or drop `many` if it reads one item.
+  explanation: |
+    A port's `grain` is what one invocation reads (#466). `many` gathers every item of a finer
+    grain into one list, with `.collect()`. Only the study has a finer grain to gather today:
+    the sample's lanes and pieces arrive with later stages of the per-sample design.
+
+MD0332:
+  emitted_by: core
+  concern: routing
+  says: "a fact is said to differ between samples, and it is the study's or is also stated"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Keep one answer. A fact that differs between samples is left out of the profile and listed
+    under `constraints.varies`; one that is the same for every sample is stated in the profile.
+    A fact about the study, such as a genome's length, has one value and cannot vary.
+  explanation: |
+    A sample-scoped fact (one that describes reads) may be the same for every sample or differ
+    between them (#466). Said to differ, each sample's value comes from its samplesheet cell or
+    a measurement in the run. Both answers at once would leave the build two values to use.
+
+MD0333:
+  emitted_by: resolver
+  concern: loading
+  says: "a `hit: unique` decision over a fact that differs between samples has overlapping rows"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Make the rows exclusive, so at most one matches any case, or use `hit: first` if the order
+    of the rows is the choice. The message names the two rows and a case both match.
+  explanation: |
+    Under `hit: unique` two matching rows are a tie, and a tie over study-wide facts is a
+    question the build asks once (#461). A fact that can differ between samples is decided per
+    sample in the run (#466), where nobody can be asked, so the overlap is refused at load and
+    the registry's author resolves it.
+
+MD0334:
+  emitted_by: resolver
+  concern: loading
+  says: "a measurement describes a type no layer declares"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Correct the type id in `describes:`, or declare the type in a layer.
+  explanation: |
+    A measurement's scope comes from the grain of the type it describes (#466): a fact about
+    reads is per sample, a fact about the reference is the study's. A `describes` naming no type
+    has no grain, so a typo would make a reference's fact per sample without a word.
+
+MD0335:
+  emitted_by: compiler
+  concern: pipeline-file
+  says: "a fact that differs between samples has no samplesheet column to carry it"
+  fires_on: [build, upgrade, emit, publish]
+  refuses: true
+  fix: |
+    A fact said to differ between samples is a column of the samplesheet. Rebuild the pipeline
+    from its goal, or rename a channel whose column has the fact's name.
+  explanation: |
+    Each sample's value of such a fact comes from its row (#466). A pipeline without the column,
+    or with a file column of the same name, would give every sample nothing to read, and every
+    run-time lookup over it would take its fallback.
+
+MD0336:
+  emitted_by: resolver
+  concern: loading
+  says: "a contract's rule reads a fact that is not a measurement each sample has"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Name a declared measurement that describes a per-sample input, such as `fact.paired`, or
+    declare the measurement in a layer.
+  explanation: |
+    A contract's `when` may read `fact.<measurement>` (#466): the rule is then settled per
+    sample in the run. A fact for the whole study, or a name nothing declares, has no
+    per-sample value to settle it.
+
+MD0337:
+  emitted_by: core
+  concern: pipeline-file
+  says: "every sample breaks a tool's rule, their facts known before the build"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Change the setting the rule forbids, or the fact you stated: the tool cannot run this way
+    on any of your samples. A value a default or a rule gave is simply not passed.
+  explanation: |
+    A contract's rule may read a sample's fact (#466). When every sample's value is known and
+    breaks it, there is nothing to settle per sample in the run: a person's or a model's value
+    would fail every sample, so the build refuses it rather than shipping it.
+
+MD0338:
+  emitted_by: core
+  concern: loading
+  says: "a measurement read off the row is not a boolean, or its type's second column cannot be blank"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Declare the measurement `kind: boolean`, and have it describe a type with
+    `second_may_be_blank: true`, such as `fastq.reads`.
+  explanation: |
+    `row: second_file_present` says a fact is read from whether a sample's row gives its second
+    file (#466): paired-end reads are two files, single-end one. It is true or false, and it
+    needs a type whose second column a sample may leave blank.
+
+MD0339:
+  emitted_by: resolver
+  concern: routing
+  says: "a tool chosen per sample needs routes that differ only after the choice and rejoin at one type"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    State the fact as one value for the study, so one tool serves every sample, or choose the
+    tool yourself. To keep choosing per sample, the registry's tools must take the samples the
+    same way up to the choice.
+  explanation: |
+    When a person says a fact differs between samples, and a rule picks a tool from it (STAR
+    for reads of 70 bases or more, HISAT2 below), the build routes the pipeline once for each
+    tool and merges the routes (#466). Each sample then goes down its own branch. That works
+    only when the routes differ after the choice, plus steps that never carry the samples (a
+    genome index); when a step that carries the samples differs before the choice, when the
+    branches rejoin at different types, or when the fact does not describe the chosen step's
+    own input, the samples cannot be told apart where it matters, and the build refuses.
+
+MD0340:
+  emitted_by: resolver
+  concern: routing
+  says: "an input said to span several rows per sample is not one the goal has, one item per sample"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Say it of an input the goal has whose type carries one item per sample, such as
+    `fastq.reads`. A reference genome is one item for the study and has no lanes.
+  explanation: |
+    `constraints.units` names the inputs whose samplesheet rows may repeat a sample, such as a
+    sample sequenced over several lanes (#466). Each sample's rows are merged before anything
+    reads them, so only a per-sample input the pipeline takes can have them.
+
+MD0341:
+  emitted_by: resolver
+  concern: routing
+  says: "an input may span several rows per sample, and nothing in the registry merges its type"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Add a contract with the role `merging` that consumes and produces the type, or say each
+    sample is one row.
+  explanation: |
+    A sample's rows are merged by a step filling the `merging` role for the input's type, such as
+    nf-core/cat/fastq for reads (#466). Without one, the rows of a sample could not become one
+    item, so the build refuses and names the type.
+
+MD0342:
+  emitted_by: resolver
+  concern: loading
+  says: "a measurer measures a key, which only a samplesheet row gives"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Remove the measurer, or declare the measurement as a kind other than `key`.
+  explanation: |
+    A key, such as a patient or a group, is a laboratory's own identifier for a relation between
+    samples (#466). It comes from each samplesheet row and is compared only for equality; nothing
+    in the data measures it, and Mendel never reads its values.
+
+MD0343:
+  emitted_by: resolver
+  concern: loading
+  says: "a port groups by something that is not a key, or groups without gathering"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Name a measurement of kind `key` in `by`, and declare `many: true` beside it.
+  explanation: |
+    `by: <key>` with `many: true` gathers the samples sharing a key's value into one call, such as
+    a co-assembler reading every sample of one group (#466). The value comes from each samplesheet
+    row, so it must be a key; and grouping is gathering, so the port must take many items.
+
+MD0344:
+  emitted_by: resolver
+  concern: loading
+  says: "a port selects on a fact samples lack, or a pair or a control joins on something that is not a key or a reference"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Select on a measurement each sample has. Join `by_key` on a measurement of kind `key`, and
+    `by_ref` on one of kind `sample_ref`; name no `key` for any other join.
+  explanation: |
+    Relations between samples come from each samplesheet row (#466). A tumour port selects the
+    samples whose `status` is `tumor`; a pair meets on a key such as `patient`; a ChIP sample
+    reads the control its `sample_ref` names. Each of these is a fact every sample has, of the
+    kind its use needs.
+
+MD0345:
+  emitted_by: resolver
+  concern: loading
+  says: "a rule reads a key's or a reference's value, a laboratory's identifier"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Read a fact about the data instead. A rule may count a key's values (`count`, `distinct`),
+    and a step may group, pair or join on one; nothing else reads it.
+  explanation: |
+    A key such as `patient`, or a reference such as `control`, is a laboratory's own identifier
+    (#466). Its value comes from each samplesheet row and stays in the run: a rule reading it
+    would put it on every sample's `meta` and into the run's record of decided values.
+
+MD0346:
+  emitted_by: resolver
+  concern: loading
+  says: "a contract or type declares parts where only a splitter may"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Declare `fans_out: part` only on a splitter (role `splitting`), on an output of the one type
+    it reads. Declare `parts: true` only on a port that reads one sample's item: not with
+    `many`, `by`, `select` or `grain: study`. No type's grain is `part`.
+  explanation: |
+    A step that can run on parts of a sample is split before it and merged after it (#466).
+    Parts exist only between the splitter and the merger, carrying `meta.part`, so a port that
+    gathers or selects, or a type whose items are parts, would have nothing to split or merge.
+
+MD0347:
+  emitted_by: resolver
+  concern: validation
+  says: "an input that cannot be a table of several items is said to be one"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Name in `tables` only an input the goal has whose type is one item for the study, such as
+    a reference database. A per-sample input with several rows per sample is `units` instead.
+    A port selecting on a study input's own fact needs that input to be a table.
+  explanation: |
+    A table input gives several items where the study usually has one, such as several
+    databases to profile every sample against (#466). Each sample is paired with each row, so
+    only a study-wide input can be one.
+
+MD0348:
+  emitted_by: core
+  concern: validation
+  says: "a step crossing a table is wired in a way that would mis-pair its samples and rows"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Read the per-row results on their own, or gather them for the study, rather than joining
+    them by sample with another input; no step after the cross may join, group or merge parts
+    by sample until the results are gathered for the study. A step crosses one table, read on
+    its own after the sample. A step that only reads a table (an index builder, say) cannot
+    take it as several items.
+  explanation: |
+    A step reading a sample and a table runs once per pair, so each sample has one result per
+    row (#466). A join by sample expects one item per sample on each side and would pair the
+    other input with only one of those results.
+
 MD0501:
   emitted_by: resolver
   concern: validation
@@ -2936,14 +3350,14 @@ MD0505:
   fires_on: [validate]
   refuses: false
   fix: |
-    The message names the port's declared `cardinality`. Remove the extra wires, or wire
+    The port reads one item (it does not declare `many: true`). Remove the extra wires, or wire
     through a step that collects them.
   explanation: |
     Nextflow matches arity, and a channel carrying two things where one is expected does not
     fail at lint — it fails at run, late, with a message about a null path.
 
-    This is the FIRST reader `InputPort.cardinality` has ever had. The field was declared and
-    nothing consumed it, so no contract's value for it has been checked against reality.
+    `InputPort.many` says whether a port gathers. A port that does not reads one item per
+    invocation, so a second wire is a second channel it has no slot for.
 
 MD0506:
   emitted_by: resolver
@@ -3539,6 +3953,32 @@ MI0401:
   explanation: |
     A gate writes into the draft's directory while it runs. Deleting the draft underneath it
     would leave a gate reporting on a pipeline that no longer exists.
+MI0500:
+  emitted_by: api
+  concern: workflow
+  says: "a rule proposal cannot be approved as it stands"
+  fires_on: [rules]
+  refuses: true
+  fix: |
+    Read why: it was decided already, its evidence changed since it was proposed, or the
+    registry refuses the table it would put in force. Choose Propose to ask again on the
+    evidence as it is now.
+  explanation: |
+    An approval puts a rule in force for every later build. It is held to the evidence and the
+    registry as they are when the person approves it, not as they were when the model was
+    asked, so a rule nobody checked against today's answers cannot be approved.
+MI0501:
+  emitted_by: api
+  concern: workflow
+  says: "no model is set to propose rules"
+  fires_on: [rules]
+  refuses: true
+  fix: |
+    Set one in Settings → Models → Adapting tools. Rules are registry work, so they use the
+    forge's model. Without one, write the rule yourself in the installation's layer.
+  explanation: |
+    Rules are proposed by a model and checked by the engine. With no model nothing proposes
+    them; every question is still asked of a person, as before.
 MW0102:
   emitted_by: wiener-api
   concern: storage

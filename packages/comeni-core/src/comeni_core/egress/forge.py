@@ -26,6 +26,7 @@ class ForgePiece(StrEnum):
     VOCABULARY = "vocabulary"
     RULES = "rules"
     TESTS = "tests"
+    MEASURERS = "measurers"
 
 
 class ModuleFacts(EgressPayload):
@@ -38,10 +39,10 @@ class ModuleFacts(EgressPayload):
     """Its `tests/main.nf.test`: public module source, which test files it uses and how."""
 
 
-class TypeScope(StrEnum):
-    """How a type arrives: once for the whole run (a reference) or once per sample."""
+class TypeGrain(StrEnum):
+    """How a type arrives: once for the whole study (a reference) or once per sample."""
 
-    RUN = "run"
+    STUDY = "study"
     SAMPLE = "sample"
 
 
@@ -50,7 +51,7 @@ class KnownType(EgressPayload):
 
     id: TypeId
     name: Text = ""
-    scope: TypeScope = TypeScope.SAMPLE
+    grain: TypeGrain = TypeGrain.SAMPLE
     explain: Text = ""
 
 
@@ -66,7 +67,7 @@ class KnownIds(EgressPayload):
     families: list[TypeId] = []
     pending_families: list[TypeId] = []
     described: list[KnownType] = []
-    """Each registry type with its name, scope and explanation, not the bare id alone."""
+    """Each registry type with its name, grain and explanation, not the bare id alone."""
 
 
 class ForgeItemStatus(StrEnum):

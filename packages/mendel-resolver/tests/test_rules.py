@@ -149,15 +149,15 @@ decisions:
   - decides: {effect: param, of: quantification, name: strandedness}
     because: "a fixture; MD0301 requires every row to justify something"
     rows:
-      - {when: {strandedness: reverse}, then: 2}
-      - {when: {strandedness: reverse}, then: 1}
-      # The other two branches exist only to satisfy MD0311 — the point under test is that
-      # the *first* matching row wins, which needs two rows that both match.
-      - {when: {strandedness: forward}, then: 1}
-      - {when: {strandedness: unstranded}, then: 0}
+      # Overlapping, not repeated: a repeated row is dead and refused (MD0323, #461). The point
+      # under test is that where two rows match, the *first* wins.
+      - {when: {read_length: ">= 100"}, then: 2}
+      - {when: {read_length: ">= 50"}, then: 1}
+      - {when: {read_length: "< 50"}, then: 0}
 """)
-    pin = table.value_for(["quantification"], "strandedness", P(strandedness="reverse"))
+    pin = table.value_for(["quantification"], "strandedness", P(read_length=150))
     assert pin.value == 2, "the first matching row wins, not the last"
+    assert table.value_for(["quantification"], "strandedness", P(read_length=75)).value == 1
 
 
 def test_a_comparison_string_works(world):
@@ -168,15 +168,17 @@ decisions:
     because: "a fixture; MD0301 requires every row to justify something"
     rows:
       - {when: {read_length: ">= 70", strandedness: reverse}, then: 2}
+      # The rest of the cases, so the table is complete (MD0311 over several facts, #461).
+      - {when: {read_length: "< 70"}, then: 0}
+      - {when: {strandedness: {not: reverse}}, then: 0}
 """)
     assert table.value_for(
         ["quantification"], "strandedness", P(read_length=150, strandedness="reverse")
-    )
+    ).value == 2
     assert (
         table.value_for(
             ["quantification"], "strandedness", P(read_length=50, strandedness="reverse")
-        )
-        is None
+        ).value == 0
     )
 
 
@@ -633,19 +635,15 @@ def test_a_catch_all_is_still_exhaustive(two_roles):
     assert len(table.decisions) == 1
 
 
-def test_rows_over_several_premises_are_not_checked_for_completeness(two_roles):
-    """Deliberately out of scope rather than approximated.
-
-    Completeness over a *product* of domains is a different and much larger claim, and a
-    check that half-computed it would refuse legitimate tables — which is worse than not
-    checking, because the author cannot argue with it. Recorded here so the gap is a
-    decision rather than an oversight.
-    """
-    table = _rules(two_roles, _decision(
-        f'      - {{when: {{read_length: ">= 70", strandedness: reverse}}, then: {STAR}, '
-        f'cite: "a"}}'
-    ))
-    assert len(table.decisions) == 1
+def test_rows_over_several_premises_are_checked_for_completeness(two_roles):
+    """#461 reverses the earlier decision to leave this out. The check is exact, not an
+    approximation: comparisons only cut an ordered fact at their literals, so one point in each
+    interval and at each literal tries every case, and an enum's values are finite."""
+    with pytest.raises(RuleValidationError, match="MD0311"):
+        _rules(two_roles, _decision(
+            f'      - {{when: {{read_length: ">= 70", strandedness: reverse}}, then: {STAR}, '
+            f'cite: "a"}}'
+        ))
 
 
 # Parameter domains and type-checking of ``then`` values.
@@ -793,3 +791,546 @@ def test_a_mapping_predicate_survives_the_model_as_well_as_the_evaluator(two_rol
         for state in ("reverse", "unstranded")
     }
     assert answered == {"reverse": 2, "unstranded": 0}
+
+
+# ── a setting from a fact (#461) ──────────────────────────────────────────────────────────
+
+FROM_FACT = """
+version: 1
+derives:
+  - {fact: s_level, kind: integer, source: read_length, transform: [{op: at_most, by: 2}],
+     cite: "a fixture"}
+decisions:
+  - decides: {effect: param, of: quantification, name: strandedness}
+    rows:
+      - {when: {}, then: {fact: s_level}, cite: "a fixture"}
+"""
+
+
+def test_a_setting_takes_its_value_from_a_fact(world):
+    table = _rules(world, FROM_FACT)
+    pin = table.value_for(["quantification"], "strandedness", P(s_level=2))
+    assert pin is not None and pin.value == 2
+    assert "s_level" in [record.id for record in pin.premise]
+
+
+def test_a_fact_reference_with_no_value_does_not_fire(world):
+    """Review focus 1: never `null` reaching the tool; the decision falls through."""
+    table = _rules(world, FROM_FACT)
+    assert table.value_for(["quantification"], "strandedness", P(read_length=150)) is None
+
+
+def test_a_fact_reference_must_fit_the_domain(world):
+    """Review focus 2: a number into an integer setting, a fact nobody declares, and a fact
+    choosing a tool are all refused at load."""
+    (world["layer"] / "measurements" / "gc.yml").write_text(
+        _declared(world["layer"] / "measurements" / "gc.yml", "kind: number\n"))
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
+    as_number = FROM_FACT.replace("then: {fact: s_level}", "then: {fact: gc}")
+    with pytest.raises(RuleValidationError, match="MD0300"):
+        _rules(world, as_number)
+    unknown = FROM_FACT.replace("then: {fact: s_level}", "then: {fact: nowhere}")
+    with pytest.raises(RuleValidationError, match="(?s)MD0310.*nowhere"):
+        _rules(world, unknown)
+    choosing = """
+version: 1
+decisions:
+  - decides: {effect: implementation, of: quantification}
+    rows:
+      - {when: {}, then: {fact: read_length}, cite: "a fixture"}
+"""
+    with pytest.raises((RuleValidationError, ValueError), match="(?s)MD0300.*fact"):
+        _rules(world, choosing)
+
+
+def test_a_derived_fact_must_fit_the_domain_too(world):
+    """A `number` derivation into an integer setting, refused once derivations are known."""
+    as_number = FROM_FACT.replace("{fact: s_level, kind: integer,", "{fact: s_level, kind: number,")
+    with pytest.raises(RuleValidationError, match="(?s)MD0300.*s_level"):
+        _rules(world, as_number)
+
+
+# ── hit policy (#461) ──────────────────────────────────────────────────────────────────────
+
+UNIQUE = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: strandedness}
+    hit: unique
+    cite: "a fixture"
+    rows:
+      - {when: {read_length: ">= 100"}, then: 1}
+      - {when: {strandedness: reverse}, then: 2}
+      - {when: {read_length: "< 100", strandedness: {not: reverse}}, then: 0}
+"""
+
+
+def test_first_is_the_default_and_is_not_written():
+    """The registry's rule files say nothing of a hit policy and read as they did."""
+    from mendel_resolver import layers
+    from support.paths import REGISTRY
+
+    decisions = layers.load(REGISTRY).rules.decisions
+    assert decisions, "the registry declares no decision: this measures nothing"
+    for decision in decisions:
+        assert decision.hit == "first"
+        assert "hit" not in decision.model_dump()
+
+
+def test_unique_with_two_matching_rows_is_a_tie(world):
+    table = _rules(world, UNIQUE)
+    both = P(read_length=150, strandedness="reverse")
+    assert table.value_for(["quantification"], "strandedness", both) is None
+    assert [p.value for p in table.ties_for(["quantification"], "strandedness", both)] == [1, 2]
+    one = P(read_length=150, strandedness="forward")
+    assert table.value_for(["quantification"], "strandedness", one).value == 1
+    assert table.ties_for(["quantification"], "strandedness", one) == []
+
+
+def test_unique_with_two_matching_rows_is_a_tier_4_question(world):
+    """Review focus 4: a tie is asked, with both values, never settled by row order."""
+    from comeni_core.plan.decision import ParamDecision
+    from mendel_resolver.goal import GoalInput
+    from mendel_resolver.resolve import resolve
+
+    table = _rules(world, UNIQUE)
+    goal = Goal(have=[GoalInput(type_id="alignment.bam", states={"coordinate_sorted"})],
+                want=["counts.matrix"],
+                profile=world["measurements"].profile({"read_length": 150,
+                                                       "strandedness": "reverse"}))
+    ir = resolve(goal, world["registry"], table, world["measurements"],
+                 vocabulary=world["vocabulary"])
+    asked = [d for d in ir.decisions if isinstance(d, ParamDecision)
+             and d.subject == "strandedness"]
+    assert asked and sorted(asked[0].candidates) == [1, 2]
+
+
+def test_a_fact_read_twice_is_recorded_once(world):
+    """Task 1 review: a row testing and taking the same fact listed it twice in pipeline.yml."""
+    body = FROM_FACT.replace("{when: {}, then: {fact: s_level}",
+                             "{when: {s_level: present}, then: {fact: s_level}")
+    pin = _rules(world, body).value_for(["quantification"], "strandedness", P(s_level=2))
+    assert [record.id for record in pin.premise] == ["s_level"]
+
+
+def test_unique_is_for_settings_only(world):
+    """Task 2 review: a tie between tools fell through to registry priority with no question.
+    Until a tie can be asked there, `unique` decides a setting and nothing else."""
+    body = """
+version: 1
+decisions:
+  - decides: {effect: presence, of: quantification}
+    hit: unique
+    cite: "a fixture"
+    rows:
+      - {when: {read_length: ">= 100"}, then: present}
+      - {when: {read_length: "< 100"}, then: absent}
+"""
+    with pytest.raises(RuleValidationError, match="(?s)MD0300.*unique"):
+        _rules(world, body)
+
+
+def test_a_tie_shows_in_the_preview_as_a_question(world):
+    """Task 2 review: the forge preview showed a tie as no effect at all."""
+    from comeni_core.plan.tiers import Tier
+
+    table = _rules(world, UNIQUE)
+    [fired] = table.effects_for(P(read_length=150, strandedness="reverse"))
+    assert fired.value is None and fired.tier is Tier.AMBIGUOUS
+    assert "both match" in fired.because
+
+
+def test_an_answer_outside_a_tie_is_not_taken(world):
+    """Task 2 review: the tied values are a closed set; an answer outside it is demoted."""
+    from comeni_core.plan.decision import ParamDecision
+    from mendel_resolver.goal import GoalInput
+    from mendel_resolver.ports import Resolution
+    from mendel_resolver.resolve import resolve
+
+    class Answers3:
+        def resolve(self, ambiguity):
+            return Resolution(value=3, how="model", by="test", why="made up", confidence=1.0)
+
+    table = _rules(world, UNIQUE)
+    goal = Goal(have=[GoalInput(type_id="alignment.bam", states={"coordinate_sorted"})],
+                want=["counts.matrix"],
+                profile=world["measurements"].profile({"read_length": 150,
+                                                       "strandedness": "reverse"}))
+    ir = resolve(goal, world["registry"], table, world["measurements"],
+                 vocabulary=world["vocabulary"], resolver=Answers3())
+    [asked] = [d for d in ir.decisions if isinstance(d, ParamDecision)
+               and d.subject == "strandedness"]
+    assert asked.chosen is None
+
+
+# ── table checks over several facts (#461) ────────────────────────────────────────────────
+
+
+def _paired(world):
+    (world["layer"] / "measurements" / "paired.yml").write_text(
+        _declared(world["layer"] / "measurements" / "paired.yml", "kind: boolean\n"))
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
+    return world
+
+
+def _table(rows: str, hit: str = "first") -> str:
+    return ("version: 1\ndecisions:\n"
+            "  - decides: {effect: param, of: quantification, name: strandedness}\n"
+            f"    hit: {hit}\n    cite: \"a fixture\"\n    rows:\n{rows}")
+
+
+def test_a_two_fact_table_with_a_gap_is_refused(world):
+    rows = ('      - {when: {read_length: ">= 100", paired: true}, then: 0}\n'
+            '      - {when: {read_length: "< 100", paired: true}, then: 1}\n'
+            '      - {when: {read_length: ">= 100", paired: false}, then: 2}\n')
+    with pytest.raises(RuleValidationError, match="(?s)MD0311.*paired.*False"):
+        _rules(_paired(world), _table(rows))
+
+
+def test_a_two_fact_table_that_covers_every_case_loads(world):
+    rows = ('      - {when: {read_length: ">= 100", paired: true}, then: 0}\n'
+            '      - {when: {read_length: "< 100"}, then: 1}\n'
+            '      - {when: {paired: false}, then: 2}\n')
+    assert len(_rules(_paired(world), _table(rows)).decisions) == 1
+
+
+def test_overlapping_rows_under_unique_are_legal_and_asked(world):
+    """An overlap under `unique` is the case a person decides; under `first` row order would."""
+    rows = ('      - {when: {read_length: ">= 100"}, then: 1}\n'
+            '      - {when: {read_length: ">= 50"}, then: 2}\n'
+            '      - {when: {read_length: "< 50"}, then: 0}\n')
+    assert len(_rules(world, _table(rows, "unique")).decisions) == 1
+
+
+def test_a_row_no_case_reaches_first_is_dead(world):
+    rows = ('      - {when: {read_length: ">= 50"}, then: 1}\n'
+            '      - {when: {read_length: ">= 100"}, then: 2}\n'
+            '      - {when: {read_length: "< 50"}, then: 0}\n')
+    with pytest.raises(RuleValidationError, match="(?s)MD0323.*row 2"):
+        _rules(world, _table(rows))
+
+
+def test_an_extensible_enum_over_several_facts_still_needs_a_catch_all(world):
+    """Review focus 5: an overlay may add a value, so covering today's values is not enough."""
+    (world["layer"] / "measurements" / "strandedness.yml").write_text(_declared(
+        world["layer"] / "measurements" / "strandedness.yml",
+        "kind: enum\nvalues: [forward, reverse, unstranded]\nextensible: true\n"))
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
+    rows = "".join(f"      - {{when: {{strandedness: {v}, read_length: \">= 1\"}}, then: 0}}\n"
+                   for v in ("forward", "reverse", "unstranded"))
+    rows += '      - {when: {read_length: "< 1"}, then: 1}\n'
+    with pytest.raises(RuleValidationError, match="(?s)MD0311.*overlay adds"):
+        _rules(world, _table(rows))
+
+
+def test_too_many_cases_is_refused(world):
+    """700 boundaries two apart on read_length (1401 points) times three strandedness values:
+    past the 4096 bound, refused before any case is tried."""
+    rows = "".join(f'      - {{when: {{read_length: "== {n}", strandedness: reverse}}, then: 0}}\n'
+                   for n in range(1, 1401, 2))
+    rows += '      - {when: {}, then: 1}\n'
+    with pytest.raises(RuleValidationError, match="MD0324"):
+        _rules(world, _table(rows))
+
+
+# ── a rule's value against the tool's constraints (#461, #460) ───────────────────────────
+
+MODAL = """
+id: lab/modal@1.0.0
+roles: [quantification]
+nf_process: MODAL
+nf_include: modules/lab/modal/main
+consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted}]
+produces: [{name: counts, type_id: counts.matrix::gene_level}]
+params:
+  - name: mode
+    via: ext
+    key: args
+    template: "--mode {value}"
+    domain: {kind: enum, values: [fast, careful]}
+    default: careful
+    because: "the tool's default"
+constraints:
+  - {when: {param.mode: fast}, forbids: [bam],
+     because: "fast mode reads unsorted input only"}
+provenance: {source: hand, drafted_by: hand, approved_by: r, approved_at: "2026-11-10"}
+"""
+
+
+def test_a_rule_value_the_tool_forbids_is_refused(world):
+    contracts = world["layer"] / "contracts"
+    (contracts / "modal.yml").write_text(_declared(contracts / "modal.yml", MODAL))
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: mode,
+              when_implementation: [lab/modal@1.0.0]}
+    rows:
+      - {when: {}, then: fast, cite: "a fixture"}
+"""
+    with pytest.raises(RuleValidationError, match="(?s)MD0325.*fast mode reads unsorted"):
+        _rules(world, body)
+    careful = body.replace("then: fast", "then: careful")
+    assert len(_rules(world, careful).decisions) == 1
+
+
+def test_a_rule_value_is_checked_with_the_other_settings_defaults(world):
+    """Task 4 review: other settings counted as unset, so a row testing one as `absent`
+    matched at load although its default means the build never meets it."""
+    contracts = world["layer"] / "contracts"
+    modal = MODAL.replace(
+        '''  - {when: {param.mode: fast}, forbids: [bam],''',
+        '''  - {when: {param.mode: fast, param.index: absent}, forbids: [bam],''').replace(
+        "constraints:", "  - {name: index, via: ext, key: args, template: '--index {value}',\n"
+                        "     default: auto, because: the tool's default}\nconstraints:")
+    assert modal != MODAL
+    (contracts / "modal.yml").write_text(_declared(contracts / "modal.yml", modal))
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: mode,
+              when_implementation: [lab/modal@1.0.0]}
+    rows:
+      - {when: {}, then: fast, cite: "a fixture"}
+"""
+    assert len(_rules(world, body).decisions) == 1
+
+
+# ── Task 3 review: the table check's cases are exact ──────────────────────────────────────
+
+
+def _check(world, rows: list[dict], hit: str = "first") -> list[str]:
+    from mendel_resolver.rules.format import Decision
+    from mendel_resolver.rules.validate import check_table
+
+    decision = Decision.model_validate({
+        "decides": {"effect": "param", "of": "quantification", "name": "strandedness"},
+        "hit": hit, "cite": "a fixture", "rows": rows})
+    return [f.split(":")[0] for f in check_table(
+        decision, measurements=world["measurements"], derived={})]
+
+
+def test_no_integer_lies_between_two_adjacent_cuts(world):
+    rows = [{"when": {"read_length": "<= 1", "paired": True}, "then": 0},
+            {"when": {"read_length": ">= 2", "paired": True}, "then": 1},
+            {"when": {"paired": False}, "then": 2}]
+    assert _check(_paired(world), rows) == []
+
+
+def test_membership_and_negation_cut_an_ordered_fact(world):
+    world = _paired(world)
+    reached = [{"when": {"read_length": {"in": [50]}, "paired": True}, "then": 0},
+               {"when": {"read_length": {"not": 50}, "paired": True}, "then": 1},
+               {"when": {"paired": False}, "then": 2}]
+    assert _check(world, reached) == []
+    missing = [{"when": {"read_length": {"not": 50}, "paired": True}, "then": 1},
+               {"when": {"paired": False}, "then": 2}]
+    assert _check(world, missing) == ["MD0311"]
+
+
+def test_a_catch_all_after_a_complete_table_is_not_dead(world):
+    """It decides when the fact is not known, which a profile may well be."""
+    rows = [{"when": {"read_length": ">= 70"}, "then": 0},
+            {"when": {"read_length": "< 70"}, "then": 1},
+            {"when": {}, "then": 2}]
+    assert _check(world, rows) == []
+
+
+def test_an_overlay_value_meets_negation_and_presence(world):
+    (world["layer"] / "measurements" / "strandedness.yml").write_text(_declared(
+        world["layer"] / "measurements" / "strandedness.yml",
+        "kind: enum\nvalues: [forward, reverse, unstranded]\nextensible: true\n"))
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
+    world = _paired(world)
+    rows = [{"when": {"strandedness": "reverse", "paired": True}, "then": 0},
+            {"when": {"strandedness": {"not": "reverse"}, "paired": True}, "then": 1},
+            {"when": {"paired": False}, "then": 2}]
+    assert _check(world, rows) == []
+
+
+def test_a_fractional_boundary_on_an_integer_fact_is_refused(world):
+    """Final review: `>= 69.5` on read_length crashed the check (69 compared with "69.5");
+    no integer lies at 69.5, so the boundary is a typo for 69 or 70."""
+    rows = ('      - {when: {read_length: ">= 69.5"}, then: 0}\n'
+            '      - {when: {read_length: "< 69.5"}, then: 1}\n')
+    with pytest.raises(RuleValidationError, match="(?s)MD0310.*69.5"):
+        _rules(world, _table(rows))
+
+
+# ── coverage: a decision may require all of the data (#465) ─────────────────────────────
+
+
+def _coverage_table(coverage: str | None) -> str:
+    said = f"    coverage: {coverage}\n" if coverage else ""
+    return ("version: 1\ndecisions:\n"
+            "  - decides: {effect: param, of: quantification, name: strandedness}\n"
+            f"{said}    cite: \"a fixture\"\n    rows:\n"
+            '      - {when: {read_length: ">= 70"}, then: 2}\n'
+            '      - {when: {read_length: "< 70"}, then: 1}\n')
+
+
+def _read(value, coverage: str | None, origin=PremiseOrigin.MEASURED) -> dict[str, Premise]:
+    return {"read_length": Premise(id="read_length", value=value, origin=origin,
+                                   coverage=coverage)}
+
+
+def test_a_head_premise_does_not_satisfy_coverage_all(world):
+    table = _rules(world, _coverage_table("all"))
+    assert table.value_for(["quantification"], "strandedness", _read(150, "head")) is None
+
+
+def test_a_premise_read_in_full_satisfies_coverage_all(world):
+    table = _rules(world, _coverage_table("all"))
+    pin = table.value_for(["quantification"], "strandedness", _read(150, "all"))
+    assert pin is not None and pin.value == 2
+    assert pin.premise[0].coverage == "all"
+
+
+def test_an_asserted_premise_satisfies_coverage_all(world):
+    """A person's word is not an estimate of the data: it is what they say the data is."""
+    table = _rules(world, _coverage_table("all"))
+    pin = table.value_for(["quantification"], "strandedness",
+                          _read(150, None, PremiseOrigin.ASSERTED))
+    assert pin is not None and pin.value == 2
+
+
+def test_without_coverage_a_head_premise_decides(world):
+    table = _rules(world, _coverage_table(None))
+    pin = table.value_for(["quantification"], "strandedness", _read(150, "head"))
+    assert pin is not None and pin.premise[0].coverage == "head"
+
+
+def test_coverage_is_left_out_of_the_dump_when_unset(world):
+    decision = _rules(world, _coverage_table(None)).decisions[0]
+    assert "coverage" not in decision.model_dump()
+    assert _rules(world, _coverage_table("all")).decisions[0].model_dump()["coverage"] == "all"
+
+
+def test_effects_respect_coverage_all(world):
+    table = _rules(world, _coverage_table("all"))
+    assert table.effects_for(_read(150, "head")) == []
+
+
+def test_an_implementation_rule_needing_all_the_data_misses_on_an_estimate(world):
+    """Task 4 review: the miss is asked of the person, never settled by priority (#174)."""
+    table = _rules(world, """
+version: 1
+decisions:
+  - decides: {effect: implementation, of: quantification}
+    coverage: all
+    because: "a fixture"
+    rows:
+      - {when: {read_length: ">= 70"}, then: nf-core/subread/featurecounts@2.1.1}
+      - {when: {read_length: "< 70"}, then: nf-core/subread/featurecounts@2.1.1}
+""")
+    head = _read(150, "head")
+    assert table.implementation_for("quantification", head) is None
+    missed = table.unapplied_implementation(["quantification"], head)
+    assert missed is not None and missed[1] == ["read_length"]
+    assert table.unapplied_implementation(["quantification"], _read(150, "all")) is None
+
+
+# ── deferred minors (issue 486) ─────────────────────────────────────────────────────────────
+
+
+def test_a_second_catch_all_is_dead(world):
+    rows = [{"when": {}, "then": 0}, {"when": {}, "then": 1}]
+    assert _check(world, rows) == ["MD0323"]
+    assert _check(world, rows[:1]) == []
+
+
+def test_not_with_a_list_is_refused_at_load(world):
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: strandedness}
+    rows:
+      - {when: {strandedness: {not: [forward, reverse]}}, then: 1, cite: "a fixture"}
+"""
+    with pytest.raises(RuleValidationError, match="(?s)MD0305.*strandedness.*`in`"):
+        _rules(world, body)
+
+
+def test_an_enum_fact_must_take_only_the_settings_values(world):
+    contracts = world["layer"] / "contracts"
+    (contracts / "modal.yml").write_text(_declared(contracts / "modal.yml", MODAL))
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    (world["layer"] / "measurements" / "speed.yml").write_text(
+        _declared(world["layer"] / "measurements" / "speed.yml",
+                  "kind: enum\nvalues: [fast, slow]\n"))
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: mode,
+              when_implementation: [lab/modal@1.0.0]}
+    rows:
+      - {when: {}, then: {fact: speed}, cite: "a fixture"}
+"""
+    with pytest.raises(RuleValidationError, match="(?s)MD0300.*'slow'"):
+        _rules(world, body)
+
+
+def test_a_derived_facts_misfit_names_its_layer(world):
+    as_number = FROM_FACT.replace("{fact: s_level, kind: integer,", "{fact: s_level, kind: number,")
+    with pytest.raises(RuleValidationError) as refused:
+        _rules(world, as_number)
+    assert f"rules of layer {world['layer'].name!r}" in str(refused.value)
+
+
+def test_a_rule_value_checked_against_every_filler(world):
+    """MD0325 with no `when_implementation`: every tool filling the role is checked."""
+    contracts = world["layer"] / "contracts"
+    (contracts / "fc.yml").unlink()  # modal is the role's one filler, so it may be left unnamed
+    (contracts / "modal.yml").write_text(_declared(contracts / "modal.yml", MODAL))
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: mode}
+    rows:
+      - {when: {}, then: fast, cite: "a fixture"}
+"""
+    with pytest.raises(RuleValidationError, match="(?s)MD0325.*lab/modal"):
+        _rules(world, body)
+
+
+def test_a_rule_value_forbidden_only_with_an_optional_input_is_not_refused(world):
+    """Load assumes an optional input may be left out, so a row is refused only where every
+    build would stop."""
+    contracts = world["layer"] / "contracts"
+    optional = MODAL.replace(
+        "consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted}]",
+        "consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted},\n"
+        "           {name: extra, type_id: alignment.bam::coordinate_sorted, required: false}]",
+    ).replace("forbids: [bam]", "forbids: [extra]").replace(
+        "params:", "nf_inputs: [{ports: [bam]}, {ports: [extra], absent: 2}]\nparams:")
+    assert optional != MODAL
+    (contracts / "modal.yml").write_text(_declared(contracts / "modal.yml", optional))
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: mode,
+              when_implementation: [lab/modal@1.0.0]}
+    rows:
+      - {when: {}, then: fast, cite: "a fixture"}
+"""
+    assert len(_rules(world, body).decisions) == 1
+
+
+def test_premises_read_expand_derivations_transitively_once_each():
+    from mendel_resolver.rules.format import DecisionRow
+    from mendel_resolver.rules.table import _premises_read
+
+    def premise(name, *sources):
+        return Premise(id=name, value=1, origin=PremiseOrigin.MEASURED,
+                       derived_from=list(sources))
+
+    premises = {"a": premise("a", "b", "c"), "b": premise("b", "c"), "c": premise("c")}
+    row = DecisionRow(when={"a": ">= 1", "b": ">= 1", "gone": "absent"}, then=1, cite="x")
+    assert [p.id for p in _premises_read(row, premises)] == ["a", "b", "c"]
+    premises["b"] = premise("b", "missing")  # a source with no premise adds nothing
+    assert [p.id for p in _premises_read(row, premises)] == ["a", "b", "c"]

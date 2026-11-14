@@ -15,7 +15,7 @@ class ContextChoice(BaseModel):
     id: str
     name: str | None = None
     explain: str | None = None
-    scope: str | None = None
+    grain: str | None = None
     tools: list[str] = []
     proposed: bool = False
 
@@ -68,7 +68,7 @@ def read(adaptation_id: str, key: str) -> QuestionContext:
             type_id, states = split(identifier)
             vocabulary = stack.vocabulary
             choices.append(ContextChoice(id=identifier, name=vocabulary.names.get(type_id),
-                explain=vocabulary.explains.get(type_id), scope=vocabulary.scopes.get(type_id),
+                explain=vocabulary.explains.get(type_id), grain=vocabulary.grains.get(type_id),
                 tools=[c.id for c in contracts if
                        any(p.type_id == type_id and states <= p.state for p in c.produces) or
                        any(a.type_id == type_id and states <= a.states

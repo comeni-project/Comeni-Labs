@@ -13,11 +13,13 @@ from mendel_resolver import layers
 from support.paths import ROOT
 
 
-def test_the_registry_has_one_tier_three_rule_and_it_is_the_aligner():
+def test_the_registry_has_two_tier_three_rules_the_aligner_and_star_s_index():
     """The strandedness block was a translation the module already performs. What remains
-    is a genuine decision between two defensible aligners, with a real citation."""
+    is a genuine decision between two defensible aligners, with a real citation, and STAR's
+    index size from the genome's length, STAR's own formula made visible (#461, #217)."""
     table = layers.load(ROOT / "registry").rules
-    assert [d.decides.key() for d in table.decisions] == ["implementation:alignment"]
+    assert sorted(d.decides.key() for d in table.decisions) == [
+        "implementation:alignment", "param:index_building:sa_index_nbases"]
 
 
 def test_featurecounts_declares_no_strandedness_parameter():

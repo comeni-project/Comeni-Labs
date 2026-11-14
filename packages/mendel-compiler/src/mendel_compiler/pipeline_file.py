@@ -109,6 +109,13 @@ def write(directory: Path, pipeline: Pipeline) -> Pipeline:
     return reparsed
 
 
+def _staged_measuring(directory: Path) -> list[str]:
+    """The generated measuring steps' files (#465): written by this compiler, not vendored, so
+    their digests are recorded with `main.nf`'s."""
+    root = directory / "modules" / "comeni" / "measure"
+    return sorted(str(p.relative_to(directory)) for p in root.rglob("*") if p.is_file())
+
+
 def stamp(directory: Path, pipeline: Pipeline, gate=None) -> Pipeline:
     """Record what was written, what it was written from, and which gate it passed.
 
@@ -129,7 +136,7 @@ def stamp(directory: Path, pipeline: Pipeline, gate=None) -> Pipeline:
         update={
             "emitted": Emitted.of(
                 directory,
-                EMITTED_FILES,
+                [*EMITTED_FILES, *_staged_measuring(directory)],
                 from_digest=stamped.content_digest(),
                 # The version the digest was taken under. Only this version is read.
                 schema_version=SCHEMA_VERSION,

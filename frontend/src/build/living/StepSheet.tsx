@@ -14,7 +14,7 @@ type Setting = AnsweredStep["settings"][number];
  *  grouped by how they were decided — what still needs the person first, as questions; then what
  *  was measured; then what a rule settled, folded — each opening its reason in place; then the
  *  step's tools. × and *Back to the conversation* return to the chat where it was. */
-export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onClose, onSwitchInput }: {
+export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onClose, onSwitchInput, onWhole }: {
   node: string;
   step: AnsweredStep | undefined;
   graph: DraftGraph;
@@ -25,6 +25,8 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
   onClose: () => void;
   /** Switch a tool's optional input off, optional or required: the person's change (issue 460). */
   onSwitchInput?: (contract: string, port: string, state: InputState) => void;
+  /** Keep a tool whole, or let it run on parts of each sample again (issue 466). */
+  onWhole?: (contract: string, whole: boolean) => void;
 }) {
   const [showSettled, setShowSettled] = useState(false);
   const settings = step?.settings ?? [];
@@ -82,6 +84,19 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
                            onSwitch={onSwitchInput && ((state) => onSwitchInput(step.contract_id, port.name, state))} />
           ))}
         </Group>
+      )}
+      {step?.parts && (
+        <section aria-label="Runs in parts" className="flex flex-col gap-2">
+          <h3 className="m-0 text-label text-ink-3">
+            {step.parts.on ? "Runs in parts" : "Can run in parts"}
+          </h3>
+          <p className="m-0 text-[12.5px] text-ink-2">{step.parts.because}</p>
+          <label className="flex items-center gap-2 text-[12.5px] text-ink">
+            <input type="checkbox" checked={!step.parts.on} disabled={!onWhole}
+                   onChange={(e) => onWhole?.(step.contract_id, e.target.checked)} />
+            Run each sample whole
+          </label>
+        </section>
       )}
       <section aria-label="Change this step" className="flex flex-col gap-3">
         <h3 className="m-0 text-[13px] font-semibold text-ink-2">Change this step</h3>

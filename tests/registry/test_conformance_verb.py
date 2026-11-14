@@ -58,18 +58,18 @@ def test_a_contract_with_no_module_is_reported_and_does_not_fail_the_run(tmp_pat
 
     said = capsys.readouterr().out
     assert "MD0100" in said
-    assert "0 contract(s) checked against their modules, 12 unverified" in said
+    assert f"0 contract(s) checked against their modules, {_CONTRACTS} unverified" in said
 
 
 def test_it_checks_every_contract_and_not_only_the_ones_that_route(capsys):
     """Deliberately not `mendel build --gate lint`, which resolves a goal and therefore only
     ever reaches the contracts that happen to route.
 
-    The shipped spine resolves five modules. There are twelve contracts, and all twelve are
-    checked — including the two `comeni/` wrappers, which no goal in this repository routes to.
+    The shipped spine resolves five modules. Every contract is checked — including the
+    `comeni/` wrappers, which no goal in this repository routes to.
     """
     main(["conformance", "--registry", REGISTRY])
-    assert "12 contract(s) checked" in capsys.readouterr().out
+    assert f"{_CONTRACTS} contract(s) checked" in capsys.readouterr().out
 
 
 def test_it_needs_a_registry(capsys):
@@ -81,3 +81,7 @@ def test_it_needs_a_registry(capsys):
         assert exit.code == 2
     else:
         raise AssertionError("conformance with no --registry should be a usage error")
+
+
+_CONTRACTS = len(list((ROOT / "registry/tools").rglob("contract.yml")))
+"""Every contract the shipped layer declares, counted from its files."""

@@ -13,16 +13,17 @@ not on the RNA-seq spine, so no goal in this repository routes to it. The contra
 registry and would have been wrong the moment one did — which is exactly the kind of defect that
 is cheap now and expensive later.
 
-`InputPort.cardinality` existed, defaulted to `"1"`, and had **one reader**: `validate.py`,
-counting *wires*. That is a different question — how many edges may target a port, not how many
-items it consumes. A port can take one wire carrying a channel of five hundred reports.
+`InputPort.cardinality` (now `many`) existed, defaulted to `"1"`, and had **one reader**:
+`validate.py`, counting *wires*. That is a different question — how many edges may target a
+port, not how many items it consumes. A port can take one wire carrying a channel of five
+hundred reports.
 """
 
 
 import pytest
 from comeni_core.artifact.pipeline import Pipeline
-from comeni_core.declared.contract import Cardinality
 from comeni_core.plan.draft import DraftEdge, DraftGraph, DraftNode
+from comeni_core.plan.tiers import Grain
 from mendel_compiler.emit import emit
 from mendel_resolver import layers
 from mendel_resolver.materialise import goal_of, ir_of
@@ -69,7 +70,7 @@ def test_the_contract_declares_the_fan_in(stack):
     """
     contract = stack.registry.get(MULTIQC)
     port = next(p for p in contract.consumes if p.name == "reports")
-    assert port.cardinality is Cardinality.MANY
+    assert port.grain is Grain.STUDY and port.many
 
 
 def test_an_aggregator_is_called_over_the_whole_channel(stack):
@@ -98,20 +99,18 @@ def test_a_one_item_port_is_not_collected(stack):
     assert ".collect()" not in call, f"FASTQC gathers every sample into one call: {call.strip()}"
 
 
-def test_the_default_is_one_and_the_vocabulary_is_closed():
-    """`cardinality` was a bare `str` defaulting to `"1"`, and its one reader compared against
-    that literal — so `"one"`, `"2"` and a typo all meant *many* by falling through.
-
-    Two members, and a third is refused until somebody has a case: a number here would have to
-    mean *invoked once per N items*, which nothing in Nextflow's channel algebra does without a
-    `buffer` whose size is a pipeline's decision rather than a contract's.
+def test_the_default_is_one_item_and_grain_is_closed():
+    """`cardinality` was a bare `str` once, and `"one"`, `"2"` and a typo all meant *many* by
+    falling through. Its successor (#466) is a closed `grain` and a boolean `many`: a number would
+    have to mean *invoked once per N items*, which nothing in Nextflow's channel algebra does
+    without a `buffer` whose size is a pipeline's decision rather than a contract's.
     """
     from comeni_core.declared.contract import InputPort
 
-    assert InputPort(name="x", type_id="a.b").cardinality is Cardinality.ONE
-    assert [c.value for c in Cardinality] == ["1", "*"]
+    port = InputPort(name="x", type_id="a.b")
+    assert port.grain is None and port.many is False
     with pytest.raises(ValueError):
-        InputPort(name="x", type_id="a.b", cardinality="2")
+        InputPort(name="x", type_id="a.b", grain="lane")
 
 
 def test_the_spine_is_unchanged_by_this(stack):

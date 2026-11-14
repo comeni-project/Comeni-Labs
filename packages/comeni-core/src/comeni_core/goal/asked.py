@@ -18,6 +18,7 @@ from comeni_core.spell.marks import (
     ChannelName,
     ContractId,
     HumanParamValue,
+    MeasurementId,
     PortName,
     RoleName,
     StateName,
@@ -186,6 +187,29 @@ class Constraints(BaseModel):
     """Pinned port sources, omitted from serialized output when empty."""
     inputs: list[InputChoice] = Field(default_factory=list, exclude_if=lambda inputs: not inputs)
     """Optional inputs a person switched on or off, omitted from serialized output when empty."""
+    varies: list[MeasurementId] = Field(default_factory=list, exclude_if=lambda varies: not varies)
+    """Per-sample facts a person said differ between samples (#466): each sample's value comes
+    from its samplesheet cell or a measurement in the run, never one value for all. Sorted."""
+
+    units: list[TypeId] = Field(default_factory=list, exclude_if=lambda units: not units)
+    """Inputs whose rows may repeat a sample, such as a sample sequenced over several lanes
+    (#466): the build merges each sample's rows before anything reads them. Sorted."""
+
+    tables: list[TypeId] = Field(default_factory=list, exclude_if=lambda tables: not tables)
+    """Study inputs a person supplies as a table of several items, such as several databases
+    (#466): a step reading a sample and one of them runs on every pair. Sorted."""
+
+    whole: list[ContractId] = Field(default_factory=list, exclude_if=lambda whole: not whole)
+    """Tools a person keeps whole (#466): a step that could run on parts of a sample is not
+    split. Sorted."""
+
+    @model_validator(mode="after")
+    def _varies_sorted(self) -> "Constraints":
+        object.__setattr__(self, "varies", sorted(set(self.varies)))
+        object.__setattr__(self, "units", sorted(set(self.units)))
+        object.__setattr__(self, "whole", sorted(set(self.whole)))
+        object.__setattr__(self, "tables", sorted(set(self.tables)))
+        return self
 
     @model_validator(mode="before")
     @classmethod

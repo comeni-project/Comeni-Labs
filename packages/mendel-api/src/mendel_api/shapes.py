@@ -38,7 +38,7 @@ def _shapes() -> tuple[Shape, ...]:
     from mendel_forge.model import UpstreamModule
 
     from mendel_api.authoring.canvas import AlternativePreview
-    from mendel_api.authoring.types import AskedGap, Block
+    from mendel_api.authoring.types import AskedGap, Block, UploadedSample
     from mendel_api.migration_data.decisions_v1 import Snapshot
 
     loose = dict[str, JsonValue]
@@ -54,6 +54,7 @@ def _shapes() -> tuple[Shape, ...]:
         Shape("pipeline_authoring_proposal", "payload", loose),
         Shape("pipeline_authoring_proposal", "preview_views", dict[str, AlternativePreview] | None),
         Shape("pipeline_authoring_session", "blueprint", loose),
+        Shape("pipeline_authoring_session", "samples", list[UploadedSample] | None),
         Shape("pipeline_authoring_suggestion", "change", DecisionChange),
         Shape("pipeline_authoring_turn", "blocks", list[Block]),
         Shape("pipeline_decision_migration", "snapshot", Snapshot),
@@ -68,6 +69,9 @@ def _shapes() -> tuple[Shape, ...]:
         Shape("pipeline_phrasing", "asked", AskedGap | None),
         Shape("pipeline_producer_revision", "states", list[str]),
         Shape("pipeline_want_revision", "states", list[str]),
+        Shape("rule_proposal", "target", loose),
+        Shape("rule_proposal", "rows", list[loose]),
+        Shape("rule_proposal", "problems", list[str]),
     )
 
 

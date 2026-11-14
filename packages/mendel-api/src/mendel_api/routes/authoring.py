@@ -43,6 +43,7 @@ from mendel_api.authoring.types import (
     ProposalState,
     Prose,
     TurnState,
+    UploadedSample,
 )
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
@@ -244,6 +245,8 @@ class AuthoringSessionView(BaseModel):
     failed_from: Phase | None
     goal: Goal | None
     facts: list[Fact] = []
+    samples: list[UploadedSample] = []
+    """Every sample of the last upload, with its name and measurements (#466)."""
     inputs: list[InputDecision] = []
     fact_subjects: list[str] = []
     decision_revision: int = 0
@@ -343,9 +346,9 @@ class MeasurerView(BaseModel):
     model_config = _FROZEN
 
     measurement: str
-    kind: Literal["inspector", "profiler"]
     by: str
-    runs: Literal["server", "lab", "browser"]
+    runs: list[Literal["server", "pipeline"]]
+    """Where it may run: on the server over an upload's head, in the pipeline over all of it."""
     trusted: bool
 
 
@@ -419,7 +422,7 @@ class FactHistoryEntry(BaseModel):
     model_config = _FROZEN
     seq: int
     value: HumanParamValue | list[HumanParamValue] | None = None
-    origin: Literal["person_said", "measured", "model_read", "open"]
+    origin: Literal["person_said", "measured", "model_read", "open", "varies"]
     selected: bool
     current: bool
     revision_id: str | None = None
@@ -746,6 +749,7 @@ def _view(session_id: str) -> AuthoringSessionView:
         failed_from=Phase(picture["failed_from"]) if picture["failed_from"] else None,
         goal=gathering.as_goal(picture["goal"]),
         facts=picture["facts"],
+        samples=picture["samples"],
         **{
             key: picture[key]
             for key in (
@@ -812,6 +816,8 @@ class InspectedFactView(BaseModel):
     undetermined: str | None = None
     pieces: list[str] = []
     evidence: dict[str, int | float | bool | str] = {}
+    coverage: Literal["head", "all"] | None = None
+    """How much of the file the measurer read (#465): `all` only for a whole file."""
 
 
 class SampleInspected(BaseModel):
@@ -876,8 +882,8 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
         heads = await sample_upload.read_heads(request, head=inspect.HEAD_BYTES)
     except ValueError as refused:
         raise ValueError(coded("MI0214", str(refused))) from None
-    if not 1 <= heads.count <= 2:
-        raise ValueError(coded("MI0214", f"{heads.count} files: upload one file, or a pair"))
+    if heads.count < 1:
+        raise ValueError(coded("MI0214", "no files: upload one or more samples"))
     proposal_id = heads.fields.get("proposal_id")
     # **Every database call off the event loop** (issue 226): a slow answer here would hold
     # every other request.
@@ -887,7 +893,8 @@ async def upload_sample(session_id: str, request: Request) -> SampleInspected:
     # The rest is one action (plan 1c): refused before a byte is inspected, a hand-back claimed
     # by the recorded type only, and a type nothing here reads handed to the AI.
     done = await session.act(
-        c.UploadSample(session_id, proposal_id, tuple(heads.files), identity.default_author())
+        c.UploadSample(session_id, proposal_id, tuple(heads.files), identity.default_author(),
+                       sizes=sample_upload.sizes_of(heads.fields.get("sizes"), len(heads.files)))
     )
     up = done.result
     view = await run_in_threadpool(_view, session_id)

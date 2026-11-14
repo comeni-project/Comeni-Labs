@@ -8,7 +8,7 @@ re-exports them for compatibility.
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from comeni_core.plan.tiers import ValueSource
+from comeni_core.plan.tiers import Coverage, ValueSource
 from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue, PieceRef
 
 
@@ -21,10 +21,14 @@ class Evidence(BaseModel):
     rows: int | None = Field(default=None, ge=0, exclude_if=lambda count: count is None)
     share: float | None = Field(default=None, ge=0, le=1, exclude_if=lambda share: share is None)
     """Each value is serialized only when known."""
+    coverage: Coverage | None = Field(default=None, exclude_if=lambda coverage: coverage is None)
+    """How much of the data was read (#465): `head`, part of it (an upload's first 4 MB, a cut
+    file), or `all`. A rule that needs all of the data does not read a `head` fact."""
 
     @model_validator(mode="after")
     def _says_something(self) -> "Evidence":
-        if self.records is None and self.rows is None and self.share is None:
+        if (self.records is None and self.rows is None and self.share is None
+                and self.coverage is None):
             raise ValueError("evidence with no count says nothing; leave it out instead")
         return self
 
@@ -39,16 +43,22 @@ class Measured(BaseModel):
 
     measurement: MeasurementId
     value: ParamValue | list[ParamValue]
-    """Lists are valid only for declarations marked ``per_sample`` by the registry."""
+    """Lists are valid only for a measurement whose scope is the sample: it describes a type
+    that arrives per sample (`MeasurementRegistry.scope_of`, #466)."""
     source: ValueSource = ValueSource.SAID
     by: ContractId | None = None
-    """The profiling contract that produced the value, when applicable."""
+    """The contract that produced the value, when a step in a pipeline did."""
     pieces: list[PieceRef] = Field(default_factory=list, exclude_if=lambda pieces: not pieces)
     """Ordered inspector pieces that produced the value, omitted when empty.
 
-    A profiling contract uses ``by`` instead. Person-authored assertions use neither.
+    A contract uses ``by`` instead. Person-authored assertions use neither.
     """
     evidence: Evidence | None = Field(default=None, exclude_if=lambda evidence: evidence is None)
+
+    @property
+    def coverage(self) -> Coverage | None:
+        """How much of the data the measurer read; `None` for a value nothing measured."""
+        return self.evidence.coverage if self.evidence is not None else None
 
     @model_validator(mode="after")
     def _one_measurer(self) -> "Measured":

@@ -48,7 +48,7 @@ def _two_sample_channels() -> DraftGraph:
         channels=[
             DraftChannel(
                 ports=("align.gtf",),
-                scope="sample",
+                grain="sample",
                 why="each biopsy has its own liver-specific annotation",
             )
         ],
@@ -87,8 +87,8 @@ def test_a_paired_type_reads_two_columns(table):
     """`fastq.reads` declares `sample_columns: 2` — nf-core's `_1`/`_2`, with an empty second
     meaning single-end. **Not derivable**: nothing about the type id says a FASTQ arrives in
     pairs, and `fromFilePairs` says it only about the glob form."""
-    assert "file(row.reads_1), file(row.reads_2)" in table
-    assert "file(row.gtf)" in table
+    assert "file(row.reads_1 ?: error(" in table and "file(row.reads_2 ?: error(" in table
+    assert "file(row.gtf ?: error(" in table
 
 
 def test_the_sample_id_comes_from_the_row_and_nowhere_else(table):
@@ -216,7 +216,7 @@ def _runnable() -> DraftGraph:
         channels=[
             DraftChannel(
                 ports=("align.gtf",),
-                scope="sample",
+                grain="sample",
                 why="each biopsy carries its own annotation",
             )
         ],
