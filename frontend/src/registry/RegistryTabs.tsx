@@ -1,6 +1,6 @@
 import { NavLink } from "react-router";
 
-/** The Registry section's own bar (board 1): Catalogue, Forging and Releases. */
+/** The Registry section's own bar (board 1): Catalogue, Forging, Releases and Learned rules. */
 export function RegistryTabs({ registryAt }: { registryAt?: string }) {
   const tab = "px-[10px] py-[6px] rounded-control no-underline transition-colors";
   const on = "bg-surface text-ink font-semibold shadow-[inset_0_0_0_1px_var(--line)]";
@@ -20,6 +20,10 @@ export function RegistryTabs({ registryAt }: { registryAt?: string }) {
         <NavLink to="/registry/releases"
                  className={({ isActive }) => `${tab} ${isActive ? on : off}`}>
           Releases
+        </NavLink>
+        <NavLink to="/registry/learned"
+                 className={({ isActive }) => `${tab} ${isActive ? on : off}`}>
+          Learned rules
         </NavLink>
       </nav>
       {registryAt && (
