@@ -388,7 +388,7 @@ The request is rendered into the prompt as sorted JSON-ish text.
 - [x] **Step 2: Run the full checks**, each separately and alone on the DB: `make check`,
   `make guards`, `make slow`, `npx vitest run`, `npx tsc -b`. Expected: all pass.
 - [x] **Step 3: Commit** `docs: learned rules (#462)` and tick this plan.
-- [ ] **Step 4: Run the final review.** A fresh reviewer on the most capable model reviews the
+- [x] **Step 4: Run the final review.** A fresh reviewer on the most capable model reviews the
   branch range. Fix Critical and Important findings test-first, and add Minors to #489.
 
 ## Deviations
@@ -412,3 +412,13 @@ The request is rendered into the prompt as sorted JSON-ish text.
 - **The browser check** is deferred to the push's end-of-push browser pass.
 - **The "done when" tier.** The tier-3 case needs a fact-bearing row (`paired: true`). A `when:
   {}` row is tier 2 by `tier_of_row`.
+- **Final review:** seven Important findings were fixed test-first (cb14a430):
+  - a malformed row is refused;
+  - no `cite` reaches the model;
+  - a setting's rule covers one tool;
+  - `hit: unique` tables are left alone;
+  - approval is judged again against the table in force;
+  - the own layer is local (`INSTALLATION`) and leaves the stack when empty;
+  - derived facts are not narrowed.
+
+  The Minors are on issue 489.
