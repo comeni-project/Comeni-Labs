@@ -15,3 +15,14 @@ export function useTypeNames(): (typeId: string) => string {
   const names = vocabulary.data?.names ?? {};
   return (typeId: string) => names[typeId] ?? typeId;
 }
+
+/** **What a question or an answer is about, in words** (issue 494): a type by its declared name,
+ *  a measurement by its id with spaces (`read_length` is *read length*). The walks showed
+ *  `assembly.fasta needs you` and `Correct assembly.fasta`. */
+export function useSubjectNames(): (subject: string) => string {
+  const typeName = useTypeNames();
+  return (subject: string) => {
+    const named = typeName(subject);
+    return named !== subject ? named : subject.replaceAll("_", " ");
+  };
+}

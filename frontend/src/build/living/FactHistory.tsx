@@ -11,8 +11,8 @@ export function factWords(value: unknown): string {
 }
 
 /** Load history while expanded, keeping its current-answer labels in sync with corrections. */
-export function FactHistory({ sessionId, subject, revision }: {
-  sessionId: string; subject: string; revision: number;
+export function FactHistory({ sessionId, subject, label, revision }: {
+  sessionId: string; subject: string; label?: string; revision: number;
 }) {
   const [entries, setEntries] = useState<components["schemas"]["FactHistoryEntry"][] | null>(null);
   const [open, setOpen] = useState(false);
@@ -29,7 +29,7 @@ export function FactHistory({ sessionId, subject, revision }: {
     return () => { active = false; };
   }, [open, sessionId, subject, revision]);
   return <details className="mt-2 text-[11px]" onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary className="cursor-pointer text-ink-3">History of {subject}</summary>
+    <summary className="cursor-pointer text-ink-3">History of {label ?? subject}</summary>
     {error && <p role="alert">{error}</p>}
     {!entries && !error && <p>Loading history…</p>}
     <ol className="pl-4">

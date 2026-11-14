@@ -65,6 +65,29 @@ def registry_digest(roots: Sequence[Path]) -> str:
     return registry.combine([str(digest_of_directory(root)) for root in roots])
 
 
+def _after_measurers(order: list[str], pipeline) -> list[str]:
+    """Each step after the steps that measure what its settings are looked up from (issue 496).
+
+    The layout ranks by edges, and a measured fact reaches a step through its input's meta, so
+    STAR's index was offered before the genome-length measurement its `sa_index_nbases` reads.
+    A step moves to just after its last measurer; everything else keeps the layout's order."""
+    measured_at = {m.measurement: m.measured_at
+                   for channel in pipeline.channels for m in channel.meta_at_run}
+    needs = {
+        step.id: {measured_at[f.measurement] for setting in step.settings if setting.at_run
+                  for f in setting.at_run.facts if f.measurement in measured_at}
+        for step in pipeline.steps
+    }
+    placed: list[str] = []
+    waiting = list(order)
+    while waiting:
+        ready = next((n for n in waiting
+                      if not (needs.get(n, set()) & set(waiting)) - {n}), waiting[0])
+        placed.append(ready)
+        waiting.remove(ready)
+    return placed
+
+
 def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Blueprint, list]:
     """Resolve `goal` once and fix the reveal order. **Tier 4 is resolved with the flag**: the
     questions stay open, visibly, for a person in the walk; nothing is guessed. The second value
@@ -73,7 +96,9 @@ def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Bluepri
     stack = list(roots or registry_roots())
     built = orchestrate.build(goal, registry_roots=stack, resolver=FlagOnlyResolver())
     placed = layout.of(built.ir)
-    order = [node.id for node in sorted(placed.nodes, key=lambda n: (n.rank, n.order, n.id))]
+    order = _after_measurers(
+        [node.id for node in sorted(placed.nodes, key=lambda n: (n.rank, n.order, n.id))],
+        built.pipeline)
     blueprint = Blueprint(
         registry=registry_digest(stack),
         order=order,

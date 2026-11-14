@@ -1,6 +1,7 @@
 import type { Point } from "../geometry";
 import { elbow, path } from "../geometry";
 import { spelledStates } from "../../ui/spelled";
+import { useTypeNames } from "./useTypeNames";
 
 /** How many times a channel delivers, drawn **on the wire** — never as copies of a node.
  *
@@ -127,6 +128,7 @@ export function SourceNode({
   grain: "study" | "sample";
   count: number | null;
 }) {
+  const typeName = useTypeNames();
   // **An input says how it is read, in its own box** (the boards): *× 12 samples* for a per-item
   // input, *read once per task* for one value — nothing is written on its wire.
   return (
@@ -143,11 +145,13 @@ export function SourceNode({
       }}
     >
       <span className="text-[11px] font-semibold text-now-ink">Input</span>
-      <span className="font-data text-[12px] text-ink leading-tight">{name}</span>
-      <span className="font-data text-[10px] text-ink-2 truncate">
-        {typeId}
+      {/* **What it is, then the parameter a run sets** (issue 494): `fasta / assembly.fasta` said
+          neither in words. */}
+      <span className="text-[11.5px] text-ink leading-tight line-clamp-2" title={typeName(typeId)}>
+        {typeName(typeId)}
         {spelledStates(states)}
       </span>
+      <span className="font-data text-[10px] text-ink-2 truncate">params.{name}</span>
       <span className="text-[10.5px] text-ink-2">
         {grain === "sample" ? (count === null ? "× N items" : `× ${count} samples`) : "read once per task"}
       </span>

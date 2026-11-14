@@ -32,9 +32,16 @@ describe("what was understood, beside the conversation (one builder plan 3)", ()
 
   it("points an open fact at the question asking it", () => {
     const p = understood(open);
-    fireEvent.click(screen.getByRole("button", { name: "Answer strandedness in the chat" }));
+    expect(screen.getByText(/strandedness: needs you/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Answer it in the chat" }));
     expect(p.onOpenQuestion).toHaveBeenCalled();
   });
+});
+
+it("names what an open question is about in words, not its id (issue 494)", () => {
+  understood({ ...open, pending_proposal: { ...open.pending_proposal!,
+    envelope: { ...open.pending_proposal!.envelope!, subject: "read_length" } } } as unknown as AuthoringSession);
+  expect(screen.getByText(/read length: needs you/)).toBeInTheDocument();
 });
 
 describe("what was asked for and is not offered here (Part I.2)", () => {

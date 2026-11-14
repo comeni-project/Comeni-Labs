@@ -3,6 +3,7 @@ import type { AuthoringSession, AuthoringVocabulary } from "../../api/types";
 import { FactEditor, type FactValue } from "./FactEditor";
 import { FactHistory, factWords, sourceWords } from "./FactHistory";
 import { Samples } from "./Samples";
+import { useSubjectNames } from "./useTypeNames";
 
 export type CorrectFact = (subject: string, value: FactValue, kind: "input" | "measurement") => Promise<unknown>;
 /** Whether there is any current answer to show — the describe page draws no empty section. */
@@ -37,6 +38,7 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUn
   }, [openRequest]);
   const pins = session.goal?.constraints?.producers ?? [];
   const facts = (session.facts ?? []).filter(fact => fact.kind === "measurement");
+  const nameOf = useSubjectNames();
   const absent = (session.fact_subjects ?? []).filter(subject => !facts.some(fact => fact.subject === subject));
   const inputs = session.inputs ?? [];
   // Each input's grain, from the built pipeline's channels; unknown before a build (issue 466).
@@ -48,16 +50,16 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUn
     <summary className="cursor-pointer text-ink-2">Current answers · {facts.length + inputs.length + absent.length}</summary>
     {error && <p role="alert">{error}</p>}
     {pins.map(pin => <p key={`${pin.site.type_id}:${pin.site.states.join(",")}`}>
-      Tool choice for {pin.site.type_id}: {pin.contract}
+      Tool choice for {nameOf(pin.site.type_id)}: {pin.contract}
       {onRelease && <button disabled={disabled} className="ml-2 text-now-ink underline" onClick={() => {
         void onRelease(pin.site.type_id, pin.site.states).catch(failure => setError(String(failure)));
       }}>Release this tool choice</button>}
     </p>)}
-    {[...inputs.map(input => ({ subject: input.key, label: input.name ?? input.type_id,
+    {[...inputs.map(input => ({ subject: input.key, label: input.name ?? nameOf(input.type_id),
       value: input.origin === "open" ? null : input.present, source: input.origin, kind: "input" as const })),
-    ...facts.map(fact => ({ subject: fact.subject, label: fact.subject, value: fact.value ?? null,
+    ...facts.map(fact => ({ subject: fact.subject, label: nameOf(fact.subject), value: fact.value ?? null,
       source: fact.source, kind: "measurement" as const })),
-    ...absent.map(subject => ({ subject, label: subject, value: null, source: "open", kind: "measurement" as const }))].map(fact => <div key={`${fact.kind}:${fact.subject}`} data-subject={fact.subject}
+    ...absent.map(subject => ({ subject, label: nameOf(subject), value: null, source: "open", kind: "measurement" as const }))].map(fact => <div key={`${fact.kind}:${fact.subject}`} data-subject={fact.subject}
       className="border-t py-2 transition-shadow"
       style={highlight === fact.subject ? { boxShadow: "inset 3px 0 0 var(--done)", background: "var(--done-soft)" } : undefined}>
       <span>{fact.label}: {factWords(fact.value)} · {sourceWords[fact.source]}</span>
@@ -89,7 +91,7 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUn
       {editing === fact.subject && onCorrect && <FactEditor subject={fact.subject} value={fact.value}
         kind={fact.kind} declaration={declarations?.[fact.subject]} disabled={disabled}
         onSave={value => onCorrect(fact.subject, value, fact.kind)} />}
-      {<FactHistory sessionId={session.id} subject={fact.subject} revision={session.row_version} />}
+      {<FactHistory sessionId={session.id} subject={fact.subject} label={fact.label} revision={session.row_version} />}
     </div>)}
     <Samples samples={session.samples ?? []} />
   </details>;
