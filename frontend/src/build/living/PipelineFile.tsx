@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { get } from "../../api/client";
 import type { components } from "../../api/schema";
@@ -68,6 +68,10 @@ export function PipelineFile({
     enabled: compiled && Boolean(draftId),
     retry: false,
   });
+  // **Compiled, the Nextflow is what was asked for** (issue 496): it opens on main.nf, and the
+  // button says it will compile again rather than looking the same as before.
+  const shown = emitted.dataUpdatedAt;
+  useEffect(() => { if (shown) setTab("main"); }, [shown]);
   const text = tab === "kept" ? artifact.data?.text ?? null : preview?.state === "ready" ? preview.text : null;
   const refs = preview?.state === "ready" ? fileLines(preview.text) : [];
   const setting = (step: string, name: string) =>
@@ -151,7 +155,7 @@ export function PipelineFile({
               ))}
             </div>
             <Primary onClick={() => { if (compiled) void emitted.refetch(); else setCompiled(true); }} disabled={!draftId || emitted.isFetching}>
-              {emitted.isFetching ? "Compiling…" : "Compile it"}
+              {emitted.isFetching ? "Compiling…" : emitted.data ? "Compile again" : "Compile it"}
             </Primary>
           </div>
           {emitted.error && <p role="alert" className="mx-5 mt-2 mb-0 text-[12.5px] text-needs-you-ink">{emitted.error.message}</p>}

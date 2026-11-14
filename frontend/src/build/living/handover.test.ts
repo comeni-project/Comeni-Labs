@@ -25,4 +25,12 @@ describe("which wrap-up is the hand-over (issue 393)", () => {
       { id: "fastqc_1", contract_id: "nf-core/fastqc@0.12.1", params: [] }] } } as Partial<AuthoringSession>);
     expect(stepsInOrder(session)).toEqual(["star_genomegenerate", "trimgalore", "star_align", "fastqc_1"]);
   });
+
+  it("names a step accepted again on review once, and a removed one not at all (issue 496)", () => {
+    const base = done();
+    const again = base.history.filter((d) => d.state === "accepted" && d.block.kind === "step_proposal");
+    const gone = { ...again[0], block: { ...again[0].block, node: "removed_step" } };
+    const session = { ...base, history: [...base.history, ...again, gone] } as AuthoringSession;
+    expect(stepsInOrder(session)).toEqual(["star_genomegenerate", "trimgalore", "star_align"]);
+  });
 });

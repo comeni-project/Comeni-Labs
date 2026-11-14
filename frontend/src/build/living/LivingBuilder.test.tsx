@@ -170,11 +170,10 @@ describe("registry gaps", () => {
       unresolved_settings: ["seq_platform"] } },
   });
 
-  it("names an unresolved setting in plain words, without a path, when Dev mode is off", async () => {
+  it("says nothing of a registry gap when Dev mode is off (issue 496)", async () => {
     open(gapped(false));
-    const gaps = await screen.findByTestId("step-gaps");
-    expect(gaps).toHaveTextContent("seq_platform");
-    expect(gaps).not.toHaveTextContent("registry/tools/");
+    await screen.findByTestId("select-step");
+    expect(screen.queryByTestId("step-gaps")).toBeNull();
   });
 
   it("adds the kind and the file to fix under Dev mode", async () => {

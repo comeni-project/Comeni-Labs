@@ -300,18 +300,20 @@ export function LivingSurface({
     // **Describing in the same frame as building** (one builder plan 3): what was understood where
     // the canvas will be, the conversation where it stays; *Start building* in the header.
     const goal = pending?.kind === "goal" ? pending : null;
-    const left = pending?.kind === "gap" ? 1 : 0;
+    // **No count** (issue 496): what the engine needs is found as it is answered, so a number
+    // read "1 question left" through four questions.
+    const asking = pending?.kind === "gap";
     return (
       <div className="grid grid-rows-[auto_auto_1fr] h-full overflow-hidden" data-testid="living">
         <header data-testid="describe-header"
                 className="flex items-center gap-3 px-[28px] py-[14px] border-b border-line">
           <span className="text-[17px] font-semibold text-ink truncate">{session.name || "New analysis"}</span>
           <StatusChip session={session} />
-          {(goal || left > 0) && (
+          {(goal || asking) && (
             <span className="ml-auto">
               <Primary data-testid="accept-goal" disabled={!goal || busy(goal.id)}
                        onClick={() => setConfirmRequest((n) => n + 1)}>
-                {goal ? "→ Start building" : `Start building · ${left} question left`}
+                {goal ? "→ Start building" : "Start building · answer the question first"}
               </Primary>
             </span>
           )}

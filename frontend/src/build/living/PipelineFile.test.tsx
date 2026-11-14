@@ -129,6 +129,14 @@ describe("the Nextflow it compiles to", () => {
     expect(await screen.findByText(/docker.enabled = true/)).toBeInTheDocument();
   });
 
+  it("opens main.nf once compiled and offers to compile again (issue 496)", async () => {
+    file();
+    fireEvent.click(screen.getByRole("button", { name: "Compile it" }));
+    expect(await screen.findByText(/STAR_ALIGN\(\)/)).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "main.nf" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Compile again" })).toBeInTheDocument();
+  });
+
   it("asks once on the first press (issue 404)", async () => {
     file();
     fireEvent.click(screen.getByRole("button", { name: "Compile it" }));

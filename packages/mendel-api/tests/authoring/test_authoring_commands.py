@@ -300,3 +300,13 @@ def test_a_sample_whose_session_moved_on_queues_no_phrasing(monkeypatch):
     with db.transaction():
         samples._moves(ctx, False, ["read_length"], [])
     assert ctx.jobs == []
+
+
+def test_a_confirmed_goal_names_an_untitled_pipeline_after_what_it_makes(monkeypatch):
+    """Every pipeline stayed "Untitled analysis" (issue 496). The name comes from the declared
+    vocabulary, never the prompt, which may carry a sample name (`describe.UNTITLED`)."""
+    from mendel_api.services import registry
+
+    sid = _confirmed(monkeypatch)
+    said = registry.stack().vocabulary.names["counts.matrix"]
+    assert session.read(sid)["name"] == said[0].upper() + said[1:]
