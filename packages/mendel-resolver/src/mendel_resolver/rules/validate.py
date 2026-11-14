@@ -169,14 +169,17 @@ def _allowed_by_constraints(row: DecisionRow, target: DecisionTarget, path: Path
                 f"  The rule would set it and every build using {contract_id} would stop."))
 
 
-def _fact_fits(ref: "FactRef", domain, target: DecisionTarget, path: Path,
+def _fact_fits(ref: "FactRef", domain, target: DecisionTarget, path: "Path | str",
                measurements: MeasurementRegistry, *, kind: "MeasurementKind | None" = None) -> None:
     """MD0300 when a fact's kind cannot be the setting's value (#461): a measured fact's from
-    its declaration, a derived fact's passed in once derivations are known (after the stack)."""
+    its declaration, a derived fact's passed in once derivations are known (after the stack).
+    A measured enum's values must all be the setting's too."""
+    values: list = []
     if kind is None:
         if ref.fact not in measurements.ids():
             return
         kind = measurements.get(ref.fact).kind
+        values = list(measurements.get(ref.fact).values)
     if domain is None:
         return
     fits = {"integer": {MeasurementKind.INTEGER},
@@ -188,6 +191,13 @@ def _fact_fits(ref: "FactRef", domain, target: DecisionTarget, path: Path,
             "MD0300", f"{path}, decision {target.key()}\n"
             f"  `then: {{fact: {ref.fact}}}` is {kind}, and {target.name!r} takes "
             f"{domain.kind} values: the tool would receive a value its flag does not accept."))
+    outside = sorted(set(values) - set(domain.values or ())) if domain.values else []
+    if kind is MeasurementKind.ENUM and outside:
+        raise RuleValidationError(coded(
+            "MD0300", f"{path}, decision {target.key()}\n"
+            f"  `then: {{fact: {ref.fact}}}` can be {', '.join(map(repr, outside))}, which "
+            f"{target.name!r} does not take ({', '.join(map(str, domain.values))}): the tool "
+            "would receive a value its flag does not accept."))
 
 
 def _domain_of(
@@ -475,6 +485,11 @@ def _check_when(
     derived = sorted(facts - set(measurements.ids()) - _GOAL_FACTS)
     for row in rows:
         for fact, expected in row.when.items():
+            if isinstance(expected, dict) and isinstance(expected.get("not"), list):
+                raise RuleValidationError(
+                    coded("MD0305", f"{where}\n"
+                    f"  {fact!r} is tested with `not` and a list, which tests one value and so "
+                    f"always matches. List the values it may take with `in`."))
             if fact not in facts:
                 raise RuleValidationError(
                     coded("MD0310", f"{where}\n"
@@ -508,6 +523,11 @@ def check_table(decision: Decision, *, measurements: MeasurementRegistry,
     for a gap over several facts (MD0311; one fact is `_check_exhaustive`'s), a dead row under
     `first` (MD0323) and too many cases (MD0324). An overlap under `unique` is legal: it is
     the question the build asks."""
+    catch_alls = [n for n, row in enumerate(decision.rows) if not row.when]
+    if decision.hit == "first" and len(catch_alls) > 1:
+        return [coded("MD0323", f"decision {decision.key()}\n  row {catch_alls[1] + 1} is "
+                      f"first for no case: row {catch_alls[0] + 1} above it matches "
+                      "everything. Remove one.")]
     facts = sorted({fact for row in decision.rows for fact in row.when})
     if not facts:
         return []

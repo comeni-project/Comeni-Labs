@@ -188,8 +188,9 @@ class RuleTable(BaseModel):
                     continue
                 for row in decision.rows:
                     if isinstance(row.then, FactRef) and row.then.fact in kinds:
+                        layer = self.layer_of.get(decision.key(), "?")
                         _fact_fits(row.then, _domain_of(target, registry, fillers), target,
-                                   Path("rules"), measurements,
+                                   f"rules of layer {layer!r}", measurements,
                                    kind=kinds[row.then.fact])
 
     def check_premise_names(self, measurements: MeasurementRegistry) -> None:

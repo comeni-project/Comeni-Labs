@@ -1230,3 +1230,107 @@ decisions:
     missed = table.unapplied_implementation(["quantification"], head)
     assert missed is not None and missed[1] == ["read_length"]
     assert table.unapplied_implementation(["quantification"], _read(150, "all")) is None
+
+
+# ── deferred minors (issue 486) ─────────────────────────────────────────────────────────────
+
+
+def test_a_second_catch_all_is_dead(world):
+    rows = [{"when": {}, "then": 0}, {"when": {}, "then": 1}]
+    assert _check(world, rows) == ["MD0323"]
+    assert _check(world, rows[:1]) == []
+
+
+def test_not_with_a_list_is_refused_at_load(world):
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: strandedness}
+    rows:
+      - {when: {strandedness: {not: [forward, reverse]}}, then: 1, cite: "a fixture"}
+"""
+    with pytest.raises(RuleValidationError, match="(?s)MD0305.*strandedness.*`in`"):
+        _rules(world, body)
+
+
+def test_an_enum_fact_must_take_only_the_settings_values(world):
+    contracts = world["layer"] / "contracts"
+    (contracts / "modal.yml").write_text(_declared(contracts / "modal.yml", MODAL))
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    (world["layer"] / "measurements" / "speed.yml").write_text(
+        _declared(world["layer"] / "measurements" / "speed.yml",
+                  "kind: enum\nvalues: [fast, slow]\n"))
+    world["measurements"] = MeasurementRegistry.load(world["layer"])
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: mode,
+              when_implementation: [lab/modal@1.0.0]}
+    rows:
+      - {when: {}, then: {fact: speed}, cite: "a fixture"}
+"""
+    with pytest.raises(RuleValidationError, match="(?s)MD0300.*'slow'"):
+        _rules(world, body)
+
+
+def test_a_derived_facts_misfit_names_its_layer(world):
+    as_number = FROM_FACT.replace("{fact: s_level, kind: integer,", "{fact: s_level, kind: number,")
+    with pytest.raises(RuleValidationError) as refused:
+        _rules(world, as_number)
+    assert f"rules of layer {world['layer'].name!r}" in str(refused.value)
+
+
+def test_a_rule_value_checked_against_every_filler(world):
+    """MD0325 with no `when_implementation`: every tool filling the role is checked."""
+    contracts = world["layer"] / "contracts"
+    (contracts / "fc.yml").unlink()  # modal is the role's one filler, so it may be left unnamed
+    (contracts / "modal.yml").write_text(_declared(contracts / "modal.yml", MODAL))
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: mode}
+    rows:
+      - {when: {}, then: fast, cite: "a fixture"}
+"""
+    with pytest.raises(RuleValidationError, match="(?s)MD0325.*lab/modal"):
+        _rules(world, body)
+
+
+def test_a_rule_value_forbidden_only_with_an_optional_input_is_not_refused(world):
+    """Load assumes an optional input may be left out, so a row is refused only where every
+    build would stop."""
+    contracts = world["layer"] / "contracts"
+    optional = MODAL.replace(
+        "consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted}]",
+        "consumes: [{name: bam, type_id: alignment.bam::coordinate_sorted},\n"
+        "           {name: extra, type_id: alignment.bam::coordinate_sorted, required: false}]",
+    ).replace("forbids: [bam]", "forbids: [extra]").replace(
+        "params:", "nf_inputs: [{ports: [bam]}, {ports: [extra], absent: 2}]\nparams:")
+    assert optional != MODAL
+    (contracts / "modal.yml").write_text(_declared(contracts / "modal.yml", optional))
+    world["registry"] = Registry.load(world["layer"], world["vocabulary"])
+    body = """
+version: 1
+decisions:
+  - decides: {effect: param, of: quantification, name: mode,
+              when_implementation: [lab/modal@1.0.0]}
+    rows:
+      - {when: {}, then: fast, cite: "a fixture"}
+"""
+    assert len(_rules(world, body).decisions) == 1
+
+
+def test_premises_read_expand_derivations_transitively_once_each():
+    from mendel_resolver.rules.format import DecisionRow
+    from mendel_resolver.rules.table import _premises_read
+
+    def premise(name, *sources):
+        return Premise(id=name, value=1, origin=PremiseOrigin.MEASURED,
+                       derived_from=list(sources))
+
+    premises = {"a": premise("a", "b", "c"), "b": premise("b", "c"), "c": premise("c")}
+    row = DecisionRow(when={"a": ">= 1", "b": ">= 1", "gone": "absent"}, then=1, cite="x")
+    assert [p.id for p in _premises_read(row, premises)] == ["a", "b", "c"]
+    premises["b"] = premise("b", "missing")  # a source with no premise adds nothing
+    assert [p.id for p in _premises_read(row, premises)] == ["a", "b", "c"]
