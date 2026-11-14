@@ -4252,6 +4252,11 @@ export interface components {
             name: string;
             /** Type Id */
             type_id: string;
+            /**
+             * Accepts
+             * @default []
+             */
+            accepts: string[];
             /** Side */
             side: string;
             /**

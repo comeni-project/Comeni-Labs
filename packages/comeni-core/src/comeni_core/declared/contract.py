@@ -433,20 +433,22 @@ class NfInput(BaseModel):
     def _join_declared_when_it_matters(self) -> "NfInput":
         """Require an explicit join policy when one input combines multiple ports."""
         if len(self.ports) > 1 and self.join is None:
-            raise ValueError(
+            raise ValueError(coded(
+                "MD0613",
                 f"an nf_inputs entry with two or more ports ({', '.join(self.ports)}) must "
                 f"declare `join:` — `broadcast` if the later ports are one thing every sample "
                 f"is paired against, `by_sample` if they are per-sample and must match. There "
                 f"is no default: guessing wrong produces a green run with wrong results."
-            )
+            ))
         if isinstance(self.join, dict):
             later = self.ports[1:]
             missing = [p for p in later if p not in self.join]
             extra = sorted(p for p in self.join if p not in later)
             if missing or extra:
-                raise ValueError(
-                    f"the join map of nf_inputs {self.ports} must name each port after the "
-                    f"first exactly once: missing {missing}, not after the first {extra}")
+                raise ValueError(coded(
+                    "MD0613", f"the join map of nf_inputs {self.ports} must name each port "
+                    f"after the first exactly once: missing {missing}, not after the first "
+                    f"{extra}"))
         return self
 
     def join_for(self, port: str) -> Join:

@@ -19,6 +19,7 @@ from functools import lru_cache
 from typing import Literal
 
 from comeni_core.artifact.pipeline import Pipeline
+from comeni_core.declared.constraints import as_type
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.draft import DraftGraph
 from comeni_core.plan.tiers import PremiseOrigin
@@ -281,6 +282,10 @@ class PortView(BaseModel):
 
     name: str
     type_id: str
+    """The connected type; empty for an input that accepts several (#464) with nothing
+    connected yet, whose types are in `accepts`."""
+    accepts: list[str] = []
+    """The types an input with `accepts` takes, in the contract's order of preference."""
     side: str
     """`in` or `out`."""
     optional: bool = False
@@ -479,11 +484,7 @@ def _only_with(when: dict | None) -> str | None:
 def _condition(key: str, value) -> str:
     space, _, name = key.partition(".")
     if space == "type":
-        if isinstance(value, dict) and "in" in value:
-            return f"{name} as one of {', '.join(value['in'])}"
-        if isinstance(value, dict) and "not" in value:
-            return f"{name} not as {value['not']}"
-        return f"{name} as {value}"
+        return name + as_type(value)
     return name if space == "given" or value is True else f"{name} = {value}"
 
 
@@ -518,10 +519,13 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
             return []
         contract = layers.routing.get(step.module.contract_id)
         states = {r.port: r for r in step.input_states}
+        connected = {port.name: _connected_type(pipeline, layers, step, port)
+                     for port in contract.consumes}
         return [
             PortView(
                 name=port.name,
-                type_id=_connected_type(pipeline, layers, step, port),
+                type_id=connected[port.name],
+                accepts=[a.type_id for a in port.accepts or []],
                 side="in",
                 gathers=(node_id, port.name) in gathered,
                 optional=not port.required,
@@ -530,7 +534,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                 adds=[o.name for o in contract.produces
                       if f"given.{port.name}" in (o.produced_when or {})],
                 met=((node_id, port.name) in fed
-                     or _connected_type(pipeline, layers, step, port) in entered),
+                     or connected[port.name] in entered),
                 # The conventional alternative — index 0 is the contract author's own first
                 # choice, the same ordering `compatibility.requires` carries.
                 states=sorted(port.alternatives()[0].states) if port.alternatives() else [],

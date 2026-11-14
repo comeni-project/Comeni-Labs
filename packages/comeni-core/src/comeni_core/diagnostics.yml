@@ -2230,7 +2230,7 @@ MD0228:
 MD0601:
   emitted_by: core
   concern: loading
-  says: "an nf_inputs entry cannot be emitted when its optional inputs are left out"
+  says: "an nf_inputs entry cannot be emitted when its optional inputs are left out, or joins its later inputs in mixed ways after an optional first one"
   fires_on: [build, upgrade, publish]
   refuses: true
   fix: |
@@ -2379,6 +2379,21 @@ MD0612:
     FASTA for BAM reads and an index for FASTQ reads. If no combination works for one accepted
     type, routing could connect that type and the build would always be refused. The check tries
     each accepted type as its own case.
+
+MD0613:
+  emitted_by: core
+  concern: loading
+  says: "an nf_inputs entry with several ports does not say how each later port joins the first"
+  fires_on: [build, upgrade, publish]
+  refuses: true
+  fix: |
+    Give the entry `join: broadcast` when the later ports are one thing every sample is paired
+    against, or `join: by_sample` when they are per sample and must match. To join each port its
+    own way, give a map naming every port after the first exactly once.
+  explanation: |
+    Two ports in one process input are combined into one tuple, and how depends on what they
+    are. There is no default, because guessing wrong produces a run that succeeds with wrong
+    results (#464).
 
 MF0500:
   emitted_by: forge

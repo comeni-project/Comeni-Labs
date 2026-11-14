@@ -88,19 +88,24 @@ def rows_of(contract: ModuleContract) -> list[ConstraintRow]:
     return rows
 
 
-def _subject(row: ConstraintRow) -> str:
+def as_type(value: Any) -> str:
+    """How a test on the connected type reads after the input's name: ` as alignment.cram`,
+    ` as one of …`, ` not as …` (#464). Shared with the step card's words."""
+    if isinstance(value, dict) and "in" in value:
+        return f" as one of {', '.join(value['in'])}"
+    if isinstance(value, dict) and "not" in value:
+        return f" not as {value['not']}"
+    return f" as {value}"
+
+
+def _subject(row: ConstraintRow) -> tuple[str, str]:
+    """The name the row's first condition is on, and what qualifies it: a row on the connected
+    type holds only for that type, and says so (#464)."""
     if not row.when:
-        return ""
+        return "", ""
     key, value = next(iter(row.when.items()))
     space, _, name = key.partition(".")
-    if space != "type":
-        return name
-    # A row on the connected type holds only for that type, and says so (#464).
-    if isinstance(value, dict) and "in" in value:
-        return f"{name}` as one of {', '.join(value['in'])}"
-    if isinstance(value, dict) and "not" in value:
-        return f"{name}` not as {value['not']}"
-    return f"{name}` as {value}"
+    return name, as_type(value) if space == "type" else ""
 
 
 def _sample(row: ConstraintRow) -> str | None:
@@ -121,21 +126,16 @@ def sentence(row: ConstraintRow) -> str:
         if row.requires:
             return f"`{', '.join(row.requires)}` is required for {sample} ({row.because})"
         return f"`{', '.join(row.forbids)}` cannot be used for {sample} ({row.because})"
-    subject = _subject(row)
+    name, qualifier = _subject(row)
     if row.requires:
         needed = ", ".join(row.requires)
-        if not subject:
+        if not name:
             return f"`{needed}` is required ({row.because})"
-        return f"`{_quoted(subject)} is used only with `{needed}` ({row.because})"
+        return f"`{name}`{qualifier} is used only with `{needed}` ({row.because})"
     banned = ", ".join(row.forbids)
-    if not subject:
+    if not name:
         return f"`{banned}` cannot be used ({row.because})"
-    return f"`{_quoted(subject)} cannot be used with `{banned}` ({row.because})"
-
-
-def _quoted(subject: str) -> str:
-    """Close the subject's backtick: after the name, before a type phrase if there is one."""
-    return subject if "` " in subject else f"{subject}`"
+    return f"`{name}`{qualifier} cannot be used with `{banned}` ({row.because})"
 
 
 def group_sentence(group: Group) -> str:

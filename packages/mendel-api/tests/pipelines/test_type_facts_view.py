@@ -86,3 +86,27 @@ def test_a_condition_on_a_type_reads_in_words():
     assert _only_with({"type.reads": {"not": "alignment.bam"}}) == (
         "only with reads not as alignment.bam")
     assert _only_with({"given.fasta": "present"}) == "only with fasta"
+
+
+def test_an_input_of_several_types_lists_them(tmp_path):
+    """Issue 485: an unwired `accepts` input showed type '' on the card."""
+    reads = _ports(tmp_path, ["alignment.bam", "transcripts.fasta"], "salmon.quant",
+                   SALMON_ID)[("in", "reads")]
+    assert len(reads.accepts) > 1 and "alignment.bam" in reads.accepts
+
+
+def test_the_connected_type_from_an_upstream_output():
+    """Issue 485: the upstream-source branch of `_connected_type`."""
+    from types import SimpleNamespace as N
+
+    from mendel_api.services.build import _connected_type
+
+    port = N(name="reads", type_id="")
+    step = N(id="quant", inputs=[N(port="reads", channel=None, source="trim.reads")])
+    upstream = N(id="trim", module=N(contract_id="t@1"))
+    pipeline = N(steps=[upstream, step], channels=[])
+    made = N(produces=[N(name="log", type_id="text.log"), N(name="reads", type_id="fastq.reads")])
+    layers = N(routing=N(get=lambda contract_id: made))
+    assert _connected_type(pipeline, layers, step, port) == "fastq.reads"
+    step.inputs[0].source = "gone.reads"
+    assert _connected_type(pipeline, layers, step, port) == ""

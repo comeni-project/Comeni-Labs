@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Port } from "./Port";
 
-const out = { name: "bam", type_id: "alignment.bam", side: "out" as const, met: true, states: [], gathers: false, optional: false, adds: [] };
-const inp = { name: "bam", type_id: "alignment.bam", side: "in" as const, met: false, states: [], gathers: false, optional: false, adds: [] };
+const out = { name: "bam", type_id: "alignment.bam", accepts: [], side: "out" as const, met: true, states: [], gathers: false, optional: false, adds: [] };
+const inp = { name: "bam", type_id: "alignment.bam", accepts: [], side: "in" as const, met: false, states: [], gathers: false, optional: false, adds: [] };
 
 describe("drag-to-connect", () => {
   it("an output starts a wire and an input does not", () => {
@@ -102,5 +102,14 @@ describe("an optional input (issue 460)", () => {
     expect(port.getAttribute("data-optional")).toBe("true");
     expect(port.getAttribute("aria-label")).toMatch(/optional, off/);
     expect(port.getAttribute("aria-label")).not.toMatch(/nothing feeds this/);
+  });
+});
+
+describe("an input of several types (issue 485)", () => {
+  it("says the types it accepts while nothing is connected", () => {
+    const reads = { ...inp, name: "reads", type_id: "", accepts: ["fastq.reads", "alignment.bam"] };
+    render(<Port port={reads} side="in" y={56} />);
+    expect(screen.getByTestId("port").getAttribute("aria-label"))
+      .toMatch(/Input reads: fastq\.reads or alignment\.bam/);
   });
 });

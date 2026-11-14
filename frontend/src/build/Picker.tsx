@@ -58,10 +58,10 @@ export function Picker({ port, node, at, onPick, onClose }: {
   const states = (port.states ?? []).join(",");
 
   const found = useQuery({
-    queryKey: ["candidates", port.type_id, states, side],
+    queryKey: ["candidates", port.type_id || port.accepts?.[0], states, side],
     queryFn: () =>
       get<Candidates>(
-        `/pipeline/candidates?type_id=${encodeURIComponent(port.type_id)}`
+        `/pipeline/candidates?type_id=${encodeURIComponent(port.type_id || (port.accepts?.[0] ?? ""))}`
         + `&states=${encodeURIComponent(states)}&side=${side}`,
       ),
   });

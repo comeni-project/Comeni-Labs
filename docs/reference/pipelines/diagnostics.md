@@ -66,7 +66,7 @@ decline to curate one.
 | `MD0344` | a port selects on a fact samples lack, or a pair or a control joins on something that is not a key or a reference |
 | `MD0345` | a rule reads a key's or a reference's value, a laboratory's identifier |
 | `MD0346` | a contract or type declares parts where only a splitter may |
-| `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out |
+| `MD0601` | an nf_inputs entry cannot be emitted when its optional inputs are left out, or joins its later inputs in mixed ways after an optional first one |
 | `MD0602` | a contract's constraint names an input or param it does not declare |
 | `MD0603` | no combination of inputs and params satisfies a contract's constraints |
 | `MD0604` | an optional input is connected in no combination the constraints allow |
@@ -74,6 +74,7 @@ decline to curate one.
 | `MD0606` | an output's `produced_when` holds in no combination the constraints allow |
 | `MD0607` | a contract has too many combinations to check |
 | `MD0612` | a type a contract's input accepts has no combination its constraints allow |
+| `MD0613` | an nf_inputs entry with several ports does not say how each later port joins the first |
 
 ## A contract disagrees with its module
 

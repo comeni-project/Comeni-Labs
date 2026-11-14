@@ -206,8 +206,15 @@ def test_a_scalar_join_applies_to_every_later_port():
     {"input_index": "by_sample", "intervals": "broadcast", "nope": "broadcast"},   # unknown
 ])
 def test_a_join_map_names_every_later_port_and_nothing_else(join):
-    with pytest.raises(ValueError, match="join map"):
+    with pytest.raises(ValueError, match="MD0613.*join map"):
         ModuleContract.model_validate(_gatk_slot(join))
+
+
+def test_several_ports_with_no_join_is_coded():
+    data = _gatk_slot("by_sample")
+    data["nf_inputs"][0].pop("join")
+    with pytest.raises(ValueError, match="MD0613.*must declare `join:`"):
+        ModuleContract.model_validate(data)
 
 
 def test_an_optional_first_port_with_mixed_joins_is_refused():
