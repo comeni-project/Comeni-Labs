@@ -208,3 +208,37 @@ def judge(table: Decision, new: list[DecisionRow], cases: list[Case]) -> list[st
         elif not fired.get(start + n - 1):
             problems.append(f"row {n} never fires: an earlier row settles every case it matches")
     return problems
+
+
+# ---------------- the replay ----------------
+
+
+class Replayed(BaseModel):
+    """One past decision the proposed rows would have settled, and whether the same way."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    pipeline: str
+    decision: str
+    recorded: ParamValue
+    would: ParamValue
+    agrees: bool
+    by_person: bool
+
+
+def replay(table: Decision, new: list[DecisionRow], cases: list[Case]) -> list[Replayed]:
+    """Evaluate the proposed table against every recorded case of its target, of any tier or
+    author, and list those a new row would settle: answers it would change first.
+
+    Evaluated against the recorded facts, never rebuilt: no build or artifact is touched. For a
+    model's or a rule's answer a change is information, not a refusal."""
+    start = len(table.rows) - len(new)
+    found = []
+    for case in cases:
+        first = _first(table, case)
+        if first is None or first[0] < start:
+            continue
+        found.append(Replayed(pipeline=case.pipeline, decision=case.decision,
+                              recorded=case.answer, would=first[1],
+                              agrees=first[1] == case.answer, by_person=case.by_person))
+    return sorted(found, key=lambda r: (r.agrees, r.pipeline, r.decision))

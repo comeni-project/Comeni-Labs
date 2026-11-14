@@ -12,11 +12,13 @@ from mendel_resolver import layers
 from mendel_resolver.proposals import (
     MIN_CASES,
     Case,
+    Replayed,
     cases_of,
     cite_for,
     evidence,
     evidence_digest,
     judge,
+    replay,
     table_with,
 )
 from mendel_resolver.rules import DecisionRow, DecisionTarget
@@ -171,3 +173,36 @@ def test_a_threshold_row_is_judged_by_its_comparison():
     loose = _rows(({"insert": ">= 50"}, STAR))
     assert judge(table_with(ALIGNMENT, None, loose, cite_for(cases)), loose, cases) == [
         f"p2 alignment.bam: a person chose {HISAT2}; the table would choose {STAR}"]
+
+
+# ---------------- the replay ----------------
+
+
+def test_replay_lists_what_the_rows_would_settle():
+    cases = _cases([(f"p{n}", {"organism": "human"}, STAR) for n in range(3)])
+    cases += _cases([("p9", {"organism": "mouse"}, HISAT2)])
+    new = _rows(({"organism": "human"}, STAR))
+    replayed = replay(table_with(ALIGNMENT, None, new, "c"), new, cases)
+    assert [(r.pipeline, r.recorded, r.would, r.agrees, r.by_person) for r in replayed] == [
+        (f"p{n}", STAR, STAR, True, True) for n in range(3)]
+    assert all(isinstance(r, Replayed) for r in replayed)
+
+
+def test_replay_shows_a_models_answer_it_would_change_first():
+    cases = _cases([(f"p{n}", {"organism": "human"}, STAR) for n in range(3)])
+    cases += _cases([("p8", {"organism": "human"}, HISAT2)], person=False)
+    new = _rows(({"organism": "human"}, STAR))
+    replayed = replay(table_with(ALIGNMENT, None, new, "c"), new, cases)
+    assert replayed, "the replay found the cases"
+    first = replayed[0]
+    assert (first.pipeline, first.recorded, first.would, first.agrees, first.by_person) == (
+        "p8", HISAT2, STAR, False, False)
+    assert [r.pipeline for r in replayed[1:]] == ["p0", "p1", "p2"]
+
+
+def test_replay_skips_cases_an_existing_row_settles():
+    cases = _cases([("p0", {"read_length": 150}, STAR)], tier=3, person=False)
+    cases += _cases([(f"q{n}", {"organism": "human"}, STAR) for n in range(3)])
+    new = _rows(({"organism": "human"}, STAR))
+    replayed = replay(table_with(ALIGNMENT, existing_alignment(), new, "c"), new, cases)
+    assert [r.pipeline for r in replayed] == ["q0", "q1", "q2"]
