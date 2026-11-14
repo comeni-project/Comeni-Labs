@@ -451,11 +451,13 @@ ALLOWED = frozenset({
 its runner loads any file by path and its harness runs commands, so a piece may import only the
 two shapes it answers in. No network, no files, no processes."""
 BANNED_CALLS = frozenset({"open", "getattr", "setattr", "__import__", "exec", "eval", "compile",
-                          "vars"})
-"""Builtins a piece may not call by name."""
-BANNED_METHODS = frozenset({"open"})
-"""And as an attribute: `io.open(...)` and `gzip.open(path)` are file reads too. Only `open`,
-because `re.compile` is not the builtin."""
+                          "vars", "globals", "locals", "breakpoint", "input", "print"})
+"""Builtins a piece may not call by name. `globals()` and `locals()` reach the builtins; `print`
+writes into the step's JSON report, so a correct parser would look as if it reported nothing;
+`input` and `breakpoint` stall the step."""
+BANNED_METHODS = frozenset({"open", "FileIO"})
+"""And as an attribute: `io.open(...)`, `io.FileIO(...)` and `gzip.open(path)` are file reads
+too. Not every name: `re.compile` is not the builtin."""
 BANNED_NAMES = frozenset({"__builtins__", "__subclasses__", "__globals__", "__code__",
                           "__loader__"})
 
@@ -483,6 +485,9 @@ def piece_problems(code: str) -> list[str]:
             method = getattr(node.func, "attr", None)
             if name in BANNED_CALLS or method in BANNED_METHODS:
                 found.add(f"<{name or method}()>")
+            elif method == "GzipFile" and (node.args or any(
+                    k.arg != "fileobj" for k in node.keywords)):
+                found.add("<GzipFile(path)>")  # `GzipFile(fileobj=stream)` wraps the stream
         elif isinstance(node, ast.Name) and node.id in BANNED_NAMES:
             found.add(node.id)
         elif isinstance(node, ast.Attribute) and node.attr in BANNED_NAMES:

@@ -211,11 +211,19 @@ def prove(base: Path, below: list[Path], draft: Path) -> Proof:
 
 
 def _blamed(message: str) -> Piece:
+    """The piece a load message is about: by the file it names, else by its words, a rule's
+    before a measurer's, since a rule's message may name the measurer it lacks."""
     lowered = message.lower()
-    if "measurer" in lowered or "md0027" in lowered:
+    for folder, piece in (("rules/", Piece.RULES), ("measurers/", Piece.MEASURERS),
+                          ("vocabulary/", Piece.VOCABULARY)):
+        if folder in lowered:
+            return piece
+    if "md0027" in lowered:
         return Piece.MEASURERS
     if "rule" in lowered or "decision" in lowered:
         return Piece.RULES
+    if "measurer" in lowered:
+        return Piece.MEASURERS
     if any(word in lowered for word in ("type", "state", "role", "measurement", "family")):
         return Piece.VOCABULARY
     return Piece.CONTRACT

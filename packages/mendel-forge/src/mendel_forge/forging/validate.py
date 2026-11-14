@@ -6,7 +6,10 @@ assembled adaptation; ports must exist in the module's `main.nf`; a setting must
 somewhere. Anything else is a coded problem, and the reply is never a proposal.
 """
 
+import ast
+import keyword
 import re
+import sys
 from dataclasses import dataclass, field
 
 from comeni_core.declared.contract import InputPort, NfInput, OutputPort
@@ -34,6 +37,8 @@ class Known:
     states: dict[str, frozenset[str]] = field(default_factory=dict)
     pending: frozenset[str] = frozenset()
     """Ids from assembled adaptations, usable here and tagged as pending."""
+    measurers: frozenset[str] = frozenset()
+    """The registry's measurer ids: a re-forge does not draft one again (#487)."""
 
 
 def known(stack: Layers, pending: frozenset[str] = frozenset(),
@@ -47,6 +52,7 @@ def known(stack: Layers, pending: frozenset[str] = frozenset(),
         pending=pending,
         families=frozenset(stack.families.families),
         pending_families=pending_families,
+        measurers=frozenset(stack.inspection.measurers),
     )
 
 
@@ -280,6 +286,9 @@ def _measurer_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem
         value = items[key] if isinstance(items[key], dict) else {}
         if value.get("id") != key.removeprefix("measurers:measurement:"):
             problems.append(f"{key}: measurement ID must match its item key")
+        twin = f"vocabulary:measurement:{key.removeprefix('measurers:measurement:')}"
+        if twin in items:
+            problems.append(f"{key}: also drafted as {twin}; keep one")
     first: dict[str, str] = {}
     for key in sorted(k for k in items if k.startswith("measurers:measurer:")):
         name = key.removeprefix("measurers:measurer:")
@@ -292,6 +301,12 @@ def _measurer_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem
         if not name.isidentifier():
             problems.append(f"{key}: {name!r} is not a Python name; its parser is imported by "
                             "it, so use letters, digits and '_'")
+        elif keyword.iskeyword(name) or name in sys.stdlib_module_names:
+            problems.append(f"{key}: {name!r} is a Python keyword or module name; its parser is "
+                            "imported by it, so name it after what it measures")
+        if name in seen.measurers:
+            problems.append(f"{key}: the registry already has measurer {name!r}; re-forging a "
+                            "measurer is not supported, so leave it out")
         draft = MeasurerDraft.model_validate(items[key])
         if draft.measures not in measurements:
             problems.append(f"{key}: measures {draft.measures!r}, which is not a measurement in "
@@ -305,11 +320,18 @@ def _measurer_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem
         if reached:
             problems.append(f"{key}: MD0027 its code reaches past what a piece may import or "
                             f"call: {', '.join(reached)}")
-        elif not re.search(r"^def parse\(\s*stream\s*,\s*decided\s*\)", draft.code, re.M):
+        elif not _defines_parse(draft.code):
             problems.append(f"{key}: its code defines no parse(stream, decided)")
         if not re.search(r"^def test_", draft.tests, re.M):
             problems.append(f"{key}: its tests define no test_ function")
     return [Problem(code="MF0507", says=says) for says in problems]
+
+
+def _defines_parse(code: str) -> bool:
+    """A module-level `def parse(stream, decided)`, annotated or not."""
+    return any(isinstance(node, ast.FunctionDef) and node.name == "parse"
+               and [a.arg for a in node.args.args] == ["stream", "decided"]
+               for node in ast.parse(code).body)
 
 
 def _nf_inputs(items: dict[str, JsonValue]) -> list[NfInput]:

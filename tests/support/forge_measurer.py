@@ -1,11 +1,24 @@
 """The `genome_length_fai` measurer as forge items (#487): what the AI would draft for
 `samtools faidx`, read from the registry's own hand-written piece so the two cannot drift."""
 
+import shutil
+from pathlib import Path
+
 from support.paths import REGISTRY
 
 PIECE = REGISTRY / "measurers" / "measures" / "genome_length_fai" / "piece"
 FAIDX = "nf-core/samtools/faidx@1.24"
 KEY = "measurers:measurer:genome_length_fai"
+OURS = "measurers/measures/genome_length_fai"
+
+
+def registry_before(root: Path) -> Path:
+    """A copy of the registry before `genome_length_fai` existed: a re-forge refuses to draft a
+    measurer the registry already has, and these tests draft that one."""
+    before = root / "registry-before"
+    shutil.copytree(REGISTRY, before, ignore=shutil.ignore_patterns(".git"))
+    shutil.rmtree(before / OURS)
+    return before
 
 
 def measurer() -> dict:

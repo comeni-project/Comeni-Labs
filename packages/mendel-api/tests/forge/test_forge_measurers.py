@@ -15,12 +15,11 @@ from mendel_api_tests.catalogue import FakeSource
 from mendel_api_tests.database import reachable
 from mendel_forge.forging.model import Move, Piece
 from mendel_forge.publishing import PullRequest, PullRequestState
-from support.forge_measurer import FAIDX, KEY, measurer
+from support.forge_measurer import FAIDX, KEY, OURS, measurer, registry_before
 from support.paths import REGISTRY
 
 pytestmark = pytest.mark.skipif(not reachable(), reason="no database")
 
-OURS = "measurers/measures/genome_length_fai"
 
 
 class Model:
@@ -83,6 +82,10 @@ def github(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "wiener_url", "http://wiener:8001")
     monkeypatch.setenv("COMENI_FORGE_GITHUB_TOKEN_SET", "set")
     catalogue.run_sync(FakeSource(["samtools/faidx"]))
+    # The installation's registry is the one before this measurer existed too: a re-forge does
+    # not draft a measurer the registry already has.
+    monkeypatch.setattr(settings, "registry_root", registry_before(tmp_path))
+    monkeypatch.setattr(settings, "registries_root", None)
     publisher = GitHub(tmp_path / "checkout")
     monkeypatch.setattr(forge_tests, "runner", lambda: Wiener())
     monkeypatch.setattr(forge_publish, "publisher", lambda: publisher)

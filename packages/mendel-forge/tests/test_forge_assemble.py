@@ -257,3 +257,11 @@ def test_a_piece_that_reaches_out_blames_measurers(tmp_path):
     proof = prove(REGISTRY, [], tmp_path / "draft")
     assert not proof.conforms and proof.blames is Piece.MEASURERS
     assert any("MD0027" in p.says and "os" in p.says for p in proof.problems)
+
+
+def test_a_rule_load_message_naming_a_measurer_blames_the_rules():
+    """Issue 489: a rule's message mentioning a measurer re-opened Measurers."""
+    from mendel_forge.forging.assemble import _blamed
+    assert _blamed("rules/x.yml: decision reads n50, which no measurer measures") is Piece.RULES
+    assert _blamed("measurers/measures/x/measurer.yml: bad entry") is Piece.MEASURERS
+    assert _blamed("MD0027 reaches os") is Piece.MEASURERS

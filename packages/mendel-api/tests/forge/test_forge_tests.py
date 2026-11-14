@@ -294,7 +294,7 @@ def _with_a_parser() -> str:
 
 
 @pytest.mark.asyncio
-async def test_a_parser_that_measured_a_value_is_green(faidx):
+async def test_a_parser_that_measured_a_value_is_green(before, faidx):
     a = _with_a_parser()
     await _started(a)
     faidx.phase = "succeeded"
@@ -305,7 +305,7 @@ async def test_a_parser_that_measured_a_value_is_green(faidx):
 
 
 @pytest.mark.asyncio
-async def test_a_parser_that_reported_nothing_is_not_green(faidx):
+async def test_a_parser_that_reported_nothing_is_not_green(before, faidx):
     a = _with_a_parser()
     await _started(a)
     faidx.phase, faidx.facts = "succeeded", []
@@ -316,7 +316,7 @@ async def test_a_parser_that_reported_nothing_is_not_green(faidx):
 
 
 @pytest.mark.asyncio
-async def test_an_undetermined_parser_fails_with_its_reason(faidx):
+async def test_an_undetermined_parser_fails_with_its_reason(before, faidx):
     a = _with_a_parser()
     await _started(a)
     faidx.phase = "succeeded"
@@ -337,3 +337,11 @@ def test_parsers_green_reads_each_measurer_once():
     assert forge_tests.parsers_green(wanted, [
         {"measurement": "genome_length", "value": None, "undetermined": "why"}]) == [
         Problem(code="MF0515", says="measurer genome_length_fai: undetermined: why")]
+
+
+@pytest.fixture
+def before(tmp_path, monkeypatch):
+    """The registry before `genome_length_fai` existed, which these tests draft again."""
+    from support.forge_measurer import registry_before
+    monkeypatch.setattr(settings, "registry_root", registry_before(tmp_path))
+    monkeypatch.setattr(settings, "registries_root", None)

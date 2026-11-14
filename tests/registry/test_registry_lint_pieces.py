@@ -30,3 +30,17 @@ def test_lint_reports_md0027_without_a_layout(tmp_path):
     found = lint(tmp_path)
     assert [d.code for d in found] == ["MD0027"]
     assert "socket" in found[0].summary
+
+
+def test_the_gaps_the_tripwire_had_are_closed():
+    """Issue 489: builtins through `globals()`, files through `FileIO` and `GzipFile(path)`, and
+    the calls that corrupt or stall the step's JSON report."""
+    code = ("import io, gzip\nglobals()\nlocals()\nio.FileIO('x')\ngzip.GzipFile('x')\n"
+            "print(1)\ninput()\nbreakpoint()\n")
+    assert piece_problems(code) == ["<FileIO()>", "<GzipFile(path)>", "<breakpoint()>",
+                                    "<globals()>", "<input()>", "<locals()>", "<print()>"]
+
+
+def test_a_gzip_stream_wrapped_by_its_fileobj_is_allowed():
+    assert piece_problems("import gzip\ndef open(stream):\n"
+                          "    return gzip.GzipFile(fileobj=stream)\n") == []

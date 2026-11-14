@@ -1,5 +1,6 @@
 """A reply is checked against the registry and the module before anything is stored (§3)."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -213,7 +214,11 @@ def faidx_items():
 
 
 def _measurer_says(stack, items) -> list[str]:
-    return [p.says for p in check_items(items, known(stack), ModuleSpec.parse(FAIDX_NF))]
+    """Checked against the registry as it was before `genome_length_fai` existed: the fixture
+    drafts the registry's own piece."""
+    seen = known(stack)
+    seen = replace(seen, measurers=seen.measurers - {"genome_length_fai"})
+    return [p.says for p in check_items(items, seen, ModuleSpec.parse(FAIDX_NF))]
 
 
 def test_a_good_measurer_has_no_problems(stack, faidx_items):
@@ -279,3 +284,39 @@ def test_two_measurers_of_one_measurement_are_refused(stack, faidx_items):
     found = _measurer_says(stack, items)
     assert any("genome_length_again" in f and "genome_length_fai" in f
                and "also measures 'genome_length'" in f for f in found), found
+
+
+# ── deferred minors (issue 489) ───────────────────────────────────────────────────────────
+
+
+def test_one_measurement_drafted_in_two_steps_is_refused_where_it_is_drafted(stack, faidx_items):
+    value = {"id": "n50", "kind": "integer", "description": "N50", "cite": "QUAST"}
+    items = {**faidx_items, "vocabulary:measurement:n50": value,
+             "measurers:measurement:n50": value}
+    assert any("measurers:measurement:n50" in f and "vocabulary:measurement:n50" in f
+               for f in _measurer_says(stack, items))
+
+
+@pytest.mark.parametrize("name", ["class", "re", "gzip", "io"])
+def test_a_measurer_id_may_not_be_a_keyword_or_a_module_name(stack, faidx_items, name):
+    from support.forge_measurer import KEY
+    items = {k: v for k, v in faidx_items.items() if k != KEY}
+    items[f"measurers:measurer:{name}"] = faidx_items[KEY]
+    assert any(f"{name!r} is a Python keyword or module name" in f
+               for f in _measurer_says(stack, items))
+
+
+def test_an_annotated_parse_is_a_parse(stack, faidx_items):
+    from support.forge_measurer import KEY
+    code = faidx_items[KEY]["code"].replace("def parse(stream, decided):",
+                                            "def parse(stream: object, decided: dict) -> object:")
+    assert "def parse(stream: object" in code
+    items = {**faidx_items, KEY: {**faidx_items[KEY], "code": code}}
+    assert _measurer_says(stack, items) == []
+
+
+def test_a_measurer_the_registry_has_is_not_drafted_again(stack, faidx_items):
+    from support.forge_measurer import KEY
+    found = [p.says for p in check_items(faidx_items, known(stack), ModuleSpec.parse(FAIDX_NF))]
+    assert any(KEY in f and "the registry already has measurer 'genome_length_fai'" in f
+               for f in found), found

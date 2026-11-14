@@ -887,7 +887,7 @@ def _ready_for_measurers(adaptation: str) -> None:
                                            because=None))
 
 
-def test_measurers_are_drafted_with_their_prompt(adaptation):
+def test_measurers_are_drafted_with_their_prompt(before, adaptation):
     _ready_for_measurers(adaptation)
     client = FakeClient(_measurer_draft())
     forging_ai.draft_piece(adaptation, Piece.MEASURERS, client)
@@ -898,10 +898,18 @@ def test_measurers_are_drafted_with_their_prompt(adaptation):
         assert db.get(AiInvocation, item.current.invocation).prompt_id == "forge.measurers.v1"
 
 
-def test_parser_code_that_reaches_out_goes_back_once_with_why(adaptation):
+def test_parser_code_that_reaches_out_goes_back_once_with_why(before, adaptation):
     from support.forge_measurer import measurer
     _ready_for_measurers(adaptation)
     client = FakeClient(_measurer_draft("import os\n" + measurer()["code"]), _measurer_draft())
     forging_ai.draft_piece(adaptation, Piece.MEASURERS, client)
     assert "MD0027" in client.prompts[1] and "os" in client.prompts[1]
     assert "measurers:measurer:genome_length_fai" in forging.load(adaptation).items
+
+
+@pytest.fixture
+def before(tmp_path, monkeypatch):
+    """The registry before `genome_length_fai` existed, which these tests draft again."""
+    from support.forge_measurer import registry_before
+    monkeypatch.setattr(settings, "registry_root", registry_before(tmp_path))
+    monkeypatch.setattr(settings, "registries_root", None)
