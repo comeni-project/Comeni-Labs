@@ -69,7 +69,9 @@ def read_edit(
     readings: list[Reading] = []
 
     for node_id in sorted(old.keys() - new.keys()):
-        readings.append(_removed(node_id, old[node_id].contract_id, before, sites, registry))
+        removed = _removed(node_id, old[node_id].contract_id, before, sites, registry)
+        if removed is not None:
+            readings.append(removed)
 
     for node_id in sorted(old.keys() & new.keys()):
         if old[node_id].contract_id != new[node_id].contract_id:
@@ -139,8 +141,12 @@ def read_graph(graph: DraftGraph, registry: Registry) -> list[Reading]:
         for i, r in enumerate(readings)]
 
 
-def _removed(node_id, tool, before: DraftGraph, sites, registry: Registry) -> Reading:
+def _removed(node_id, tool, before: DraftGraph, sites, registry: Registry) -> Reading | None:
+    """What removing a step means; nothing for a tool the registry does not know, which has no
+    site to exclude it at (validation names it)."""
     contract = registry.contracts.get(tool)
+    if contract is None:
+        return None
     readers = [e for e in before.edges if e.from_node == node_id]
     if contract is not None and not readers:
         wanted = contract.produces[0].type_id

@@ -1161,6 +1161,18 @@ MD0321:
     an input from a tool whose output it does not accept would build a pipeline that fails at
     run time, or one that silently reads the wrong data; choosing another source would override
     the person. The choice is named and the build stops.
+MD0322:
+  emitted_by: resolver
+  concern: routing
+  says: "a tool you chose to feed a step's input is one you excluded or whose role you switched off"
+  fires_on: [build, upgrade]
+  refuses: true
+  fix: |
+    Keep one of the two choices: remove the wire (or the `constraints.sources` entry), or allow
+    the tool again and switch its role back on.
+  explanation: |
+    Both are a person's choices (A1), and they cannot both hold. Choosing either one silently
+    would override the person, so the build names both and stops.
 MD0303:
   emitted_by: resolver
   concern: routing

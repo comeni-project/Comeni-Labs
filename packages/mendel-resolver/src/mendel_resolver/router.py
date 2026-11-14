@@ -297,8 +297,12 @@ def route(
         types: dict[str, str] = {}
 
         def route_port(port: InputPort) -> None:
+            source = goal.constraints.source_at(chosen.id, port.name)
+            if source is not None:
+                # Two of the person's own choices disagree: named before routing, not wrapped.
+                _not_ruled_out(goal, registry, source, _feeding(registry, port, source),
+                               absent_roles)
             try:
-                source = goal.constraints.source_at(chosen.id, port.name)
                 if source is not None:
                     # **A person chose what feeds this port** (A1): route through that tool.
                     made = _feeding(registry, port, source)
@@ -457,6 +461,27 @@ def _feeding(registry: Registry, port: InputPort, source: SourcePin):
         coded("MD0321", f"you chose {source.producer} to feed {source.consumer}'s "
               f"{source.port}, and nothing it makes fits that input. Choose a tool whose "
               "output the port accepts — `mendel explain MD0321`."),
+        intent=source,
+    )
+
+
+def _not_ruled_out(goal: Goal, registry: Registry, source: SourcePin, made,
+                   absent_roles: frozenset[str]) -> None:
+    """MD0322 when a person chose a tool to feed an input and also excluded it where it makes
+    that output, or switched its role off: two of their own choices disagree, so both are
+    named rather than reported as a type nothing makes."""
+    producer = registry.contracts.get(source.producer)
+    off = sorted(absent_roles & set(producer.roles)) if producer is not None else []
+    site = Site(type_id=made.type_id, states=frozenset(made.state))
+    if off:
+        clash = f"you switched {off[0].replace('_', ' ')} off, which {source.producer} does"
+    elif source.producer in goal.constraints.excluded_at(site):
+        clash = f"you excluded {source.producer} where {made.type_id} is made"
+    else:
+        return
+    raise IntentConflict(
+        coded("MD0322", f"you chose {source.producer} to feed {source.consumer}'s "
+              f"{source.port}, and {clash}. Keep one of the two — `mendel explain MD0322`."),
         intent=source,
     )
 
