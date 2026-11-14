@@ -96,7 +96,7 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     // **Drawn before the request returns** — Task 10: *follow-up messages appear immediately*.
     onMutate: (text) => dispatch({ type: "sent", text }),
     onSuccess: () => void refresh(),
-    onError: () => dispatch({ type: "unsent" }),
+    onError: (_error, text) => dispatch({ type: "unsent", text }),
   });
 
   const edit = useMutation({

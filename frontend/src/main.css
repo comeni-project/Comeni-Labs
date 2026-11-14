@@ -1,9 +1,7 @@
 @import "tailwindcss";
 
-/* ═══ GEIST, BUNDLED — NOT FETCHED ════════════════════════════════════════════════════════
-   The artboards are set in Geist and Geist Mono, and until 2026-08-30 the app loaded neither:
-   `--font-ui` was the system sans and `--font-display` was **Georgia**, a serif that appears
-   nowhere in the design. The headline on the front door rendered in it.
+/* ═══ THE FONTS ARE BUNDLED, NOT FETCHED ═══════════════════════════════════════════════════
+   Lexend sets the interface and headings, and Geist Mono sets data (`--font-data`).
 
    **`@fontsource`, not a Google Fonts `<link>`**, and that is invariant 13 rather than a
    preference: self-hosted is not a degraded tier, and a clinical laboratory with no egress

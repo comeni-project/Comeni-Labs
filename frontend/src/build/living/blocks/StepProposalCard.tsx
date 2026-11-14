@@ -224,7 +224,7 @@ export function StepProposalCard({
       )}
       {fact && !values && (
         <label className="block mb-2 text-[12px] text-ink-2">
-          <span className="block mb-1 text-label text-ink-3">
+          <span className="block mb-1 font-data text-label text-ink-3">
             {fact}
           </span>
           <input aria-label={fact} value={told} onChange={(e) => setTold(e.target.value)}

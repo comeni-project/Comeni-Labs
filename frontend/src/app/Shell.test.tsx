@@ -48,6 +48,14 @@ describe("the shell's bar", () => {
     expect(help.getAttribute("rel")).toContain("noreferrer");
   });
 
+  it("gives help and settings a 44 px target at phone width (issue 383)", () => {
+    at("/build");
+    for (const name of ["Help", "Settings"]) {
+      const classes = screen.getByRole("link", { name }).className.split(/\s+/);
+      expect(classes).toEqual(expect.arrayContaining(["w-11", "h-11", "sm:w-8", "sm:h-8"]));
+    }
+  });
+
   it("keeps settings one click away", () => {
     at("/build");
     expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toContain("settings=");

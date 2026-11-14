@@ -129,6 +129,15 @@ describe("the Nextflow it compiles to", () => {
     expect(await screen.findByText(/docker.enabled = true/)).toBeInTheDocument();
   });
 
+  it("asks once on the first press (issue 404)", async () => {
+    file();
+    fireEvent.click(screen.getByRole("button", { name: "Compile it" }));
+    await screen.findByRole("tab", { name: "main.nf" });
+    const asked = (fetch as unknown as { mock: { calls: [string][] } }).mock.calls
+      .filter(([url]) => url.includes("/emitted"));
+    expect(asked).toHaveLength(1);
+  });
+
   it("says why when there is nothing to compile yet", async () => {
     emitted = { ok: false, status: 422, body: { detail: "MI0219: there is no pipeline to compile yet: empty" } };
     file();

@@ -74,7 +74,7 @@ export function Samplesheet({ columns, facts = [], rows, onChange, id = SAMPLE, 
               {headers.map((column) => (
                 <th
                   key={column}
-                  className="text-left text-label
+                  className="text-left font-data text-label
                              text-ink-3 pb-1 pr-3 font-normal"
                 >
                   {column}

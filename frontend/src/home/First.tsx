@@ -4,20 +4,8 @@ import { Link, useNavigate } from "react-router";
 import { useAiConfigured } from "./useAiConfigured";
 import { useBegin } from "./useBegin";
 
-/** The first run: one question, one field. **Drawn against `OverviewFirst.dc.html`, measurement
- *  for measurement.**
- *
- * ═══ WHAT THE FIRST VERSION GOT WRONG ═════════════════════════════════════════════════════
- *
- * It shipped as a washed-out rounded input at 55% opacity in a 880px column, under a headline
- * set in **Georgia**, on a flat black page. The artboard is a 660px square-cornered bar with a
- * blue chevron and a blinking cursor, under Geist at 34px, over a bloom of arcs. Nothing about
- * it read as the same screen, and the operator was right to say so.
- *
- * The measurements are the artboard's own: `min(660px, 100%)` · `1px solid #1E3A4E` ·
- * `background #0B1013` · `padding 15px 18px` · `gap 12px` · placeholder at 15px in `#455257`.
- * **Square, not rounded** — nothing in this product has a radius above 3px and this bar has
- * none at all.
+/** The first run: one question, one field, a `min(660px, 100%)` bar with a chevron and the
+ *  panel radius, in the identity's tokens.
  *
  * ═══ THE PROMPT IS LIVE WHEN A MODEL IS, AND SAYS SO WHEN IT IS NOT ═══════════════════════
  *

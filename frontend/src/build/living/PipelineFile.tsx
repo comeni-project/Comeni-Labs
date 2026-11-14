@@ -150,7 +150,7 @@ export function PipelineFile({
                 </button>
               ))}
             </div>
-            <Primary onClick={() => { setCompiled(true); void emitted.refetch(); }} disabled={!draftId || emitted.isFetching}>
+            <Primary onClick={() => { if (compiled) void emitted.refetch(); else setCompiled(true); }} disabled={!draftId || emitted.isFetching}>
               {emitted.isFetching ? "Compiling…" : "Compile it"}
             </Primary>
           </div>

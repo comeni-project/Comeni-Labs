@@ -83,7 +83,7 @@ export type AuthoringAction =
   | { type: "select"; node: string | null }
   | { type: "compose"; text: string }
   | { type: "sent"; text: string }
-  | { type: "unsent" }
+  | { type: "unsent"; text: string }
   | { type: "consumed"; seq: number }
   | { type: "dismiss" };
 
@@ -216,8 +216,14 @@ export function authoringReducer(state: AuthoringState, action: AuthoringAction)
     case "sent":
       return { ...state, composer: "", sending: [...state.sending, action.text] };
     case "unsent":
-      // The request failed: put the words back where the person can send them again.
-      return { ...state, composer: state.sending.at(-1) ?? state.composer, sending: state.sending.slice(0, -1) };
+    {
+      // The request failed: put its words back where the person can send them again; another
+      // message may have been queued after it.
+      const at = state.sending.indexOf(action.text);
+      if (at < 0) return state;
+      return { ...state, composer: action.text,
+               sending: [...state.sending.slice(0, at), ...state.sending.slice(at + 1)] };
+    }
     case "consumed":
       return { ...state, events: state.events.filter((e) => e.seq !== action.seq) };
     case "dismiss":

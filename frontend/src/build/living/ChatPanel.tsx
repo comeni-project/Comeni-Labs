@@ -89,19 +89,20 @@ export function ChatPanel({
   const handing = handoverId(session);
   const handingBlock = session.turns.flatMap((t) => t.blocks).find((b) => b.id === handing);
   const handingSummary = handingBlock?.kind === "receipt" ? handingBlock.summary : "";
-  const say = (text: string) => {
-    onSelect(null);
-    onSay(text);
-  };
-  // **Ask about this step** (one builder plan 3): the words go to the conversation with the step
-  // named, and the step closes so the reply is seen.
-  const ask = (text: string) => say(editable ? `About ${processName(editable)}: ${text}` : text);
 
   const pending = session.pending_proposal;
   const ghost = pending?.block.kind === "step_proposal" ? pending.block.node : null;
   // **A selected step that is in the draft gets its tools**; the step on offer has its own card.
   const editable = selected !== null && selected !== ghost && graph.nodes.some((n) => n.id === selected)
     ? selected : null;
+  // An open step closes so the reply is seen; a selection on the canvas alone stays (issue 404).
+  const say = (text: string) => {
+    if (editable) onSelect(null);
+    onSay(text);
+  };
+  // **Ask about this step** (one builder plan 3): the words go to the conversation with the step
+  // named, and the step closes so the reply is seen.
+  const ask = (text: string) => say(editable ? `About ${processName(editable)}: ${text}` : text);
   const latest = [...session.turns].reverse().find((t) => t.role === "assistant" && t.state === "answered");
   const changes = (latest?.blocks ?? []).filter((b): b is ChangeBlock => b.kind === "change_set");
   const requests = (latest?.blocks ?? []).filter((b): b is SettingBlock => b.kind === "setting_request");
