@@ -63,3 +63,13 @@ def test_domain_gap_is_not_a_run_requirement():
     wrap = wrap_up(alternate, declared.of(registry.stack()))
     assert "hisat2_align.seq_platform" not in wrap.unset
     assert any(g.kind is GapKind.NO_DOMAIN and g.subject == "seq_platform" for g in wrap.gaps)
+
+
+def test_a_measurement_is_revealed_before_the_step_whose_setting_it_decides():
+    """The walk offered STAR's index before the genome-length measurement its
+    `sa_index_nbases` is looked up from (issue 496): the layout ranks by edges, and a measured
+    fact reaches a step through its input's meta, not an edge."""
+    blueprint, _ = bp.resolve(_rnaseq())
+    order = blueprint.order
+    measurer = next(n for n in order if n.startswith("measure_genome_length"))
+    assert order.index(measurer) < order.index("star_genomegenerate")

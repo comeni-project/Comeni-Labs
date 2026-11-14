@@ -80,6 +80,16 @@ class Layers(BaseModel):
     my overlay change" is one field rather than four conventions.
     """
 
+    @property
+    def routing(self) -> Registry:
+        """The registry a build routes with and maps its graph back through: the layers'
+        contracts plus the generated measuring steps (#465). Everything that turns a node back
+        into a contract uses this; the registry browser, the docs and conformance use
+        `registry`, which holds only what a layer declares."""
+        from mendel_resolver.measure_steps import contracts_for
+
+        return self.registry.with_contracts(contracts_for(self.inspection, self.registry))
+
 
 def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     """Load a registry layer stack. Later layers win, as everywhere else.
@@ -142,10 +152,25 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     measurements = MeasurementRegistry.of(measured)
     declared_types = stack(stacked, Vocabulary.kind(), buckets=buckets)
     vocabulary = Vocabulary.of(declared_types).with_measurements(measurements)
+    # A measurement's scope is its type's grain (#466), so it learns the grains here, and a
+    # `describes` naming no type would silently read as per sample.
+    for measurement in measurements.measurements.values():
+        if measurement.describes is not None and measurement.describes not in vocabulary.types:
+            raise ValueError(coded(
+                "MD0334", f"measurement {measurement.id} describes {measurement.describes}, "
+                "which no layer declares as a type — `mendel explain MD0334`."))
+    for measurement in measurements.measurements.values():
+        if measurement.row is not None and measurement.describes not in vocabulary.blank_second:
+            raise ValueError(coded(
+                "MD0338", f"measurement {measurement.id} is read off the row, and "
+                f"{measurement.describes} has no second column a sample may leave blank — "
+                "`mendel explain MD0338`."))
+    measurements = measurements.with_grains(vocabulary.grains)
     declared_families = stack(stacked, FamilyVocabulary.kind(), buckets=buckets)
     families = FamilyVocabulary.of(declared_families)
     declared_tools = stack(stacked, ToolCatalogue.kind(), buckets=buckets)
     pieces = [stack(stacked, kind, buckets=buckets) for kind in InspectionCatalogue.kinds()]
+    _no_key_measured(InspectionCatalogue.of(*pieces), measurements)
     inspection, refused_pieces = InspectionCatalogue.of(*pieces).check(
         set(vocabulary.types), set(measurements.measurements)
     )
@@ -165,6 +190,12 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
     # layer may legitimately fill a role an overlay declares.
     for contract in registry.all():
         roles.check(contract.id, contract.roles)
+        _check_facts_read(contract, measurements)
+        _check_groups(contract, measurements)
+        _check_parts(contract)
+    # A `by: tool` measurer names a tool's contract, which may come from any layer (#465).
+    inspection, refused_tools = inspection.check_tools(registry)
+    refused_pieces = [*refused_pieces, *refused_tools]
     # #410: a module no contract binds can never be chosen, so it is a mistake, not a store.
     bound = {key_of(contract.nf_include) for contract in registry.all()}
     for key in sorted(set(vendored.entries) - bound):
@@ -187,6 +218,7 @@ def load(layers: str | Path | Sequence[str | Path]) -> Layers:
         )
     decided = stack(stacked, RuleTable.kind(registry, vocabulary, measurements), buckets=buckets)
     rules = RuleTable.of(decided, stacked)
+    _no_key_read(rules, measurements)
     # After assembly, so a decision may read a fact a derivation in another file
     # supplies. Same reason `roles.check` runs here rather than inside a parse.
     rules.check_premise_names(measurements)
@@ -247,3 +279,143 @@ def _blame_the_overlay(
         type_id=error.type_id,
         state=error.state,
     )
+
+
+def _no_key_read(rules, measurements: MeasurementRegistry) -> None:
+    """A key's or a reference's value is a laboratory's identifier: no rule reads it, so it
+    never rides on a sample's `meta` into the run's record. Counting them is fine (MD0345)."""
+    from comeni_core.declared.measurement import MeasurementKind
+
+    def identifier(fact: str) -> bool:
+        return fact in measurements.ids() and measurements.get(fact).kind in (
+            MeasurementKind.KEY, MeasurementKind.SAMPLE_REF)
+
+    for derivation in rules.derivations:
+        folded = derivation.aggregate
+        if folded is not None and identifier(folded.measurement) \
+                and folded.using not in ("count", "distinct"):
+            raise ValueError(coded(
+                "MD0345", f"{derivation.fact} folds {folded.measurement}, a laboratory's "
+                "identifier, with " + folded.using + "; only count and distinct may — "
+                "`mendel explain MD0345`."))
+        if derivation.source and identifier(derivation.source):
+            raise ValueError(coded("MD0345", f"{derivation.fact} reads {derivation.source}, "
+                                   "a laboratory's identifier — `mendel explain MD0345`."))
+    for decision in rules.decisions:
+        for row in [*decision.rows, *(d for derived in rules.derivations for d in derived.rows)]:
+            for fact in row.when:
+                if identifier(fact):
+                    raise ValueError(coded(
+                        "MD0345", f"a rule reads {fact}, a laboratory's identifier — "
+                        "`mendel explain MD0345`."))
+
+
+def _no_key_measured(catalogue, measurements: MeasurementRegistry) -> None:
+    """A key is a laboratory's own identifier, read from the samplesheet: nothing measures one
+    (MD0342, #466). Checked before a piece is refused for any other reason."""
+    from comeni_core.declared.measurement import MeasurementKind
+
+    for key, measurer in sorted(catalogue.measurers.items()):
+        if measurer.measures in measurements.ids() \
+                and measurements.get(measurer.measures).kind is MeasurementKind.KEY:
+            raise ValueError(coded(
+                "MD0342", f"measurer {key} measures {measurer.measures}, a key, which only a "
+                "samplesheet row gives — `mendel explain MD0342`."))
+
+
+def _check_parts(contract) -> None:
+    """Only a splitter fans out, to parts of the one type it reads; a port on parts reads one
+    sample's item and nothing more (MD0346, #466)."""
+    from comeni_core.plan.tiers import Grain
+
+    fanned = [p for p in contract.produces if p.fans_out is not None]
+    if fanned and ("splitting" not in contract.roles or len(contract.consumes) != 1
+                   or any(p.type_id != contract.consumes[0].type_id for p in fanned)):
+        raise ValueError(coded(
+            "MD0346", f"{contract.id} fans out {', '.join(p.name for p in fanned)}; only a "
+            "splitter (role `splitting`) fans out, to parts of the one type it reads — "
+            "`mendel explain MD0346`."))
+    for port in contract.consumes:
+        if port.parts and (port.many or port.by is not None or port.select
+                           or port.grain is Grain.STUDY):
+            raise ValueError(coded(
+                "MD0346", f"{contract.id}'s {port.name} runs on parts of one sample's item, so "
+                "it may not gather, group, select or read the study — `mendel explain MD0346`."))
+
+
+def _check_groups(contract, measurements: MeasurementRegistry) -> None:
+    """A port gathers by a key each sample's row carries (MD0343); a port selects on a fact
+    each sample has, and a pair or a control joins on a key or a reference (MD0344, #466)."""
+    from comeni_core.declared.measurement import MeasurementKind
+    from comeni_core.plan.tiers import Grain
+    from comeni_core.spell.routes import Join
+
+    def kind(fact: str):
+        return measurements.get(fact).kind if fact in measurements.ids() else None
+
+    for port in contract.consumes:
+        if port.select and port.by is not None:
+            # The group's size counts every sample with the key; a selection would leave it
+            # unfilled, and the group would never run (final review C1).
+            raise ValueError(coded(
+                "MD0343", f"{contract.id}'s {port.name} both selects and groups by {port.by} — "
+                "`mendel explain MD0343`."))
+        for fact in sorted(port.select or {}):
+            # A table's rows have facts of their own, such as a database's read type (#466).
+            own = fact in measurements.ids() and measurements.get(fact).describes == port.type_id
+            if not own and (fact not in measurements.ids()
+                            or measurements.scope_of(fact) is not Grain.SAMPLE):
+                raise ValueError(coded(
+                    "MD0344", f"{contract.id}'s {port.name} selects on {fact}, which is not a "
+                    "fact each sample has — `mendel explain MD0344`."))
+    for spec in contract.nf_inputs:
+        wants = {Join.BY_KEY: MeasurementKind.KEY, Join.BY_REF: MeasurementKind.SAMPLE_REF}
+        join = spec.join if not isinstance(spec.join, dict) else None
+        per_port = spec.join.values() if isinstance(spec.join, dict) else ()
+        if any(j in wants for j in per_port) or (join in wants and len(spec.ports) != 2):
+            raise ValueError(coded(
+                "MD0344", f"{contract.id} relates {', '.join(spec.ports)} by a key or a "
+                "reference; only two ports, with one join, may — `mendel explain MD0344`."))
+        if join in wants and (spec.key is None or kind(spec.key) is not wants[join]):
+            raise ValueError(coded(
+                "MD0344", f"{contract.id} joins {', '.join(spec.ports)} {join.value} on "
+                f"{spec.key or 'nothing'}, which is not a {wants[join].value} — "
+                "`mendel explain MD0344`."))
+        if spec.key is not None and join not in wants:
+            raise ValueError(coded(
+                "MD0344", f"{contract.id} names a key, {spec.key}, for a join that reads none "
+                "— `mendel explain MD0344`."))
+
+    for port in contract.consumes:
+        if port.by is None:
+            continue
+        if port.by not in measurements.ids() \
+                or measurements.get(port.by).kind is not MeasurementKind.KEY:
+            raise ValueError(coded(
+                "MD0343", f"{contract.id}'s {port.name} groups by {port.by}, which is not a "
+                "key measurement — `mendel explain MD0343`."))
+
+
+def _check_facts_read(contract, measurements: MeasurementRegistry) -> None:
+    """A contract rule's `fact.<name>` names a measurement each sample has (MD0336, #466): one
+    nobody declared, or one for the whole study, could never vary by sample."""
+    from comeni_core.declared.constraints import rows_of
+    from comeni_core.plan.tiers import Grain
+
+    elsewhere = sorted(k for k in (*(k for g in contract.groups for k in g.when),
+                                   *(k for o in contract.produces for k in (o.produced_when or {})))
+                       if k.startswith("fact."))
+    if elsewhere:
+        # Only a constraint row is settled per sample; a group or an output's `produced_when`
+        # on a fact would silently never hold (Task 7 review).
+        raise ValueError(coded(
+            "MD0336", f"{contract.id} reads {elsewhere[0]} in a group or an output's "
+            "produced_when; only a constraint row may read a sample's fact — "
+            "`mendel explain MD0336`."))
+    keys = {k for row in rows_of(contract) for k in row.when}
+    for key in sorted(k for k in keys if k.startswith("fact.")):
+        name = key.partition(".")[2]
+        if name not in measurements.ids() or measurements.scope_of(name) is not Grain.SAMPLE:
+            raise ValueError(coded(
+                "MD0336", f"{contract.id} reads {key}, which is not a measurement each sample "
+                "has — `mendel explain MD0336`."))

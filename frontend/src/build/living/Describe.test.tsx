@@ -77,7 +77,7 @@ describe("describing in the same frame as building (one builder plan 3)", () => 
     expect(within(screen.getByRole("log", { name: "conversation" }))
       .getByText("Which strand were the reads made from?")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "What was understood" })).not.toHaveTextContent("Which strand");
-    expect(screen.getByRole("button", { name: /Start building · 1 question left/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Start building · answer the question first/ })).toBeDisabled();
   });
 });
 

@@ -30,17 +30,26 @@ from comeni_core.artifact.gates import Gate
 from comeni_core.artifact.lockfile import LockedLayer
 from comeni_core.artifact.param_refs import extract_param_refs
 from comeni_core.declared.layered import Displacement
+from comeni_core.declared.measurement import MeasurementKind, MetaValue
 from comeni_core.diagnostics import coded
 from comeni_core.egress.base import EgressPayload
 from comeni_core.goal.asked import Facts, Goal, Intent
 from comeni_core.goal.premise import PremiseRecord
+from comeni_core.plan.at_run import (
+    AtRun,
+    AtRunCondition,
+    Confirm,
+    Guard,
+    MetaAtRun,
+    SampleRule,
+)
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
-from comeni_core.plan.ir import InputRecord
+from comeni_core.plan.ir import InputRecord, Parts
 from comeni_core.plan.tiers import (
+    Grain,
     InputForm,
     PremiseOrigin,
     ReviewLevel,
-    Scope,
     Tier,
     ValueSource,
     review_level_for,
@@ -54,10 +63,12 @@ from comeni_core.spell.marks import (
     GroovyExpression,
     LayerName,
     Line,
+    MeasurementId,
     NfIdentifier,
     NfPath,
     NfTemplate,
     NodeId,
+    OptionId,
     ParamValue,
     PortName,
     StateName,
@@ -69,7 +80,7 @@ from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
 # ---------------- CONSTANTS ----------------
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 """The schema version written and the only one read.
 
 Bump when the serialized shape changes; content digests depend on that shape.
@@ -179,6 +190,9 @@ class Setting(BaseModel):
     key: ExtKey | None = None
     template: NfTemplate | None = None
     why: Why
+    at_run: AtRun | None = Field(default=None, exclude_if=lambda at_run: at_run is None)
+    """Decided at run time (#217): the lookup the pipeline runs over a measured fact. `value`
+    is then the fallback, used when the fact is undetermined or no row matches."""
 
     @model_validator(mode="after")
     def _a_raw_ext_value_cannot_be_groovy(self) -> "Setting":
@@ -243,6 +257,15 @@ class ExtArgs(BaseModel):
         return data
 
 
+class PortJoin(BaseModel):
+    """How one port after the first of a shared slot meets the ones before it (#464)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    port: PortName
+    join: Join
+
+
 class CallArg(BaseModel):
     """One positional process argument.
 
@@ -259,8 +282,33 @@ class CallArg(BaseModel):
     """Setting whose value supplies this positional argument."""
     join: Join | None = None
     """How multiple input ports are combined for this argument."""
+    key: MeasurementId | None = Field(default=None, exclude_if=lambda key: key is None)
+    """For a `by_key` or `by_ref` join, the fact the ports meet on (#466)."""
+    joins: list["PortJoin"] = Field(default_factory=list, exclude_if=lambda joins: not joins)
+    """Each later port's own join, when the contract gives one per port (#464); then `join`
+    is unset."""
     why: Why | None = None
     """Provenance for the argument, when supplied."""
+
+    def join_for(self, port: str) -> Join:
+        """How `port`, a port after the first, meets the ones before it."""
+        if port not in self.ports[1:]:
+            raise ValueError(f"{port!r} is not a port after the first of {self.ports}")
+        found = next((j.join for j in self.joins if j.port == port), self.join)
+        if found is None:
+            raise ValueError(f"call argument {self.ports} declares no join for {port!r}")
+        return found
+
+
+class PartsWiring(StrEnum):
+    """How an input meets parts of a sample (#466, stage 6)."""
+
+    SPREAD = "spread"
+    """Reads a splitter's output: each sample's parts become items of their own, carrying
+    `meta.part` and `meta.comeni_parts`."""
+
+    GATHER = "gather"
+    """A merger reading one sample's parts: gathered per sample, sized by `meta.comeni_parts`."""
 
 
 class StepInput(BaseModel):
@@ -275,6 +323,15 @@ class StepInput(BaseModel):
     """External input channel name; mutually exclusive with source."""
     gather: bool = False
     """Collect the whole channel for one invocation, rather than process individual items."""
+    by: MeasurementId | None = Field(default=None, exclude_if=lambda by: by is None)
+    """With `gather`, gather per value of this key rather than over the study (#466)."""
+    select: list[AtRunCondition] = Field(default_factory=list, exclude_if=lambda s: not s)
+    """Only the samples meeting every condition, as the contract's port selects them (#466)."""
+    mixed: list[EdgeRef] = Field(default_factory=list, exclude_if=lambda m: not m)
+    """Further upstream outputs feeding this input, sorted: branches of a tool chosen per
+    sample rejoining here, each sample arriving from its own (#466)."""
+    parts: PartsWiring | None = Field(default=None, exclude_if=lambda parts: parts is None)
+    """Where this input spreads a sample into parts or gathers them back (#466)."""
 
     states: list[StateName] = Field(default_factory=list)
     """States carried by the upstream connection, sorted during materialisation."""
@@ -286,6 +343,11 @@ class StepInput(BaseModel):
             raise ValueError(
                 coded("MD0215", f"input {self.port} must name exactly one of `source` or `channel`")
             )
+        if self.parts is not None and self.source is None:
+            raise ValueError(f"input {self.port} {self.parts.value}s parts, which only a step "
+                             "makes")
+        if self.parts is PartsWiring.GATHER and not self.gather:
+            raise ValueError(f"input {self.port} gathers parts and does not gather")
         return self
 
 
@@ -326,6 +388,14 @@ class Step(BaseModel):
         default_factory=list, exclude_if=lambda states: not states)
     """Each optional input's state, who set it and why, sorted by port (#460); omitted when the
     step's tool has none."""
+    sample_rules: list[SampleRule] = Field(default_factory=list, exclude_if=lambda r: not r)
+    """This step's rules each sample's facts settle (#466): a sample breaking one stops the run
+    before the step runs, naming the sample and the rule."""
+    guard: Guard | None = Field(default=None, exclude_if=lambda guard: guard is None)
+    parts: Parts | None = Field(default=None, exclude_if=lambda parts: parts is None)
+    """Whether this step runs on parts of a sample, with which tools and why (#466)."""
+    """The samples this step takes, when each sample's tool is chosen per sample and only some
+    lead here (#466): the rule, written as a lookup, and the tools whose samples it takes."""
     run_rules: list[RunRule] = Field(default_factory=list, exclude_if=lambda rules: not rules)
     """This step's constraints only a run can settle, because they involve an input each run
     may leave empty. The pipeline checks them at its start and the run sheet before sending.
@@ -366,8 +436,75 @@ class Step(BaseModel):
         return self
 
 
+class MetaKeyOf(BaseModel):
+    """One key a samplesheet fact becomes on the sample's `meta`, and how its value is spelled
+    there: the fact's own id, read by run-time lookups, and a module's key (`single_end`)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: NfIdentifier
+    translate: list[MetaValue] = Field(default_factory=list, exclude_if=lambda t: not t)
+
+
+class SheetFact(BaseModel):
+    """A fact each sample's samplesheet row states (#466), checked when the run starts."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    measurement: MeasurementId
+    column: NfIdentifier
+    kind: MeasurementKind
+    values: list[OptionId] = Field(default_factory=list, exclude_if=lambda v: not v)
+    """The allowed values, for an enum: identifiers, as a measurement declares them."""
+    minimum: float | None = Field(default=None, exclude_if=lambda m: m is None)
+    maximum: float | None = Field(default=None, exclude_if=lambda m: m is None)
+    required: bool
+    """A blank cell stops the run; otherwise a blank is measured (`auto`)."""
+    from_row: "RowFact | None" = Field(
+        default=None, exclude_if=lambda r: r is None)
+    """Read off the row rather than stated in a column of its own (#466): true where the row
+    gives `column`, its input's second file."""
+    auto: bool = Field(default=False, exclude_if=lambda auto: not auto)
+    """A step the build added measures the fact where the cell is blank or says `auto`."""
+    describes: TypeId
+    """The input whose row carries it: its channel's `meta` gets the value."""
+    meta: list[MetaKeyOf]
+    why: Why
+
+
+class TableShape(BaseModel):
+    """A study input supplied as a table of several items, such as several databases (#466):
+    the CSV the run reads, and the name its items take on a sample's `meta`."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: NfIdentifier
+    """The key an item's `meta` takes on the sample it is paired with: the type's family."""
+    columns: list[PortName]
+    """The file columns, after `name`."""
+    facts: list[MeasurementId] = Field(default_factory=list, exclude_if=lambda f: not f)
+    """Item facts a port selects on, one column each after the files. Sorted."""
+
+
+def crossed_steps(steps, channels) -> dict[str, str]:
+    """Each step whose items are a sample paired with a row of a table, and the table's name
+    (#466): the step reading the table, and every step after it until a gather. Steps are in
+    order, so one pass carries it down."""
+    tables = {c.name: c.table.name for c in channels if c.table is not None}
+    found: dict[str, str] = {}
+    for step in steps:
+        for item in step.inputs:
+            if item.channel in tables:
+                found[step.id] = tables[item.channel]
+            elif item.source is not None and not item.gather:
+                upstream = item.source.partition(".")[0]
+                if upstream in found:
+                    found.setdefault(step.id, found[upstream])
+    return found
+
+
 class Channel(BaseModel):
-    """External pipeline input, including its expression, scope, metadata, and test data."""
+    """External pipeline input, including its expression, grain, metadata, and test data."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -376,10 +513,10 @@ class Channel(BaseModel):
     param: NfIdentifier
     """Input parameter name used as params.<param>; independent of the channel name."""
     why: "Why | None" = None
-    """Reason for an explicit scope override; None when the default scope is used."""
+    """Reason for an explicit grain override; None when the type's grain is used."""
 
-    scope: Scope = Scope.SAMPLE
-    """Whether the input is shared across the run or supplied per sample."""
+    grain: Grain = Grain.SAMPLE
+    """Whether the input is one item for the study or one per sample."""
 
     columns: list[PortName] = Field(default_factory=list)
     """Column names used when this channel is supplied through a samplesheet."""
@@ -393,10 +530,20 @@ class Channel(BaseModel):
     test_data: list[TestDataRef] = Field(default_factory=list)
     """Public example inputs used by the test profile, represented as a list."""
 
+    table: TableShape | None = Field(default=None, exclude_if=lambda table: table is None)
+    """Several items for the study, read from a table of its own (#466); `None` for one."""
+
+    units: bool = Field(default=False, exclude_if=lambda units: not units)
+    """A sample may span several rows of this input, such as its lanes (#466): the samplesheet
+    takes a `unit` column, and each sample's rows are merged before anything reads them."""
+
     optional: bool = Field(default=False, exclude_if=lambda optional: not optional)
     """Each run may supply this input or leave it empty (#460). True only when every step it
     feeds has it as an optional input."""
     absent_width: int = Field(default=0, exclude_if=lambda width: not width)
+    meta_at_run: list[MetaAtRun] = Field(default_factory=list, exclude_if=lambda m: not m)
+    """Facts the run measures on this input and joins into its `meta` (#217): the step that
+    measures each, and the key a run-time setting reads."""
     """The empty tuple's width passed when a run leaves this input empty."""
 
     @model_validator(mode="after")
@@ -431,6 +578,13 @@ class RegistryProvenance(BaseModel):
     """Declarations superseded by higher-priority registry layers."""
     unverified: list[ContractId] = Field(default_factory=list)
 
+
+
+class RowFact(StrEnum):
+    """A fact read off a samplesheet row rather than stated in a column (#466)."""
+
+    SECOND_FILE_PRESENT = "second_file_present"
+    """True where the row gives its input's second file: paired-end reads."""
 
 
 class AiPoint(StrEnum):
@@ -509,6 +663,11 @@ class Pipeline(EgressPayload):
     ai: AiProvenance = Field(default_factory=AiProvenance)
     """Recorded AI availability and usage for this build."""
     steps: list[Step] = Field(default_factory=list)
+    confirms: list[Confirm] = Field(default_factory=list, exclude_if=lambda c: not c)
+    """Estimates the build rested on, measured again over all the data in the run, each with
+    the decisions that used it: what the run's reading of the facts is compared against."""
+    sheet_facts: list[SheetFact] = Field(default_factory=list, exclude_if=lambda f: not f)
+    """Facts each sample's samplesheet row states (#466), sorted by column."""
     channels: list[Channel] = Field(default_factory=list)
     decisions: list[DecisionRecord] = Field(default_factory=list)
     emitted: Emitted | None = None
@@ -564,9 +723,32 @@ class Pipeline(EgressPayload):
                     f"names `annotation.gtf` where it now means `gtf`. `mendel explain MD0227`.",
                 )
             )
-        per_sample = [c.name for c in self.channels if c.scope is Scope.SAMPLE]
+        per_sample = [c.name for c in self.channels if c.grain is Grain.SAMPLE]
         wants_table = self.input_form is InputForm.SAMPLESHEET
-        if wants_table and len(per_sample) < 2:
+        # Every fact said to vary, and every key a step groups by, has its column (#466); a fact
+        # a port reading a table selects on is a column of that table instead.
+        tables = {c.name for c in self.channels if c.table is not None}
+        varies = set(self.intent.constraints.varies) | {
+            i.by for s in self.steps for i in s.inputs if i.by is not None} | {
+            c.fact for s in self.steps for i in s.inputs for c in i.select
+            if i.channel not in tables} | {
+            a.key for s in self.steps for a in s.call if a.key is not None}
+        if varies != {f.measurement for f in self.sheet_facts}:
+            raise ValueError(coded(
+                "MD0335", f"the facts said to differ between samples "
+                f"({', '.join(sorted(varies)) or 'none'}) are not this pipeline's samplesheet "
+                f"columns ({', '.join(sorted(f.column for f in self.sheet_facts)) or 'none'}); "
+                "rebuild it from its goal — `mendel explain MD0335`."))
+        if self.sheet_facts and not wants_table:
+            raise ValueError(coded(
+                "MD0335", "this pipeline has samplesheet facts and takes no samplesheet; a "
+                "fact that differs between samples needs a row to carry it."))
+        lanes = any(c.units for c in self.channels)
+        if lanes and not wants_table:
+            raise ValueError(coded(
+                "MD0340", "an input whose rows may repeat a sample needs a samplesheet: only a "
+                "row says which lane it is — `mendel explain MD0340`."))
+        if wants_table and len(per_sample) < 2 and not self.sheet_facts and not lanes:
             raise ValueError(
                 coded(
                     "MD0229",
@@ -577,6 +759,13 @@ class Pipeline(EgressPayload):
                     f"is a table with one column — which is a glob written the long way.",
                 )
             )
+        taken = {"sample", "id", *(c for ch in self.channels for c in ch.columns)}
+        clash = sorted(f.column for f in self.sheet_facts
+                       if f.column in taken and f.from_row is None)
+        if clash:
+            raise ValueError(coded(
+                "MD0335", f"samplesheet column {clash[0]} is both a fact and a file or the "
+                "sample's id; rename the channel."))
         claimed: dict[str, list[str]] = {}
         for channel in self.channels:
             claimed.setdefault(channel.param, []).append(channel.name)

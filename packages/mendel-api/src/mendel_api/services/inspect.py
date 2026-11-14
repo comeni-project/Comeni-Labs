@@ -45,6 +45,9 @@ class InspectedFact(BaseModel):
     undetermined: str | None = None
     pieces: list[str] = Field(default_factory=list)
     evidence: dict = Field(default_factory=dict)
+    coverage: Literal["head", "all"] | None = None
+    """How much of the data the measurer read (#465): `all` only for a whole file read to its
+    end."""
 
 
 class Inspection(BaseModel):
@@ -153,7 +156,7 @@ def _ref(kind: str, piece) -> wire.PieceRef:
     folder = (
         piece.folder.resolve()
         if piece.folder is not None
-        else Path(active_registry()).resolve() / "inspectors" / kind / piece.id
+        else Path(active_registry()).resolve() / "measurers" / kind / piece.id
     )
     return wire.PieceRef(
         id=piece.id,
@@ -167,7 +170,7 @@ def _facts(report: wire.Report, pieces: InspectionCatalogue) -> list[InspectedFa
     """The report's facts, keyed by the measurement each measure produces, not the measure."""
     found = []
     for measure_id, fact in sorted(report.facts.items()):
-        measure = pieces.measures[measure_id]
+        measure = pieces.measurers[measure_id]
         found.append(
             InspectedFact(
                 measurement=measure.measures,
@@ -175,15 +178,20 @@ def _facts(report: wire.Report, pieces: InspectionCatalogue) -> list[InspectedFa
                 undetermined=fact.undetermined,
                 pieces=list(fact.by),
                 evidence=dict(fact.evidence),
+                coverage=fact.coverage,
             )
         )
     return found
 
 
 def inspect_sample(
-    files: list[tuple[str, bytes]], stack, claimed: str | None = None
+    files: list[tuple[str, bytes]], stack, claimed: str | None = None,
+    sizes: tuple[int, ...] = (),
 ) -> Inspection:
-    """Inspect one sample: one file, or a pair. **Never raises.** `claimed`: see `match`."""
+    """Inspect one sample: one file, or a pair. **Never raises.** `claimed`: see `match`.
+
+    `sizes`: each file's real size. A head as long as its file is the whole file, and its facts
+    cover `all` of the data; without sizes, every file is a head (#465)."""
     steps = [f"read the first {HEAD_BYTES // 2**20} MB of {len(files)} file(s)"]
     if claimed is not None:
         steps.append(f"claimed as {claimed}, the type the AI named")
@@ -194,7 +202,12 @@ def inspect_sample(
     if codec is not None:
         steps.append(f"unpacked {codec.id}")
     payloads = [data for _, data in files]
-    heads = [wire.FileHead(name=name, length=len(data)) for name, data in files]
+    known = len(sizes) == len(files)
+    heads = [
+        wire.FileHead(name=name, length=len(data),
+                      whole=known and sizes[index] == len(data))
+        for index, (name, data) in enumerate(files)
+    ]
     confirmed: list[tuple[FormatPiece, wire.Report]] = []
     refused: list[wire.Report] = []
     for fmt in formats:
@@ -210,7 +223,8 @@ def inspect_sample(
             format=_ref("formats", fmt),
             codec=_ref("codecs", codec) if codec else None,
             measures=[
-                _ref("measures", m) for m in pieces.measures.values() if m.record == fmt.record
+                _ref("measures", m)  # the registry folder: `measurers/measures/<id>`
+                for m in pieces.measurers.values() if m.record == fmt.record
             ],
             files=heads,
             cap_bytes=CAP_BYTES,

@@ -40,7 +40,7 @@ function Mark() {
   );
 }
 
-const round = "w-8 h-8 shrink-0 rounded-full border border-line-2 flex items-center justify-center " +
+const round = "w-11 h-11 sm:w-8 sm:h-8 shrink-0 rounded-full border border-line-2 flex items-center justify-center " +
   "text-ink-2 hover:text-ink no-underline transition-colors";
 
 /** The frame every page sits in: the mark going home, the three sections, then jump, help and

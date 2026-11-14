@@ -7,21 +7,25 @@ read derivations from other files and overlays may extend declared domains.
 
 import re
 from collections.abc import Sequence
+from itertools import product
 from pathlib import Path
 
+from comeni_core.declared.constraints import Setup, evaluate
 from comeni_core.declared.contract import ParamDomain
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.diagnostics import coded
-from comeni_core.logic.when import tier_of_row
-from comeni_core.plan.tiers import Tier
+from comeni_core.logic.when import matches, tier_of_row
+from comeni_core.plan.tiers import Grain, Tier
 
+from mendel_resolver.cases import _OTHER, CASE_BOUND, _points, _Seen
 from mendel_resolver.rules.format import (
     _GOAL_FACTS,
     Decision,
     DecisionRow,
     DecisionTarget,
     Effect,
+    FactRef,
     RuleValidationError,
     _comparison,
 )
@@ -141,6 +145,61 @@ def _validate_target(
     seen[target.key()] = str(path)
 
 
+def _allowed_by_constraints(row: DecisionRow, target: DecisionTarget, path: Path,
+                            registry: Registry, fillers_by_role: dict[str, list[str]]) -> None:
+    """MD0325 when a tool's constraints (#460) refuse this value with its other settings at
+    their defaults, whichever inputs are given: the rule would set it and the build would then
+    be refused (#461)."""
+    for contract_id in target.when_implementation or fillers_by_role[target.of]:
+        contract = registry.get(contract_id)
+        if not any(p.name == target.name for p in contract.params):
+            continue
+        # The other settings at their defaults, as a build starts them; a row on the connected
+        # type (#464) cannot apply here, so it never refuses at load, only at the build.
+        params = {p.name: p.default for p in contract.params} | {target.name: row.then}
+        verdict = evaluate(contract, Setup(
+            given=frozenset(p.name for p in contract.consumes if p.required),
+            unknown=frozenset(contract.optional_ports()),
+            params=params))
+        if verdict.forbidden:
+            raise RuleValidationError(coded(
+                "MD0325", f"{path}, decision {target.key()}\n"
+                f"  `then: {row.then!r}` is a value {contract_id} refuses: "
+                f"{'; '.join(verdict.sentences)}.\n"
+                f"  The rule would set it and every build using {contract_id} would stop."))
+
+
+def _fact_fits(ref: "FactRef", domain, target: DecisionTarget, path: "Path | str",
+               measurements: MeasurementRegistry, *, kind: "MeasurementKind | None" = None) -> None:
+    """MD0300 when a fact's kind cannot be the setting's value (#461): a measured fact's from
+    its declaration, a derived fact's passed in once derivations are known (after the stack).
+    A measured enum's values must all be the setting's too."""
+    values: list = []
+    if kind is None:
+        if ref.fact not in measurements.ids():
+            return
+        kind = measurements.get(ref.fact).kind
+        values = list(measurements.get(ref.fact).values)
+    if domain is None:
+        return
+    fits = {"integer": {MeasurementKind.INTEGER},
+            "number": {MeasurementKind.INTEGER, MeasurementKind.NUMBER},
+            "boolean": {MeasurementKind.BOOLEAN},
+            "enum": {MeasurementKind.ENUM}}.get(str(domain.kind), set())
+    if kind not in fits:
+        raise RuleValidationError(coded(
+            "MD0300", f"{path}, decision {target.key()}\n"
+            f"  `then: {{fact: {ref.fact}}}` is {kind}, and {target.name!r} takes "
+            f"{domain.kind} values: the tool would receive a value its flag does not accept."))
+    outside = sorted(set(values) - set(domain.values or ())) if domain.values else []
+    if kind is MeasurementKind.ENUM and outside:
+        raise RuleValidationError(coded(
+            "MD0300", f"{path}, decision {target.key()}\n"
+            f"  `then: {{fact: {ref.fact}}}` can be {', '.join(map(repr, outside))}, which "
+            f"{target.name!r} does not take ({', '.join(map(str, domain.values))}): the tool "
+            "would receive a value its flag does not accept."))
+
+
 def _domain_of(
     target: DecisionTarget, registry: Registry, fillers_by_role: dict[str, list[str]]
 ) -> "ParamDomain | None":
@@ -174,9 +233,19 @@ def _validate_rows(
     fillers_by_role: dict[str, list[str]],
     measurements: MeasurementRegistry,
 ) -> None:
+    for row in decision.rows:
+        if isinstance(row.then, FactRef) and target.effect is not Effect.PARAM:
+            raise RuleValidationError(coded(
+                "MD0300", f"{path}, decision {target.key()}\n"
+                f"  `then: {{fact: {row.then.fact}}}` gives a setting a fact's value; a "
+                f"{target.effect} decision chooses with a literal `then`."))
     if target.effect is Effect.PARAM:
         domain = _domain_of(target, registry, fillers_by_role)
         for row in decision.rows:
+            if isinstance(row.then, FactRef):
+                _fact_fits(row.then, domain, target, path, measurements)
+                continue
+            _allowed_by_constraints(row, target, path, registry, fillers_by_role)
             # A declared domain answers this by type check; `_computed_over` answers it by
             # heuristic. Both emit `MD0300` because both refuse the same thing — a `then` the
             # tool cannot receive — and one concern gets one code.
@@ -298,7 +367,18 @@ def _uncovered_values(rows: Sequence[DecisionRow], measurement) -> str | None:
     """Which of an enum's values no row matches, or `None` if the rows cover them all."""
     if any(not row.when for row in rows):
         return None
-    covered = {next(iter(row.when.values())) for row in rows}
+    covered: set = set()
+    for row in rows:
+        expected = next(iter(row.when.values()))
+        # `{in: [...]}` and `{not: x}` name sets of values, not one (a dict is no set member).
+        if isinstance(expected, dict) and "in" in expected:
+            covered |= set(expected["in"])
+        elif isinstance(expected, dict) and "not" in expected:
+            covered |= {v for v in measurement.values if v != expected["not"]}
+        elif expected == "present":
+            covered |= set(measurement.values)
+        elif not isinstance(expected, dict):
+            covered.add(expected)
     missing = [value for value in measurement.values if value not in covered]
     return ", ".join(missing) if missing else None
 
@@ -361,6 +441,12 @@ def _validate(
     # Every target, not only the first. A validator that loops over `decides` incorrectly
     # still passes every single-target test there is, which is why `test_both_targets_of_one
     # _decision_are_validated` exists and why it names that in its docstring.
+    if decision.hit == "unique" and any(t.effect is not Effect.PARAM
+                                        for t in decision.targets()):
+        raise RuleValidationError(coded(
+            "MD0300", f"{path}, decision {decision.key()}\n"
+            "  `hit: unique` decides a setting; a tie between tools or over a step's presence "
+            "cannot be asked yet, so it would fall to another path silently (#461)."))
     for target in decision.targets():
         _validate_target(
             target,
@@ -399,6 +485,11 @@ def _check_when(
     derived = sorted(facts - set(measurements.ids()) - _GOAL_FACTS)
     for row in rows:
         for fact, expected in row.when.items():
+            if isinstance(expected, dict) and isinstance(expected.get("not"), list):
+                raise RuleValidationError(
+                    coded("MD0305", f"{where}\n"
+                    f"  {fact!r} is tested with `not` and a list, which tests one value and so "
+                    f"always matches. List the values it may take with `in`."))
             if fact not in facts:
                 raise RuleValidationError(
                     coded("MD0310", f"{where}\n"
@@ -411,9 +502,79 @@ def _check_when(
             if expected in ("absent", "present") or fact not in measurements.ids():
                 continue
             measurement = measurements.get(fact)
-            if _comparison(expected) is not None and measurement.kind not in _ORDERED:
+            comparison = _comparison(expected)
+            if (comparison is not None and measurement.kind is MeasurementKind.INTEGER
+                    and not float(comparison[1]).is_integer()):
+                raise RuleValidationError(
+                    coded("MD0310", f"{where}\n"
+                    f"  {fact!r} is an integer, so {expected!r} names a boundary no value can "
+                    f"sit on — write a whole number."))
+            if comparison is not None and measurement.kind not in _ORDERED:
                 raise RuleValidationError(
                     coded("MD0310", f"{where}\n"
                     f"  {fact!r} is an {measurement.kind}, so it can only be compared with\n"
                     f"  equality, `in` or `not` — never {expected!r}.")
                 )
+
+
+def check_table(decision: Decision, *, measurements: MeasurementRegistry,
+                derived: dict[str, MeasurementKind]) -> list[str]:
+    """A decision's rows tried against every case they can tell apart (#461): coded findings
+    for a gap over several facts (MD0311; one fact is `_check_exhaustive`'s), a dead row under
+    `first` (MD0323) and too many cases (MD0324). An overlap under `unique` is legal: it is
+    the question the build asks."""
+    catch_alls = [n for n, row in enumerate(decision.rows) if not row.when]
+    if decision.hit == "first" and len(catch_alls) > 1:
+        return [coded("MD0323", f"decision {decision.key()}\n  row {catch_alls[1] + 1} is "
+                      f"first for no case: row {catch_alls[0] + 1} above it matches "
+                      "everything. Remove one.")]
+    facts = sorted({fact for row in decision.rows for fact in row.when})
+    if not facts:
+        return []
+    points = [_points(fact, decision.rows, measurements, derived) for fact in facts]
+    if any(p is None for p in points):
+        return []
+    count = 1
+    for p in points:
+        count *= len(p)
+    where = f"decision {decision.key()}"
+    if count > CASE_BOUND:
+        return [coded("MD0324", f"{where}\n  its rows tell {count} cases apart, above "
+                      f"{CASE_BOUND}: fewer boundaries or facts, or split the decision")]
+    findings: list[str] = []
+    first_for: set[int] = set()
+    gap = None
+    # Over a fact that can differ between samples, a tie has nobody to answer it in the run, so
+    # `unique` may not overlap there at all (operator, 11-11; per-sample design, D).
+    per_sample = decision.hit == "unique" and any(
+        f in measurements.ids() and measurements.scope_of(f) is Grain.SAMPLE for f in facts)
+    for case in product(*points):
+        seen = {f: _Seen(v) for f, v in zip(facts, case, strict=True)}
+        hits = [n for n, row in enumerate(decision.rows) if matches(row.when, seen)]
+        if per_sample and len(hits) > 1:
+            named = ", ".join(f"{f} = {v}" for f, v in zip(facts, case, strict=True))
+            return [coded("MD0333", f"{where}\n  rows {hits[0] + 1} and {hits[1] + 1} both "
+                          f"match {named}, and `hit: unique` over a fact that differs between "
+                          "samples cannot be asked per sample in the run. Make the rows "
+                          "exclusive, or use `hit: first`.")]
+        if hits:
+            first_for.add(hits[0])
+        elif gap is None:
+            gap = ", ".join(f"{f} = {v!r}" if v is _OTHER else f"{f} = {v}"
+                            for f, v in zip(facts, case, strict=True))
+    if gap is not None and len(facts) > 1:
+        findings.append(coded("MD0311", f"{where}\n  no row matches {gap}, so a profile "
+                              "there matches nothing and the decision silently demotes to "
+                              "tier 4. Add a row for it, or a catch-all `when: {}` with a "
+                              "`cite:`."))
+    if decision.hit == "first":
+        for n, row in enumerate(decision.rows):
+            # A catch-all decides when a fact is not known, which no case here models; a row
+            # testing presence is about knowing, too. Neither is judged dead.
+            if (n in first_for or not row.when
+                    or any(v in ("absent", "present") for v in row.when.values())):
+                continue
+            findings.append(coded("MD0323", f"{where}\n  row {n + 1} is first for no case: "
+                                  "the rows above it already match everything it would, so "
+                                  "it never decides. Remove it, or move it above them."))
+    return findings

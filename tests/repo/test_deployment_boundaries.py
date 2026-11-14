@@ -33,7 +33,7 @@ AUTHORED_PATHS = [
     "packages/demo/src/demo/build/__init__.py",
     "frontend/src/app.tsx",
     "frontend/package-lock.json",
-    "ops/nginx/default.conf",
+    "ops/nginx/default.conf.template",
     "registry/tools/demo/contract.yml",
     "registry/tools/demo/module/main.nf",
     "docs/how-to/index.md",
@@ -87,6 +87,30 @@ def test_production_passes_the_required_token_to_wiener(tmp_path):
     assert result.returncode == 0, result.stderr
     services = json.loads(result.stdout)["services"]
     assert services["wiener-api"]["environment"]["WIENER_API_TOKEN"] == "synthetic-test-token"
+
+
+def test_development_proxy_adds_the_execution_token_so_no_person_enters_it(tmp_path):
+    """Issue 498: the browser asked for `WIENER_API_TOKEN`. In development the web port is bound
+    to loopback, so the proxy adds the token from `.env` to what it forwards to Wiener."""
+    result = _compose(tmp_path, token="synthetic-test-token")
+    assert result.returncode == 0, result.stderr
+    web = json.loads(result.stdout)["services"]["web"]
+    assert web["environment"]["WIENER_PROXY_AUTHORIZATION"] == "Bearer synthetic-test-token"
+
+
+def test_production_proxy_adds_no_token_on_a_public_port(tmp_path):
+    """Production binds the web port to every address: a proxy that added the token there would
+    give the host to anyone who can reach the site. A person still presents it (issue 498)."""
+    result = _compose(tmp_path, production=True, token="synthetic-test-token")
+    assert result.returncode == 0, result.stderr
+    web = json.loads(result.stdout)["services"]["web"]
+    assert web["environment"]["WIENER_PROXY_AUTHORIZATION"] == ""
+
+
+def test_the_proxy_prefers_the_browsers_own_token_and_adds_its_own_otherwise():
+    conf = (ROOT / "ops/nginx/default.conf.template").read_text()
+    assert '"" "${WIENER_PROXY_AUTHORIZATION}";' in conf
+    assert conf.count("proxy_set_header Authorization $wiener_authorization;") == 3
 
 
 @pytest.mark.slow

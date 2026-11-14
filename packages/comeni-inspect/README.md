@@ -15,5 +15,6 @@ One inspection runs per process: a request goes in on stdin, one JSON report com
 stdout. [`PROTOCOL.md`](PROTOCOL.md) describes both, so a faster implementation in another
 language can take a piece's place and be checked against the same reports.
 
-To add a format or a measure, follow the five steps in the registry's
-[`inspectors/README.md`](../../registry/inspectors/README.md).
+The same pieces run over whole files in a pipeline step through `measure_cli.py`, on the
+standard library alone (#465). To add a format or a measurer, follow the registry's
+[`measurers/README.md`](../../registry/measurers/README.md).

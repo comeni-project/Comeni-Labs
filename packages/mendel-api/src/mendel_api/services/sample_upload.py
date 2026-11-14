@@ -9,6 +9,7 @@ streams the body through `python-multipart` and holds at most `head` bytes per f
 """
 
 import asyncio
+import re
 from dataclasses import dataclass, field
 
 from python_multipart.multipart import MultipartParser, parse_options_header
@@ -21,7 +22,7 @@ FIELD_CAP = 256
 """A form field (the proposal id) is an id, never prose: more than this is dropped."""
 FILES = "files"
 """The one field a file is read from."""
-FIELDS = frozenset({"proposal_id"})
+FIELDS = frozenset({"proposal_id", "sizes"})
 """The only form field this route reads. **Any other is refused**, not held: a body of 100,000
 distinct field names held 200 MB before this (review of #134)."""
 
@@ -38,8 +39,9 @@ class Heads:
     count: int = 0
 
 
-async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
-    """Every file part counted; the first `keep` files' first `head` bytes kept."""
+async def read_heads(request: Request, *, head: int, keep: int | None = None) -> Heads:
+    """Every file part counted; the first `head` bytes of each kept, of the first `keep` files
+    or, by default, of every file: an upload may hold hundreds of samples (#466)."""
     kind, options = parse_options_header(request.headers.get("content-type"))
     boundary = options.get(b"boundary")
     if kind != b"multipart/form-data" or not boundary:
@@ -76,7 +78,7 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
                 raise BadUpload(f"a file was sent under a field this route does not read: "
                                 f"{part['name']!r}; send it as {FILES!r}")
             heads.count += 1
-            part["cap"] = head if heads.count <= keep else 0
+            part["cap"] = head if keep is None or heads.count <= keep else 0
         elif not part.get("skip") and part["name"] not in FIELDS:
             raise BadUpload(f"the form has a field this route does not read: {part['name']!r}")
 
@@ -90,7 +92,7 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
         if part.get("skip"):
             return
         if part.get("filename") is not None:
-            if heads.count <= keep:
+            if keep is None or heads.count <= keep:
                 heads.files.append((part["filename"] or "sample", bytes(part["data"])))
         elif part.get("name"):
             heads.fields[part["name"]] = part["data"].decode(errors="replace")
@@ -124,3 +126,91 @@ async def read_heads(request: Request, *, head: int, keep: int = 2) -> Heads:
     if part and not part.get("ended"):
         raise BadUpload("the upload stopped before it finished; send it again")
     return heads
+
+
+def sizes_of(field: str | None, files: int) -> tuple[int, ...]:
+    """The `sizes` field: a JSON list of each file's real size, one per file. Anything else is
+    no sizes at all, so the files are heads, which is the safe reading (#465)."""
+    import json
+
+    try:
+        sizes = json.loads(field) if field else None
+    except ValueError:
+        return ()
+    if (not isinstance(sizes, list) or len(sizes) != files
+            or not all(isinstance(n, int) and not isinstance(n, bool) and n >= 0 for n in sizes)):
+        return ()
+    return tuple(sizes)
+
+
+_MATE = re.compile(
+    r"^(?P<stem>.+?)(?P<sep>[._])(?P<mate>[Rr]?[12])(?P<tail>_\d+)?(?P<rest>(\.[^.]+)*)$")
+"""A mate's name: a stem, `_` or `.`, `R1`/`R2` or `1`/`2` (any case), Illumina's `_001` if
+there, then any extension (stage 2 review: bcl2fastq names, lowercase, none at all)."""
+
+_COMPRESSED = (".gz", ".bz2", ".zst")
+
+
+def _mate_key(name: str):
+    """What two mates share: stem, separator, `R` or not, Illumina tail, and extension without
+    its compression; `None` for a name with no mate token."""
+    found = _MATE.match(name)
+    if found is None:
+        return None
+    rest = found["rest"].lower()
+    for suffix in _COMPRESSED:
+        rest = rest.removesuffix(suffix)
+    return (found["stem"], found["sep"], found["mate"][0] in "Rr", found["tail"] or "", rest)
+
+
+@dataclass(frozen=True)
+class Sample:
+    """One sample of an upload: a file, or a pair of mates (#466)."""
+
+    name: str
+    files: tuple[tuple[str, bytes], ...]
+    sizes: tuple[int, ...] = ()
+
+
+def samples_of(files: list[tuple[str, bytes]], sizes: tuple[int, ...]) -> list[Sample]:
+    """The upload's files as samples, in the order they came: two files whose names differ
+    only in a mate token (`_R1`/`_R2`, `_1`/`_2`, `.R1`/`.R2`, any case, Illumina's `_001`
+    after it, compression aside) are one sample named by their shared stem; any other file is a
+    sample of its own, named by its stem. Two files alone are one sample, as an upload of two
+    always was. A name given twice is numbered (`a#2`)."""
+    known = len(sizes) == len(files)
+    if len(files) == 2 and _mate_key(files[0][0]) is None and _mate_key(files[1][0]) is None:
+        return [_sample(_stem(files[0][0]), files, sizes, [0, 1], known)]
+    keyed: dict[tuple, list[int]] = {}
+    order: list[tuple] = []
+    for index, (name, _) in enumerate(files):
+        key = _mate_key(name) or ("file", index)
+        if key not in keyed:
+            keyed[key] = []
+            order.append(key)
+        keyed[key].append(index)
+    samples: list[Sample] = []
+    taken: set[str] = set()
+    for key in order:
+        indexes = keyed[key]
+        mates = (key[0] != "file" and len(indexes) == 2
+                 and {_MATE.match(files[i][0])["mate"][-1] for i in indexes} == {"1", "2"})
+        for group in ([indexes] if mates else [[i] for i in indexes]):
+            name = key[0] if mates else _stem(files[group[0]][0])
+            unique, n = name, 1
+            while unique in taken:
+                n += 1
+                unique = f"{name}#{n}"
+            taken.add(unique)
+            samples.append(_sample(unique, files, sizes, group, known))
+    return samples
+
+
+def _stem(name: str) -> str:
+    return name.split(".", 1)[0] if "." in name else name
+
+
+def _sample(name: str, files, sizes, group: list[int], known: bool) -> Sample:
+    ordered = sorted(group, key=lambda i: files[i][0])
+    return Sample(name=name, files=tuple(files[i] for i in ordered),
+                  sizes=tuple(sizes[i] for i in ordered) if known else ())

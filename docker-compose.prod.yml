@@ -40,6 +40,9 @@ services:
     ports: !reset []
   web:
     ports: !override ["${WEB_BIND_ADDRESS:-0.0.0.0}:${WEB_HOST_PORT:-80}:80"]
+    # A public port: the proxy adds no token, so a person presents it (issue 498).
+    environment:
+      WIENER_PROXY_AUTHORIZATION: ""
   wiki:
     profiles: [wiki]
     restart: unless-stopped

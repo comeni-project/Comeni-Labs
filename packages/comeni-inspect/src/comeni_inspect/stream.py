@@ -33,6 +33,9 @@ class Capped(io.RawIOBase):
         self.given = given
         """Compressed input size, when known, used to assess the expansion ratio."""
         self.capped = False
+        self.truncated = False
+        """The codec's stream ended before its own end (`EOFError`): every upload head does, and
+        so does a whole file cut short by an interrupted copy."""
 
     def readable(self) -> bool:
         return True
@@ -44,6 +47,7 @@ class Capped(io.RawIOBase):
             read = getattr(self.inner, "read1", self.inner.read)
             chunk = read(len(buffer))
         except EOFError:
+            self.truncated = True
             return 0
         except (zlib.error, gzip.BadGzipFile):
             raise

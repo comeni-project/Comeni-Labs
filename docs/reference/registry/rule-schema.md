@@ -32,9 +32,11 @@ Model: `mendel_resolver.rules.format.Decision`
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `decides` | DecisionTarget | *required* | what this block settles |
-| `rows` | [DecisionRow] | `[]` | branches, tried in order, first match wins |
+| `hit` | `first` \| `unique` | `first` | `first`: the first matching row decides. `unique`: at most one row may match; two matching rows are a tie, asked at tier 4 |
+| `rows` | [DecisionRow] | `[]` | branches, tried in order |
 | `because` | string \| null | `null` | why this decision exists, in prose |
 | `cite` | string \| null | `null` | the citation — reaches `selection.reason` and the generated `main.nf` |
+| `coverage` | `all` \| null | `null` | `all`: a fact read from part of the data does not satisfy it; see [Coverage](#coverage) |
 
 One block per target. Deciding the same target twice **in one layer** is an error; a higher
 layer replaces the whole block.
@@ -73,7 +75,7 @@ Model: `mendel_resolver.rules.format.DecisionRow`
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `when` | map | `{}` | measurement id → expectation. All must hold. |
-| `then` | scalar | `null` | the value, or a contract id for `effect: implementation` |
+| `then` | scalar \| `{fact: <id>}` | `null` | the value, or a contract id for `effect: implementation`. For `effect: param`, `{fact: <id>}` takes the value of a measured or derived fact; a fact with no value makes the row not fire |
 | `because` | string \| null | `null` | overrides the block's `because` for this row |
 | `cite` | string \| null | `null` | overrides the block's `cite` for this row |
 
@@ -107,9 +109,23 @@ declarations. `RuleValidationError` if:
 | `then` naming a contract not in the registry | the row can never be applied |
 | `then` naming a contract that does not fill that role | same |
 | `when` naming an undeclared measurement | the condition can never be evaluated |
+| a fractional boundary on an integer measurement (`MD0310`) | no value can sit on it |
 | a comparison against an enum or boolean | `strandedness >= 70` has no meaning |
 | the same target decided twice in one layer | a copy-paste; resolving by file order would be a silent arbitrary pick |
 | `effect: param` with no `name:` | which parameter is unstated |
+| a case no row matches, over every fact the rows test (`MD0311`) | that profile would silently fall to tier 4 |
+| under `hit: first`, a row that is first for no case (`MD0323`) | it reads as a rule and never decides |
+| more than 4096 cases to try (`MD0324`) | a clean check must mean every case was tried |
+| a literal `then` the tool's constraints refuse with every input, its other settings at their defaults (`MD0325`) | the rule would set it and every build would stop |
+| `{fact:}` whose kind does not fit the parameter, or on a non-param decision (`MD0300`) | the tool would receive a value its flag does not accept |
+| `hit: unique` on an `implementation` or `presence` decision (`MD0300`) | a tie there cannot be asked yet |
+
+**How the table is checked** (#461). Load tries every case the rows can tell apart: each value
+of an enum (plus one an overlay may add, when it is `extensible`) or boolean, and for a number
+each boundary a comparison, `in` or `not` names, a point between neighbouring boundaries (none
+between adjacent integers) and one beyond each end. The check is exact, not sampled. Under
+`hit: unique` an overlap is legal: it is the question the build asks. A catch-all `when: {}`
+is never judged dead, because it decides when a fact is not known.
 
 Errors name what you *can* write:
 
@@ -121,6 +137,136 @@ rules/rnaseq.yml, decision param:aligner
 
 This is the load-bearing part of the format. `subject` used to be an unvalidated free
 string, and two of the five rules originally shipped had never once executed.
+
+## Derived facts
+
+A file may also declare `derives:`, facts computed from others, which `when` keys read and a
+`then: {fact: <id>}` takes. One computation each:
+
+| Form | Fields | Means |
+|---|---|---|
+| rows | `fact`, `kind`, `rows` | rows with literal `then` values, first match |
+| aggregate | `fact`, `kind`, `aggregate: {measurement, over: study, using: max \| min \| mean \| agree \| all \| any \| count \| distinct}` | one value folded from every sample's |
+| transform | `fact`, `kind`, `source`, `transform` | a chain of steps over `source`, left to right |
+
+A fold reads every sample's value. `agree` gives the value every sample shares, and leaves the
+fact undetermined when they differ or one has none; `all` and `any` hold only for `true`;
+`count` counts the samples with a value and `distinct` the values they take. With every value
+known before the build, the fold is decided then. When the fact differs between samples, the
+run folds it once every sample has its value, cell or measurement, and joins it into each
+sample's `meta`, so a run-time lookup reads it (`source: folded`). Steps that read a fold wait
+for every sample; no other step does. The two folds agree case by case
+(`tests/emit/test_at_run_agreement.py`).
+
+Transform steps: `add`, `subtract`, `multiply`, `divide`, `at_most`, `at_least` (each with
+`by`), and `log2` and `round` (half to even, as `printf "%.0f"`) with none. An `integer` fact
+is truncated to a whole number when the chain does not round it. A row reading a derived fact
+records the facts it was computed from, so the setting's reason says where the value came from.
+
+STAR's genome index, which nf-core's module sizes inside `main.nf`:
+
+```yaml
+derives:
+  - fact: star_sa_index_nbases
+    kind: integer
+    source: genome_length
+    transform: [{op: log2}, {op: divide, by: 2}, {op: subtract, by: 1},
+                {op: at_most, by: 14}, {op: round}]
+    cite: "STAR manual 2.7.11b, section 2.2.5"
+decisions:
+  - decides: {effect: param, of: index_building, name: sa_index_nbases,
+              when_implementation: [nf-core/star/genomegenerate@2.7.11b]}
+    rows:
+      - {when: {}, then: {fact: star_sa_index_nbases}, cite: "STAR manual 2.7.11b, section 2.2.5"}
+```
+
+A genome length of 29,903 bp gives 6; 3.1 Gb gives 14.
+
+## Coverage
+
+A decision may say `coverage: all`. A fact the server read from part of an upload
+(`coverage: head`) then does not satisfy it: the rows are tried as if the fact were unknown. A
+person's statement satisfies it, and so does a fact measured on all the data.
+
+```yaml
+decisions:
+  - decides: {effect: implementation, of: alignment}
+    coverage: all
+    rows:
+      - {when: {read_length: ">= 70"}, then: nf-core/star/align@2.7.11b}
+      - {when: {read_length: "< 70"},  then: nf-core/hisat2/align@2.2.2}
+```
+
+A fact derived from a `head` fact is `head` too. Without `coverage:`, an estimate decides like any
+fact, and the pipeline measures it again over all the data to confirm it.
+
+## Decided at run time
+
+When a `param` decision waits on facts nobody stated, the build can decide it in the run, for
+each sample. This happens when all of the following hold:
+
+- once every known fact is substituted, each fact the rows still wait on comes from the run:
+  a [measurer](measurer-schema.md) that runs in the pipeline measures it, or a person said it
+  differs between samples (`constraints.varies`), so each sample's samplesheet row states it, or
+  both (the row states it, and a blank or `auto` cell is measured);
+- each fact `describes` the input behind the step's first input, whose `meta` the step reads;
+- the decision is `hit: first`, or `hit: unique` with rows that cannot overlap;
+- nobody has answered the setting.
+
+The build then adds the measuring steps the measured facts need. Each fact joins the sample's
+`meta`, and the setting is emitted as a lookup over them. A condition on a fact a sample has no
+value for (a blank cell, a measurement that came back undetermined) holds only for `absent`. Every
+row the lookup can take is listed in `pipeline.yml` and on the step card before the run. So is
+the fallback, used when no row applies:
+
+1. the setting's default;
+2. for a setting the tool can do without, nothing: the tool uses its own;
+3. otherwise a question, asked once at build time as `<step>.if_no_row.<setting>`: a value, or
+   "stop the run and name the sample".
+
+Each value the run used is recorded per sample in `<outdir>/decided/<step>.<setting>.tsv`, with
+each fact it read and where that came from: `sample, value, fact=value:cell|measured|missing`.
+No model runs at run time, and the same goal gives the same pipeline.
+
+A row's `then: {fact: ...}` over a derived fact becomes its chain, written in Groovy from the
+same closed operations: `round` is half to even, as here. STAR's index size is the example. With
+29,903 bp stated, the build decides 6. With nothing stated, the pipeline measures the genome with
+samtools faidx and decides in the run: 8 for nf-core's 230,218 bp test genome.
+
+| Code | When |
+|---|---|
+| `MD0329` | routing again to add the measuring steps moved the pipeline; a defect, report it |
+| `MD0330` | a run-time setting routes outside `ext`, or its template does not hold `{value}` once, or the step's `meta` does not carry its facts |
+| `MD0333` | a `hit: unique` decision over a fact that differs between samples has overlapping rows |
+| `MD0335` | a fact read from the samplesheet has no column |
+
+### A tool chosen per sample
+
+An `implementation` decision whose rows wait only on facts a person said differ between samples
+chooses each sample's tool. Read length is the example: with it said to vary, samples of 70 bases
+or more go to STAR and shorter ones to HISAT2, in one pipeline. The rows must be expressible in
+the closed tests, `hit: first` or `hit: unique` without overlaps, and reach more than one tool. A
+fact that is unknown but nobody said varies stays the question it is today.
+
+The build routes the goal once for each tool the rows can reach and merges the routes. A step on
+every route is shared. Any other step carries a `guard`: the decision as a lookup whose value is
+a tool, and the tools whose samples the step takes. A sample enters a branch only if its tool is
+one of them. A step that does not carry the samples, such as a genome index, starts only once one
+of its samples arrives, so an index no sample needs never runs. The branches rejoin where the
+routes do, and the next step reads both. A sample no row covers, including one whose fact came
+back undetermined, takes a fallback asked once at build time as
+`<step>.if_no_row.implementation:<role>`: one of the tools, or "stop the run and name the
+sample". A sample never vanishes. Each sample's tool is recorded in
+`<outdir>/decided/<role>.tool.tsv` beside the facts it was chosen from.
+
+The routes must differ only after the choice, apart from steps that never carry the samples, and
+rejoin at one type. Otherwise the build refuses (`MD0339`). One tool per pipeline is chosen per
+sample; any other such decision stays a question. Presence decisions are not decided per sample
+yet.
+
+| Code | When |
+|---|---|
+| `MD0339` | the routes differ before the choice in a step that carries the samples, rejoin at different types, or the fact does not describe the chosen step's own input |
 
 ## Layer composition
 

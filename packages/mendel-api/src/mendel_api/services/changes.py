@@ -67,6 +67,14 @@ def _optional_port(stack, contract: str, port: str) -> None:
                                "switched on or off"))
 
 
+def _on_parts(stack, contract: str) -> None:
+    """Only a tool that can run on parts of a sample is kept whole (#466)."""
+    _tool(stack, contract)
+    if not any(p.parts for p in stack.registry.get(contract).consumes):
+        raise ValueError(coded("MI0204", f"{contract} never runs on parts of a sample, so it is "
+                               "not kept whole"))
+
+
 def check(change: DecisionChange) -> None:
     """Refuse what names something undeclared, before anything moves (`MI0204`, `MI0208`)."""
     stack = registry.stack()
@@ -92,6 +100,8 @@ def check(change: DecisionChange) -> None:
         _optional_port(stack, *source_of(subject))
         if not change.retract and change.value not in {s.value for s in InputState}:
             raise ValueError(coded("MI0204", f"{change.value!r} is not off, optional or required"))
+    elif kind == "whole":
+        _on_parts(stack, subject)
 
 
 def retracts_something(draft_id: str, change: DecisionChange) -> bool:
@@ -124,6 +134,8 @@ def retracts_something(draft_id: str, change: DecisionChange) -> bool:
         contract, port = source_of(subject)
         return any((c.contract, c.port) == (contract, port) and c.state
                    for c in current.optional_inputs)
+    if change.kind == "whole":
+        return any(w.contract == subject and w.whole for w in current.wholes)
     if change.kind == "asked":
         key = " ".join(subject.split()).casefold()
         return any(" ".join(a.phrase.split()).casefold() == key
@@ -170,6 +182,8 @@ def _apply_input(draft_id: str, change: DecisionChange, stack, *, said, heard) -
             # Part F: `True` held, `False` not held, `None` nobody knows.
             present=change.value is True,
             origin=FactOrigin.OPEN if change.value is None else FactOrigin.PERSON_SAID,
+            units=old.units if old else False,
+            table=old.table if old else False,
         ),
         **said,
         **heard,
@@ -243,13 +257,13 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
         if change.retract:
             return decisions.retract_asked(draft_id, subject, **said) is not None
         decisions.set_asked(draft_id, subject, **said, **heard)
-    elif kind in ("role", "exclude", "source", "optional_input"):
+    elif kind in ("role", "exclude", "source", "optional_input", "whole"):
         check(change)
         if change.retract:
             if not retracts_something(draft_id, change):
                 return False
             family = {"role": "role", "exclude": "exclusion", "source": "source",
-                      "optional_input": "optional_input"}[kind]
+                      "optional_input": "optional_input", "whole": "whole"}[kind]
             key = (decisions.exclusion_key(_site(change), change.value) if kind == "exclude"
                    else subject)
             decisions.release_intent(draft_id, family, key, who=who)
@@ -257,11 +271,35 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             decisions.switch_off_role(draft_id, subject, **said)
         elif kind == "exclude":
             decisions.exclude_producer(draft_id, _site(change), str(change.value), **said)
+        elif kind == "whole":
+            decisions.keep_whole(draft_id, subject, **said)
         elif kind == "optional_input":
             decisions.set_optional_input(draft_id, *source_of(subject), str(change.value),
                                          **said)
         else:
             decisions.pin_source(draft_id, *source_of(subject), str(change.value), **said)
+    elif kind == "units":
+        # A sample may span several rows of an input the goal has (#466).
+        _type(stack, subject)
+        current = next((i for i in decisions.read(draft_id).inputs
+                        if i.type_id == subject and i.present), None)
+        if current is None:
+            raise ValueError(coded("MI0204", f"this pipeline takes no {subject} to span rows"))
+        if current.units == bool(change.value):
+            return False
+        decisions.set_input(draft_id, current.model_copy(update={"units": bool(change.value)}),
+                            **said)
+    elif kind == "tables":
+        # A study input supplied as several items, such as several databases (#466).
+        _type(stack, subject)
+        current = next((i for i in decisions.read(draft_id).inputs
+                        if i.type_id == subject and i.present), None)
+        if current is None:
+            raise ValueError(coded("MI0204", f"this pipeline takes no {subject} to be a table"))
+        if current.table == bool(change.value):
+            return False
+        decisions.set_input(draft_id, current.model_copy(update={"table": bool(change.value)}),
+                            **said)
     elif kind == "retain":
         decisions.retain_fact(draft_id, subject, who=who)
     elif kind == "observation":
@@ -281,6 +319,16 @@ def describe(change: DecisionChange) -> str:
 
     stack = registry.stack()
     subject = change.subject
+    if change.kind == "whole":
+        tool = _process(stack, subject)
+        return (f"{tool} runs on parts of each sample" if change.retract
+                else f"{tool} runs on each sample whole")
+    if change.kind == "tables":
+        return (f"{subject} is a table of several items" if change.value
+                else f"{subject} is one item")
+    if change.kind == "units":
+        return (f"a sample may span several rows of {subject}" if change.value
+                else f"each sample is one row of {subject}")
     if change.kind == "measurement":
         label = subject.replace("_", " ")
         return f"forgot the {label}" if change.retract else f"{label} is {change.value}"
@@ -333,6 +381,6 @@ def describe(change: DecisionChange) -> str:
 
 def _process(stack, contract: str) -> str:
     try:
-        return stack.registry.get(contract).nf_process
+        return stack.routing.get(contract).nf_process
     except (KeyError, ValueError):
         return contract

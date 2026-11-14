@@ -11,15 +11,30 @@ from typing import NamedTuple
 from comeni_core.artifact.materialise import _stem, _unique
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.goal.asked import Goal, GoalInput
+from comeni_core.plan.at_run import AtRunSource, MetaAtRun
 from comeni_core.plan.decision import ParamDecision, ProducerDecision
 from comeni_core.plan.draft import DraftGraph, DraftProvenance, Settled
-from comeni_core.plan.ir import IRChannel, IREdge, IRNode, PipelineIR, ResolvedValue
-from comeni_core.plan.tiers import Tier, ValueSource
+from comeni_core.plan.ir import (
+    InputRecord,
+    IRChannel,
+    IREdge,
+    IRNode,
+    PipelineIR,
+    ResolvedValue,
+)
+from comeni_core.plan.tiers import Grain, Tier, ValueSource
 
+from mendel_resolver import at_run
 from mendel_resolver.layers import Layers
 from mendel_resolver.ports import FlagOnlyResolver
 from mendel_resolver.premises import build_premises
-from mendel_resolver.resolve import ParamContext, _layer_of, _resolve_param
+from mendel_resolver.resolve import (
+    ParamContext,
+    _layer_of,
+    _name_the_measurers,
+    _resolve_param,
+)
+from mendel_resolver.router import _optional_states, _strongest
 
 __all__ = ["channels_of", "goal_of", "ir_of"]
 
@@ -27,7 +42,8 @@ __all__ = ["channels_of", "goal_of", "ir_of"]
 def _contracts(graph: DraftGraph, layers: Layers) -> dict[str, ModuleContract]:
     """Every node's contract. Raises rather than reports — `validate` is what reports, and
     materialising an invalid graph is a caller error rather than a user one."""
-    return {n.id: layers.registry.get(n.contract_id) for n in graph.nodes}
+    # The routing registry: a drawn graph may hold generated measuring steps (#465).
+    return {n.id: layers.routing.get(n.contract_id) for n in graph.nodes}
 
 
 def goal_of(graph: DraftGraph, layers: Layers) -> Goal:
@@ -69,14 +85,14 @@ def goal_of(graph: DraftGraph, layers: Layers) -> Goal:
     )
 
 
-_SCOPE_AXIS = (
+_GRAIN_AXIS = (
     "how many times this channel delivers is a judgement about the experiment: one "
-    "reference for the whole run, or one per sample"
+    "reference for the whole study, or one per sample"
 )
 
 
-def _scope_choice(drawn, source: ValueSource, chose: Settled | None = None) -> ResolvedValue:
-    """Why a channel's scope is not its type's default.
+def _grain_choice(drawn, source: ValueSource, chose: Settled | None = None) -> ResolvedValue:
+    """Why a channel's grain is not its type's.
 
     **Tier 4, and invariant 6 is why.** Whether two GTF ports are fed by one file or by two is
     not derivable from the drawing — both are legal pipelines and they analyse different
@@ -89,18 +105,18 @@ def _scope_choice(drawn, source: ValueSource, chose: Settled | None = None) -> R
     """
     if chose is not None:
         return ResolvedValue(
-            value=drawn.scope,
+            value=drawn.grain,
             tier=chose.tier,
             source=chose.source,
             reason=chose.reason,
-            axis_reason=chose.axis_reason or _SCOPE_AXIS,
+            axis_reason=chose.axis_reason or _GRAIN_AXIS,
         )
     return ResolvedValue(
-        value=drawn.scope,
+        value=drawn.grain,
         tier=Tier.AMBIGUOUS,
         source=source,
-        reason=drawn.why or "no reason was given for this channel's scope",
-        axis_reason=_SCOPE_AXIS,
+        reason=drawn.why or "no reason was given for this channel's grain",
+        axis_reason=_GRAIN_AXIS,
     )
 
 
@@ -110,8 +126,8 @@ class DrawnChannel(NamedTuple):
     name: str
     type_id: str
     ports: tuple[str, ...]
-    scope: str | None = None
-    """What the drawing said this channel's scope is, or `None` for the type's default."""
+    grain: Grain | None = None
+    """What the drawing said this channel's grain is, or `None` for the type's default."""
     why: str = ""
     """The person's reason for that override."""
 
@@ -161,7 +177,7 @@ def channels_of(graph: DraftGraph, layers: Layers) -> list[DrawnChannel]:
 
     declared = {key: n for n, channel in enumerate(graph.channels) for key in channel.ports}
     # A drawn channel may also say what scope it is, which is a judgement about an experiment
-    # rather than a fact about the type — see `DraftChannel.scope`.
+    # rather than a fact about the type — see `DraftChannel.grain`.
     said = {n: channel for n, channel in enumerate(graph.channels)}
     groups: dict[tuple, list[str]] = {}
     types: dict[tuple, str] = {}
@@ -186,11 +202,56 @@ def channels_of(graph: DraftGraph, layers: Layers) -> list[DrawnChannel]:
             name=_unique(_stem(types[group]), taken),
             type_id=types[group],
             ports=tuple(sorted(groups[group])),
-            scope=said[group[1]].scope if group[0] == "drawn" else None,
+            grain=said[group[1]].grain if group[0] == "drawn" else None,
             why=said[group[1]].why if group[0] == "drawn" else "",
         )
         for group in sorted(groups, key=rank)
     ]
+
+
+def _drawn_inputs(graph: DraftGraph, contracts: dict[str, ModuleContract],
+                  goal: Goal, grains=None) -> dict[str, list[InputRecord]]:
+    """Each drawn step's optional inputs, decided as the router decides them (issue 496).
+
+    Off unless something turns one on: the person's switch in the goal, a constraint row, an
+    output the drawing uses that is written only with it, or the drawing itself, where an edge
+    feeds the port or another step requires the same file from outside, so every run supplies
+    it. With no record the emitter took every optional input as on, and an unwired one became a
+    `params.*` file the run demanded."""
+    required_outside = {
+        port.type_id: contract.id
+        for node_id, contract in sorted(contracts.items())
+        for port in contract.consumes
+        if port.required and port.type_id
+        and not any(e.to_node == node_id and e.to_port == port.name for e in graph.edges)
+    }
+    found: dict[str, list[InputRecord]] = {}
+    for node in graph.nodes:
+        contract = contracts[node.id]
+        optional = {p.name: p for p in contract.consumes if not p.required}
+        if not optional:
+            continue
+        into = [e for e in graph.edges if e.to_node == node.id]
+        types = {}
+        for edge in into:
+            made = next((o for o in contracts[edge.from_node].produces
+                         if o.name == edge.from_port), None)
+            if made is not None:
+                types[edge.to_port] = made.type_id
+        on = {e.to_port: f"{e.from_node} feeds it in this pipeline" for e in into
+              if e.to_port in optional}
+        for name, port in optional.items():
+            if name not in on and port.type_id in required_outside and \
+                    required_outside[port.type_id] != contract.id:
+                on[name] = f"{required_outside[port.type_id]} reads the same file in every run"
+        used = {e.from_port for e in graph.edges if e.from_node == node.id}
+        needed = [o for o in contract.produces if o.name in used] or [None]
+        records: list[InputRecord] = []
+        for output in needed:
+            records = _strongest(records, _optional_states(goal, contract, output, types, on,
+                                                           grains=grains))
+        found[node.id] = records
+    return found
 
 
 def _depths(graph: DraftGraph) -> dict[str, int]:
@@ -250,6 +311,7 @@ def ir_of(
     *,
     by: str = "",
     provenance: DraftProvenance | None = None,
+    goal: Goal | None = None,
 ) -> PipelineIR:
     """The drawing as an IR, with every choice recorded as somebody's.
 
@@ -274,7 +336,14 @@ def ir_of(
     """
     settled = provenance or DraftProvenance()
     contracts = _contracts(graph, layers)
+    # `goal`: the confirmed goal of a conversation's draft, when there is one. What it says
+    # differs between samples decides which settings are looked up per sample in the run
+    # (final review, Critical); the rest is derived from the drawing, as always.
+    stated = goal
     goal = goal_of(graph, layers)
+    if stated is not None and stated.constraints.varies:
+        goal = goal.model_copy(update={"constraints": goal.constraints.model_copy(
+            update={"varies": list(stated.constraints.varies)})})
     resolver = FlagOnlyResolver()
     # Built once and threaded, exactly as `resolve()` does it: a premise set is a function of
     # the goal and the derivations, so building it twice is two chances to build it differently.
@@ -304,6 +373,8 @@ def ir_of(
             axis_reason=entry.axis_reason,
         )
 
+    drawn_inputs = _drawn_inputs(graph, contracts, stated if stated is not None else goal,
+                                 layers.vocabulary.grains)
     nodes = []
     for node in graph.nodes:
         recorded = settled.node(node.id)
@@ -337,6 +408,7 @@ def ir_of(
                         axis_reason="whether this step exists at all",
                     ),
                 ),
+                inputs=drawn_inputs.get(node.id, []),
             )
         )
 
@@ -443,7 +515,7 @@ def ir_of(
             )
         )
 
-    return PipelineIR(
+    ir = PipelineIR(
         # **The wiring the drawing decided**, so materialisation does not have to re-derive it
         # and cannot derive it differently. Empty for a goal-driven build, which is one channel
         # per type and needs no map.
@@ -452,8 +524,8 @@ def ir_of(
                 name=c.name,
                 type_id=c.type_id,
                 ports=sorted(c.ports),
-                scope=_scope_choice(c, source, settled.channel(tuple(sorted(c.ports))))
-                if c.scope
+                grain=_grain_choice(c, source, settled.channel(tuple(sorted(c.ports))))
+                if c.grain
                 else None,
             )
             for c in channels_of(graph, layers)
@@ -464,3 +536,60 @@ def ir_of(
         profile=graph.profile,
         registry_layers=[p.name for p in layers.paths],
     )
+    _decided_in_the_run(ir, graph, contracts, layers, goal, premises, resolver)
+    return ir
+
+
+def _decided_in_the_run(ir: PipelineIR, graph: DraftGraph, contracts: dict, layers: Layers,
+                        goal: Goal, premises: dict, resolver) -> None:
+    """The settings of a drawn graph decided at run time (#217, #466), as `resolve` decides
+    them: a rule waiting on facts each of which the graph's own measuring step measures or the
+    samplesheet carries. The drawing holds the
+    steps; this records the lookup and the join. A setting a person answered stays theirs, and
+    a graph without the measuring step keeps the setting as it was resolved."""
+    answered = frozenset(f"{n.id}.{p.name}" for n in graph.nodes for p in n.params)
+    needs = at_run.needed(ir, layers.routing, layers.rules, premises, layers.measurements, goal,
+                          answered)
+    measuring = {}
+    for need in needs:
+        for fact in need.facts:
+            node = next((n for n in ir.nodes if f"measurement.{fact}" in
+                         {p.type_id for p in contracts[n.id].produces}), None)
+            if node is not None:
+                measuring[fact] = node
+
+    def met(need) -> bool:
+        """Every fact a step measures has that step in the drawing; a cell needs none."""
+        return all(f in measuring for f in need.facts
+                   if need.source(f) is not AtRunSource.CELL)
+
+    by_id = {n.id: n for n in ir.nodes}
+    for need in (n for n in needs if met(n)):
+        node, contract = by_id[need.node_id], contracts[need.node_id]
+        param = next(p for p in contract.params if p.name == need.param)
+        value, decision = _resolve_param(param, ParamContext(
+            node_id=node.id, roles=tuple(contract.roles), implementation=contract.id,
+            from_layer=_layer_of(layers.registry, contract.id), goal=goal, rules=layers.rules,
+            premises=premises, resolver=resolver, backed={},
+            measurements=layers.measurements, at_run={need.param: need}))
+        if value.at_run is not None:
+            # In place: the setting was resolved once already, without the lookup, and its
+            # question then recorded is no longer one (final review).
+            for binding in node.params:
+                if binding.name == need.param:
+                    binding.value = value
+            key = f"{node.id}.{need.param}"
+            ir.decisions = [d for d in ir.decisions if d.key != key]
+            if decision is not None:
+                ir.decisions.append(decision)
+    _name_the_measurers(ir, {fact: node.contract_id for fact, node in measuring.items()})
+    read = {f.measurement for node in ir.nodes for b in node.params
+            if b.value.at_run is not None for f in b.value.at_run.facts
+            if f.source is not AtRunSource.CELL}
+    facts = sorted(f for f in read if f in measuring)
+    ir.meta_at_run = [
+        MetaAtRun(measurement=fact, meta_key=fact,
+                  type_id=layers.measurements.get(fact).describes,
+                  measured_at=measuring[fact].id, measured_port=fact)
+        for fact in facts
+    ]

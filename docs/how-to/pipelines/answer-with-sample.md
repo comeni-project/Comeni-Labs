@@ -1,12 +1,31 @@
 # Answer a data question with a sample
 
-Open the waiting data question in the authoring conversation, then choose a sample file
-or an R1/R2 pair. Sample upload and model reading must be permitted by the installation
-protection level. Review the resulting facts and their sources before continuing.
+Open the waiting data question in the authoring conversation, then choose your samples' files:
+one file per sample, or both files of each paired sample, for as many samples as your study has.
+Sample upload and model reading must be permitted by the installation protection level. Review
+the resulting facts and their sources before continuing.
 
 When the builder asks something about your data you can't answer, such as how long the reads
-are, or whether you have a reference genome, you can answer with a file instead: one file, or a
-pair (R1 and R2).
+are, or whether you have a reference genome, you can answer with your files instead. Paired files
+are matched by name (`_R1` and `_R2`, or `_1` and `_2`); any other file is a sample of its own.
+
+## When your samples differ
+
+Each sample is measured on its own and kept with the conversation, under its name, with what
+was measured on it. *Current answers* lists every sample: filter by name, sort by a measurement,
+or group by one to see how they spread.
+
+- **Where every sample agrees**, the value is recorded, as for one sample.
+- **Where they differ**, the question says how: *Your uploads differ: 150 in 480 samples, 75 in
+  20.* It proposes an answer for you to confirm. Where the fact can differ per sample, the
+  proposal is *It differs between samples*, and each sample's value then comes from its row of
+  the run's samplesheet. Where it cannot yet, such as the read length that chooses the aligner,
+  the question is which value to build for, and the most common is proposed.
+- Sample names stay with the conversation and are deleted with it. They are never put in the
+  pipeline, sent to a model, or written to a log; the model sees only how the values spread.
+
+## What happens to each file
+
 
 - The browser sends only the first 4 MB of each file. The inspection service reads
   that bounded sample in memory; the rest of the file stays on your computer.

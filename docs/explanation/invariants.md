@@ -264,8 +264,8 @@ is the door with no undo.
 No input accepts a sample identifier, filename or
 path. `Goal` holds type IDs, states and declared measurements — a shape, not data. Profiling
 happens where the data is; the emitted pipeline references `params.input` as a placeholder
-the lab fills at run time, and `mendel profile` writes `value: null` because it has emitted
-a pipeline and not run one.
+the lab fills at run time, and a fact measured in the pipeline comes back from the run as that
+fact, never as the data it was measured on.
 Since measurements became declared data the model can no longer refuse an undeclared key, so
 the guard moved rather than weakened: `MeasurementRegistry.profile()` is the only validating
 constructor, `tests/guards/test_construction.py` enforces that nothing else builds a `DataProfile`,

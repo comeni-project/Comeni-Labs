@@ -71,7 +71,7 @@ class CompareIn(BaseModel):
 
 def _emits(contract_id: str) -> frozenset[str]:
     """The set of signatures a contract produces. Two steps fill one slot when these match."""
-    contract = registry.stack().registry.get(contract_id)
+    contract = registry.stack().routing.get(contract_id)
     return frozenset(signature(port.type_id, port.state) for port in contract.produces)
 
 

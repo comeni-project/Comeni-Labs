@@ -3,7 +3,7 @@ import { get } from "../../api/client";
 import type { components } from "../../api/schema";
 
 export const sourceWords: Record<string, string> = {
-  person_said: "you said", measured: "measured", model_read: "read by AI", open: "unknown",
+  person_said: "you said", measured: "measured", model_read: "read by AI", open: "unknown", varies: "differs between samples",
 };
 export function factWords(value: unknown): string {
   return value == null ? "unknown" : Array.isArray(value) ? value.map(factWords).join(", ") :
@@ -11,8 +11,8 @@ export function factWords(value: unknown): string {
 }
 
 /** Load history while expanded, keeping its current-answer labels in sync with corrections. */
-export function FactHistory({ sessionId, subject, revision }: {
-  sessionId: string; subject: string; revision: number;
+export function FactHistory({ sessionId, subject, label, revision }: {
+  sessionId: string; subject: string; label?: string; revision: number;
 }) {
   const [entries, setEntries] = useState<components["schemas"]["FactHistoryEntry"][] | null>(null);
   const [open, setOpen] = useState(false);
@@ -29,7 +29,7 @@ export function FactHistory({ sessionId, subject, revision }: {
     return () => { active = false; };
   }, [open, sessionId, subject, revision]);
   return <details className="mt-2 text-[11px]" onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary className="cursor-pointer text-ink-3">History of {subject}</summary>
+    <summary className="cursor-pointer text-ink-3">History of {label ?? subject}</summary>
     {error && <p role="alert">{error}</p>}
     {!entries && !error && <p>Loading history…</p>}
     <ol className="pl-4">
@@ -38,7 +38,6 @@ export function FactHistory({ sessionId, subject, revision }: {
           entry.selected ? entry.action === "retract" ? "returned to unknown" : "previous answer" : entry.legacy ? "legacy observation; activation unknown" : "unused observation"}
         {entry.selected && <> · {entry.actor_kind === "unknown" ? "chooser unknown" :
           `${entry.actor_kind}: ${entry.who ?? "unknown"}`}</>}
-        {entry.inherited && " · inherited"}
         <time className="block text-ink-3" dateTime={entry.at}>{entry.legacy && "Migrated at "}{new Date(entry.at).toLocaleString()}</time>
       </li>)}
     </ol>

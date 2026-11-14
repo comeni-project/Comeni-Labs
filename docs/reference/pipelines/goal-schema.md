@@ -6,7 +6,7 @@ its top half, `intent` and `facts`; building it writes the rest.
 
 ```yaml
 # examples/rnaseq.yml
-version: 8
+version: 9
 intent:
   want: [counts.matrix]
   constraints:
@@ -72,9 +72,13 @@ Model: `comeni_core.goal.asked.Constraints`
 | `params` | [param-override] | `[]` | a parameter you are fixing yourself |
 | `producers` | [producer-pin] | `[]` | a tool you chose for a step; left out of the file when empty |
 | `absent_roles` | [role-absence] | `[]` | a role you switched off; left out when empty |
+| `tables` | [type id] | `[]` | study inputs given as a table of several items, such as several databases: a step reading a sample and one of them runs on every pair; only an input the goal has, one item for the study (`MD0347`); left out when empty |
+| `whole` | [contract id] | `[]` | tools a person keeps whole: a step that could run on parts of each sample is not split. Left out when empty |
 | `exclusions` | [producer-exclusion] | `[]` | a tool you excluded at a site; left out when empty |
 | `sources` | [source-pin] | `[]` | the tool you chose to feed a step's input; left out when empty |
 | `inputs` | [input-choice] | `[]` | an optional input you switched `off`, `optional` (each run may leave it empty) or `required`, as `{contract, port, state}`; left out when empty |
+| `varies` | [measurement id] | `[]` | facts you said differ between samples: each becomes a samplesheet column, and a fact here cannot also be stated in `measurements` (`MD0332`); left out when empty |
+| `units` | [type id] | `[]` | inputs whose rows may repeat a sample, such as a sample sequenced over several lanes: the samplesheet takes a `unit` column and each sample's rows are merged by a step filling the `merging` role before anything reads them; only an input the goal has, one item per sample (`MD0340`), with a merger in the registry (`MD0341`); left out when empty |
 
 `required_states` is what turns *get me a count matrix* into *get me a gene-level count matrix*.
 Without it, any producer of the type matches.

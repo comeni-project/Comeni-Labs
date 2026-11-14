@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     """Where fetched releases live (`MENDEL_REGISTRIES_ROOT`), one read-only folder each. Unset,
     the app runs `registry_root` as it always has: tests, the CLI, and an installation with no
     release yet. **Read the registry through `active_registry()`**, never `registry_root`."""
+    own_layer: Path | None = None
+    """This installation's own registry layer (`MENDEL_OWN_LAYER`), stacked above the release:
+    where an approved learned rule is written (#462). Unset, `<workspace_root>/layer`. Stacked
+    only once its `registry.yml` exists, so an installation that has learned nothing reads the
+    release alone."""
     draft_root: Path = Path("./build/drafts")
     """Where `keep` writes a draft's `pipeline.yml`.
 
@@ -137,6 +142,20 @@ def active_registry() -> Path:
     if not current.is_file():
         return settings.registry_root
     return Path(settings.registries_root) / current.read_text().strip() / "layer"
+
+
+def own_layer() -> Path:
+    """Where this installation's own layer is, whether or not it exists yet."""
+    return settings.own_layer if settings.own_layer is not None else (
+        settings.workspace_root / "layer")
+
+
+def registry_roots() -> list[Path]:
+    """The layer stack the installation builds with: the release, then its own layer when it
+    has one. **Every reader that builds or digests reads this**; the forge, which publishes to
+    the shared registry, reads `active_registry()` alone."""
+    own = own_layer()
+    return [active_registry(), *([own] if (own / "registry.yml").is_file() else [])]
 
 
 def model_access(agent: str | None = None, purpose: str | None = None) -> "ModelAccess | None":

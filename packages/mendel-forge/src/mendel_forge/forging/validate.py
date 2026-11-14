@@ -6,6 +6,10 @@ assembled adaptation; ports must exist in the module's `main.nf`; a setting must
 somewhere. Anything else is a coded problem, and the reply is never a proposal.
 """
 
+import ast
+import keyword
+import re
+import sys
 from dataclasses import dataclass, field
 
 from comeni_core.declared.contract import InputPort, NfInput, OutputPort
@@ -13,11 +17,12 @@ from comeni_core.declared.families import family_of
 from comeni_core.declared.signature import join, split
 from comeni_core.declared.tooltest import TestDraft
 from mendel_compiler.modulespec import ModuleSpec
+from mendel_compiler.registry_lint import piece_problems
 from mendel_resolver.layers import Layers
 from pydantic import JsonValue
 
 from mendel_forge.forging.model import Adaptation, Piece, Status
-from mendel_forge.forging.values import Answer
+from mendel_forge.forging.values import Answer, MeasurerDraft
 from mendel_forge.model import Problem
 
 
@@ -32,6 +37,8 @@ class Known:
     states: dict[str, frozenset[str]] = field(default_factory=dict)
     pending: frozenset[str] = frozenset()
     """Ids from assembled adaptations, usable here and tagged as pending."""
+    measurers: frozenset[str] = frozenset()
+    """The registry's measurer ids: a re-forge does not draft one again (#487)."""
 
 
 def known(stack: Layers, pending: frozenset[str] = frozenset(),
@@ -45,6 +52,7 @@ def known(stack: Layers, pending: frozenset[str] = frozenset(),
         pending=pending,
         families=frozenset(stack.families.families),
         pending_families=pending_families,
+        measurers=frozenset(stack.inspection.measurers),
     )
 
 
@@ -191,7 +199,7 @@ def check_items(
             problems.append(Problem(code="MF0509", says=f"setting {name!r} is passed nowhere: "
                                     "give its ext key, or wire it as an input"))
     return [*problems, *_signature_problems(items, seen, introduced_types),
-            *_test_problems(items, seen)]
+            *_test_problems(items, seen), *_measurer_problems(items, seen)]
 
 
 def _names(items: dict[str, JsonValue], prefix: str) -> set[str]:
@@ -203,6 +211,16 @@ def _required(items: dict[str, JsonValue]) -> set[str]:
     return {key.rsplit(":", 1)[1] for key, value in items.items()
             if key.startswith("contract:input:")
             and not (isinstance(value, dict) and value.get("required") is False)}
+
+
+def _accepted(items: dict[str, JsonValue]) -> dict[str, set[str]]:
+    """Each input's types: its `type_id`, or the types its `accepts` lists (#464)."""
+    found: dict[str, set[str]] = {}
+    for key, value in items.items():
+        if key.startswith("contract:input:") and isinstance(value, dict):
+            types = {a.get("type_id") for a in value.get("accepts") or [] if isinstance(a, dict)}
+            found[key.rsplit(":", 1)[1]] = types or {value.get("type_id")}
+    return found
 
 
 def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
@@ -220,6 +238,12 @@ def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
         given = {port for port, paths in test.inputs.items() if paths}
         for port in sorted(_required(items) - given - fed):
             problems.append(f"{key}: nothing feeds input {port!r}")
+        accepted = _accepted(items)
+        for port, type_id in sorted(test.types.items()):
+            if port not in takes:
+                problems.append(f"{key}: types names {port!r}, not an input of this contract")
+            elif type_id not in accepted.get(port, set()):
+                problems.append(f"{key}: input {port!r} does not accept {type_id!r}")
         for name in sorted(set(test.params) - settings):
             problems.append(f"{key}: setting {name!r} is not one this contract declares")
         for step in test.setup:
@@ -231,6 +255,83 @@ def _test_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
         for port in sorted(makes - expected - set(test.unchecked)):
             problems.append(f"{key}: output {port!r} is neither expected nor given a reason")
     return [Problem(code="MF0507", says=says) for says in problems]
+
+
+def _unproven_says(key: str, output: str) -> str:
+    return f"{key}: no test expects output {output!r}, so the parser cannot be proven"
+
+
+def unproven(items: dict[str, JsonValue]) -> list[Problem]:
+    """Measurers whose output no test expects: asked again at assembly, since removing a test is
+    a decision nothing validates (#487 review I1)."""
+    expected = {e.port for key in items if key.startswith("tests:test:")
+                for e in TestDraft.model_validate(items[key]).expect}
+    return [Problem(code="MF0507", says=_unproven_says(key, value["output"]))
+            for key, value in sorted(items.items())
+            if key.startswith("measurers:measurer:") and isinstance(value, dict)
+            and value.get("output") not in expected]
+
+
+def _measurer_problems(items: dict[str, JsonValue], seen: Known) -> list[Problem]:
+    """A drafted measurer must measure something known, read an output of this contract that a
+    test expects (or nothing proves it), and keep the pieces' rules (MD0027, #487)."""
+    measurements = (seen.measurements | seen.pending
+                    | _names(items, "vocabulary:measurement:")
+                    | _names(items, "measurers:measurement:"))
+    makes = _names(items, "contract:output:")
+    expected = {e.port for key in items if key.startswith("tests:test:")
+                for e in TestDraft.model_validate(items[key]).expect}
+    problems: list[str] = []
+    for key in sorted(k for k in items if k.startswith("measurers:measurement:")):
+        value = items[key] if isinstance(items[key], dict) else {}
+        if value.get("id") != key.removeprefix("measurers:measurement:"):
+            problems.append(f"{key}: measurement ID must match its item key")
+        twin = f"vocabulary:measurement:{key.removeprefix('measurers:measurement:')}"
+        if twin in items:
+            problems.append(f"{key}: also drafted as {twin}; keep one")
+    first: dict[str, str] = {}
+    for key in sorted(k for k in items if k.startswith("measurers:measurer:")):
+        name = key.removeprefix("measurers:measurer:")
+        measures = items[key].get("measures") if isinstance(items[key], dict) else None
+        if measures in first:
+            problems.append(f"{key}: {first[measures]} also measures {measures!r}; a run keeps "
+                            "one fact per measurement, so keep one measurer")
+        elif measures:
+            first[measures] = name
+        if not name.isidentifier():
+            problems.append(f"{key}: {name!r} is not a Python name; its parser is imported by "
+                            "it, so use letters, digits and '_'")
+        elif keyword.iskeyword(name) or name in sys.stdlib_module_names:
+            problems.append(f"{key}: {name!r} is a Python keyword or module name; its parser is "
+                            "imported by it, so name it after what it measures")
+        if name in seen.measurers:
+            problems.append(f"{key}: the registry already has measurer {name!r}; re-forging a "
+                            "measurer is not supported, so leave it out")
+        draft = MeasurerDraft.model_validate(items[key])
+        if draft.measures not in measurements:
+            problems.append(f"{key}: measures {draft.measures!r}, which is not a measurement in "
+                            "the registry or drafted here")
+        if draft.output not in makes:
+            problems.append(f"{key}: reads output {draft.output!r}, which this contract does not "
+                            "produce")
+        elif draft.output not in expected:
+            problems.append(_unproven_says(key, draft.output))
+        reached = piece_problems(draft.code)
+        if reached:
+            problems.append(f"{key}: MD0027 its code reaches past what a piece may import or "
+                            f"call: {', '.join(reached)}")
+        elif not _defines_parse(draft.code):
+            problems.append(f"{key}: its code defines no parse(stream, decided)")
+        if not re.search(r"^def test_", draft.tests, re.M):
+            problems.append(f"{key}: its tests define no test_ function")
+    return [Problem(code="MF0507", says=says) for says in problems]
+
+
+def _defines_parse(code: str) -> bool:
+    """A module-level `def parse(stream, decided)`, annotated or not."""
+    return any(isinstance(node, ast.FunctionDef) and node.name == "parse"
+               and [a.arg for a in node.args.args] == ["stream", "decided"]
+               for node in ast.parse(code).body)
 
 
 def _nf_inputs(items: dict[str, JsonValue]) -> list[NfInput]:

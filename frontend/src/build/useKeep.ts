@@ -1,9 +1,5 @@
-/** Keeping a pipeline: the moment a draft stops being one.
- *
- * **This was built server-side in 3E and never wired to the browser.** `POST /pipeline/drafts`,
- * `PUT .../{id}` and `POST .../{id}/keep` have all existed and had no caller — `useGraph`'s 5s
- * idle save takes a `save` callback that nothing passed, so it has never fired in production
- * either. A gate needs an artifact on disk, which is what forced the discovery.
+/** Keeping a pipeline: the moment a draft stops being one. `POST /pipeline/drafts`,
+ * `PUT .../{id}` and `POST .../{id}/keep`; a gate needs the kept artifact on disk.
  *
  * **Keep is explicit, and Gate does not do it for you.** A gate certifies what is on disk; if
  * pressing *Gate* silently kept first, it would also silently take on `keep`'s refusal of an
@@ -25,13 +21,11 @@ export function useKeep(
   owned: { draftId: string } | null = null,
 ) {
   const [draftId, setDraftId] = useState<string | null>(owned?.draftId ?? null);
-  /** The graph as it was when it was last kept, serialised. **Not a boolean**: `useGraph`'s
-   *  `dirty` clears on a successful autosave, and a saved draft is still not a kept one. */
+  /** The graph as it was when it was last kept, serialised. **Not a boolean**: an autosave
+   *  clears "unsaved", and a saved draft is still not a kept one. */
   const [keptGraph, setKeptGraph] = useState<string | null>(null);
-  /** **When** it was kept, for the rail's `kept <time>`. The rail's own tests pass a phrase
-   *  ("3 minutes ago"), so this field has always been a time — `Builder` handed it the literal
-   *  string "kept" instead, and the rail rendered `kept kept`. A wall clock rather than a
-   *  relative phrase, because a relative one goes stale in place with nothing to re-render it. */
+  /** **When** it was kept, for `kept <time>`: a wall clock rather than a relative phrase,
+   *  because a relative one goes stale in place with nothing to re-render it. */
   const [keptAt, setKeptAt] = useState<string | null>(null);
 
   const keep = useMutation({

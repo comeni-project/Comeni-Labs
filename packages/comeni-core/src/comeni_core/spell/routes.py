@@ -72,3 +72,9 @@ class Join(StrEnum):
     """`.combine()` — the later ports are one thing every sample is paired against."""
     BY_SAMPLE = "by_sample"
     """`.join()` — the later ports are per-sample and match on the meta map."""
+    BY_KEY = "by_key"
+    """`.join()` on a key each sample's row carries (`NfInput.key`, #466): a patient's tumour and
+    normal. Exactly one member per port and key, or the run stops naming the key."""
+    BY_REF = "by_ref"
+    """The later port takes the item of the sample the first one's `sample_ref` names
+    (`NfInput.key`, #466): a ChIP sample and its control, read once for every sample naming it."""

@@ -30,7 +30,7 @@
   ]
  },
  "pipeline": {
-  "version": 8,
+  "version": 9,
   "intent": {
    "want": [
     "counts.matrix"
@@ -653,7 +653,7 @@
     "name": "gtf",
     "param": "gtf",
     "why": null,
-    "scope": "run",
+    "grain": "study",
     "columns": [
      "gtf"
     ],
@@ -671,7 +671,7 @@
     "name": "reads",
     "param": "input",
     "why": null,
-    "scope": "sample",
+    "grain": "sample",
     "columns": [
      "reads_1",
      "reads_2"
@@ -722,7 +722,7 @@
     "name": "fasta",
     "param": "fasta",
     "why": null,
-    "scope": "run",
+    "grain": "study",
     "columns": [
      "fasta"
     ],

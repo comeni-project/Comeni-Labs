@@ -80,6 +80,9 @@ def test_the_registry_is_not_in_the_database():
         # A person's choice for a tool's optional input (#460), a family like source.
         "pipeline_optional_input",
         "pipeline_optional_input_revision",
+        # A tool a person keeps whole rather than on parts (#466), a family like role.
+        "pipeline_whole",
+        "pipeline_whole_revision",
         "pipeline_parameter",
         "pipeline_parameter_revision",
         "pipeline_review",
@@ -106,6 +109,9 @@ def test_the_registry_is_not_in_the_database():
         "forge_test_run",
         "forge_pull_request",
         "forge_release",
+        # Rules a model proposed from people's answers (#462). No build reads them: an approved
+        # one is written as a file in the installation's own layer, and builds read the file.
+        "rule_proposal",
     }, (
         f"the tables moved: {sorted(tables)}. Each argued for itself in its own class "
         "docstring, and a new one needs the same argument written down. Two rejections in "
@@ -266,6 +272,12 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
             "retirement_reason",
             "pacing",
             "show_gaps",
+            # #466: every uploaded sample, with its name and its files' names, and what was
+            # measured on it. **The one exception to invariant 15 here, by the operator's
+            # decision (11-12):** a study of hundreds of samples is sorted, filtered and split
+            # by sample, so the names are kept with the session, deleted with it, and never
+            # copied into a goal, a pipeline, a model's payload or a log.
+            "samples",
         },
         "pipeline_authoring_turn": {
             "id",

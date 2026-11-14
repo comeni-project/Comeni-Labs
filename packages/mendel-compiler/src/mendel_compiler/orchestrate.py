@@ -90,9 +90,12 @@ def build(
             f"{len(blocking)} contract(s) disagree with their modules. Nothing was emitted.",
         )
 
+    # The registry this build routes with: the layers' contracts and the generated measuring
+    # steps (#465). Conformance above checks only what a layer declares.
+    routing = loaded.routing
     ir = resolve(
         goal,
-        loaded.registry,
+        routing,
         loaded.rules,
         loaded.measurements,
         vocabulary=loaded.vocabulary,
@@ -100,11 +103,12 @@ def build(
         layer_names=[layer_name(p) for p in loaded.paths],
         prior=prior or [],
         facts_read=conformance.facts_read(loaded.registry, loaded.modules, loaded.measurements),
+        inspection=loaded.inspection,
     )
     ir.unverified = [d.where for d in diagnostics if d.code == "MD0100"]
 
     pipeline = Pipeline.of(
-        ir, loaded.registry, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal,
+        ir, routing, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal,
         locators=locate.locators(loaded.paths),
     )
     return Built(pipeline=pipeline, ir=ir, layers=loaded, unverified=ir.unverified)

@@ -19,7 +19,6 @@ since 14.7.8.2 and are re-exported here. The building stage
 (`stages/building.py`) is what reads and writes them inside one transaction.
 """
 
-import hashlib
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -34,7 +33,8 @@ from mendel_compiler import layout, orchestrate
 from mendel_resolver.goal import Goal
 from mendel_resolver.ports import FlagOnlyResolver
 
-from mendel_api.settings import active_registry
+from mendel_api.services import registry
+from mendel_api.settings import registry_roots
 
 __all__ = [
     "KEEP",
@@ -62,10 +62,37 @@ def registry_digest(roots: Sequence[Path]) -> str:
     the system already prints. A stack is a digest of its layers' digests in order — order
     matters, because the same two layers stacked the other way round are a different registry.
     """
-    digests = [str(digest_of_directory(root)) for root in roots]
-    if len(digests) == 1:
-        return digests[0]
-    return "sha256:" + hashlib.sha256("\n".join(digests).encode()).hexdigest()
+    return registry.combine([str(digest_of_directory(root)) for root in roots])
+
+
+def _after_measurers(order: list[str], pipeline) -> list[str]:
+    """The layout's order, with each step's measurers brought forward to just before it (issue
+    496).
+
+    The layout ranks by edges, and a measured fact reaches a step through its input's meta, so
+    STAR's index was offered before the genome-length measurement its `sa_index_nbases` reads.
+    A measurer moves up, with the steps it is wired from; nothing else moves."""
+    measured_at = {m.measurement: m.measured_at
+                   for channel in pipeline.channels for m in channel.meta_at_run}
+    position = {node: n for n, node in enumerate(order)}
+    after: dict[str, set[str]] = {}
+    for step in pipeline.steps:
+        wired = {i.source.split(".", 1)[0] for i in step.inputs if i.source}
+        measurers = {measured_at[f.measurement] for setting in step.settings if setting.at_run
+                     for f in setting.at_run.facts if f.measurement in measured_at}
+        after[step.id] = {n for n in wired | measurers if n in position and n != step.id}
+    placed: list[str] = []
+
+    def place(node: str, visiting: frozenset[str]) -> None:
+        if node in placed or node in visiting:
+            return
+        for first in sorted(after.get(node, ()), key=position.__getitem__):
+            place(first, visiting | {node})
+        placed.append(node)
+
+    for node in order:
+        place(node, frozenset())
+    return placed
 
 
 def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Blueprint, list]:
@@ -73,10 +100,12 @@ def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Bluepri
     questions stay open, visibly, for a person in the walk; nothing is guessed. The second value
     is the model calls made, always none now, kept so a later Tier-4 answers fork can return
     them for `ai_invocation`."""
-    stack = list(roots or [active_registry()])
+    stack = list(roots or registry_roots())
     built = orchestrate.build(goal, registry_roots=stack, resolver=FlagOnlyResolver())
     placed = layout.of(built.ir)
-    order = [node.id for node in sorted(placed.nodes, key=lambda n: (n.rank, n.order, n.id))]
+    order = _after_measurers(
+        [node.id for node in sorted(placed.nodes, key=lambda n: (n.rank, n.order, n.id))],
+        built.pipeline)
     blueprint = Blueprint(
         registry=registry_digest(stack),
         order=order,
@@ -91,7 +120,6 @@ def candidates(blueprint: Blueprint, node_id: str) -> list[str]:
     """The router's own candidates at the site `node_id`'s tool was chosen at (§14.3 of the
     consultant build), in the registry's order. One that would cycle or fill an absent role
     shows up in `alternatives_of` as a refusal or as no change, never as a silent option."""
-    from mendel_api.services import registry
 
     site = blueprint.sites.get(node_id)
     if site is None:

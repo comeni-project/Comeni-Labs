@@ -485,16 +485,16 @@ it concerns. The pipeline then checks it itself, so it holds however the run is 
 - **Emission:** after the entry channels, one guard per rule, deduplicated and sorted:
   `if (params.a && !params.b) { error "<says>" }` (and `&& params.c` for each `forbids`).
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
   - `test_a_rule_only_a_run_can_settle_is_on_the_step` now asserts `RunRule(given=[gff
     param], requires=[fasta param], says=…)`;
   - `test_the_pipeline_refuses_a_gff_without_a_reference_at_its_start` asserts the emitted
     guard line.
-- [ ] **Step 2:** Run them. Expected: FAIL.
-- [ ] **Step 3:** Implement, with `RunRule` in the egress allowlist (`says`) and
+- [x] **Step 2:** Run them. Expected: FAIL.
+- [x] **Step 3:** Implement, with `RunRule` in the egress allowlist (`says`) and
   SERIALISED_SHAPE.
-- [ ] **Step 4:** Run the compiler, artifact and emit tests, then `make static`. Expected: PASS.
-- [ ] **Step 5:** `check.sh`, then commit.
+- [x] **Step 4:** Run the compiler, artifact and emit tests, then `make static`. Expected: PASS.
+- [x] **Step 5:** `check.sh`, then commit.
 
 ### Task 12: Wiener knows its optional inputs; the run sheet offers them
 
@@ -519,14 +519,15 @@ it concerns. The pipeline then checks it itself, so it holds however the run is 
   - a rule broken by the values entered is shown under the fields, with its `says`, and blocks
     *Start run*.
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
   - Wiener: optional holes from a built quast artifact; a submit with `fasta: ""` is accepted;
   - frontend: the optional label; an empty optional input sent as `""`; a GFF without a
     reference blocks Start with the sentence.
-- [ ] **Step 2:** Run them. Expected: FAIL.
-- [ ] **Step 3:** Implement. Then inspect in a browser at 1440 and 390, light and dark.
-- [ ] **Step 4:** Run `t.sh packages/wiener-api/tests` and `npx vitest run`. Expected: PASS.
-- [ ] **Step 5:** `check.sh`, then commit.
+- [x] **Step 2:** Run them. Expected: FAIL.
+- [x] **Step 3:** Implement.
+- [ ] **Step 3b:** Inspect the run sheet in a browser at 1440 and 390, light and dark. *Not recorded (2026-11-10 reconciliation).*
+- [x] **Step 4:** Run `t.sh packages/wiener-api/tests` and `npx vitest run`. Expected: PASS.
+- [x] **Step 5:** `check.sh`, then commit.
 
 ## Stage 6 — the builder
 
@@ -549,16 +550,16 @@ required input nothing feeds" (`Port.tsx`), so an optional input is drawn dashed
 - Test: `packages/mendel-authoring/tests/test_decisions_intents.py`,
   `packages/mendel-api/tests/authoring/decisions/test_intent_families.py`
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
   - a change of kind `optional_input` (`subject=source_subject(contract, port)`,
     `value="optional"`) puts an `InputChoice` in the goal;
   - `retract` withdraws it;
   - history says who and when.
-- [ ] **Step 2:** Run them. Expected: FAIL.
-- [ ] **Step 3:** Implement, mirroring `source` throughout.
-- [ ] **Step 4:** Run the authoring and API decision tests, `make test-db`, and the
+- [x] **Step 2:** Run them. Expected: FAIL.
+- [x] **Step 3:** Implement, mirroring `source` throughout.
+- [x] **Step 4:** Run the authoring and API decision tests, `make test-db`, and the
   infrastructure tests. Expected: PASS.
-- [ ] **Step 5:** `check.sh`, then commit.
+- [x] **Step 5:** `check.sh`, then commit.
 
 ### Task 14: Step cards show optional inputs; a person switches one on
 
@@ -570,16 +571,18 @@ required input nothing feeds" (`Port.tsx`), so an optional input is drawn dashed
   and the manual canvas node
 - Test: `frontend/src/build/Port.test.tsx` and the living node tests
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
   - an optional port renders dashed with "optional" and what it adds;
   - "+N optional inputs" folds them;
   - switching one on sends `optional_input` with `value: "optional"`;
   - a refused connection shows the verdict's sentence.
-- [ ] **Step 2:** Run them. Expected: FAIL.
-- [ ] **Step 3:** Implement. A Claude Design canvas first if the node layout is not obvious from
-  the existing artboard. Then compare in a browser at 1440 and 390, light and dark.
-- [ ] **Step 4:** Run `npx vitest run` and `npx tsc -b`. Expected: PASS.
-- [ ] **Step 5:** `check.sh`, then commit.
+- [x] **Step 2:** Run them. Expected: FAIL.
+- [x] **Step 3:** Implement. A Claude Design canvas first if the node layout is not obvious from
+  the existing artboard.
+- [ ] **Step 3b:** Compare the step cards in a browser at 1440 and 390, light and dark. *Not recorded
+  (2026-11-10 reconciliation).*
+- [x] **Step 4:** Run `npx vitest run` and `npx tsc -b`. Expected: PASS.
+- [x] **Step 5:** `check.sh`, then commit.
 
 ### Task 15: Mendel's AI proposes input states, flagged and confirmed
 
@@ -589,25 +592,25 @@ required input nothing feeds" (`Port.tsx`), so an optional input is drawn dashed
 - Modify: the receiving check, which refuses a port that is not optional on that contract
 - Test: authoring chat tests with a recorded reply
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
   - a recorded model reply switching quast's `fasta` on becomes a proposal flagged as the
     model's, applied only when the person confirms it;
   - a reply naming a required port is refused at the boundary.
-- [ ] **Step 2:** Run them. Expected: FAIL.
-- [ ] **Step 3:** Implement.
-- [ ] **Step 4:** Run the scoped suites. Expected: PASS.
-- [ ] **Step 5:** `check.sh`, then commit.
+- [x] **Step 2:** Run them. Expected: FAIL.
+- [x] **Step 3:** Implement.
+- [x] **Step 4:** Run the scoped suites. Expected: PASS.
+- [x] **Step 5:** `check.sh`, then commit.
 
 ## Stage 7 — docs and the test run
 
 ### Task 16: Documentation
 
-- [ ] The pipeline schema reference documents `Channel.optional`, `absent_width`,
+- [x] The pipeline schema reference documents `Channel.optional`, `absent_width`,
   `Step.input_states` and `run_rules`.
-- [ ] A user how-to covers optional inputs in the builder and the run sheet.
-- [ ] An explanation section covers constraints versus decisions, linking #463.
-- [ ] `CHANGELOG.md`, under each package.
-- [ ] `make docs`, `make links`, then commit.
+- [x] A user how-to covers optional inputs in the builder and the run sheet.
+- [x] An explanation section covers constraints versus decisions, linking #463.
+- [x] `CHANGELOG.md`, under each package.
+- [x] `make docs`, `make links`, then commit.
 
 ### Task 17: The quast walk to a real run
 
@@ -647,3 +650,13 @@ Stages 1–4 are done (2026-11-06). Rulings made while executing, from the ledge
 - Task 9: Ruling: MD0603–MD0606 on current items attach to contract:process (check_constraints reports per contract, not per item) — cost if wrong: a finding shown on the process row rather than the item it concerns.
 - Task 10: Ruling: constraint/group keys are contract:constraint:row<n> and contract:group:group<n> — the item KEY pattern requires a name to start with a letter; loosening it weakens every key — cost if wrong: a rename.
 - Task 10: BLOCKED step 5: browser inspection at 1440/390 light/dark — the Chrome extension disconnected this session; must be done before merge.
+
+- **Reconciliation, 2026-11-10:** Tasks 11–16 were implemented on the branch and merged in PR #476,
+  but not ticked here: Task 11 `e5895b92`, Task 12 `eb64360c`, Task 13 `3ccc5e8e`, Task 14 `085681b5`,
+  Task 15 `c67ee08c`, Task 16 `f7b11e91`, review fixes `31ad7205` and `743a378c`. Ticked from those
+  commits. No commit records the browser checks for Tasks 10, 12 or 14, so those steps stay open
+  and must be done before the Task 17 walk. #481 (PR #482) also made the builder's gap question
+  "I don't have one" leave an optional input out instead of stopping.
+- **Ruling (operator), 2026-11-10:** the Task 17 walk runs before the browser checks of Tasks 10,
+  12 and 14, which move to the end: the deadline has passed and the checks are slow. Cost if
+  wrong: a layout defect found after the walk instead of before it.

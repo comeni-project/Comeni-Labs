@@ -7,13 +7,14 @@ from typing import Literal, overload
 
 from pydantic import BaseModel
 
-from comeni_core.plan.tiers import ValueSource
+from comeni_core.plan.tiers import Coverage, ValueSource
 from comeni_core.spell.marks import ContractId, MeasurementId, ParamValue, PieceRef
 
 class Evidence(BaseModel):
     records: int | None
     rows: int | None
     share: float | None
+    coverage: Coverage | None
 
 class Measured(BaseModel):
     measurement: MeasurementId
@@ -22,13 +23,15 @@ class Measured(BaseModel):
     by: ContractId | None
     pieces: list[PieceRef]
     evidence: Evidence | None
+    @property
+    def coverage(self) -> Coverage | None: ...
 
 class DataProfile(BaseModel):
     measurements: list[Measured]
     @overload
-    def get(self, measurement_id: Literal["adapter_content"]) -> float | None: ...
+    def get(self, measurement_id: Literal["adapter_content"]) -> float | list[float] | None: ...
     @overload
-    def get(self, measurement_id: Literal["duplicate_rate"]) -> float | None: ...
+    def get(self, measurement_id: Literal["duplicate_rate"]) -> float | list[float] | None: ...
     @overload
     def get(self, measurement_id: Literal["genome_length"]) -> int | None: ...
     @overload
@@ -44,7 +47,7 @@ class DataProfile(BaseModel):
         self, measurement_id: Literal["organism"]
     ) -> Literal["homo_sapiens", "mus_musculus", "danio_rerio"] | None: ...
     @overload
-    def get(self, measurement_id: Literal["paired"]) -> bool | None: ...
+    def get(self, measurement_id: Literal["paired"]) -> bool | list[bool] | None: ...
     @overload
     def get(
         self, measurement_id: Literal["purpose"]
@@ -56,14 +59,18 @@ class DataProfile(BaseModel):
     @overload
     def get(
         self, measurement_id: Literal["quality_encoding"]
-    ) -> Literal["phred33", "phred64"] | None: ...
+    ) -> Literal["phred33", "phred64"] | list[Literal["phred33", "phred64"]] | None: ...
     @overload
     def get(self, measurement_id: Literal["read_length"]) -> int | list[int] | None: ...
     @overload
-    def get(self, measurement_id: Literal["rrna_fraction"]) -> float | None: ...
+    def get(self, measurement_id: Literal["rrna_fraction"]) -> float | list[float] | None: ...
     @overload
     def get(
         self, measurement_id: Literal["strandedness"]
-    ) -> Literal["forward", "reverse", "unstranded"] | None: ...
+    ) -> (
+        Literal[
+            "forward", "reverse", "unstranded"] | list[Literal["forward", "reverse", "unstranded"]
+        ] | None
+    ): ...
     @overload
     def get(self, measurement_id: str) -> ParamValue | list[ParamValue]: ...

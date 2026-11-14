@@ -43,7 +43,7 @@ from mendel_api.models import (
 from mendel_api.services import authoring_ai, authoring_decisions, decisions, session
 from mendel_api.services import blueprint as bp
 from mendel_api.services.session import Ctx, handles, records
-from mendel_api.settings import active_registry
+from mendel_api.settings import registry_roots
 from mendel_api.stages import _rows
 from mendel_api.stages.building import cards
 from mendel_api.stages.building.amending import project
@@ -177,7 +177,7 @@ def _placement(row: PipelineAuthoringSession, draft: PipelineDraft | None, pendi
 
 
 def registry_moved(row: PipelineAuthoringSession) -> bool:
-    return bp.registry_digest([active_registry()]) != row.registry_digest
+    return bp.registry_digest(registry_roots()) != row.registry_digest
 
 
 def re_offer(ctx: Ctx, proposal, row, db) -> StepOutcome:
@@ -520,6 +520,21 @@ def step(ctx: Ctx) -> str:
         return "stops"
 
 
+_DECIDED_BY = {"human": "by you", "said": "by you", "measured": "from your data",
+               "model": "by the AI, for you to review"}
+
+
+def _decided(counts) -> str:
+    """Who decided, in words (issue 496): tiers and the resolver are the pipeline file's
+    vocabulary; the person needs how much was theirs and how much the AI's."""
+    by: dict[str, int] = {}
+    for count in counts:
+        said = _DECIDED_BY.get(count.source, "by the registry")
+        by[said] = by.get(said, 0) + count.count
+    order = ["by the registry", "from your data", "by you", "by the AI, for you to review"]
+    return "Decided: " + ", ".join(f"{by[w]} {w}" for w in order if w in by) + "."
+
+
 @handles("wrap")
 def wrap(ctx: Ctx) -> str | None:
     """The wrap-up (spec §4.4), as a `Receipt`: what you'll get, what you need, who decided —
@@ -544,16 +559,14 @@ def wrap(ctx: Ctx) -> str | None:
     lines = [
         "You'll get: " + (", ".join(g.id for g in w.gets) or "nothing named") + ".",
         "To run, provide: " + (", ".join(needed) or "nothing more") + ".",
-        "Decided: "
-        + ", ".join(f"{d.count} at tier {d.tier} by {d.source}" for d in w.decided)
-        + ".",
+        _decided(w.decided),
     ]
-    # Spec §8 of Part G: what the registry lacks is never something to provide. Dev mode adds the
-    # kind and the file to fix; without it, only what is missing is named.
-    if w.gaps:
+    # Spec §8 of Part G: what the registry lacks is never something to provide. It is the
+    # registry maintainer's to fix, so only Dev mode names it, with the kind and the file
+    # (issue 496: to a person it was noise they could not act on).
+    if w.gaps and details:
         lines.append("Registry information is incomplete: " + ", ".join(
-            f"{g.subject} ({g.kind.value}, fix in {g.fix})" if details else g.subject
-            for g in w.gaps) + ".")
+            f"{g.subject} ({g.kind.value}, fix in {g.fix})" for g in w.gaps) + ".")
     if inert:
         lines.append(
             "Tools you chose that no longer apply: "

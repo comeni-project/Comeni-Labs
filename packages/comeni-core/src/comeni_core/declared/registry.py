@@ -25,6 +25,10 @@ def module_key(contract_id: str) -> str:
     return contract_id.rsplit("@", 1)[0]
 
 
+STRUCTURAL_ROLES = frozenset({"splitting", "merging"})
+"""Roles placed by the build around another step rather than routed (#466)."""
+
+
 class Registry(BaseModel):
     contracts: dict[str, ModuleContract]
 
@@ -68,6 +72,15 @@ class Registry(BaseModel):
             layer_order=[layer.name for layer in layers],
         )
 
+    def with_contracts(self, extra: Sequence[ModuleContract]) -> "Registry":
+        """This registry plus contracts nothing declared: the generated measuring steps a build
+        routes with (#465). They displace nothing, and an id already here is a defect."""
+        clash = sorted({c.id for c in extra} & set(self.contracts))
+        if clash:
+            raise ValueError(f"generated contracts clash with declared ones: {', '.join(clash)}")
+        return self.model_copy(update={"contracts": {**self.contracts,
+                                                     **{c.id: c for c in extra}}})
+
     @classmethod
     def load(cls, layers: Path | Sequence[Path], vocab: Vocabulary) -> "Registry":
         """Load and stack contracts from one or more layer roots."""
@@ -87,10 +100,14 @@ class Registry(BaseModel):
         # real `star/align` has three BAM outputs — otherwise appeared once per port, tied
         # with itself, and raised a tier-4 ambiguity a human had to clear between a thing
         # and itself.
+        # A splitter or a merger makes its type from the same type, and is placed around the step
+        # that needs it, never routed as a producer (#466): routed, a merger would gather the
+        # whole study's items into one.
         matches = {
             contract.id: contract
             for contract in self.contracts.values()
             for port in contract.produces
             if port.type_id == type_id and states <= port.state
+            and not STRUCTURAL_ROLES & set(contract.roles)
         }
         return sorted(matches.values(), key=lambda c: (-c.priority, c.id))

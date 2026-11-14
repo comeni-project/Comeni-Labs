@@ -9,7 +9,7 @@ from support.paths import ROOT as REPOSITORY_ROOT
 
 ROOT = REPOSITORY_ROOT
 
-FIX = ROOT / "registry/inspectors/formats/fastq/piece/fixtures"
+FIX = ROOT / "registry/measurers/formats/fastq/piece/fixtures"
 
 
 def _files(case):
@@ -146,13 +146,13 @@ def _pieces(tmp_path, codecs: dict[str, list[str]], runs: str = "server"):
 
     layer = tmp_path / "layer"
     for cid, extensions in codecs.items():
-        folder = layer / "inspectors" / "codecs" / cid
+        folder = layer / "measurers" / "codecs" / cid
         (folder / "piece").mkdir(parents=True)
         (folder / "codec.yml").write_text(
             f"declares: codec\nid: {cid}\nversion: 1.0.0\nextensions: {extensions}\n"
             f"entry: piece/{cid}.py\n"
         )
-    folder = layer / "inspectors" / "formats" / "tar"
+    folder = layer / "measurers" / "formats" / "tar"
     (folder / "piece").mkdir(parents=True)
     (folder / "format.yml").write_text(
         "declares: format\nid: tar\nversion: 1.0.0\nreads: [fastq.reads]\nextensions: [.tar, .fq]\n"
@@ -184,7 +184,7 @@ def test_a_pieces_code_is_found_in_its_own_layer(tmp_path):
     """Not under `settings.registry_root`, which is wrong the day a second layer is trusted."""
     pieces, layer = _pieces(tmp_path, {})
     ref = inspect._ref("formats", pieces.formats["tar"])
-    assert ref.path == str((layer / "inspectors/formats/tar/piece/tar.py").resolve())
+    assert ref.path == str((layer / "measurers/formats/tar/piece/tar.py").resolve())
 
 
 def test_inspections_run_at_most_a_few_at_once(monkeypatch):

@@ -5,14 +5,18 @@ selected module once and reports missing sources instead of shipping an entire r
 """
 
 import shutil
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.declared.module import Module, key_of
+from mendel_resolver.measure_steps import MeasureStep
+
+from mendel_compiler import measure_module
 
 
-def stage(pipeline: Pipeline, modules: Mapping[str, Module], out: Path) -> list[str]:
+def stage(pipeline: Pipeline, modules: Mapping[str, Module], out: Path,
+          measuring: Sequence[MeasureStep] = ()) -> list[str]:
     """Copy each step's module into `out`, at the path its `include` names.
 
     Returns the module keys written, sorted — so a caller can report what a bundle carries
@@ -22,8 +26,15 @@ def stage(pipeline: Pipeline, modules: Mapping[str, Module], out: Path) -> list[
     step with a different message.
     """
     written: set[str] = set()
+    generated = {measured.contract.id: measured for measured in measuring}
     for step in pipeline.steps:
         key = key_of(step.include)
+        if step.module.contract_id in generated:
+            # A measuring step's module is written, not copied: nothing vendored it (#465).
+            measure_module.write(generated[step.module.contract_id],
+                                 out / Path(step.include).parent)
+            written.add(key)
+            continue
         found = modules.get(key)
         if found is None or found.source is None or not found.source.is_dir():
             continue

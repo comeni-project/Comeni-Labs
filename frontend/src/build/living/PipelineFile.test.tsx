@@ -33,7 +33,7 @@ const STEPS = [
 
 /** The file as the server writes it (the v8 layout `fileLines` reads). */
 const READY: AuthoringPreview = { revision: 4, state: "ready", findings: [], text: [
-  "version: 8", "steps:",
+  "version: 9", "steps:",
   "- id: star_align", "  settings:",
   "  - name: sjdbOverhang", "    value: '150'", "    why:", "      tier: 3",
   "  - name: twopassMode", "    value: None", "    why:", "      tier: 2",
@@ -127,6 +127,23 @@ describe("the Nextflow it compiles to", () => {
     expect(await screen.findByText(/STAR_ALIGN\(\)/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "nextflow.config" }));
     expect(await screen.findByText(/docker.enabled = true/)).toBeInTheDocument();
+  });
+
+  it("opens main.nf once compiled and offers to compile again (issue 496)", async () => {
+    file();
+    fireEvent.click(screen.getByRole("button", { name: "Compile it" }));
+    expect(await screen.findByText(/STAR_ALIGN\(\)/)).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "main.nf" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Compile again" })).toBeInTheDocument();
+  });
+
+  it("asks once on the first press (issue 404)", async () => {
+    file();
+    fireEvent.click(screen.getByRole("button", { name: "Compile it" }));
+    await screen.findByRole("tab", { name: "main.nf" });
+    const asked = (fetch as unknown as { mock: { calls: [string][] } }).mock.calls
+      .filter(([url]) => url.includes("/emitted"));
+    expect(asked).toHaveLength(1);
   });
 
   it("says why when there is nothing to compile yet", async () => {

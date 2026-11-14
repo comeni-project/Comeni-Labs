@@ -26,27 +26,42 @@ from comeni_core.artifact.pipeline import (
     Channel,
     ExtArgs,
     MetaEntry,
+    MetaKeyOf,
     ModuleRef,
+    PartsWiring,
     Pipeline,
+    PortJoin,
     RegistryProvenance,
     RunRule,
     Setting,
+    SheetFact,
     Step,
     StepInput,
+    TableShape,
     Why,
     _no_flags_why,
+    crossed_steps,
 )
-from comeni_core.declared.constraints import Setup, evaluate, rows_of, sentence
-from comeni_core.declared.contract import Cardinality, ModuleContract
-from comeni_core.declared.measurement import Measurement, MeasurementRegistry
+from comeni_core.declared.constraints import Setup, evaluate, rows_of, sentence, setup_of
+from comeni_core.declared.contract import ModuleContract
+from comeni_core.declared.measurement import Measurement, MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal, InputState
 from comeni_core.goal.profile import DataProfile, Measured
+from comeni_core.plan.at_run import (
+    AtRun,
+    AtRunFact,
+    AtRunRow,
+    AtRunSource,
+    SampleRule,
+    condition_of,
+)
 from comeni_core.plan.ir import IREdge, IRNode, PipelineIR, ResolvedValue
-from comeni_core.plan.tiers import InputForm, Scope, Tier, ValueSource
+from comeni_core.plan.tiers import Grain, InputForm, Tier, ValueSource
 from comeni_core.spell.marks import LayerName, ParamValue
+from comeni_core.spell.routes import Via
 
 # ---------------- PIPELINE CONSTRUCTION ----------------
 
@@ -72,22 +87,38 @@ def of(
     lock = Lockfile.of(ir, registry, layers, locators)
     pinned = {entry.id: entry for entry in lock.contracts}
 
-    incoming_edges = {(edge.to_node, edge.to_port): edge for edge in ir.edges}
+    # The first edge into a port is its source; any other is a branch rejoining it (#466).
+    incoming_edges: dict[tuple[str, str], IREdge] = {}
+    rejoining: dict[tuple[str, str], list[str]] = {}
+    for edge in ir.edges:
+        key = (edge.to_node, edge.to_port)
+        if key in incoming_edges:
+            rejoining.setdefault(key, []).append(f"{edge.from_node}.{edge.from_port}")
+        else:
+            incoming_edges[key] = edge
     assigned_channels = _named(ir)
 
     # Build channels before wiring step inputs to their names.
-    channels = _channels(ir, registry, vocab, measurements, incoming_edges, assigned_channels)
+    channels = _channels(ir, registry, vocab, measurements, incoming_edges, assigned_channels,
+                         units=set(goal.constraints.units))
     default_channels_by_type = {channel.type_id: channel.name for channel in channels}
 
     steps = []
     params_of = {channel.name: channel.param for channel in channels}
+    # Where a sample is spread into parts and gathered back (#466, stage 6).
+    spreading = {n.id for n in ir.nodes
+                 if any(o.fans_out is not None for o in registry.get(n.contract_id).produces)}
+    on_parts = {n.id for n in ir.nodes if n.parts is not None and n.parts.on}
     for node in ir.nodes:
         contract = registry.get(node.contract_id)
         entry = pinned[node.contract_id]
         wiring = _inputs(
-            node, contract, incoming_edges, assigned_channels, default_channels_by_type
+            node, contract, incoming_edges, assigned_channels, default_channels_by_type,
+            rejoining, spreading=spreading, on_parts=on_parts,
         )
         fed = {w.port: params_of[w.channel] for w in wiring if w.channel is not None}
+        settings, sample_rules = _per_sample(contract, node, _settings(node, contract), goal,
+                                             measurements, ir)
         steps.append(
             Step(
                 id=node.id,
@@ -103,12 +134,20 @@ def of(
                 ext_args=_ext_args(contract),
                 inputs=wiring,
                 call=_call(contract, _off(node)),
-                settings=_settings(node, contract),
+                settings=settings,
                 input_states=list(node.inputs),
+                sample_rules=sample_rules,
+                guard=node.guard,
+                parts=node.parts,
                 run_rules=_run_rules(contract, node, fed),
             )
         )
     channels = _optional_channels(channels, steps, registry)
+    # A study input supplied as several items, each sample meeting each (#466, stage 6).
+    channels = _tables(channels, steps, ir, registry, set(goal.constraints.tables))
+    # A key a port groups by is a column of its own, whether or not anybody said so (#466).
+    keys = sorted(_relations(ir, registry, set(goal.constraints.tables)))
+    sheet_facts = _sheet_facts(ir, goal, measurements, channels, grouping=keys)
 
     return Pipeline(
         # Save the resolved profile with the original intent and inputs.
@@ -122,10 +161,68 @@ def of(
         # Availability comes from the caller; decisions alone cannot establish it.
         ai=_read_upstream(ai or AiProvenance(available=[], used=[]), ir.profile),
         steps=steps,
+        confirms=list(ir.confirms),
+        sheet_facts=sheet_facts,
         channels=channels,
-        input_form=_form(channels),
+        input_form=InputForm.SAMPLESHEET if sheet_facts else _form(channels),
         decisions=list(ir.decisions),
     )
+
+
+def _relations(ir: PipelineIR, registry: Registry, tables: set[str] = frozenset()) -> set[str]:  # type: ignore[assignment]
+    """The facts a step relates samples by (#466): a key it groups by, a fact a port selects
+    on, and the key or reference a pair or a control joins on. Each is a samplesheet column,
+    except a fact a port reading a table selects on, which is a column of that table."""
+    found: set[str] = set()
+    for node in ir.nodes:
+        contract = registry.get(node.contract_id)
+        for port in contract.consumes:
+            found |= {port.by} if port.by else set()
+            if port.type_id not in tables:
+                found |= set(port.select or {})
+        found |= {spec.key for spec in contract.nf_inputs if spec.key}
+    return found
+
+
+def _sheet_facts(ir: PipelineIR, goal: Goal, measurements: MeasurementRegistry | None,
+                 channels: Sequence[Channel] = (), grouping: Sequence[str] = ()
+                 ) -> list[SheetFact]:
+    """The samplesheet's fact columns (#466): every fact a person said differs between samples.
+    Required, unless a step the build added measures it for a run-time setting, when a blank or
+    `auto` cell is measured. Sorted by column."""
+    if measurements is None or not (goal.constraints.varies or grouping):
+        return []
+    auto = {f.measurement for node in ir.nodes for binding in node.params
+            if binding.value.at_run is not None for f in binding.value.at_run.facts
+            if f.source is AtRunSource.CELL_OR_MEASURED}
+    auto |= {f.measurement for node in ir.nodes if node.guard is not None
+             for f in node.guard.lookup.facts if f.source is AtRunSource.CELL_OR_MEASURED}
+    found = []
+    for fact in sorted({*goal.constraints.varies, *grouping}):
+        declared = measurements.get(fact)
+        # A fact read off the row (#466) is its input's second file being there: no column.
+        second = next((c.columns[1] for c in channels
+                       if c.type_id == declared.describes and len(c.columns) > 1), None)
+        from_row = declared.row if declared.row and second else None
+        keys = [MetaKeyOf(key=fact)]
+        if declared.meta_key and declared.meta_key != fact:
+            keys.append(MetaKeyOf(key=declared.meta_key, translate=list(declared.meta_values)))
+        found.append(SheetFact(
+            measurement=fact, column=second if from_row else fact, kind=declared.kind,
+            values=list(declared.values), minimum=declared.minimum, maximum=declared.maximum,
+            # A reference may be blank: the sample names none (#466).
+            required=(fact not in auto and not from_row
+                      and declared.kind is not MeasurementKind.SAMPLE_REF),
+            auto=fact in auto and not from_row,
+            from_row=from_row, describes=declared.describes,
+            meta=keys,
+            why=Why(tier=Tier.STRUCTURAL, source=ValueSource.SAID,
+                    reason=(f"a step groups samples by {fact}, so each row names its {fact}"
+                            if fact in grouping and fact not in goal.constraints.varies else
+                            f"you said {fact} differs between samples, so each row states it"
+                            + (", or leaves it blank to be measured" if fact in auto else ""))),
+        ))
+    return sorted(found, key=lambda f: f.column)
 
 
 
@@ -226,6 +323,7 @@ def _settings(node: IRNode, contract: ModuleContract) -> list[Setting]:
             key=routes[binding.name].key,
             template=routes[binding.name].template,
             why=_why(binding.value),
+            at_run=binding.value.at_run,
         )
         for binding in sorted(node.params, key=lambda b: b.name)
     ]
@@ -249,7 +347,10 @@ def _call(contract: ModuleContract, off: frozenset[str] = frozenset()) -> list[C
             empty_width=(spec.absent if spec.ports and set(spec.ports) <= off
                          else spec.empty) or None,
             from_setting=spec.param or None,
-            join=spec.join,
+            join=None if isinstance(spec.join, dict) else spec.join,
+            key=spec.key,
+            joins=([PortJoin(port=p, join=spec.join[p]) for p in spec.ports[1:]]
+                   if isinstance(spec.join, dict) else []),
             why=(
                 Why(
                     tier=Tier.STRUCTURAL,
@@ -274,6 +375,9 @@ def _inputs(
     incoming_edges: dict[tuple[str, str], IREdge],
     assigned_channels: dict[str, str],
     default_channels_by_type: dict[str, str],
+    rejoining: Mapping[tuple[str, str], list[str]] | None = None,
+    spreading: set[str] = frozenset(),  # type: ignore[assignment]
+    on_parts: set[str] = frozenset(),  # type: ignore[assignment]
 ) -> list[StepInput]:
     """Connect each consumed port to an upstream output or an external channel.
 
@@ -287,7 +391,7 @@ def _inputs(
             continue
         edge = incoming_edges.get((node.id, port.name))
         # Multi-item ports gather both upstream outputs and external inputs.
-        gather = port.cardinality is Cardinality.MANY
+        gather = port.many
         if edge is not None:
             inputs.append(
                 StepInput(
@@ -295,15 +399,77 @@ def _inputs(
                     source=f"{edge.from_node}.{edge.from_port}",
                     states=sorted(edge.states),
                     gather=gather,
+                    mixed=sorted((rejoining or {}).get((node.id, port.name), [])),
+                    by=port.by,
+                    select=_select(port),
+                    parts=(PartsWiring.SPREAD if edge.from_node in spreading
+                           else PartsWiring.GATHER if gather and edge.from_node in on_parts
+                           else None),
                 )
             )
         else:
             assigned = (
                 assigned_channels.get(f"{node.id}.{port.name}")
-                or default_channels_by_type[port.type_id]
+                or default_channels_by_type[node.entry_type(port.name, port.type_id)]
             )
-            inputs.append(StepInput(port=port.name, channel=assigned, gather=gather))
+            inputs.append(StepInput(port=port.name, channel=assigned, gather=gather,
+                                    by=port.by, select=_select(port)))
     return inputs
+
+
+def _tables(channels: list[Channel], steps: list[Step], ir: PipelineIR, registry: Registry,
+            tables: set[str]) -> list[Channel]:
+    """Each study input a person supplies as a table gets its shape: its items' name on `meta`
+    (the type's family), its file columns, and the item facts a port selects on (#466).
+
+    Refuses a step joining a crossed output by sample with another channel (MD0348): each sample
+    has one result per row there, and the join would keep only one."""
+    out = []
+    for channel in channels:
+        if channel.type_id not in tables:
+            out.append(channel)
+            continue
+        facts = sorted({
+            fact for node in ir.nodes for port in registry.get(node.contract_id).consumes
+            if port.select and any(i.channel == channel.name and i.port == port.name
+                                   for s in steps if s.id == node.id for i in s.inputs)
+            for fact in port.select})
+        out.append(channel.model_copy(update={"table": TableShape(
+            name=channel.type_id.split(".")[0], columns=channel.columns, facts=facts)}))
+    tabled = {c.name for c in out if c.table is not None}
+    study = {c.name for c in out if c.grain is Grain.STUDY}
+    for step in steps:
+        for item in step.inputs:
+            if item.select and item.channel in study - tabled:
+                # One item for the study, filtered away, and nothing after it would run.
+                raise ValueError(coded(
+                    "MD0347", f"{step.id} selects on {item.channel}, which is one item for the "
+                    "study, not a table of several — `mendel explain MD0347`."))
+        if len([i for i in step.inputs if i.channel in tabled]) > 1:
+            raise ValueError(coded(
+                "MD0348", f"{step.id} reads two tables; a step crosses its samples with one — "
+                "`mendel explain MD0348`."))
+    crossed = crossed_steps(steps, out)
+    for step in steps:
+        if step.id not in crossed or any(i.channel in tabled for i in step.inputs):
+            continue
+        # After the cross each sample has one item per row: a join, a group or a parts gather
+        # by sample would match one of them, or none (final review 2).
+        relates = any(len(arg.ports) > 1 for arg in step.call) or any(
+            i.by is not None or i.parts is not None for i in step.inputs)
+        if relates:
+            raise ValueError(coded(
+                "MD0348", f"{step.id} relates items by sample after a table was crossed with "
+                "the samples, and each sample has one item per row there — "
+                "`mendel explain MD0348`."))
+    return out
+
+
+def _select(port) -> list:
+    """A port's selection, in the closed tests a run-time lookup uses (#466). Sorted by fact."""
+    from comeni_core.plan.at_run import condition_of
+
+    return [condition_of(fact, expected) for fact, expected in sorted((port.select or {}).items())]
 
 
 def _optional_channels(
@@ -328,7 +494,10 @@ def _optional_channels(
             if states.get(port) is not InputState.OPTIONAL:
                 break
             contract = registry.get(step.module.contract_id)
-            widths += [e.absent for e in contract.input_signature() if port in e.ports]
+            # Alone in its slot the channel is the argument, so it takes the slot's empty
+            # tuple; inside a shared slot it is one `[meta, file]` among others (#464).
+            widths += [e.absent if len(e.ports) == 1 else 2
+                       for e in contract.input_signature() if port in e.ports]
         else:
             if fed and len(set(widths)) > 1:
                 # One empty tuple feeds every consumer, and Nextflow matches its arity.
@@ -368,22 +537,137 @@ def _run_rules(contract: ModuleContract, node: IRNode, fed: dict[str, str]) -> l
     return rules
 
 
-def _run_sentences(contract: ModuleContract, node: IRNode) -> list[str]:
+def _fact_cases(name: str, contract: ModuleContract, measurements: MeasurementRegistry) -> list:
+    """The values a sample's fact may take, for a contract's rows to be tried against: an
+    enum's values or a boolean's two, else the numbers the rows name and either side of them;
+    and `None`, a sample whose value is missing."""
+    declared = measurements.get(name)
+    if declared.kind.value == "boolean":
+        return [True, False, None]
+    if declared.values:
+        return [*declared.values, None]
+    named: set = set()
+    for row in rows_of(contract):
+        expected = row.when.get(f"fact.{name}")
+        if isinstance(expected, dict):
+            # `{in: [...]}` and `{not: x}` name their values (Task 7 review).
+            literals = expected.get("in", [expected.get("not")])
+        elif isinstance(expected, str) and " " in expected:
+            literals = [expected.partition(" ")[2]]
+        else:
+            literals = [expected]
+        for literal in literals:
+            try:
+                named.add(float(literal))
+            except (TypeError, ValueError):
+                continue
+    # One value at least, so `present` has a sample to hold for.
+    return [*sorted({v + d for v in named or {0.0} for d in (-1, 0, 1)}), None]
+
+
+def _per_sample(contract: ModuleContract, node: IRNode, settings: list[Setting], goal: Goal,
+                measurements: MeasurementRegistry | None, ir: PipelineIR
+                ) -> tuple[list[Setting], list[SampleRule]]:
+    """The step's rules that read a per-sample fact and that some samples break (#466). A
+    setting the rule forbids for those samples is left unset for them where a default or a rule
+    gave it; a person's value, or a requirement nothing can supply, stops such a sample in the
+    run, naming it. A fact the run does not carry (neither a samplesheet column nor a measured
+    one) cannot be settled per sample, and its rows are left out."""
+    names = sorted({k.partition(".")[2] for row in rows_of(contract) for k in row.when
+                    if k.startswith("fact.")})
+    if not names or measurements is None:
+        return settings, []
+    sources = {f: AtRunSource.CELL for f in goal.constraints.varies}
+    sources |= {m.measurement: AtRunSource.MEASURED for m in ir.meta_at_run
+                if m.measurement not in sources}
+    known = {m.measurement: m.value for m in ir.profile.measurements
+             if m.measurement in names and not isinstance(m.value, list)}
+    unknown = {f: _fact_cases(f, contract, measurements) for f in names if f not in known}
     states = {r.port: r.state for r in node.inputs}
     given = {p.name for p in contract.consumes if p.required}
-    given |= {p for p, s in states.items() if s is InputState.REQUIRED}
-    unknown = frozenset(p for p, s in states.items() if s is InputState.OPTIONAL)
-    params = {p.name: (node.param(p.name).value if node.param(p.name) else None)
-              for p in contract.params}
-    verdict = evaluate(contract, Setup(given=frozenset(given), params=params, unknown=unknown))
-    return verdict.holds_at_run_time
+    given |= {p for p, st in states.items() if st is InputState.REQUIRED}
+    params = {st.name: st.value for st in settings}
+    verdict = evaluate(contract, Setup(
+        given=frozenset(given), params=params, facts=known, unknown_facts=unknown,
+        unknown=frozenset(p for p, st in states.items() if st is InputState.OPTIONAL)))
+    by_name = {st.name: st for st in settings}
+    rules: list[SampleRule] = []
+    optional = {p for p, st in states.items() if st is InputState.OPTIONAL}
+    ports = {p.name for p in contract.consumes}
+    for row in rows_of(contract):
+        says = sentence(row)
+        read = [k.partition(".")[2] for k in row.when if k.startswith("fact.")]
+        if not read:
+            continue
+        if all(f in known for f in read) and says in verdict.sentences:
+            # Every sample's value is known and breaks the rule (Task 7 review, Critical).
+            _broken_by_every_sample(row, says, by_name, contract)
+            continue
+        if says not in verdict.per_sample:
+            continue
+        # The guard tests the sample's facts only: a row that also depends on an input each
+        # run may leave empty, or that names a port rather than a setting, cannot be settled
+        # per sample this way and is left out (Task 7 review; deferred).
+        if any(k.startswith("given.") and k.partition(".")[2] in optional for k in row.when):
+            continue
+        if any(n in ports for n in (*row.requires, *row.forbids)):
+            continue
+        if any(f not in sources for f in read):
+            continue
+        when = sorted((condition_of(k.partition(".")[2], v) for k, v in row.when.items()
+                       if k.startswith("fact.")), key=lambda c: c.fact)
+        stops = list(row.requires)
+        for name in row.forbids:
+            setting = by_name.get(name)
+            # A person's value, or a model's answer flagged for review, is an explicit choice:
+            # a sample it does not suit stops, visibly, rather than ignoring it unseen.
+            mine = setting is not None and setting.why.source in (
+                ValueSource.HUMAN, ValueSource.SAID, ValueSource.MODEL)
+            if setting is None or mine or setting.at_run is not None or setting.via is not Via.EXT:
+                stops.append(name)
+                continue
+            by_name[name] = setting.model_copy(update={"at_run": AtRun(
+                facts=[AtRunFact(measurement=f, meta_key=f, source=sources[f]) for f in read],
+                rule=f"constraint:{contract.id}", rows=[AtRunRow(when=when, then=None)],
+                fallback=setting.value, fallback_reason=f"not set where {says}")})
+        if stops:
+            rules.append(SampleRule(when=when, says=f"{says} ({', '.join(sorted(stops))})"))
+    return [by_name[st.name] for st in settings], rules
+
+
+def _broken_by_every_sample(row, says: str, by_name: dict, contract: ModuleContract) -> None:
+    """A rule every sample breaks, their facts known before the build: a setting a default or a
+    rule gave is not passed at all; a person's or a model's value, or a requirement, is refused
+    (MD0337), never shipped."""
+    for name in row.forbids:
+        setting = by_name.get(name)
+        if setting is None or setting.value is None:
+            continue
+        if setting.why.source in (ValueSource.HUMAN, ValueSource.SAID, ValueSource.MODEL):
+            raise ValueError(coded(
+                "MD0337", f"{contract.id}: {says}, and every sample's value is known to break "
+                f"it, so {name} cannot be set — `mendel explain MD0337`."))
+        by_name[name] = setting.model_copy(update={
+            "value": None,
+            "why": setting.why.model_copy(update={"reason": f"not set: {says}"}),
+        })
+    if row.requires:
+        raise ValueError(coded(
+            "MD0337", f"{contract.id}: {says}, and every sample's value is known to break it "
+            "— `mendel explain MD0337`."))
+
+
+def _run_sentences(contract: ModuleContract, node: IRNode) -> list[str]:
+    return evaluate(contract, setup_of(contract, node)).holds_at_run_time
 
 
 def _form(channels: Sequence[Channel]) -> InputForm:
-    """Use a samplesheet for multiple sample-scoped channels, otherwise direct input."""
+    """Use a samplesheet for multiple sample-scoped channels, or an input whose rows may repeat
+    a sample (only a row can say which lane it is, #466); otherwise direct input."""
     return (
         InputForm.SAMPLESHEET
-        if sum(1 for c in channels if c.scope is Scope.SAMPLE) > 1
+        if sum(1 for c in channels if c.grain is Grain.SAMPLE) > 1
+        or any(c.units for c in channels)
         else InputForm.DIRECT
     )
 
@@ -406,7 +690,7 @@ def _wanted(
             if (node.id, port.name) in incoming_edges or port.name in off:
                 continue
             if f"{node.id}.{port.name}" not in assigned_channels:
-                defaulted.add(port.type_id)
+                defaulted.add(node.entry_type(port.name, port.type_id))
     return [(c.name, c.type_id) for c in ir.channels] + [
         ("", type_id) for type_id in sorted(defaulted)
     ]
@@ -424,6 +708,7 @@ def _channels(
     measurements: MeasurementRegistry | None,
     incoming_edges: dict[tuple[str, str], IREdge],
     assigned_channels: dict[str, str],
+    units: set[str] = frozenset(),  # type: ignore[assignment]
 ) -> list[Channel]:
     """Build external input channels from the IR, vocabulary, and measurements.
 
@@ -454,14 +739,15 @@ def _channels(
         expression = _substitute(template, param)
         declared = vocab.test_data.get(type_id)
         declared_channel = declared_channels.get(name)
-        chosen = declared_channel.scope if declared_channel is not None else None
+        chosen = declared_channel.grain if declared_channel is not None else None
         wide = vocab.columns.get(type_id, 1)
         channels.append(
             Channel(
                 columns=[name] if wide == 1 else [f"{name}_{n}" for n in range(1, wide + 1)],
-                scope=Scope(chosen.value) if chosen else Scope(
-                    vocab.scopes.get(type_id, Scope.SAMPLE)
+                grain=Grain(chosen.value) if chosen else Grain(
+                    vocab.grains.get(type_id, Grain.SAMPLE)
                 ),
+                units=type_id in units,
                 why=_why(chosen) if chosen else None,
                 name=name,
                 param=param,
@@ -473,6 +759,9 @@ def _channels(
                     for key in sorted(sourced)
                 ],
                 test_data=[declared] if isinstance(declared, str) else list(declared or []),
+                # Facts the run measures on this input, for a run-time setting (#217).
+                meta_at_run=sorted((m for m in ir.meta_at_run if m.type_id == type_id),
+                                   key=lambda m: m.measurement),
             )
         )
     return channels

@@ -45,6 +45,11 @@ class FakeRunner:
     def results(self, run_id):
         return self.files
 
+    facts: list[dict] = []
+
+    def measured(self, run_id):
+        return self.facts
+
 
 @pytest.fixture
 def fake(tmp_path, monkeypatch):
@@ -85,6 +90,7 @@ def _assembled() -> str:
     for key in ("vocabulary:none", "rules:none"):
         _do(a, Move.WRITE, key, {"because": "nothing new"})
     _do(a, Move.WRITE, "tests:test:small", TEST)
+    _do(a, Move.WRITE, "measurers:none", {"because": "nothing to measure"})
     proof = forging.assemble(a)
     assert proof.loaded and proof.conforms, proof.problems
     return a
@@ -254,3 +260,88 @@ def test_a_folder_output_is_matched_by_its_folder():
     assert forge_tests.green(test, "QUAST", files) == []
     assert [p.says for p in forge_tests.green(test, "QUAST", ["quast/quast.tsv"])] == [
         "output results: nothing published matches quast"]
+
+
+# ── a drafted parser is proven on the tool's real output (#487) ──────────────────────────────
+
+FAIDX = "nf-core/samtools/faidx@1.24"
+
+
+@pytest.fixture
+def faidx(fake):
+    shutil.copytree(REGISTRY / "tools/nf-core/samtools/faidx/module",
+                    settings.forge_cache / "nf-core-modules/modules/nf-core/samtools/faidx")
+    catalogue.run_sync(FakeSource(["star/align", "samtools/faidx"], commit="c2"))
+    fake.files = ["samtools_faidx/genome.fasta.fai"]
+    return fake
+
+
+def _with_a_parser() -> str:
+    from support.forge_measurer import KEY, measurer
+    a = forging.start("nf-core", "samtools/faidx", "rafael", reforge=FAIDX).id
+    _do(a, Move.ANSWER, "questions:role", {"choice": "fasta_indexing"})
+    for key, item in forging.load(a).items.items():
+        if item.status == "proposed":
+            _do(a, Move.APPROVE, key)
+    for key in ("vocabulary:none", "rules:none"):
+        _do(a, Move.WRITE, key, {"because": "nothing new"})
+    _do(a, Move.WRITE, "tests:test:small", {"inputs": {"fasta": ["genomics/genome.fasta"]},
+                                            "expect": [{"port": "fai", "pattern": "*.fai"}]})
+    _do(a, Move.WRITE, KEY, measurer())
+    proof = forging.assemble(a)
+    assert proof.loaded and proof.conforms, proof.problems
+    return a
+
+
+@pytest.mark.asyncio
+async def test_a_parser_that_measured_a_value_is_green(before, faidx):
+    a = _with_a_parser()
+    await _started(a)
+    faidx.phase = "succeeded"
+    faidx.facts = [{"measurement": "genome_length", "value": 29903, "undetermined": None}]
+    forge_tests.poll()
+    view = forging.read(a)
+    assert view.phase == "tested" and [r.state for r in view.tests] == ["passed"], view.tests
+
+
+@pytest.mark.asyncio
+async def test_a_parser_that_reported_nothing_is_not_green(before, faidx):
+    a = _with_a_parser()
+    await _started(a)
+    faidx.phase, faidx.facts = "succeeded", []
+    forge_tests.poll()
+    view = forging.read(a)
+    assert view.phase == "assembled"
+    assert "measurer genome_length_fai: reported nothing" in view.tests[0].says
+
+
+@pytest.mark.asyncio
+async def test_an_undetermined_parser_fails_with_its_reason(before, faidx):
+    a = _with_a_parser()
+    await _started(a)
+    faidx.phase = "succeeded"
+    faidx.facts = [{"measurement": "genome_length", "value": None,
+                    "undetermined": "the index lists no sequences"}]
+    forge_tests.poll()
+    says = forging.read(a).tests[0].says
+    assert "measurer genome_length_fai: undetermined: the index lists no sequences" in says
+
+
+def test_parsers_green_reads_each_measurer_once():
+    from mendel_forge.model import Problem
+    wanted = {"genome_length_fai": "genome_length"}
+    assert forge_tests.parsers_green(wanted, [
+        {"measurement": "genome_length", "value": 5, "undetermined": None}]) == []
+    assert forge_tests.parsers_green(wanted, []) == [
+        Problem(code="MF0515", says="measurer genome_length_fai: reported nothing")]
+    assert forge_tests.parsers_green(wanted, [
+        {"measurement": "genome_length", "value": None, "undetermined": "why"}]) == [
+        Problem(code="MF0515", says="measurer genome_length_fai: undetermined: why")]
+
+
+@pytest.fixture
+def before(tmp_path, monkeypatch):
+    """The registry before `genome_length_fai` existed, which these tests draft again."""
+    from support.forge_measurer import registry_before
+    monkeypatch.setattr(settings, "registry_root", registry_before(tmp_path))
+    monkeypatch.setattr(settings, "registries_root", None)

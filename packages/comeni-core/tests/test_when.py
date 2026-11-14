@@ -64,7 +64,7 @@ def test_an_unknown_predicate_is_refused_rather_than_ignored():
 
 
 def test_a_comparison_against_a_cohort_is_refused_rather_than_raising_TypeError():
-    """`read_length` is `per_sample`, so a profile may carry `[150, 100, 150]`. Comparing
+    """`read_length` is per sample, so a profile may carry `[150, 100, 150]`. Comparing
     that to 70 has no defined meaning, and Python's answer is `TypeError` from inside the
     resolver. The rule author is told to aggregate first, which is what `derives:` is for."""
     with pytest.raises(PredicateError, match="MD0312"):

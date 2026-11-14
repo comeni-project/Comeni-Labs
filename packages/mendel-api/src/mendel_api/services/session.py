@@ -541,6 +541,8 @@ def read(session_id: str) -> dict:
             "progress": progress.model_dump(mode="json") if progress is not None else None,
             "show_gap_details": details,
             "fact_subjects": sorted(set(evidence_subjects) | {f.subject for f in selected.facts}),
+            # Every sample of the last upload, with its name and measurements (#466).
+            "samples": list(row.samples or []),
             "decision_revision": draft.decision_revision,
             # Outdated is a built pipeline the answers moved past; nothing built is not (#329).
             "projection_current": draft.projection_current or draft.projection_revision is None,

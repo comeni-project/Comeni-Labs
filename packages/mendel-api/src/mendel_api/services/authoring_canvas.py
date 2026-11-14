@@ -37,8 +37,8 @@ def _blueprint_frame(blueprint, graph, context, proposal_id, current, placement,
                              fed=fed, entered=set())
     states = {f"{s.id}.{p.name}": p.states for s in steps for p in s.ports if p.side == "in"}
     channels = [build.ChannelView(
-        name=c.name, scope=c.scope.value, param=c.param, type_id=c.type_id,
-        count=build._counted(pipeline) if c.scope.value == "sample" else None,
+        name=c.name, grain=c.grain.value, param=c.param, type_id=c.type_id,
+        count=build._counted(pipeline) if c.grain.value == "sample" else None,
         states=states[feeds[c.name][0]], ports=feeds[c.name],
     ) for c in pipeline.channels if feeds[c.name]]
     if set(placement) != ids:
@@ -71,7 +71,7 @@ def frame_of(*, blueprint, graph, provenance, pending, proposal_id, context,
         graph = graph.model_copy(update={"edges": [
             e for e in graph.edges if e.from_node in kept and e.to_node in kept]})
         ir = build.ir_of(graph, layers, provenance=provenance)
-        pipeline = Pipeline.of(ir, layers.registry, layers.vocabulary, layers.measurements,
+        pipeline = Pipeline.of(ir, layers.routing, layers.vocabulary, layers.measurements,
                                layers.paths, goal=build.goal_of(graph, layers))
         shown = build._view(ir, pipeline, layers)
         return CanvasFrame(context=context, proposal_id=None, current=current, graph=graph,

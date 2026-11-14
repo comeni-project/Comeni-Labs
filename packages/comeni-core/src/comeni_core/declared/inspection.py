@@ -1,15 +1,18 @@
-"""Declare the codec, format, and measurement pieces used for inspection.
+"""Declare the codecs, formats and measurers: everything that measures data (#465).
 
-A codec opens bytes, a format produces records, and a measure folds records into a fact. Each
-piece points to code under its declaration's ``piece/`` directory. Catalogue validation removes
-pieces with missing code, missing dependencies, or references to undeclared types or measurements.
+A codec opens bytes and a format produces records. A **measurer** produces one measurement, in one
+of two ways: our own code folding a format's records (`by: code`), or a tool in the registry plus
+a parser for one of its outputs (`by: tool`). Each says where it may run: on the server over an
+upload's head, in the pipeline over all the data, or both. Each piece points to code under its
+declaration's ``piece/`` directory. Catalogue validation removes pieces with missing code, missing
+dependencies, or references to undeclared types, measurements or tools.
 """
 
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
 from comeni_core import yaml_strict
 from comeni_core.declared.layered import DeclaredKind, Kind, Policy, Stacked, layers_of, stack
@@ -87,14 +90,62 @@ class FormatPiece(_Piece):
         return int(least), int(most)
 
 
-class MeasurePiece(_Piece):
-    """Folds records into one fact: `read_length`."""
+Runner = Literal["server", "pipeline"]
+"""Where a measurer runs: `server`, over an upload's head, sandboxed, trusted layers only; or
+`pipeline`, as a step over all the data during the run."""
+
+
+class Measurer(_Piece):
+    """Produces one measurement: `read_length` by our code, `genome_length` by samtools faidx and
+    a parser of its `.fai`."""
 
     measures: str
     """The measurement id the fact is for."""
-    record: Literal["sequence"]
+    by: Literal["code", "tool"]
+    """`code`: an `Accumulator` over a format's records. `tool`: `parse(stream, decided)` over
+    the output port `output` of the contract `uses`."""
+    record: Literal["sequence"] | None = None
+    """For `by: code`, the record shape it reads; formats of that shape feed it."""
+    uses: str | None = None
+    """For `by: tool`, the contract id of the tool whose output is parsed."""
+    output: str | None = None
+    """For `by: tool`, the output port of `uses` the parser reads."""
     decided: dict[str, float | int] = Field(default_factory=dict)
     """Thresholds recorded with every fact this piece produces."""
+    runs: list[Runner]
+
+    @field_validator("runs")
+    @classmethod
+    def _canonical(cls, runs: list[str]) -> list[str]:
+        """Sorted and once each, so one meaning has one spelling in every dump."""
+        return sorted(set(runs), key=["server", "pipeline"].index)
+
+    @model_validator(mode="after")
+    def _one_way(self) -> "Measurer":
+        problems = []
+        if not self.runs:
+            problems.append("it runs nowhere: list `server`, `pipeline` or both in `runs`")
+        if self.by == "code":
+            if self.record is None:
+                problems.append("`by: code` reads a format's records, so it needs `record:`")
+            if self.uses is not None or self.output is not None:
+                problems.append("`by: code` runs our own code; `uses:` and `output:` are for "
+                                "`by: tool`")
+        else:
+            if self.record is not None:
+                problems.append("`by: tool` parses a tool's output, not records; drop `record:`")
+            if self.uses is None or self.output is None:
+                problems.append("`by: tool` needs `uses:` (the tool's contract id) and "
+                                "`output:` (the port its parser reads)")
+            if "server" in self.runs:
+                problems.append("a tool runs only in the lab's pipeline; drop `server` from "
+                                "`runs`")
+        if problems:
+            raise ValueError(coded("MD0326", f"measurer {self.id}: " + "; ".join(problems)))
+        return self
+
+    def runs_on(self, where: Runner) -> bool:
+        return where in self.runs
 
 
 def _parser(model: type[_Piece]):
@@ -114,9 +165,9 @@ class InspectionCatalogue(BaseModel):
 
     codecs: dict[str, CodecPiece] = Field(default_factory=dict)
     formats: dict[str, FormatPiece] = Field(default_factory=dict)
-    measures: dict[str, MeasurePiece] = Field(default_factory=dict)
+    measurers: dict[str, Measurer] = Field(default_factory=dict)
     origin: dict[str, int] = Field(default_factory=dict)
-    """`"codec:<id>"`, `"format:<id>"`, `"measure:<id>"` → the index of the layer that supplied
+    """`"codec:<id>"`, `"format:<id>"`, `"measurer:<id>"` → the index of the layer that supplied
     it. Pieces run only from trusted layers (spec §2), and trust is per layer."""
 
     @staticmethod
@@ -127,21 +178,22 @@ class InspectionCatalogue(BaseModel):
                  policy=Policy.REPLACE),
             Kind(DeclaredKind.FORMATS, parse=_parser(FormatPiece), key=lambda p: p.id,
                  policy=Policy.REPLACE),
-            Kind(DeclaredKind.MEASURES, parse=_parser(MeasurePiece), key=lambda p: p.id,
+            Kind(DeclaredKind.MEASURERS, parse=_parser(Measurer), key=lambda p: p.id,
                  policy=Policy.REPLACE),
         )
 
     @classmethod
-    def of(cls, codecs: Stacked, formats: Stacked, measures: Stacked) -> "InspectionCatalogue":
+    def of(cls, codecs: Stacked, formats: Stacked, measurers: Stacked) -> "InspectionCatalogue":
         origin = {
             f"{kind}:{key}": index
-            for kind, stacked in (("codec", codecs), ("format", formats), ("measure", measures))
+            for kind, stacked in (("codec", codecs), ("format", formats),
+                                  ("measurer", measurers))
             for key, index in stacked.origin.items()
         }
         return cls(
             codecs=dict(codecs.entries),
             formats=dict(formats.entries),
-            measures=dict(measures.entries),
+            measurers=dict(measurers.entries),
             origin=origin,
         )
 
@@ -159,7 +211,7 @@ class InspectionCatalogue(BaseModel):
         A bad piece does not prevent independent pieces from remaining available.
         """
         refused: list[str] = []
-        known = set(self.codecs) | set(self.formats) | set(self.measures)
+        known = set(self.codecs) | set(self.formats) | set(self.measurers)
 
         def runnable(kind: str, key: str, piece: _Piece) -> bool:
             problems = piece.problems() + [
@@ -189,21 +241,49 @@ class InspectionCatalogue(BaseModel):
                 )
             else:
                 formats[key] = piece
-        measures = {}
-        for key, piece in self.measures.items():
-            if not runnable("measure", key, piece):
+        measurers = {}
+        for key, piece in self.measurers.items():
+            if not runnable("measurer", key, piece):
                 continue
             if piece.measures not in measurement_ids:
                 refused.append(
                     coded(
                         "MD0317",
-                        f"measure {key}@{piece.version} produces {piece.measures}, "
+                        f"measurer {key}@{piece.version} produces {piece.measures}, "
                         "which no layer declares",
                     )
                 )
             else:
-                measures[key] = piece
+                measurers[key] = piece
         usable = InspectionCatalogue(
-            codecs=codecs, formats=formats, measures=measures, origin=self.origin
+            codecs=codecs, formats=formats, measurers=measurers, origin=self.origin
         )
         return usable, refused
+
+    def check_tools(self, registry) -> "tuple[InspectionCatalogue, list[str]]":
+        """Drop each `by: tool` measurer whose tool or output port is not in the stack.
+
+        Run once the registry is assembled, since a measurer may use a tool another layer
+        supplies. As for MD0317, the piece is not loaded and the others are.
+        """
+        refused: list[str] = []
+        kept = {}
+        for key, piece in self.measurers.items():
+            if piece.by == "tool":
+                try:
+                    contract = registry.get(piece.uses)
+                except KeyError:
+                    refused.append(coded(
+                        "MD0327",
+                        f"measurer {key}@{piece.version} uses {piece.uses}, which no layer "
+                        "declares"))
+                    continue
+                ports = sorted(port.name for port in contract.produces)
+                if piece.output not in ports:
+                    refused.append(coded(
+                        "MD0327",
+                        f"measurer {key}@{piece.version} parses the output {piece.output!r} "
+                        f"of {piece.uses}, which has the outputs {', '.join(ports) or 'none'}"))
+                    continue
+            kept[key] = piece
+        return self.model_copy(update={"measurers": kept}), refused

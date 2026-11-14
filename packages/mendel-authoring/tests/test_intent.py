@@ -122,3 +122,11 @@ def test_a_drawn_pipeline_reads_as_every_tool_pinned_and_its_ends_wanted(planned
 
 def test_an_empty_drawing_reads_as_nothing(planned):
     assert read_graph(DraftGraph(), planned[2]) == []
+
+
+def test_removing_a_tool_the_registry_does_not_know_reads_as_nothing(planned):
+    """Issue 398: it raised, having no site to exclude it at. Validation names the tool."""
+    graph, sites, registry, ir = planned
+    unknown = DraftGraph(nodes=[*graph.nodes, DraftNode(id="ghost", contract_id="lab/gone@1.0")],
+                         edges=graph.edges)
+    assert read_edit(unknown, graph, sites, registry) == []

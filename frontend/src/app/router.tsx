@@ -4,6 +4,7 @@ import { Home } from "../home/Home";
 import { Catalogue } from "../registry/Catalogue";
 import { Adaptation } from "../registry/forging/Adaptation";
 import { ForgingList } from "../registry/forging/ForgingList";
+import { LearnedRules } from "../registry/LearnedRules";
 import { Releases } from "../registry/Releases";
 import { Tool } from "../registry/Tool";
 import { Board as Runs } from "../runs/Board";
@@ -30,6 +31,7 @@ export const routes: RouteObject[] = [
       { path: "/registry/forging", element: <ForgingList /> },
       { path: "/registry/forging/:id", element: <Adaptation /> },
       { path: "/registry/releases", element: <Releases /> },
+      { path: "/registry/learned", element: <LearnedRules /> },
 
       // Preserve older settings URLs by opening the settings overlay.
       { path: "/settings/:section?", element: <SettingsLink /> },

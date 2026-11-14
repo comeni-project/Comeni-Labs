@@ -2,17 +2,20 @@ import type { AuthoringSession, AuthoringVocabulary } from "../../api/types";
 import { CurrentFacts, type CorrectFact } from "./CurrentFacts";
 import { NotOffered } from "./NotOffered";
 import { AnswerLine, answered } from "./StepLine";
+import { useSubjectNames } from "./useTypeNames";
 
 /** **What was understood** (the *Describe* board's record, one builder plan 3): the person's
  *  sentence, then each answer and fact with where it came from, correctable line by line. Beside
  *  the conversation while describing; one switch from the canvas while building. A fact still
  *  open points at the question asking it. */
-export function Understood({ session, declarations, onCorrect, onRelease, disabled, openRequest = 0,
+export function Understood({ session, declarations, onCorrect, onRelease, onUnits, onTable, disabled, openRequest = 0,
   onOpenQuestion, highlight = null }: {
   session: AuthoringSession;
   declarations?: AuthoringVocabulary["measurements"];
   onCorrect?: CorrectFact;
   onRelease?: (type: string, states: string[]) => Promise<unknown>;
+  onUnits?: (type: string, on: boolean) => Promise<unknown>;
+  onTable?: (type: string, on: boolean) => Promise<unknown>;
   disabled: boolean;
   openRequest?: number;
   /** Bring the open question back in the conversation. */
@@ -20,6 +23,7 @@ export function Understood({ session, declarations, onCorrect, onRelease, disabl
   /** A line an announcement points at, lit for a moment. */
   highlight?: string | null;
 }) {
+  const nameOf = useSubjectNames();
   const sentence = session.turns.find((turn) => turn.role === "person")?.text ?? null;
   const pending = session.pending_proposal;
   const asking = pending?.kind === "gap" && pending.envelope?.offer === "gap"
@@ -39,10 +43,10 @@ export function Understood({ session, declarations, onCorrect, onRelease, disabl
       )}
       {asking && onOpenQuestion && (
         <p className="m-0 text-[13px] text-needs-you-ink">
-          {asking}: needs you.{" "}
+          {nameOf(asking)}: needs you.{" "}
           <button type="button" onClick={onOpenQuestion}
                   className="bg-transparent border-0 p-0 text-now-ink underline cursor-pointer">
-            Answer {asking} in the chat
+            Answer it in the chat
           </button>
         </p>
       )}
@@ -50,6 +54,7 @@ export function Understood({ session, declarations, onCorrect, onRelease, disabl
         {answered(session).map((decision) => <AnswerLine key={decision.id} decision={decision} />)}
         <NotOffered phrases={session.not_offered ?? []} />
         <CurrentFacts session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
+                      onUnits={onUnits} onTable={onTable}
                       openRequest={openRequest} open disabled={disabled} highlight={highlight} />
       </div>
     </section>

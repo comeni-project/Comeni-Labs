@@ -90,7 +90,7 @@ def test_the_wrap_up_credits_the_person_for_a_swap(clean):
     """Issue 256."""
     session_id = _built(_goal())
     _amend(session_id, _hisat2(_walk_to_node(session_id, "star_align"))["id"])
-    assert "by human" in _walk_to_wrap(session_id)
+    assert "by you" in _walk_to_wrap(session_id)
 
 
 def test_a_value_its_measurement_refuses_is_refused(clean):

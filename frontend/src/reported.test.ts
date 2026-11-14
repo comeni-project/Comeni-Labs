@@ -12,10 +12,9 @@ import { expect, it } from "vitest";
  * `useMutation` result whole, which carries `.error` to its caller. Every consumer references
  * one.
  *
- * The single break was `Builder.tsx` handing `Walk` a `keep` prop with no error in it — one
- * call site, one dropped field. So the real fix is a **required prop** in `Walk.tsx`, which
- * `tsc` enforces and no scan can; this file guards the two properties that made that break a
- * one-line one rather than a systemic one, so they cannot rot.
+ * A dropped error is one call site passing a prop without it, which a **required prop** catches
+ * and `tsc` enforces; this file guards the two properties that keep such a break to one line
+ * rather than a systemic one, so they cannot rot.
  */
 const SRC = join(import.meta.dirname, ".");
 

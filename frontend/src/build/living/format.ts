@@ -147,9 +147,13 @@ export function handoverId(session: AuthoringSession): string | null {
 
 /** The pipeline's steps in the order they were decided, then any added by hand, by id. */
 export function stepsInOrder(session: AuthoringSession): string[] {
-  const decided = session.history
+  // **Each step once, and only steps the pipeline still has** (issue 496): a review accepts a
+  // step again, and a step can be removed after it was accepted.
+  const present = new Set(session.graph.nodes.map((n) => n.id));
+  const decided = [...new Set(session.history
     .filter((d) => d.state === "accepted" && d.block.kind === "step_proposal")
-    .map((d) => (d.block.kind === "step_proposal" ? d.block.node : ""));
+    .map((d) => (d.block.kind === "step_proposal" ? d.block.node : "")))]
+    .filter((id) => present.has(id));
   const added = session.graph.nodes.map((n) => n.id).filter((id) => !decided.includes(id)).sort();
   return [...decided, ...added];
 }

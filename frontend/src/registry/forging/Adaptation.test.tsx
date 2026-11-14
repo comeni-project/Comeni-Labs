@@ -442,7 +442,7 @@ it("shows question evidence and current reviewer advice alongside the answers", 
       lines: [{ number: 20, text: "emit: tsv" }], source_available: true, upstream: "The metrics table",
       decides: "Chooses what the table holds.", optional: true,
       choices: [{ id: "qc.report::assembly", name: "quality report", explain: "Assembly quality metrics",
-        scope: "sample", tools: [], proposed: true }],
+        grain: "sample", tools: [], proposed: true }],
     },
     "/reviews": [{ item: question.key, revision: 1, comment: "Check the assembly state.",
       quote: "emit: tsv", file: "main.nf", model: "recorded/reviewer" }],
@@ -585,15 +585,15 @@ it("an engine finding shows on the collapsed row and as a note in the open card,
       decides: "Chooses what consensus reads.", optional: false, arrival: "sample",
       channel: "tuple val(meta), path(consensus)", findings: [finding],
       choices: [
-        { id: "genome.fasta", name: "reference genome (FASTA)", explain: "The genome sequence", scope: "run", tools: ["bwa/mem"], proposed: false },
-        { id: "assembly.fasta", name: null, explain: null, scope: null, tools: [], proposed: true }],
+        { id: "genome.fasta", name: "reference genome (FASTA)", explain: "The genome sequence", grain: "study", tools: ["bwa/mem"], proposed: false },
+        { id: "assembly.fasta", name: null, explain: null, grain: null, tools: [], proposed: true }],
     },
   });
   const fasta = await screen.findByRole("group", { name: "fasta" });
   expect(within(fasta).getByRole("button", { expanded: false })).toHaveTextContent("Same type as consensus");
   const row = screen.getByRole("group", { name: "consensus" });
   expect(await within(row).findByRole("note")).toHaveTextContent("one per run");
-  expect(within(row).getByText("one per run")).toHaveClass("chip-flag");
+  expect(within(row).getByText("one per study")).toHaveClass("chip-flag");
   expect(within(row).getByText("new · one per sample")).toBeTruthy();
   expect(within(row).getByText("tuple val(meta), path(consensus)")).toBeTruthy();
   // A flagged suggestion is not pre-selected: nothing to answer until the person picks.

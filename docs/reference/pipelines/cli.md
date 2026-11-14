@@ -13,7 +13,7 @@ at all.
 
 | | |
 |---|---|
-| `build` `profile` `emit` `publish` `upgrade` | make or re-make a pipeline |
+| `build` `emit` `publish` `upgrade` | make or re-make a pipeline |
 | `explain` | the long form of a diagnostic code |
 | `conformance` `lint` `docs` | act on a **layer** — see [acting on a layer](#acting-on-a-layer) |
 
@@ -24,7 +24,7 @@ contract that disagrees with its module.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `--out PATH` | *required for `build` and `profile`* | output directory, created if absent |
+| `--out PATH` | *required for `build`* | output directory, created if absent |
 | `--root PATH` | current directory | repository root — only supplies the default `--registry` of `<root>/registry` |
 | `--registry PATH` | `<root>/registry` | a registry layer; **repeatable**, later layers win |
 | `--gate {lint,preview,stub,test}` | none | run a validation gate after emitting |
@@ -73,43 +73,9 @@ Prints to stderr:
 Plus an `OVERLAY` line per declaration displaced by a higher layer, and an `ANSWERED` line
 per tier-4 question a human has already settled.
 
-## `mendel profile`
-
-```bash
-uv run mendel profile --have fastq.reads --out profile-build/
-```
-
-| Option | Meaning |
-|---|---|
-| `--have TYPE_ID` | a type you hold; **repeatable** |
-
-Sugar for `build --want measurement.*`. Emits everything `build` does, plus `profile.yml`:
-
-```yaml
-measurements:
-- by: comeni/profile/fastqc@0.12.1
-  measurement: read_length
-  source: measured
-  value: null
-```
-
-`value: null` because the pipeline has been emitted, not run. Wants only the measurements
-this registry can actually reach, and names the rest:
-
-```
-profiling for: read_length
-  NOT MEASURED  adapter_content, duplicate_rate, genome_length, library_prep, n_samples,
-                node_memory_gb, organism, paired, purpose, rrna_fraction, strandedness —
-                declared, but no contract in this registry produces them
-```
-
-A registry that can measure nothing at all exits `2`. In the current alpha, measurement and
-input collection are still moving surfaces, so treat profiling commands as advanced tooling
-rather than the product's first-run path.
-
 ## Conformance
 
-Before anything is resolved, `build` and `profile` check every contract in the loaded
+Before anything is resolved, `build` checks every contract in the loaded
 registry against the module it claims to describe — the `main.nf` and `meta.yml` under
 `tools/<org>/<tool>/module/` **inside the layer itself**. A contract is a hand-written binding
 to a foreign, dynamically-typed unit, and nothing else compares the two.

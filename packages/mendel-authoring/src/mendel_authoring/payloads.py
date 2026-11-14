@@ -30,19 +30,27 @@ class Amended(_Payload):
     said: str = Field(max_length=2000)
 
 
+ChangeKind = Literal["want", "input", "measurement", "require", "pin", "parameter", "asked",
+                     "producer", "retain", "observation", "role", "exclude", "source",
+                     "optional_input", "units", "whole", "tables"]
+"""What a change can be about. A correction carries every change, so both read this one list."""
+
+
 class DecisionChange(_Payload):
     """One change to intent or facts, from any caller — the person's click or edit, the chat
     model's reply, a stage's own handler (Part I.0 spec §5.1). `heard` is the person's words it
     was taken from, already checked (`heard.find`); `retract` removes what `subject` names."""
 
-    kind: Literal["want", "input", "measurement", "require", "pin", "parameter", "asked",
-                  "producer", "retain", "observation", "role", "exclude", "source",
-                  "optional_input"]
+    kind: ChangeKind
     """`role`, `exclude` and `source` are a person's structural intent (A1), on these fields:
     a role is its `subject`; an exclusion is a site (`subject` type, `states`) and the tool in
     `value`, as a pin is; a source is `source_subject(consumer, port)` and the producer in `value`.
     `retract` withdraws each. `optional_input` is a tool's optional input switched (#460):
-    `source_subject(contract, port)`, and `off`, `optional` or `required` in `value`."""
+    `source_subject(contract, port)`, and `off`, `optional` or `required` in `value`. `units`
+    says whether a sample may span several rows of the input `subject` (#466): `value` true or
+    false. `whole` keeps the tool `subject` whole rather than running it on parts of each sample
+    (#466); `retract` lets it run on parts again. `tables` says whether the study input `subject`
+    is a table of several items (#466): `value` true or false."""
     subject: str = Field(min_length=1, max_length=256)
     value: HumanParamValue | list[HumanParamValue] | None = None
     states: list[str] = Field(default_factory=list)
@@ -77,8 +85,7 @@ class Correction(_Payload):
     subject: str
     value: HumanParamValue | list[HumanParamValue] | None = None
     who: str
-    kind: Literal["measurement", "input", "producer", "retain", "observation", "want",
-                  "require", "pin", "parameter", "asked", "role", "exclude", "source"]
+    kind: ChangeKind
     observation_id: str | None = None
     states: list[str] = Field(default_factory=list)
     continuation: Literal["gather", "goal", "build", "complete", "stopped"]

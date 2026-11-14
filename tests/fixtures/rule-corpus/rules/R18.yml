@@ -1,7 +1,7 @@
 declares: rule
 version: 1
-# R18 — AND within a row. Two premises, which is also why this decision is not checked for
-# completeness: a product of domains is a much larger claim.
+# R18 — AND within a row. Two premises, so the table is checked over every case of both
+# (#461): the catch-all row is what answers the cases the first row does not.
 decisions:
   - decides: {effect: param, of: alignment, name: twopass_mode, when_implementation: [nf-core/star/align@2.7.11b]}
     because: "paired long reads carry enough junction evidence for a second pass to pay"
@@ -10,4 +10,8 @@ decisions:
       - when: {paired: true, read_length: ">= 100"}
         then: Basic
         because: "paired 100bp reads span junctions often enough to find novel ones"
+        cite: "STAR manual 2.2.2"
+      - when: {}
+        then: None
+        because: "otherwise one pass, STAR's own default"
         cite: "STAR manual 2.2.2"

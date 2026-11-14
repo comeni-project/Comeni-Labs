@@ -17,6 +17,10 @@ from pydantic import TypeAdapter, ValidationError
 
 _URL = TypeAdapter(RepoUrl)
 
+INSTALLATION_FILE = "INSTALLATION"
+"""Inside an installation's own layer (#462): it is local, held by no repository, even when a
+checkout happens to enclose the folder."""
+
 RELEASE_FILE = "release.yml"
 """Beside a fetched release's layer: what it is. A fetched folder has no git metadata."""
 
@@ -56,6 +60,8 @@ def locate(layer: Path) -> Locator:
         said = yaml_strict.load(marker)
         return Locator(source=said["repository"], commit=said["commit"], dirty=False,
                        release=said["tag"])
+    if (layer / INSTALLATION_FILE).is_file():
+        return Locator()
     if _git(layer, "rev-parse", "--show-toplevel") is None:
         return Locator()
     folder = (_git(layer, "rev-parse", "--show-prefix") or "").rstrip("/")

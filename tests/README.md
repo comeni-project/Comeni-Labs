@@ -21,7 +21,7 @@ Run commands from the repository root. `uv sync` installs Python test dependenci
 | Frontend types | `cd frontend && npx tsc -b` | Frontend npm dependencies. |
 
 Ordinary pytest runs exclude `slow` tests. Python collection includes `tests/`, `packages/`
-and `registry/inspectors/`; frontend tests run separately through Vitest. To inspect collection
+and `registry/measurers/`; frontend tests run separately through Vitest. To inspect collection
 without executing test bodies, use `uv run pytest --collect-only -q`.
 
 ### Database isolation
@@ -75,7 +75,7 @@ callers before moving a test they select explicitly.
 | Run-state calculation | [wiener-core tests](../packages/wiener-core/tests/) | Pure event admission, folding, decisions and projections. |
 | Execution API | [wiener-api tests](../packages/wiener-api/tests/) | SQLite-backed routes and streams; PostgreSQL-specific cases use the isolated server. |
 | Graph layout | [dag-core tests](../packages/dag-core/tests/) | Deterministic layout geometry. |
-| Inspector pieces | [registry/inspectors/](../registry/inspectors/) | Codec, format and measurement pieces owned by the registry submodule. |
+| Inspector pieces | [registry/measurers/](../registry/measurers/) | Codec, format and measurement pieces owned by the registry submodule. |
 | Browser components | [frontend/src/](../frontend/src/) | Colocated `.test.ts` and `.test.tsx` files; shared setup in `setupTests.ts`. |
 
 ## Organize a test or helper

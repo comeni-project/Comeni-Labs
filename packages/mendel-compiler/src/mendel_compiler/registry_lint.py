@@ -5,6 +5,7 @@ for layers whose manifest defines ``layout``; it reports misplaced, misnamed, cr
 ownership violations without changing loader semantics for private overlays.
 """
 
+import ast
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -46,11 +47,13 @@ def lint(root: Path) -> list[Diagnostic]:
     Sorted by path, because these are printed and a stable order is what makes a CI log
     diffable against yesterday's.
     """
+    found: list[Diagnostic] = pieces(root)
+    # **Whatever the manifest says** (#487): a piece's code runs in a lab's pipeline, so the
+    # forge's draft layer, which declares no layout, is held to this too.
     manifest = LayerManifest.of(root)
     if manifest is None or not manifest.layout:
-        return []
+        return sorted(found, key=lambda f: (f.where, f.code))
 
-    found: list[Diagnostic] = []
     found += _misfiled(root, manifest)
     found += _named_for_its_id(root)
     found += _one_role_per_file(root)
@@ -304,7 +307,7 @@ def _nothing_reaches_out_of_its_tool(root: Path) -> list[Diagnostic]:
     return found
 
 
-_ID_ROOTS = ("tools", "profilers")
+_ID_ROOTS = ("tools",)
 
 
 def _path_is_the_id(root: Path) -> list[Diagnostic]:
@@ -437,6 +440,84 @@ def _tool_types_are_its_own(root: Path) -> list[Diagnostic]:
                         fix=f"move {type_id} to the shared vocabulary, since two tools use it",
                     )
                 )
+    return found
+
+
+ALLOWED = frozenset({
+    "comeni_inspect.outcome", "comeni_inspect.records",
+    "gzip", "zlib", "io", "re", "math", "collections", "collections.abc", "typing",
+})
+"""What a measurer piece may import, by whole module name. `comeni_inspect` itself is not on it:
+its runner loads any file by path and its harness runs commands, so a piece may import only the
+two shapes it answers in. No network, no files, no processes."""
+BANNED_CALLS = frozenset({"open", "getattr", "setattr", "__import__", "exec", "eval", "compile",
+                          "vars", "globals", "locals", "breakpoint", "input", "print"})
+"""Builtins a piece may not call by name. `globals()` and `locals()` reach the builtins; `print`
+writes into the step's JSON report, so a correct parser would look as if it reported nothing;
+`input` and `breakpoint` stall the step."""
+BANNED_METHODS = frozenset({"open", "FileIO"})
+"""And as an attribute: `io.open(...)`, `io.FileIO(...)` and `gzip.open(path)` are file reads
+too. Not every name: `re.compile` is not the builtin."""
+BANNED_NAMES = frozenset({"__builtins__", "__subclasses__", "__globals__", "__code__",
+                          "__loader__"})
+
+
+def piece_problems(code: str) -> list[str]:
+    """What a piece's source reaches that it may not, sorted; empty when it keeps the rules.
+
+    **A tripwire, not a sandbox.** It catches ordinary access to networks, files and processes;
+    isolation comes from where a piece runs. A function *defined* as `open` (the gzip codec's) is
+    not a call and is not matched."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as error:
+        return [f"syntax error: {error.msg} (line {error.lineno})"]
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found |= {alias.name for alias in node.names} - ALLOWED
+        elif isinstance(node, ast.ImportFrom):
+            if node.level or (node.module or "") not in ALLOWED:
+                found.add(node.module if node.module and not node.level
+                          else "<relative import>")
+        elif isinstance(node, ast.Call):
+            name = getattr(node.func, "id", None)
+            method = getattr(node.func, "attr", None)
+            if name in BANNED_CALLS or method in BANNED_METHODS:
+                found.add(f"<{name or method}()>")
+            elif method == "GzipFile" and (node.args or any(
+                    k.arg != "fileobj" for k in node.keywords)):
+                found.add("<GzipFile(path)>")  # `GzipFile(fileobj=stream)` wraps the stream
+        elif isinstance(node, ast.Name) and node.id in BANNED_NAMES:
+            found.add(node.id)
+        elif isinstance(node, ast.Attribute) and node.attr in BANNED_NAMES:
+            found.add(node.attr)
+    return sorted(found)
+
+
+def piece_code(root: Path) -> list[Path]:
+    """Every measurer piece's code file: under `measurers/*/*/piece/`, in subfolders too, but
+    not its tests or its fixtures."""
+    base = root / "measurers"
+    return sorted(
+        p for p in base.glob("*/*/piece/**/*.py")
+        if not p.name.startswith("test_") and "fixtures" not in p.relative_to(base).parts
+    )
+
+
+def pieces(root: Path) -> list[Diagnostic]:
+    """MD0027. A piece whose code reaches outside what pieces may import or call."""
+    found = []
+    for path in piece_code(root):
+        problems = piece_problems(path.read_text())
+        if problems:
+            found.append(Diagnostic(
+                code="MD0027",
+                where=_at(path, root),
+                summary=f"reaches past what a piece may import or call: {', '.join(problems)}",
+                detail="",
+                fix="read only the stream the piece is handed, with the allowed imports",
+            ))
     return found
 
 

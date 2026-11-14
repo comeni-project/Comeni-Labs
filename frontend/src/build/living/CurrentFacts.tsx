@@ -2,21 +2,28 @@ import { useEffect, useRef, useState } from "react";
 import type { AuthoringSession, AuthoringVocabulary } from "../../api/types";
 import { FactEditor, type FactValue } from "./FactEditor";
 import { FactHistory, factWords, sourceWords } from "./FactHistory";
+import { Samples } from "./Samples";
+import { useGrains, useSubjectNames } from "./useTypeNames";
 
 export type CorrectFact = (subject: string, value: FactValue, kind: "input" | "measurement") => Promise<unknown>;
 /** Whether there is any current answer to show — the describe page draws no empty section. */
 export function hasCurrentFacts(session: AuthoringSession): boolean {
   return (session.facts ?? []).some(fact => fact.kind === "measurement") || (session.inputs ?? []).length > 0
-    || (session.goal?.constraints?.producers ?? []).length > 0 || (session.fact_subjects ?? []).length > 0;
+    || (session.goal?.constraints?.producers ?? []).length > 0 || (session.fact_subjects ?? []).length > 0
+    || (session.samples ?? []).length > 0;
 }
 
-export function CurrentFacts({ session, declarations, onCorrect, onRelease, openRequest = 0, disabled = false, open = false,
-  highlight = null }: {
+export function CurrentFacts({ session, declarations, onCorrect, onRelease, onUnits, onTable, openRequest = 0, disabled = false,
+  open = false, highlight = null }: {
   session: AuthoringSession; declarations?: AuthoringVocabulary["measurements"];
   /** Open from the start — the describe page, where these answers are the page. */
   open?: boolean;
   onCorrect?: CorrectFact; disabled?: boolean; openRequest?: number;
   onRelease?: (type: string, states: string[]) => Promise<unknown>;
+  /** Whether a sample may span several rows of an input, such as its lanes (issue 466). */
+  onUnits?: (type: string, on: boolean) => Promise<unknown>;
+  /** A study input is a table of several items, such as several databases (issue 466). */
+  onTable?: (type: string, on: boolean) => Promise<unknown>;
   /** The line an announcement points at, lit for a moment (one builder plan 3). */
   highlight?: string | null;
 }) {
@@ -31,32 +38,63 @@ export function CurrentFacts({ session, declarations, onCorrect, onRelease, open
   }, [openRequest]);
   const pins = session.goal?.constraints?.producers ?? [];
   const facts = (session.facts ?? []).filter(fact => fact.kind === "measurement");
+  const nameOf = useSubjectNames();
   const absent = (session.fact_subjects ?? []).filter(subject => !facts.some(fact => fact.subject === subject));
   const inputs = session.inputs ?? [];
-  if (!facts.length && !inputs.length && !pins.length && !absent.length) return null;
+  // Each input's grain, from the built pipeline's channels; unknown before a build (issue 466).
+  // Before a build there are no channels, so the type's declared grain answers (issue 494).
+  const declaredGrain = useGrains();
+  const grainOf = (type: string) =>
+    (session.canvas?.channels ?? []).find(c => c.type_id === type)?.grain ?? declaredGrain(type);
+  if (!facts.length && !inputs.length && !pins.length && !absent.length
+    && !(session.samples ?? []).length) return null;
   return <details ref={details} className="mb-4 text-[12px]" open={editing !== null || open ? true : undefined}>
     <summary className="cursor-pointer text-ink-2">Current answers · {facts.length + inputs.length + absent.length}</summary>
     {error && <p role="alert">{error}</p>}
     {pins.map(pin => <p key={`${pin.site.type_id}:${pin.site.states.join(",")}`}>
-      Tool choice for {pin.site.type_id}: {pin.contract}
+      Tool choice for {nameOf(pin.site.type_id)}: {pin.contract}
       {onRelease && <button disabled={disabled} className="ml-2 text-now-ink underline" onClick={() => {
         void onRelease(pin.site.type_id, pin.site.states).catch(failure => setError(String(failure)));
       }}>Release this tool choice</button>}
     </p>)}
-    {[...inputs.map(input => ({ subject: input.key, label: input.name ?? input.type_id,
+    {[...inputs.map(input => ({ subject: input.key, label: input.name ?? nameOf(input.type_id),
       value: input.origin === "open" ? null : input.present, source: input.origin, kind: "input" as const })),
-    ...facts.map(fact => ({ subject: fact.subject, label: fact.subject, value: fact.value ?? null,
+    ...facts.map(fact => ({ subject: fact.subject, label: nameOf(fact.subject), value: fact.value ?? null,
       source: fact.source, kind: "measurement" as const })),
-    ...absent.map(subject => ({ subject, label: subject, value: null, source: "open", kind: "measurement" as const }))].map(fact => <div key={`${fact.kind}:${fact.subject}`} data-subject={fact.subject}
+    ...absent.map(subject => ({ subject, label: nameOf(subject), value: null, source: "open", kind: "measurement" as const }))].map(fact => <div key={`${fact.kind}:${fact.subject}`} data-subject={fact.subject}
       className="border-t py-2 transition-shadow"
       style={highlight === fact.subject ? { boxShadow: "inset 3px 0 0 var(--done)", background: "var(--done-soft)" } : undefined}>
       <span>{fact.label}: {factWords(fact.value)} · {sourceWords[fact.source]}</span>
       {onCorrect && <button type="button" disabled={disabled} className="ml-2 text-now-ink underline"
         onClick={() => setEditing(editing === fact.subject ? null : fact.subject)}>Correct {fact.label}</button>}
+      {fact.kind === "input" && fact.value === true && onTable && (() => {
+        const input = inputs.find(i => i.key === fact.subject)!;
+        if (grainOf(input.type_id) !== "study") return null;
+        return <label className="block pt-[4px] text-ink-2">
+          <input type="checkbox" className="mr-2" disabled={disabled} checked={input.table ?? false}
+            aria-label={`${input.type_id} is a table of several items`}
+            onChange={event => { void onTable(input.type_id, event.target.checked)
+              .catch(failure => setError(String(failure))); }} />
+          several of these, given as a table: every sample runs against each
+        </label>;
+      })()}
+      {fact.kind === "input" && fact.value === true && onUnits && (() => {
+        const input = inputs.find(i => i.key === fact.subject)!;
+        // Only a per-sample input spans rows; one the build reads once for the study does not.
+        if (grainOf(input.type_id) === "study") return null;
+        return <label className="block pt-[4px] text-ink-2">
+          <input type="checkbox" className="mr-2" disabled={disabled} checked={input.units ?? false}
+            aria-label={`a sample may span several rows of ${input.type_id} (lanes)`}
+            onChange={event => { void onUnits(input.type_id, event.target.checked)
+              .catch(failure => setError(String(failure))); }} />
+          a sample may span several rows, such as the lanes it was sequenced over
+        </label>;
+      })()}
       {editing === fact.subject && onCorrect && <FactEditor subject={fact.subject} value={fact.value}
         kind={fact.kind} declaration={declarations?.[fact.subject]} disabled={disabled}
         onSave={value => onCorrect(fact.subject, value, fact.kind)} />}
-      {<FactHistory sessionId={session.id} subject={fact.subject} revision={session.row_version} />}
+      {<FactHistory sessionId={session.id} subject={fact.subject} label={fact.label} revision={session.row_version} />}
     </div>)}
+    <Samples samples={session.samples ?? []} />
   </details>;
 }

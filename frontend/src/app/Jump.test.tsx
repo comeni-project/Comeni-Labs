@@ -192,3 +192,47 @@ describe("jump to a pipeline or run", () => {
     expect(screen.getAllByRole("option")[0].getAttribute("aria-selected")).toBe("true");
   });
 });
+
+describe("the palette's details (issue 383)", () => {
+  it("groups each list under its heading", async () => {
+    at("/build");
+    press();
+    const pipelines = await screen.findByRole("group", { name: "Pipelines" });
+    expect(within(pipelines).getAllByRole("option").length).toBe(2);
+    expect(screen.queryByRole("presentation")).toBeNull();
+  });
+
+  it("scrolls the active row into view", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    at("/build");
+    press();
+    const field = await screen.findByRole("combobox");
+    await screen.findAllByRole("option");
+    fireEvent.keyDown(field, { key: "ArrowDown" });
+    await waitFor(() => expect(scrolled).toHaveBeenCalledWith({ block: "nearest" }));
+  });
+
+  it("does not open on Ctrl+Shift+K or Ctrl+Alt+K", async () => {
+    at("/build");
+    await screen.findByRole("button", { name: /jump/i });
+    fireEvent.keyDown(document.body, { key: "K", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true, altKey: true });
+    expect(screen.queryByRole("dialog", { name: /jump/i })).toBeNull();
+  });
+
+  it("locks the page's scroll while open, and gives it back", async () => {
+    at("/build");
+    press();
+    const dialog = await screen.findByRole("dialog", { name: /jump/i });
+    expect(document.body.style.overflow).toBe("hidden");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(document.body.style.overflow).toBe(""));
+  });
+
+  it("says Ctrl K off a Mac", async () => {
+    at("/build");
+    const button = await screen.findByRole("button", { name: /jump/i });
+    expect(button.textContent).toContain("Ctrl K");
+  });
+});

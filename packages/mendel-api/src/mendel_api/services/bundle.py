@@ -61,15 +61,17 @@ def of(draft_id: str) -> bytes:
     ])
 
 
-def archive(artifact: str, pipeline: Pipeline, modules: Iterable[tuple[str, Path]]) -> bytes:
-    """The zip of one pipeline: its file, what it emits, and `modules` as (name, file)."""
+def archive(artifact: str, pipeline: Pipeline,
+            modules: Iterable[tuple[str, Path | bytes]]) -> bytes:
+    """The zip of one pipeline: its file, what it emits, and `modules` as (name, file), or
+    (name, bytes) for a module that is generated rather than vendored (#487)."""
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipped:
         _write(zipped, pipeline_file.FILENAME, artifact)
         _write(zipped, "main.nf", emit(pipeline))
         _write(zipped, "nextflow.config", emit_config(pipeline))
-        for name, path in modules:
-            _write(zipped, name, path.read_bytes())
+        for name, source in modules:
+            _write(zipped, name, source if isinstance(source, bytes) else source.read_bytes())
     return buffer.getvalue()
 
 

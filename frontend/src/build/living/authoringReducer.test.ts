@@ -340,3 +340,11 @@ it("keeps composed text on a correction revision refusal", () => {
   expect(refused.composer).toBe("my unsent correction");
   expect(refused.notice?.code).toBe("MI0201");
 });
+
+it("a failed send puts back the words that failed, not the newest queued (issue 404)", () => {
+  const first = authoringReducer(initialAuthoring, { type: "sent", text: "first" });
+  const both = authoringReducer(first, { type: "sent", text: "second" });
+  const failed = authoringReducer(both, { type: "unsent", text: "first" });
+  expect(failed.composer).toBe("first");
+  expect(failed.sending).toEqual(["second"]);
+});

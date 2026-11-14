@@ -21,6 +21,8 @@ class Piece(StrEnum):
     VOCABULARY = "vocabulary"
     RULES = "rules"
     TESTS = "tests"
+    MEASURERS = "measurers"
+    """Parsers reading a fact from this tool's output (#487): drafted last, proven by tests."""
 
 
 PIECES: tuple[Piece, ...] = tuple(Piece)
@@ -140,7 +142,7 @@ class Command(_Frozen):
 
 
 KEY = re.compile(
-    r"^(questions|contract|parameters|vocabulary|rules|tests):"
+    r"^(questions|contract|parameters|vocabulary|rules|tests|measurers):"
     r"[a-z_]+(:[A-Za-z][A-Za-z0-9._-]{0,120})?$"
 )
 """Every item key: `<piece>:<kind>[:<name>]`. A key names a file in the draft layer, so nothing

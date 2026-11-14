@@ -112,3 +112,17 @@ describe("the minimap (issue 389)", () => {
   });
 });
 
+
+describe("a step only some samples take (issue 466)", () => {
+  it("is marked on its node, with the samples it takes", () => {
+    const steps = { ...FAKE_STEPS, star_align: { ...FAKE_STEPS.star_align, takes_samples: {
+      tools: ["nf-core/star/align@2.7.11b"], samples: "samples where read_length >= 70",
+      lookup: { facts: [], rule: "implementation:alignment", rows: [], fallback: null,
+                fallback_is: "stop" as const, fallback_reason: "" } } } };
+    fake({ steps });
+    const mark = screen.getByTestId("node-branch-star_align");
+    expect(mark.textContent).toBe("some samples");
+    expect(mark.getAttribute("title")).toBe("takes only samples where read_length >= 70");
+    expect(screen.queryByTestId("node-branch-star_genomegenerate")).toBeNull();
+  });
+});

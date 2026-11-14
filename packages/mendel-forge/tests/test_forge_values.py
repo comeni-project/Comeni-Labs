@@ -35,6 +35,22 @@ def test_each_key_family_validates_its_registry_model(key, good, bad):
         validate_value(key, bad)
 
 
+def test_a_measurer_is_its_draft_and_nothing_else():
+    from mendel_forge.forging.values import MeasurerDraft
+    from support.forge_measurer import KEY, measurer
+    assert isinstance(validate_value(KEY, measurer()), MeasurerDraft)
+    with pytest.raises(ValidationError):  # `by`, `uses` and `runs` are the engine's
+        validate_value(KEY, {**measurer(), "by": "code"})
+    with pytest.raises(ValidationError):
+        validate_value(KEY, {**measurer(), "code": ""})
+
+
+def test_a_measurers_measurement_is_a_measurement():
+    from comeni_core.declared.measurement import Measurement
+    value = {"id": "n50", "kind": "integer", "description": "Assembly N50", "cite": "QUAST"}
+    assert isinstance(validate_value("measurers:measurement:n50", value), Measurement)
+
+
 def test_an_answer_is_a_choice_not_a_question():
     validate_value("questions:role", {"choice": "assembly_qc"}, answer=True)
 

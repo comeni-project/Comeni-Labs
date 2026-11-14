@@ -27,6 +27,7 @@ start with the [pipeline tutorial](../tutorials/first-pipeline.md).
 | Turn an nf-core module into registry files | [Forge a tool](registry/forge-a-tool.md) |
 | Bind a tool to its module | [Writing a contract](registry/add-tool.md) |
 | Use data to choose a tool or setting | [Writing a rule](registry/write-rule.md) |
+| Turn your repeated answers into a rule | [Learn rules from your answers](registry/learned-rules.md) |
 | Supply private tools and lab conventions | [Your lab's own layer](registry/add-layer.md) |
 
 ## Develop and maintain the platform

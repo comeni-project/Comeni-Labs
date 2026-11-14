@@ -19,6 +19,7 @@ const SOURCE: Record<Fact["source"], string> = {
   measured: "measured",
   model_read: "read by AI",
   open: "left open",
+  varies: "you said",
 };
 
 
@@ -264,7 +265,8 @@ export function GoalCard({
                                     .then((done) => { setEditing(null); return done; })} />
                     ) : undefined}>
                 <span className="text-[14px] text-ink">
-                  {f.source === "open" || f.value === null || f.value === undefined ? "Not known yet" : factWords(f.value)}
+                  {f.source === "varies" ? "Differs between samples"
+                    : f.source === "open" || f.value === null || f.value === undefined ? "Not known yet" : factWords(f.value)}
                 </span>
               </Line>
             ))}
@@ -339,6 +341,7 @@ const CHIP: Record<Fact["source"], React.CSSProperties> = {
   model_read: { borderColor: "var(--line-2)", color: "var(--ink-2)", background: "var(--surface)" },
   measured: { borderColor: "transparent", color: "var(--measured-ink)", background: "var(--measured-soft)" },
   open: { borderColor: "transparent", color: "var(--needs-you-ink)", background: "var(--needs-you-soft)" },
+  varies: { borderColor: "var(--line-2)", color: "var(--ink-2)", background: "var(--surface)" },
 };
 
 /** One line of the table: what it is, its value, the words it was heard in, where it came from.

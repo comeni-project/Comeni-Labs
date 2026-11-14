@@ -23,6 +23,8 @@ KINDS = (
     ("vocabulary:family", "Family", True),
     ("rules:rule", "Decision rule", True),
     ("tests:test", "Test", True),
+    ("measurers:measurer", "Measurer", True),
+    ("measurers:measurement", "Measurement", True),
 )
 
 
@@ -47,7 +49,7 @@ def kinds() -> list[Constructor]:
         for family, label, named in KINDS]
     result.extend(Constructor(family=f"{piece}:none", label="Nothing needed", named=False,
         fields=NoneNeeded.model_json_schema())
-        for piece in ("parameters", "vocabulary", "rules"))
+        for piece in ("parameters", "vocabulary", "rules", "measurers"))
     return result
 
 

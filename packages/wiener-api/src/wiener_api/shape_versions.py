@@ -11,8 +11,8 @@ from sqlalchemy import Integer, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 VERSIONS: dict[str, int] = {
-    "run": 1,
-    "run_event": 1,
+    "run": 2,
+    "run_event": 2,
     "run_task": 1,
     "wiener_setting": 1,
 }

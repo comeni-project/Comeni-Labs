@@ -196,9 +196,10 @@ def test_accepting_a_step_moves_the_revision_and_the_preview_follows(
         ("goal", "accepted"),
         ("step", "accepted"),
     ]
-    assert history[1]["chosen_contract"] == "nf-core/star/genomegenerate@2.7.11b"
+    # The first step: samtools faidx, measuring the genome for STAR's index in the run (#217).
+    assert history[1]["chosen_contract"] == "nf-core/samtools/faidx@1.24"
     assert after["revision"] == decided["revision"]
-    assert "star_genomegenerate" in after["text"]
+    assert "samtools_faidx" in after["text"]
 
 
 @needs_db
@@ -331,8 +332,9 @@ def test_a_step_proposal_says_what_it_reads_as_well_as_what_it_makes(
 ):
     building, _ = _building(client, queue, monkeypatch)
     block = building["pending_proposal"]["block"]
-    assert block["node"] == "star_genomegenerate"
-    assert set(block["consumes"]) == {"genome.fasta", "annotation.gtf"}
+    # samtools faidx reads the genome, and an index of it it would reuse (#465).
+    assert block["node"] == "samtools_faidx"
+    assert set(block["consumes"]) == {"genome.fasta", "genome.fai"}
 
 
 @needs_db
@@ -414,6 +416,13 @@ def test_the_goal_reads_in_the_registrys_names():
     assert names, "no type has a declared name"
     assert set(names) <= set(vocabulary["types"])
     assert all(name.strip() for name in names.values())
+
+
+def test_the_vocabulary_says_which_types_are_one_file_for_the_run():
+    """Issue 494: a reference genome was asked for as "one file per sample" before a build."""
+    grains = TestClient(create_app()).get("/api/pipeline/authoring/vocabulary").json()["grains"]
+    assert grains["genome.fasta"] == "study"
+    assert grains["fastq.reads"] == "sample"
 
 
 def test_an_edit_body_is_the_graph_and_nothing_else():

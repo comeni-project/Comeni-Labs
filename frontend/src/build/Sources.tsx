@@ -138,7 +138,7 @@ function Socket({ kind, port, at, label, onRename, feeds, split, onSplit, onMerg
       className={`absolute border border-dashed border-[var(--now)] px-3 py-2
                   bg-[var(--now-soft)] ${kind === "Input" ? "rounded-control" : "rounded-l-control"}`}
     >
-      <span className="block text-label text-ink-3">{kind}</span>
+      <span className="block text-label text-ink-2">{kind}</span>
       {onRename
         ? (
           <input

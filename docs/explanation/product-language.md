@@ -28,7 +28,7 @@ Prefer the person's words when they gave them. One idea per sentence. Short sent
 
 | Before | After |
 |---|---|
-| one file, or a pair (R1 and R2) | Choose one file, or both files if your reads are paired. Paired files are usually named _R1 and _R2, or _1 and _2. |
+| one file, or a pair (R1 and R2) | Choose your samples' files: one file per sample, or both files of each paired sample. Paired files are usually named _R1 and _R2, or _1 and _2. |
 | This analysis needs annotation.gtf. Do you have one? | Do you have the gene annotation (GTF) this analysis needs? |
 | I have it, and I'll upload a sample | Yes — I'll upload a sample |
 | Not sure: upload a sample and I'll measure it | Not sure — measure it from a sample |

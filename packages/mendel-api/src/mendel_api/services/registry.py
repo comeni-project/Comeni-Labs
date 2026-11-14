@@ -20,6 +20,7 @@ O(files), and nobody is near it.
 current reader takes `.registry`, `.vocabulary` or `.rules` and reads.
 """
 
+import hashlib
 import os
 import subprocess
 from functools import lru_cache
@@ -27,24 +28,24 @@ from pathlib import Path
 
 from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_directory
-from mendel_compiler.locate import RELEASE_FILE
+from mendel_compiler.locate import INSTALLATION_FILE, RELEASE_FILE
 from mendel_resolver import layers
 from mendel_resolver.layers import Layers
 
-from mendel_api.settings import active_registry
+from mendel_api.settings import active_registry, own_layer, registry_roots
 
 
 @lru_cache(maxsize=4)
-def _load(root: Path, digest: str) -> Layers:
+def _load(roots: tuple[Path, ...], digest: str) -> Layers:
     """The digest is the argument rather than a global, so `lru_cache` does the invalidating
     and there is no hand-written expiry to get wrong. `maxsize=4` so switching between a couple
     of registries — which the tests do constantly — does not thrash. **The root is part of the
     key**: a release can hold the same bytes as the last one, and a `Layers` carries its paths,
     which a pipeline's lockfile names."""
-    return layers.load(root)
+    return layers.load(list(roots))
 
 
-def signature() -> tuple[tuple[str, int, int, int, int], ...]:
+def signature(root: Path | None = None) -> tuple[tuple[str, int, int, int, int], ...]:
     """Every file's size and modification time under the layer, never its bytes (#216).
 
     **What a request pays to learn nothing changed.** The digest read every byte of the layer,
@@ -61,7 +62,7 @@ def signature() -> tuple[tuple[str, int, int, int, int], ...]:
     the layer's own content, and the digest covers it. A symlinked folder is recorded, not
     followed, so adding one is seen and the load decides what it means (issue 223).
     """
-    root = str(active_registry())
+    root = str(root if root is not None else active_registry())
     found = []
 
     def entry(path: str) -> tuple[str, int, int, int, int]:
@@ -94,25 +95,65 @@ def _digest_for(root: Path, _signature: tuple) -> str:
     return str(digest_of_directory(root))
 
 
+def combine(digests: list[str]) -> str:
+    """One digest for a layer stack: a single layer is its own digest, so the common case stores
+    the value every other part of the system prints; a stack is a digest of its layers' digests
+    in order, because the same layers stacked the other way round are a different registry."""
+    if len(digests) == 1:
+        return digests[0]
+    return "sha256:" + hashlib.sha256("\n".join(digests).encode()).hexdigest()
+
+
 def digest() -> str:
     """The cache key, borrowed as an ETag.
 
     The same string that decides whether `_load` reloads decides whether a client's copy is
     stale — one definition of "the registry changed", not two. Exact, and recomputed only when
-    `signature()` moves.
+    `signature()` moves. **Over every layer the installation builds with**, its own included, so
+    a learned rule written or withdrawn moves it (#462).
     """
-    return _digest_for(active_registry(), signature())
+    return combine([_digest_for(root, signature(root)) for root in registry_roots()])
 
 
 def stack() -> Layers:
-    return _load(active_registry(), digest())
+    return _load(tuple(registry_roots()), digest())
+
+
+OWN_LAYER_NAME = "installation"
+
+
+def ensure_own_layer() -> Path:
+    """Create this installation's own layer if it has none yet, and return it. Its
+    `registry.yml` names it, which is what puts it in the stack (`registry_roots`)."""
+    layer = own_layer()
+    marker = layer / "registry.yml"
+    if not marker.is_file():
+        layer.mkdir(parents=True, exist_ok=True)
+        marker.write_text(
+            "# This installation's own registry layer, stacked above the release: the rules it\n"
+            "# learned from its people's answers (#462), written by Mendel.\n"
+            f"name: {OWN_LAYER_NAME}\nrequires_format: 2\n")
+    (layer / INSTALLATION_FILE).write_text(
+        "This folder is this installation's own registry layer. It is local: no repository\n"
+        "holds it, so a pipeline built on it says it cannot be rebuilt from its file alone.\n")
+    return layer
+
+
+def retire_own_layer_if_empty() -> None:
+    """Take the own layer out of the stack once it holds no declared file but its own name, so a
+    pipeline built afterwards does not pin, and warn about, an empty local layer."""
+    layer = own_layer()
+    marker = layer / "registry.yml"
+    if marker.is_file() and not [p for p in layer.rglob("*.yml") if p != marker]:
+        marker.unlink()
 
 
 def builder_types(stack: Layers) -> dict[str, frozenset[str]]:
     """The types a builder want, input, state or pin may name: the declared vocabulary without
     the `measurement.<id>` types `Vocabulary.with_measurements` derives (#346).
 
-    Those route profiling, and the `mendel profile` CLI wants them; nothing in the builder does.
+    Those route the pipeline's measurement steps (#465), which the build adds itself; nothing a
+    person writes names them.
     Offered on the goal card, the walk saw `measurement.read_length` beside `fastq.reads`, and a
     model's `requires measurement.read_length` with no states would have been admitted. **One
     filter for every builder door** — the card, the prompt, each reply and each change — so a

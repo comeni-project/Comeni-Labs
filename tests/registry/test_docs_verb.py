@@ -12,16 +12,9 @@ from support.paths import ROOT
 
 REGISTRY = str(ROOT / "registry")
 
-PAGES = [
-    "comeni/profile.md",
-    "nf-core/fastqc.md",
-    "nf-core/hisat2.md",
-    "nf-core/multiqc.md",
-    "nf-core/samtools.md",
-    "nf-core/star.md",
-    "nf-core/subread.md",
-    "nf-core/trimgalore.md",
-]
+PAGES = sorted(f"{tool.parent.relative_to(ROOT / 'registry/tools')}.md"
+               for tool in (ROOT / "registry/tools").rglob("tool.yml"))
+"""One page per tool the shipped layer declares, counted from its files."""
 
 
 def test_docs_writes_one_page_per_tool(tmp_path):

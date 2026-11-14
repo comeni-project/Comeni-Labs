@@ -1,9 +1,7 @@
 @import "tailwindcss";
 
-/* ═══ GEIST, BUNDLED — NOT FETCHED ════════════════════════════════════════════════════════
-   The artboards are set in Geist and Geist Mono, and until 2026-08-30 the app loaded neither:
-   `--font-ui` was the system sans and `--font-display` was **Georgia**, a serif that appears
-   nowhere in the design. The headline on the front door rendered in it.
+/* ═══ THE FONTS ARE BUNDLED, NOT FETCHED ═══════════════════════════════════════════════════
+   Lexend sets the interface and headings, and Geist Mono sets data (`--font-data`).
 
    **`@fontsource`, not a Google Fonts `<link>`**, and that is invariant 13 rather than a
    preference: self-hosted is not a degraded tier, and a clinical laboratory with no egress
@@ -376,8 +374,17 @@ body {
   .phone-tabs { display: flex; }
   .living[data-pane="chat"] > .living-canvas { display: none; }
   .living[data-pane="canvas"] > .living-rail, .living[data-pane="understood"] > .living-rail { display: none; }
-  .living > .living-canvas { height: calc(100dvh - 180px); }
+  .living > .living-canvas { height: calc(100dvh - 240px); }
+  /* One pane, so one row that fills the screen (issue 496): stacked, the conversation took the
+     `auto` row and shrank to a line once the canvas beside it was hidden. */
+  .living { grid-template-rows: minmax(0, 1fr); }
+  .living > .living-rail { height: calc(100dvh - 240px); }
+  /* The phone's own tabs already choose canvas or understood (issue 496). */
+  .beside-switch { display: none !important; }
 }
+/* The plan's step strip scrolls sideways without drawing a bar (issue 496). */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* ═══ THE REGISTRY'S PARTS ═════════════════════════════════════════════════════════════════
    One frame, so a registry page's logo, tabs, tracker and panels share their edges, and one set

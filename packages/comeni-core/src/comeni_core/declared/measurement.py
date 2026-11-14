@@ -8,7 +8,7 @@ values must be declared as an enum.
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import NamedTuple
+from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -24,7 +24,7 @@ from comeni_core.declared.layered import (
 )
 from comeni_core.diagnostics import coded
 from comeni_core.goal.profile import DataProfile, Evidence, Measured
-from comeni_core.plan.tiers import ValueSource
+from comeni_core.plan.tiers import Grain, ValueSource
 from comeni_core.spell.marks import MeasurementId, ParamValue, TypeId
 
 
@@ -41,19 +41,25 @@ class MeasurementKind(StrEnum):
     NUMBER = "number"
     BOOLEAN = "boolean"
     ENUM = "enum"
+    KEY = "key"
+    """A sample's identifier for a relation, such as its patient or group (#466): compared for
+    equality only, read from each samplesheet row and never measured or stated in a goal."""
+    SAMPLE_REF = "sample_ref"
+    """Another row's `sample`, such as a ChIP sample's control (#466): read from the row, blank
+    where the sample names none, and a name no row has stops the run."""
 
 
 class MetaValue(BaseModel):
     """Translate one declared value to the value expected in module metadata."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     when: ParamValue
     then: ParamValue
 
 
 class Measurement(BaseModel):
-    """A typed property that a goal may assert or a profiling contract may measure."""
+    """A typed property that a goal may assert or a measurer may measure."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -62,14 +68,8 @@ class Measurement(BaseModel):
     values: list[str] = Field(default_factory=list)
     extensible: bool = False
     """Whether an overlay may extend this declaration with `add_values`."""
-    per_sample: bool = False
-    """Whether the value may be a list with one entry per sample.
-
-    Scalars remain valid for a uniform cohort. This is independent of `describes`, which controls
-    whether the value can be carried into metadata for a particular data type.
-    """
     assertion_only: bool = False
-    """Whether a goal must supply this value because no profiling contract produces it."""
+    """Whether a goal must supply this value because no measurer produces it."""
 
     assertion_only_because: str = ""
     """Human-readable reason for `assertion_only`; required exactly when that flag is true."""
@@ -88,8 +88,20 @@ class Measurement(BaseModel):
     meta_key: str | None = None
     """Key used when carrying this value in module metadata; absent disables carrying it."""
 
+    row: Literal["second_file_present"] | None = None
+    """Read off each sample's samplesheet row rather than measured (#466): `second_file_present`
+    is true when the row gives its input's second file. A boolean, describing a type whose
+    second column may be blank (MD0338)."""
+
     meta_values: list[MetaValue] = Field(default_factory=list)
     """Optional translations from declared values to module metadata values."""
+
+    @model_validator(mode="after")
+    def _a_row_fact_is_a_boolean(self) -> "Measurement":
+        if self.row is not None and self.kind is not MeasurementKind.BOOLEAN:
+            raise ValueError(coded("MD0338", f"{self.id} is read off the row ({self.row}), "
+                                   "which gives true or false; declare it a boolean"))
+        return self
 
     @model_validator(mode="after")
     def _assertion_only_says_why(self) -> "Measurement":
@@ -194,6 +206,46 @@ class MeasurementRegistry(BaseModel):
     displaced: list[Displacement] = Field(default_factory=list)
     """Declarations replaced or extended by higher layers."""
 
+    grains: dict[str, Grain] = Field(default_factory=dict)
+    """Each type's grain, from the vocabulary (`with_grains`), which a measurement's scope is
+    read from. Empty in a registry built without one: every described type is then per sample."""
+
+    def check_varies(self, goal) -> None:
+        """Refuse (`MD0332`) a fact said to vary that is the study's, or that the goal also
+        states: one value for every sample and one per sample cannot both be the answer."""
+        stated = {m.measurement for m in goal.profile.measurements}
+        for m in goal.profile.measurements:
+            # Samples that disagree on a fact a module reads from `meta` have no one value to
+            # carry; said to vary, each sample carries its own (Task 2 review).
+            values = m.value if isinstance(m.value, list) else None
+            if (values and any(v != values[0] for v in values)
+                    and self.get(m.measurement).meta_key):
+                raise ValueError(coded(
+                    "MD0332", f"{m.measurement} differs between the samples stated "
+                    f"({', '.join(map(str, values))}), and each module reads one value from "
+                    "`meta`: say it varies instead, and each sample's comes from its "
+                    "samplesheet — `mendel explain MD0332`."))
+        for fact in goal.constraints.varies:
+            if self.scope_of(fact) is not Grain.SAMPLE:
+                raise ValueError(coded(
+                    "MD0332", f"{fact} is said to differ between samples, and it is one value "
+                    "for the whole study — `mendel explain MD0332`."))
+            if fact in stated:
+                raise ValueError(coded(
+                    "MD0332", f"{fact} is said to differ between samples and is also stated "
+                    "for all of them; keep one — `mendel explain MD0332`."))
+
+    def with_grains(self, grains: dict[str, Grain]) -> "MeasurementRegistry":
+        return self.model_copy(update={"grains": dict(grains)})
+
+    def scope_of(self, measurement_id: str) -> Grain:
+        """Whether a fact is one value for the study or one per sample (#466): the grain of the
+        type it describes, or the study when it describes no type (organism, purpose)."""
+        describes = self.get(measurement_id).describes
+        if describes is None:
+            return Grain.STUDY
+        return self.grains.get(describes, Grain.SAMPLE)
+
     @staticmethod
     def kind() -> Kind[str, Measurement | MeasurementDelta]:
         """How measurements are found, keyed and stacked. Everything else is `stack()`."""
@@ -267,21 +319,27 @@ class MeasurementRegistry(BaseModel):
     def check(self, measurement_id: str, value: ParamValue | list[ParamValue]) -> None:
         """Raise unless `value` satisfies the declaration for `measurement_id`.
 
-        Lists are accepted only for `per_sample` measurements and are validated element by
-        element. Numeric bounds are inclusive. Booleans are not accepted as integers.
+        Lists are accepted only for a measurement whose scope is the sample (`scope_of`), and
+        are validated element by element. Numeric bounds are inclusive. Booleans are not
+        accepted as integers.
         """
         measurement = self.get(measurement_id)
         if isinstance(value, list):
-            if not measurement.per_sample:
+            if self.scope_of(measurement_id) is not Grain.SAMPLE:
                 raise BadMeasurementValueError(
-                    f"{measurement_id!r} is not declared `per_sample`, so it takes one value "
-                    f"and not a list. Declare `per_sample: true` where it is declared, or "
-                    f"write the one value the whole cohort shares."
+                    f"{measurement_id!r} is one value for the whole study (it describes "
+                    f"{measurement.describes or 'no input'}), so it takes one value and not a "
+                    f"list. Write the one value the study has."
                 )
             for element in value:
                 self.check(measurement_id, element)
             return
         kind = measurement.kind
+        if kind in (MeasurementKind.KEY, MeasurementKind.SAMPLE_REF):
+            # A laboratory's own identifiers (a patient's, say): the run reads them, never Mendel.
+            raise BadMeasurementValueError(
+                f"{measurement_id!r} is a key, read from each samplesheet row; it is never "
+                "stated for the study")
         if kind is MeasurementKind.ENUM:
             if value not in measurement.values:
                 raise BadMeasurementValueError(
@@ -349,17 +407,6 @@ class MeasurementRegistry(BaseModel):
         )
 
 
-    def to_measure(self, by_contract: dict[str, str]) -> DataProfile:
-        """Describe pending measurements and their contracts, using `None` for unknown values."""
-        for measurement_id in by_contract:
-            self.get(measurement_id)  # raises naming what is declared
-        return DataProfile(
-            measurements=[
-                Measured(measurement=k, value=None, source=ValueSource.MEASURED, by=v)
-                for k, v in sorted(by_contract.items())
-            ]
-        )
-
 
     def meta_for(self, type_id: str, profile: DataProfile) -> dict[str, ParamValue]:
         """Return metadata values applicable to `type_id` from the supplied profile."""
@@ -385,6 +432,10 @@ class MeasurementRegistry(BaseModel):
             if measurement.describes not in type_ids or not measurement.meta_key:
                 continue
             value = values.get(measurement_id)
+            if isinstance(value, list):
+                # One value per sample (#466): it is one constant in `meta` only when every
+                # sample has the same. Samples that differ carry it per row instead.
+                value = value[0] if value and all(v == value[0] for v in value) else None
             if value is None:
                 continue
             for translation in measurement.meta_values:

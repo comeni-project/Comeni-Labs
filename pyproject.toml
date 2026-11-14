@@ -68,7 +68,7 @@ default-groups = ["dev", "docs"]
 [tool.pytest.ini_options]
 # Make shared test helpers importable as support.*.
 pythonpath = ["tests"]
-testpaths = ["tests", "packages", "registry/inspectors"]
+testpaths = ["tests", "packages", "registry/measurers"]
 markers = [
     "slow: needs Docker and Nextflow; run nightly, not on a pull request",
     "real_settings: read settings from the real Postgres store, not the suite's empty one",

@@ -36,7 +36,8 @@ Model: `comeni_core.declared.vocabulary.TypeDeclaration`
 | `id` | string | *required* | the type id. Validated, because it is emitted as a channel name |
 | `states` | [string] | `[]` | every state this type may carry. **Closed** — an undeclared state fails to load |
 | `sample_columns` | integer | `1` | how many samplesheet columns one sample occupies. **1 or 2** |
-| `scope` | string | `sample` | `sample` or `run` — how many arrive, relative to the run |
+| `second_may_be_blank` | boolean | `false` | of two columns, a sample may leave the second blank: single-end reads are one file |
+| `grain` | string | `sample` | `sample` or `study`: how many arrive, relative to the analysis |
 | `entry_channel` | string \| null | `null` | Groovy producing this type when nothing upstream does |
 | `param` | string \| null | `null` | the parameter `entry_channel` reads. Defaults to the id's last segment |
 | `test_data` | string \| [string] \| null | `null` | a pinned example, for the generated `test` profile |
@@ -49,9 +50,9 @@ A contract using a state no vocabulary declares **fails to load**. New states ar
 as a data change — never as a code change. That is what makes a state mean
 the same thing in two contracts written a year apart.
 
-### `scope` — `run` or `sample`
+### `grain`: `study` or `sample`
 
-A reference genome is `run`: one file for the whole analysis, so it must emit as a **value**
+A reference genome is `study`: one file for the whole analysis, so it must emit as a **value**
 channel. A Nextflow process with several *queue* inputs runs as many times as the shortest, so
 a queue of one genome silently capped a twenty-four-sample run at one invocation.
 
@@ -96,7 +97,8 @@ Model: `comeni_core.declared.vocabulary.Vocabulary`
 | `test_data` | dict | per type, from `test_data` above |
 | `params` | dict | per type, from `param` above |
 | `columns` | dict | per type, from `sample_columns` above |
-| `scopes` | dict | per type, from `scope` above |
+| `grains` | dict | per type, from `grain` above |
+| `blank_second` | set | the types whose `second_may_be_blank` is true |
 | `entry_channels` | dict | per type, from `entry_channel` above |
 | `names` | dict | per type that declares one, from `name` above |
 | `explains` | dict | per type that declares one, from `explain` above |

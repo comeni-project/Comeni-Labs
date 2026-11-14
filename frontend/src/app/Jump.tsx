@@ -11,6 +11,10 @@ import type { components as wiener } from "../wiener/api/schema";
 import { jumpTargets, type Target } from "./jump";
 
 type DraftsPage = components["schemas"]["DraftsPage"];
+
+/** The shortcut as this platform says it: ⌘K on a Mac, Ctrl K elsewhere. */
+const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || "");
+const SHORTCUT = MAC ? "⌘K" : "Ctrl K";
 type RunsPage = wiener["schemas"]["RunsPage"];
 
 /** Jump to a pipeline or run: a box in the shell, and ⌘K (Ctrl+K) from anywhere, even a field.
@@ -41,7 +45,8 @@ export function Jump() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
+          && event.key.toLowerCase() === "k") {
         event.preventDefault();
         show();
       }
@@ -70,7 +75,7 @@ export function Jump() {
         </svg>
         <span className="hidden sm:inline">Jump to a pipeline or run</span>
         <kbd className="hidden sm:inline ml-auto font-data text-[11px] px-[6px] rounded-xs border border-line-2
-                        bg-paper text-ink-2">⌘K</kbd>
+                        bg-paper text-ink-2">{SHORTCUT}</kbd>
       </button>
       {/* In `body`, last: the settings overlay and the run sheet come after the header in the
           page, so a palette drawn inside it would sit underneath them. */}
@@ -95,6 +100,18 @@ function Palette({ onClose }: { onClose: () => void }) {
   const found = jumpTargets(query, drafts.data?.drafts ?? [], runs.data?.runs ?? []);
   const options = [...found.pipelines, ...found.runs];
   const current = Math.min(active, Math.max(0, options.length - 1));
+
+  // The page behind stays put while the palette is open, as under the settings overlay.
+  useEffect(() => {
+    const was = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = was; };
+  }, []);
+
+  const activeId = options[current] ? `${listId}-${options[current].kind}-${options[current].id}` : null;
+  useEffect(() => {
+    if (activeId) document.getElementById(activeId)?.scrollIntoView?.({ block: "nearest" });
+  }, [activeId]);
 
   const go = (target: Target) => {
     onClose();
@@ -126,7 +143,7 @@ function Palette({ onClose }: { onClose: () => void }) {
   const row = (t: Target) => {
     const index = options.indexOf(t);
     return (
-      <li
+      <div
         key={optionId(t)}
         id={optionId(t)}
         role="option"
@@ -148,7 +165,7 @@ function Palette({ onClose }: { onClose: () => void }) {
             {new Date(t.when).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
           </time>
         )}
-      </li>
+      </div>
     );
   };
 
@@ -171,12 +188,20 @@ function Palette({ onClose }: { onClose: () => void }) {
           className="w-full px-4 py-3 text-heading bg-surface text-ink border-0 border-b border-line
                      outline-none"
         />
-        <ul id={listId} role="listbox" aria-label="Pipelines and runs" className="m-0 p-2 list-none max-h-[60vh] overflow-y-auto">
-          {found.pipelines.length > 0 && <li role="presentation" className="px-3 pt-2 pb-1 text-label text-ink-3">Pipelines</li>}
-          {found.pipelines.map(row)}
-          {found.runs.length > 0 && <li role="presentation" className="px-3 pt-3 pb-1 text-label text-ink-3">Runs</li>}
-          {found.runs.map(row)}
-        </ul>
+        <div id={listId} role="listbox" aria-label="Pipelines and runs" className="m-0 p-2 max-h-[60vh] overflow-y-auto">
+          {found.pipelines.length > 0 && (
+            <div role="group" aria-labelledby={`${listId}-pipelines`}>
+              <div id={`${listId}-pipelines`} className="px-3 pt-2 pb-1 text-label text-ink-3">Pipelines</div>
+              {found.pipelines.map(row)}
+            </div>
+          )}
+          {found.runs.length > 0 && (
+            <div role="group" aria-labelledby={`${listId}-runs`}>
+              <div id={`${listId}-runs`} className="px-3 pt-3 pb-1 text-label text-ink-3">Runs</div>
+              {found.runs.map(row)}
+            </div>
+          )}
+        </div>
         {drafts.isError && <p className="m-0 px-5 pb-3 text-secondary text-ink-3">Pipelines could not be read</p>}
         {runs.isError && <p className="m-0 px-5 pb-3 text-secondary text-ink-3">Runs could not be read</p>}
         {!query && options.length === 0 && drafts.isSuccess && !runs.isPending && (

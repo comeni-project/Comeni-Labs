@@ -17,6 +17,7 @@ from sqlalchemy import Integer, case, delete, func, select
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import GenericFunction
+from wiener_core.events import EventKind
 
 from wiener_api.models import (
     RetentionSweep,
@@ -337,13 +338,14 @@ def artifact(session: Session, lab_id: str, artifact_id: str) -> RunArtifact | N
     )
 
 
-def events(session: Session, lab_id: str, run_id: str) -> list[RunEventRow]:
-    """The record, in order. Everything else about a run is derivable from this."""
-    return list(session.scalars(
-        select(RunEventRow)
-        .where(RunEventRow.lab_id == lab_id, RunEventRow.run_id == run_id)
-        .order_by(RunEventRow.seq)
-    ))
+def events(session: Session, lab_id: str, run_id: str,
+           kind: EventKind | None = None) -> list[RunEventRow]:
+    """The record, in order. Everything else about a run is derivable from this. `kind` reads
+    one kind of event only, in the query rather than after it."""
+    query = select(RunEventRow).where(RunEventRow.lab_id == lab_id, RunEventRow.run_id == run_id)
+    if kind is not None:
+        query = query.where(RunEventRow.kind == kind)
+    return list(session.scalars(query.order_by(RunEventRow.seq)))
 
 
 def tasks(session: Session, lab_id: str, run_id: str) -> list[RunTask]:

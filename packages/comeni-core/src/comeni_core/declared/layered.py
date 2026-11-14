@@ -57,12 +57,12 @@ MODULE_DIR = "module"
 """The directory a tool's own source lives in, beside the `module.yml` that declares it."""
 
 PIECE_DIR = "piece"
-PIECE_DECLARATIONS = ("codec.yml", "format.yml", "measure.yml")
+PIECE_DECLARATIONS = ("codec.yml", "format.yml", "measurer.yml")
 """Declaration names that make an adjacent ``piece/`` directory inspection source."""
 
 
 def in_piece(path: Path, root: Path) -> bool:
-    """Is this under a `piece/` that sits beside a codec, format or measure declaration?"""
+    """Is this under a `piece/` that sits beside a codec, format or measurer declaration?"""
     rel = path.relative_to(root)
     for depth, part in enumerate(rel.parts[:-1]):
         if part == PIECE_DIR:
@@ -112,7 +112,7 @@ class DeclaredKind(StrEnum):
     FORMATS = "formats"
     """Format pieces used by inspection."""
 
-    MEASURES = "measures"
+    MEASURERS = "measurers"
     """Measurement pieces used by inspection."""
 
 
@@ -266,7 +266,7 @@ _KIND_OF = {
     "test": DeclaredKind.TESTS,
     "codec": DeclaredKind.CODECS,
     "format": DeclaredKind.FORMATS,
-    "measure": DeclaredKind.MEASURES,
+    "measurer": DeclaredKind.MEASURERS,
 }
 """The singular a file writes, to the kind it means. Derived from `DeclaredKind` by hand rather
 than by stripping an `s`, because `vocabularies` is not `vocabularys`."""

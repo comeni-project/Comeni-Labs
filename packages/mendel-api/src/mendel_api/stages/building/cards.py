@@ -68,7 +68,7 @@ def step_payload(
     )
     buildable = [a for a in found if a.refused is None]
     facts = {f"{FACT}{m}": m for m in planned.need.facts}
-    contract = registry.stack().registry.get(planned.contract)
+    contract = registry.stack().routing.get(planned.contract)
     block = StepProposal(
         id=f"step-{planned.node}",
         node=planned.node,

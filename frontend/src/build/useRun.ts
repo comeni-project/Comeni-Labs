@@ -8,8 +8,7 @@
  *
  * The argument for collapsing the rail is that **drafts autosave**, so *Keep* was an
  * implementation detail wearing a button, and **lint is 1.6s** — not the 10s people remember,
- * which was the gate. Both are true; the first only became true in this same phase, because
- * `useGraph`'s save callback had never been passed (see `usePipelineDraft`).
+ * which was the gate.
  *
  * ═══ WHAT MUST NOT COLLAPSE ═══════════════════════════════════════════════════════════════
  *

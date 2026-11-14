@@ -32,6 +32,7 @@ export function LivingNode({
   selected = false,
   onSelect,
   perItem = false,
+  takes,
   className,
   delay,
   onAnimationEnd,
@@ -54,6 +55,9 @@ export function LivingNode({
   onSelect?: () => void;
   /** Whether this step runs per item — its ports are drawn as the ribbon's tall marks. */
   perItem?: boolean;
+  /** The samples this step takes, when each sample's tool is chosen per sample and only some come
+   *  here (issue 466); the node says *some samples* and the sentence is its title. */
+  takes?: string;
   /** A motion class for a domain event (`motion.ts`), and the callback when it has played. */
   className?: string;
   /** When this step's reveal starts, for Spawn's staged arrival. */
@@ -132,12 +136,16 @@ export function LivingNode({
         <span className="font-data text-[11px] font-semibold text-ink truncate" data-testid={`node-name-${id}`}>
           {processName(id)}
         </span>
+        {takes && (
+          <span data-testid={`node-branch-${id}`} title={`takes only ${takes}`}
+                className="ml-auto text-[10.5px] text-measured-ink whitespace-nowrap">some samples</span>
+        )}
         {reviewState === "again" && (
-          <span className="ml-auto text-[10.5px] font-semibold text-now-ink whitespace-nowrap">Review again</span>
+          <span className={`${takes ? "" : "ml-auto"} text-[10.5px] font-semibold text-now-ink whitespace-nowrap`}>Review again</span>
         )}
         {(counts?.open ?? 0) > 0 && (
           <span aria-hidden data-testid={`node-open-${id}`}
-                className={`${reviewState === "again" ? "" : "ml-auto"} w-[8px] h-[8px] rounded-full shrink-0`}
+                className={`${reviewState === "again" || takes ? "" : "ml-auto"} w-[8px] h-[8px] rounded-full shrink-0`}
                 style={{ background: "var(--needs-you)" }} />
         )}
       </span>

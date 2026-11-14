@@ -43,6 +43,12 @@ def test_every_operation_is_named_by_hand():
         ("/api/forge/catalogue/{source}/{path}", "get"): "readCatalogueModule",
         ("/api/forge/catalogue/sync", "post"): "syncCatalogue",
         ("/api/registry/tools/{contract_id}", "get"): "readTool",
+        # Rules proposed from people's answers (#462).
+        ("/api/rules/proposals", "get"): "readRuleProposals",
+        ("/api/rules/proposals/run", "post"): "proposeRules",
+        ("/api/rules/proposals/{proposal_id}/approve", "post"): "approveRuleProposal",
+        ("/api/rules/proposals/{proposal_id}/reject", "post"): "rejectRuleProposal",
+        ("/api/rules/learned/{name}/withdraw", "post"): "withdrawLearnedRule",
         # Forging (forge MVP 3, #364).
         ("/api/forge/adaptations", "post"): "startAdaptation",
         ("/api/forge/adaptations", "get"): "listAdaptations",
@@ -194,3 +200,10 @@ def test_no_two_models_share_a_schema_name():
         "generated client refers to the qualified spelling, so the collision renames a type "
         "the frontend was already using, on a screen nobody touched."
     )
+
+
+def test_fact_history_carries_no_fork_fields():
+    """Issue 400: with the fork gone, `inherited` and `source_draft_id` were always unset."""
+    from mendel_api.routes.authoring import FactHistoryEntry
+
+    assert not {"inherited", "source_draft_id"} & set(FactHistoryEntry.model_fields)

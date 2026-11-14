@@ -6,8 +6,8 @@ the current items on every read and never stored, so they describe what is there
 
 Three checks, each on input questions only (an output's arrival is the tool's own):
 
-- **scope**: nf-core names the per-sample map `meta` and a reference's `meta2`, `meta3` … A
-  type with the other `scope` is probably wrong. This is a convention, so the finding says so.
+- **grain**: nf-core names the per-sample map `meta` and a reference's `meta2`, `meta3` … A
+  type with the other `grain` is probably wrong. This is a convention, so the finding says so.
 - **duplicate**: two inputs of one tool with the same type are filled from one source.
 - **format**: the module's file format (its meta.yml pattern, or the input's name when that is
   a format's name) differs from the format the type ID names.
@@ -37,7 +37,7 @@ TSV into a table for browsing: here a GFF reader is not a GTF reader."""
 
 _REFERENCE_META = re.compile(r"meta\d+")
 
-Arrival = str  # "sample" | "run"
+Arrival = str  # "sample" | "study"
 
 
 class QuestionFinding(BaseModel):
@@ -56,7 +56,7 @@ def arrival(spec: ModuleSpec, name: str) -> Arrival | None:
             if first == "meta":
                 return "sample"
             if _REFERENCE_META.fullmatch(first):
-                return "run"
+                return "study"
     return None
 
 
@@ -87,12 +87,12 @@ def _effective(value: JsonValue) -> str | None:
     return value.get("choice") or value.get("suggested")
 
 
-def findings(items: dict[str, JsonValue], scopes: dict[str, str], spec: ModuleSpec,
+def findings(items: dict[str, JsonValue], grains: dict[str, str], spec: ModuleSpec,
              channels: dict[str, Channel],
              asked: dict[str, dict]) -> dict[str, list[QuestionFinding]]:
     """Findings per question key. `items` holds current values (an answer once answered);
-    `asked` the question (its options and suggestion) for each key; `scopes` each declared
-    type's scope."""
+    `asked` the question (its options and suggestion) for each key; `grains` each declared
+    type's grain."""
     prefix = "questions:input_type:"
     keys = sorted(k for k in asked if k.startswith(prefix))
     pointed: dict[str, str] = {}
@@ -109,12 +109,12 @@ def findings(items: dict[str, JsonValue], scopes: dict[str, str], spec: ModuleSp
         found: list[QuestionFinding] = []
         chosen = pointed.get(key)
         comes = arrival(spec, name)
-        scope = scopes.get(chosen) if chosen else None
-        # A type not declared yet has no scope to compare.
-        if comes and scope and scope != comes:
+        grain = grains.get(chosen) if chosen else None
+        # A type not declared yet has no grain to compare.
+        if comes and grain and grain != comes:
             found.append(QuestionFinding(code="MF0520", option=chosen, says=(
                 f"{name} arrives one per {comes} (the module's meta naming suggests so), "
-                f"but {chosen} is one per {scope}.")))
+                f"but {chosen} is one per {grain}.")))
         if chosen:
             for other in keys:
                 if other != key and pointed.get(other) == chosen:

@@ -108,6 +108,7 @@ nav:
           - Forge a tool: how-to/registry/forge-a-tool.md
           - Write a contract: how-to/registry/add-tool.md
           - Write a data-dependent rule: how-to/registry/write-rule.md
+          - Learn rules from your answers: how-to/registry/learned-rules.md
           - Add a lab layer: how-to/registry/add-layer.md
       - Develop the platform:
           - Contribute a change: how-to/development/contribute.md
@@ -131,6 +132,7 @@ nav:
           - Rule schema: reference/registry/rule-schema.md
           - Vocabulary schema: reference/registry/vocabulary-schema.md
           - Measurement schema: reference/registry/measurement-schema.md
+          - Measurer schema: reference/registry/measurer-schema.md
       - Available tools:
           - reference/tools.md
           - reference/tools/catalogue.md

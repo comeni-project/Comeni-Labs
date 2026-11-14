@@ -2,7 +2,7 @@
 
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import (
     BaseModel,
@@ -11,6 +11,7 @@ from pydantic import (
     SerializerFunctionWrapHandler,
     ValidationError,
     field_serializer,
+    field_validator,
     model_serializer,
     model_validator,
 )
@@ -20,13 +21,16 @@ from comeni_core.declared.measurement import MeasurementKind
 from comeni_core.declared.signature import states_in_type
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
+from comeni_core.plan.tiers import Grain
 from comeni_core.spell.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
 from comeni_core.spell.marks import (
     ContainerRef,
     ContractId,
+    MeasurementId,
     NfIdentifier,
     NfPath,
     NfTemplate,
+    ParamValue,
     PortName,
     RoleName,
     TypeId,
@@ -54,17 +58,6 @@ class Alternative(BaseModel):
     @field_serializer("states")
     def _sorted(self, states: frozenset[str]) -> list[str]:
         return sorted(states)
-
-
-class Cardinality(StrEnum):
-    """Whether a process invocation consumes one item or the complete channel."""
-
-    ONE = "1"
-    """One item per invocation. The process runs once per item on its channel — the default,
-    and what every port was before this field was read by anything."""
-
-    MANY = "*"
-    """The whole channel in one invocation, emitted with ``.collect()``."""
 
 
 class InputPort(BaseModel):
@@ -98,8 +91,24 @@ class InputPort(BaseModel):
     author's statement of preference between kinds of input, the same way decision-table
     rows are ordered and first-match-wins.
     """
-    cardinality: Cardinality = Cardinality.ONE
-    """How many channel items each process invocation receives."""
+    grain: Grain | None = None
+    """What one invocation of the process reads (#466): one item per `study` or per `sample`.
+    `None` is the type's own grain."""
+    many: bool = False
+    """One invocation takes every item of a finer grain at once, gathered with `.collect()`:
+    MultiQC reads every sample's report in one run. Declared with `grain: study`, since a sample
+    has nothing finer to gather until units and parts arrive (per-sample design, Goal A)."""
+    select: dict[MeasurementId, ParamValue] | None = Field(default=None,
+                                                           exclude_if=lambda s: s is None)
+    """Only the samples whose facts meet these conditions, written as a rule's `when`: a tumour
+    port selects `{status: tumor}`, a ChIP port `{control: present}` (#466)."""
+    by: MeasurementId | None = Field(default=None, exclude_if=lambda by: by is None)
+    """With `many`, gather per value of this key rather than over the study (#466): a
+    co-assembler reads every sample of one group in one call. The key comes from each
+    samplesheet row."""
+    parts: bool = Field(default=False, exclude_if=lambda parts: not parts)
+    """The process may run once per part of this port's item, split before it and merged after
+    it (#466): an aligner can run on chunks of a sample's reads."""
     required: bool = True
     """Whether the process can run without this input (#460). An optional input is left out
     unless switched on, and its `nf_inputs` entry says what to pass instead (`absent`)."""
@@ -117,6 +126,21 @@ class InputPort(BaseModel):
         return sorted(states)
 
     @model_validator(mode="after")
+    def _gathers_something(self) -> "InputPort":
+        if self.by is not None and not self.many:
+            raise ValueError(coded(
+                "MD0343", f"port {self.name!r} groups by {self.by} and does not gather "
+                "(`many: true`) — `mendel explain MD0343`."))
+        # A study gathers its samples; a sample gathers its rows, such as lanes (#466); a group,
+        # the samples sharing a key.
+        if self.many and self.by is None and self.grain not in (Grain.STUDY, Grain.SAMPLE):
+            raise ValueError(coded(
+                "MD0331", f"port {self.name!r} gathers (`many: true`) at grain "
+                f"{self.grain.value if self.grain else 'of its type'}, which has nothing finer to "
+                "gather. Declare `grain: study` beside it to read every sample at once."))
+        return self
+
+    @model_validator(mode="after")
     def _one_form(self) -> "InputPort":
         if self.type_id and self.accepts:
             raise ValueError(f"port {self.name!r} declares both `type_id` and `accepts`; use one")
@@ -128,10 +152,15 @@ class InputPort(BaseModel):
 
     @model_serializer(mode="wrap")
     def _no_default_required(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        """Left out when required, so a contract that says nothing keeps its digest."""
+        """Left out when required, and grain and many when unset, so a contract that says
+        nothing keeps its digest."""
         data = handler(self)
         if self.required:
             data.pop("required", None)
+        if self.grain is None:
+            data.pop("grain", None)
+        if not self.many:
+            data.pop("many", None)
         return data
 
     def alternatives(self) -> list[Alternative]:
@@ -173,6 +202,16 @@ class OutputPort(BaseModel):
     produced_when: dict[str, Any] | None = None
     """When the process writes this output (#460): `None` is always, otherwise a `when` over
     `given.<input>` and `param.<name>` facts. QUAST's misassemblies exist only with a reference."""
+    fans_out: Grain | None = Field(default=None, exclude_if=lambda grain: grain is None)
+    """`part`: one item in becomes several out, each a part of the item (#466). Only a splitter
+    declares it."""
+
+    @field_validator("fans_out")
+    @classmethod
+    def _only_parts(cls, grain: Grain | None) -> Grain | None:
+        if grain is not None and grain is not Grain.PART:
+            raise ValueError(f"an output fans out only to `part`, not {grain.value}")
+        return grain
 
     @model_validator(mode="before")
     @classmethod
@@ -359,12 +398,28 @@ class NfInput(BaseModel):
     value cannot be null". `samtools/sort` wants 3; most want 2.
     """
 
-    join: Join | None = None
-    """How multiple ports are matched; required because no join policy is universally safe."""
+    join: Join | Annotated[dict[str, Join], Field(title="Per port")] | None = None
+    """How multiple ports are matched; required because no join policy is universally safe.
+
+    One `Join` applies to every port after the first. A map gives each later port its own, for
+    a tuple that pairs a per-sample index with its BAM and shares one intervals file across the
+    run (gatk4/haplotypecaller, #464)."""
+
+    key: str | None = Field(default=None, exclude_if=lambda key: key is None)
+    """For `join: by_key`, the key the ports meet on; for `by_ref`, the reference the first
+    port's samples name the second's by (#466)."""
 
     absent: int = 0
     """Width of the empty tuple passed when this entry's ports are all left out (#460). The arity
-    rule is `empty`'s. Required on an entry whose ports are optional, forbidden otherwise."""
+    rule is `empty`'s. Required when every port is optional, refused otherwise: an entry with a
+    required port is never left out whole (#464)."""
+
+    @field_serializer("join")
+    def _sorted_join(self, join: "Join | dict[str, Join] | None") -> Any:
+        """A join map in port order, so its digest does not depend on how it was written."""
+        if isinstance(join, dict):
+            return {port: join[port] for port in self.ports if port in join}
+        return join
 
     @model_serializer(mode="wrap")
     def _no_default_absent(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
@@ -378,13 +433,33 @@ class NfInput(BaseModel):
     def _join_declared_when_it_matters(self) -> "NfInput":
         """Require an explicit join policy when one input combines multiple ports."""
         if len(self.ports) > 1 and self.join is None:
-            raise ValueError(
+            raise ValueError(coded(
+                "MD0613",
                 f"an nf_inputs entry with two or more ports ({', '.join(self.ports)}) must "
                 f"declare `join:` — `broadcast` if the later ports are one thing every sample "
                 f"is paired against, `by_sample` if they are per-sample and must match. There "
                 f"is no default: guessing wrong produces a green run with wrong results."
-            )
+            ))
+        if isinstance(self.join, dict):
+            later = self.ports[1:]
+            missing = [p for p in later if p not in self.join]
+            extra = sorted(p for p in self.join if p not in later)
+            if missing or extra:
+                raise ValueError(coded(
+                    "MD0613", f"the join map of nf_inputs {self.ports} must name each port "
+                    f"after the first exactly once: missing {missing}, not after the first "
+                    f"{extra}"))
         return self
+
+    def join_for(self, port: str) -> Join:
+        """How `port`, a port after the first, meets the ones before it."""
+        if port not in self.ports[1:]:
+            raise ValueError(f"{port!r} is not a port after the first of nf_inputs {self.ports}")
+        if isinstance(self.join, dict):
+            return self.join[port]
+        if self.join is None:
+            raise ValueError(f"nf_inputs {self.ports} declares no join")
+        return self.join
 
 
 class ConstraintRow(BaseModel):
@@ -427,17 +502,45 @@ class Group(BaseModel):
     because: str = Field(min_length=1)
 
 
-def _when_keys(when: dict[str, Any], ports: set[str], params: set[str]) -> list[str]:
-    """The keys of a contract's `when` that name nothing in it. Phase 1 reads `given.<port>`
-    and `param.<name>` only; a measurement waits for per-sample facts (#466)."""
+def _when_keys(when: dict[str, Any], ports: dict[str, set[str]], params: set[str]) -> list[str]:
+    """The keys of a contract's `when` that name nothing in it. A condition reads
+    `given.<port>`, `param.<name>`, `type.<port>`, the type connected to a port (#464), and
+    `fact.<measurement>`, a fact each sample has (#466); `ports` maps each port to the types it
+    accepts."""
     wrong = []
     for key, value in when.items():
         space, _, name = key.partition(".")
         if space == "given" and name in ports and value not in ("present", "absent"):
             wrong.append(f"{key}: {value!r} (an input is `present` or `absent`)")
+        elif space == "type" and name in ports:
+            named = _types_named(value)
+            accepted = ports[name]
+            if named is None or not named or not named <= accepted:
+                wrong.append(f"{key}: {value!r} (`{name}` accepts {', '.join(sorted(accepted))})")
+        elif space == "fact" and name.isidentifier():
+            # A per-sample fact (#466): which measurement it names is checked at load, where
+            # the measurements are known (MD0336).
+            continue
         elif not ((space == "given" and name in ports) or (space == "param" and name in params)):
             wrong.append(key)
     return wrong
+
+
+def _types_named(value: Any) -> set[str] | None:
+    """The type ids a `type.<port>` condition names: one id, `{in: [...]}` or `{not: id}`."""
+    if isinstance(value, str) and value not in ("present", "absent") and " " not in value:
+        return {value}
+    if isinstance(value, dict) and len(value) == 1:
+        if isinstance(value.get("in"), list) and all(isinstance(v, str) for v in value["in"]):
+            return set(value["in"])
+        if isinstance(value.get("not"), str):
+            return {value["not"]}
+    return None
+
+
+def accepted_types(port: "InputPort") -> set[str]:
+    """The types routing can connect to `port`: its alternatives' types."""
+    return {alternative.type_id for alternative in port.alternatives()}
 
 
 class Provenance(BaseModel):
@@ -500,20 +603,22 @@ class ModuleContract(BaseModel):
     def _constraints_name_real_things(self) -> "ModuleContract":
         """MD0602 for a name the contract does not declare; MD0601 for an input slot that
         cannot be emitted when its optional ports are left out."""
-        ports = {p.name for p in self.consumes}
+        accepts = {p.name: accepted_types(p) for p in self.consumes}
+        ports = set(accepts)
         params = {p.name for p in self.params}
         clauses = [("a constraint row", r.when, [*r.requires, *r.forbids])
                    for r in self.constraints]
         clauses += [(f"a {g.kind} group", g.when, g.members) for g in self.groups]
         clauses += [(f"output {o.name!r}", o.produced_when or {}, []) for o in self.produces]
         for where, when, names in clauses:
-            unknown = _when_keys(when, ports, params)
+            unknown = _when_keys(when, accepts, params)
             unknown += [n for n in names if n not in ports | params]
             if unknown:
                 raise ValueError(coded(
                     "MD0602", f"{self.id}: {where} names {', '.join(unknown)}, which is not an "
-                    "input or param of this contract. Conditions test `given.<input>` or "
-                    "`param.<name>`; a measurement waits for per-sample facts (#466)"))
+                    "input or param of this contract, or a type it does not accept. Conditions "
+                    "test `given.<input>`, `param.<name>` or `type.<input>`; a measurement "
+                    "waits for per-sample facts (#466)"))
         self._optional_slots_can_be_emitted(ports)
         return self
 
@@ -523,24 +628,28 @@ class ModuleContract(BaseModel):
             raise ValueError(coded(
                 "MD0601", f"{self.id} has optional inputs but no nf_inputs: declare each "
                 "optional input's slot with `absent`, the empty tuple's width"))
-        together = [set(g.members) for g in self.groups if g.kind is GroupKind.ALL_OR_NONE]
+        # A slot may mix required and optional ports, and hold optional ports independent of
+        # each other (#464): the compiler passes `[]` in each left-out port's position. Only a
+        # slot whose ports can all be left out needs `absent`, the width of the empty tuple.
         for entry in self.nf_inputs:
             optional = [p for p in entry.ports if not required.get(p, True)]
+            if len(optional) < len(entry.ports) and entry.absent:
+                raise ValueError(coded(
+                    "MD0601", f"{self.id}: nf_inputs {entry.ports} declares absent, but it has "
+                    "a required input, so it is never left out whole"))
             if not optional:
-                if entry.absent:
-                    raise ValueError(coded(
-                        "MD0601", f"{self.id}: nf_inputs {entry.ports} declares absent, but "
-                        "its inputs are required, so it is never left out"))
                 continue
-            problem = ""
-            if len(optional) != len(entry.ports):
-                problem = "mixes required and optional inputs"
-            elif not entry.absent:
-                problem = "has only optional inputs and no `absent` width"
-            elif len(entry.ports) > 1 and set(entry.ports) not in together:
-                problem = "has several optional inputs that are not one all_or_none group"
-            if problem:
-                raise ValueError(coded("MD0601", f"{self.id}: nf_inputs {entry.ports} {problem}"))
+            if len(optional) == len(entry.ports) and not entry.absent:
+                raise ValueError(coded(
+                    "MD0601", f"{self.id}: nf_inputs {entry.ports} can be left out entirely "
+                    "and has no `absent` width"))
+            # When the first port is left out, the first one that is on takes its place, and
+            # the later ports' joins are relative to it: sound only if they all join alike.
+            if (entry.ports[0] in optional and isinstance(entry.join, dict)
+                    and len(set(entry.join.values())) > 1):
+                raise ValueError(coded(
+                    "MD0601", f"{self.id}: nf_inputs {entry.ports} starts with an optional "
+                    "input, so its later inputs must all join the same way"))
 
     def optional_ports(self) -> list[str]:
         """The inputs the process can run without, in declaration order."""

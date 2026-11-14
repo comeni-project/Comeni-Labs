@@ -95,7 +95,6 @@ def test_input_port_names_are_a_choice_and_not_a_reading():
             if port.name not in known:
                 renamed.append(f"{contract.id}:{port.name}")
     assert sorted(renamed) == [
-        "comeni/profile/collect@0.1.0:measurements",
         "nf-core/multiqc@1.35:reports",
         "nf-core/samtools/index@1.24:bam",
         "nf-core/subread/featurecounts@2.1.1:bam",

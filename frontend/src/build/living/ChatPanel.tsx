@@ -34,6 +34,7 @@ export function ChatPanel({
   onEdit,
   onSetParam,
   onSwitchInput,
+  onWhole,
   onApplyChange,
   suggestions,
   composer,
@@ -61,6 +62,8 @@ export function ChatPanel({
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
   /** Switch a tool's optional input (issue 460); absent where the sheet is read-only. */
   onSwitchInput?: (contract: string, port: string, state: "off" | "optional" | "required") => void;
+  /** Keep a tool whole, or let it run on parts again (issue 466). */
+  onWhole?: (contract: string, whole: boolean) => void;
   onApplyChange: (block: ChangeBlock) => void;
   suggestions: {
     busy: boolean;
@@ -86,19 +89,20 @@ export function ChatPanel({
   const handing = handoverId(session);
   const handingBlock = session.turns.flatMap((t) => t.blocks).find((b) => b.id === handing);
   const handingSummary = handingBlock?.kind === "receipt" ? handingBlock.summary : "";
-  const say = (text: string) => {
-    onSelect(null);
-    onSay(text);
-  };
-  // **Ask about this step** (one builder plan 3): the words go to the conversation with the step
-  // named, and the step closes so the reply is seen.
-  const ask = (text: string) => say(editable ? `About ${processName(editable)}: ${text}` : text);
 
   const pending = session.pending_proposal;
   const ghost = pending?.block.kind === "step_proposal" ? pending.block.node : null;
   // **A selected step that is in the draft gets its tools**; the step on offer has its own card.
   const editable = selected !== null && selected !== ghost && graph.nodes.some((n) => n.id === selected)
     ? selected : null;
+  // An open step closes so the reply is seen; a selection on the canvas alone stays (issue 404).
+  const say = (text: string) => {
+    if (editable) onSelect(null);
+    onSay(text);
+  };
+  // **Ask about this step** (one builder plan 3): the words go to the conversation with the step
+  // named, and the step closes so the reply is seen.
+  const ask = (text: string) => say(editable ? `About ${processName(editable)}: ${text}` : text);
   const latest = [...session.turns].reverse().find((t) => t.role === "assistant" && t.state === "answered");
   const changes = (latest?.blocks ?? []).filter((b): b is ChangeBlock => b.kind === "change_set");
   const requests = (latest?.blocks ?? []).filter((b): b is SettingBlock => b.kind === "setting_request");
@@ -131,7 +135,7 @@ export function ChatPanel({
           <StepSheet node={editable} step={steps[editable]} graph={graph}
                      requests={requests.filter((r) => r.node === editable)}
                      onSetParam={onSetParam} onEdit={onEdit} onClose={() => onSelect(null)}
-                     onSwitchInput={onSwitchInput} />
+                     onSwitchInput={onSwitchInput} onWhole={onWhole} />
         ) : (
           <div className="flex flex-col gap-4">
             <Stream session={session} sending={sending} onRetry={onRetry} onAsk={say}

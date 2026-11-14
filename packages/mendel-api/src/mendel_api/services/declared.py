@@ -10,7 +10,7 @@ class LayersDeclared:
     layers: Layers
 
     def outputs(self, contract_id: str) -> list[str]:
-        return [output.type_id for output in self.layers.registry.get(contract_id).produces]
+        return [output.type_id for output in self.layers.routing.get(contract_id).produces]
 
     def tool(self, tool_id: str) -> str | None:
         found = self.layers.tools.tools.get(tool_id)

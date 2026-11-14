@@ -4,9 +4,9 @@ import type { Answered } from "../useBuilder";
 import { fileLines } from "./fileLines";
 import { markOf } from "./valueMarks";
 
-/** A slice of `tests/fixtures/pipeline-v8/pipeline.yml`: a step with no settings, then STAR's
+/** A slice of `tests/fixtures/pipeline-v9/pipeline.yml`: a step with no settings, then STAR's
  *  first setting, whose reason wraps onto a second line, and the start of the next. */
-const FILE = `version: 8
+const FILE = `version: 9
 steps:
 - id: trimgalore
   module:
@@ -49,7 +49,7 @@ describe("which setting each line of the file is (one builder plan 5)", () => {
     expect(at("  inputs:")).toBeNull();
     expect(at("  - port: reads")).toBeNull();
     expect(at("- name: reads")).toBeNull();
-    expect(at("version: 8")).toBeNull();
+    expect(at("version: 9")).toBeNull();
     expect(fileLines(FILE)).toHaveLength(lines.length);
   });
 });

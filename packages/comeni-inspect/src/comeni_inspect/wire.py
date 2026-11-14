@@ -6,7 +6,7 @@ JSON report with sorted keys, enabling byte-for-byte golden comparison across im
 """
 
 import json
-from typing import BinaryIO
+from typing import BinaryIO, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,6 +26,10 @@ class FileHead(BaseModel):
 
     name: str
     length: int = Field(ge=0)
+    whole: bool = False
+    """The payload is the whole file, not its head. The browser sends at most the first 4 MB, so
+    only a caller that knows the file's real size may say so; a fact reads `all` of the data only
+    when every file is whole and none was capped (#465)."""
 
 
 class Request(BaseModel):
@@ -47,6 +51,9 @@ class Fact(BaseModel):
     value: int | float | bool | str | None = None
     undetermined: str | None = None
     evidence: dict = Field(default_factory=dict)
+    coverage: Literal["head", "all"] | None = None
+    """How much of the data the fact read: `head` when a file was capped, `all` when every file
+    was read to its natural end (#465)."""
 
 
 class Report(BaseModel):

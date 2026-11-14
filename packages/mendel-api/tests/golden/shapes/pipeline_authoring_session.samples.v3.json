@@ -1,0 +1,98 @@
+{
+  "$defs": {
+    "SampleFact": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage": {
+          "anyOf": [
+            {
+              "enum": [
+                "head",
+                "all"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "measurement": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "measurement"
+      ],
+      "type": "object"
+    },
+    "UploadedSample": {
+      "additionalProperties": false,
+      "properties": {
+        "facts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SampleFact"
+          },
+          "type": "array"
+        },
+        "files": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "outcome": {
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "outcome"
+      ],
+      "type": "object"
+    }
+  },
+  "anyOf": [
+    {
+      "items": {
+        "$ref": "#/$defs/UploadedSample"
+      },
+      "type": "array"
+    },
+    {
+      "type": "null"
+    }
+  ]
+}

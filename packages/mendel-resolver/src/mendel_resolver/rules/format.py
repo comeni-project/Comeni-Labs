@@ -92,11 +92,35 @@ Predicate = ParamValue | dict[str, ParamValue | list[ParamValue]]
 """A literal, comparison, presence test, negation, or membership predicate in ``when``."""
 
 
+class FactRef(BaseModel):
+    """`then: {fact: <id>}`: a setting takes the value of a measured or derived fact (#461).
+
+    The value is the fact's, so it carries the fact's provenance; a literal `then` cannot
+    express `min(14, log2(genome_length) / 2 - 1)`, and a string `then` is refused (MD0300)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    fact: MeasurementId
+
+    def __str__(self) -> str:
+        return f"the value of {self.fact}"
+
+
 class DecisionRow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     when: dict[str, Predicate] = Field(default_factory=dict)
-    then: ParamValue = None
+    then: FactRef | ParamValue = None
+
+    def value(self, premises: "dict[str, object]") -> tuple[bool, ParamValue]:
+        """Whether this row can give a value here, and the value: a literal `then`, or the
+        premise a `FactRef` names. A fact with no value gives none, so the row does not fire."""
+        if not isinstance(self.then, FactRef):
+            return True, self.then
+        premise = premises.get(self.then.fact)
+        if premise is None:
+            return False, None
+        return True, getattr(premise, "value", premise)
     because: str | None = None
     cite: str | None = None
 
@@ -119,6 +143,12 @@ class Decision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     decides: DecisionTarget | list[DecisionTarget]
+    hit: Literal["first", "unique"] = Field(default="first", exclude_if=lambda h: h == "first")
+    """`first`: the first matching row decides, as rows always have. `unique`: at most one row
+    may match; two matching rows are a tie, asked at tier 4 (#461)."""
+    coverage: Literal["all"] | None = Field(default=None, exclude_if=lambda c: c is None)
+    """`all`: a fact measured on part of the data (`coverage: head`) does not satisfy this
+    decision; a person's statement does, and so does a fact measured on all of it (#465)."""
     rows: list[DecisionRow] = Field(default_factory=list)
     because: str | None = None
     cite: str | None = None
@@ -170,13 +200,17 @@ class Fired(BaseModel):
 
 
 class Aggregate(BaseModel):
-    """Reduce a per-sample measurement across a cohort using a named operation."""
+    """Fold a per-sample measurement over the study with a named operation (#466).
+
+    `agree` gives the value every sample shares, and nothing (undetermined) when they differ;
+    `all` and `any` fold booleans; `count` counts the samples with a value, `distinct` the values
+    they take. Folded at build time from known values, and in the run otherwise."""
 
     model_config = ConfigDict(extra="forbid")
 
     measurement: MeasurementId
-    over: Literal["cohort"]
-    using: Literal["max", "min", "mean"]
+    over: Literal["study"]
+    using: Literal["max", "min", "mean", "agree", "all", "any", "count", "distinct"]
 
 
 class Transform(BaseModel):
@@ -188,13 +222,14 @@ class Transform(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    op: Literal["add", "subtract", "multiply", "divide", "log2", "at_most", "at_least"]
+    op: Literal["add", "subtract", "multiply", "divide", "log2", "at_most", "at_least",
+                "round"]
     by: float | None = None
-    """The operand. Required by every op but `log2`, which takes none."""
+    """The operand. Required by every op but `log2` and `round`, which take none."""
 
     @model_validator(mode="after")
     def _operand_matches_the_op(self) -> "Transform":
-        needs = self.op != "log2"
+        needs = self.op not in ("log2", "round")
         if needs and self.by is None:
             raise ValueError(coded("MD0304", f"`{self.op}` needs a `by:`"))
         if not needs and self.by is not None:
@@ -248,6 +283,10 @@ class Derivation(BaseModel):
                 f"still reads as a fact the registry supplies; one that could produce two "
                 f"would resolve by a precedence no reader of the file can see.")
             )
+        if any(isinstance(row.then, FactRef) for row in self.rows):
+            raise ValueError(coded(
+                "MD0304", f"derivation {self.fact!r} has a row whose `then` is a fact; a "
+                "derivation's rows give literal values, and `{fact:}` is a setting's (#461)."))
         if bool(self.transform) != (self.source is not None):
             raise ValueError(
                 coded("MD0304", f"derivation {self.fact!r} declares "

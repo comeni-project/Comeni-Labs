@@ -108,3 +108,25 @@ def test_a_re_plan_keeps_intents_and_reports_a_pin_whose_consumer_left(resolve_r
     assert "trimgalore" not in {n.id for n in after.nodes}
     constraints = Constraints(absent_roles=[off], sources=[on_star])
     assert inert_intents(after, constraints, stack.registry) == [on_star]
+
+
+def test_a_pin_from_a_tool_whose_role_is_off_names_both_choices(resolve_rnaseq):
+    """Issue 398: a plain `UnroutableError`, not a conflict naming both intents."""
+    from comeni_core.goal.asked import SourcePin
+
+    on_star = SourcePin(consumer="nf-core/star/align@2.7.11b", port="reads",
+                        producer="nf-core/trimgalore@2.3.0")
+    with pytest.raises(IntentConflict, match="(?s)MD0322.*trimgalore.*trimming") as raised:
+        resolve_rnaseq(absent_roles=[RoleAbsence(role="trimming")], sources=[on_star])
+    assert raised.value.intent == on_star
+
+
+def test_a_pin_from_a_tool_you_excluded_names_both_choices(resolve_rnaseq):
+    from comeni_core.goal.asked import ProducerExclusion, SourcePin
+
+    trim = _node(resolve_rnaseq(), "trimgalore")
+    on_star = SourcePin(consumer="nf-core/star/align@2.7.11b", port="reads",
+                        producer=trim.contract_id)
+    gone = ProducerExclusion(site=trim.site, contract=trim.contract_id)
+    with pytest.raises(IntentConflict, match="(?s)MD0322.*excluded"):
+        resolve_rnaseq(exclusions=[gone], sources=[on_star])

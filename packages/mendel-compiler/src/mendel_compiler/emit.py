@@ -3,11 +3,22 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from comeni_core.artifact.pipeline import InputForm, Pipeline, Scope, Step
+from comeni_core.artifact.pipeline import (
+    Grain,
+    InputForm,
+    PartsWiring,
+    Pipeline,
+    Step,
+    crossed_steps,
+)
 from comeni_core.diagnostics import coded
+from comeni_core.goal.asked import InputState
+from comeni_core.plan.at_run import AtRun, AtRunFallback, AtRunSource
 from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
+
+from mendel_compiler.groovy_lookup import closure, condition, literal
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
@@ -95,7 +106,8 @@ def _process_of(pipeline: Pipeline, node_id: str) -> str:
     return next(step.process for step in pipeline.steps if step.id == node_id)
 
 
-def _port_expression(pipeline: Pipeline, step: Step, port_name: str) -> str:
+def _port_expression(pipeline: Pipeline, step: Step, port_name: str,
+                     measured: dict[str, str] | None = None) -> str:
     """Where this port's data comes from: an upstream process, or an entry channel.
 
     **`.collect()` when the port gathers**, which is fan-in: one invocation over the whole
@@ -112,12 +124,45 @@ def _port_expression(pipeline: Pipeline, step: Step, port_name: str) -> str:
     if wiring.source is not None:
         node_id, _, from_port = wiring.source.partition(".")
         expression = f"{_process_of(pipeline, node_id)}.out.{from_port}"
+        # Branches of a tool chosen per sample rejoin here: each sample arrives from one (#466).
+        for other in wiring.mixed:
+            node_id, _, from_port = other.partition(".")
+            expression += f".mix({_process_of(pipeline, node_id)}.out.{from_port})"
     else:
-        expression = _channel_name(wiring.channel)
+        # An input whose `meta` carries a fact the run measures reads the joined channel; the
+        # steps that measure it read the raw one (#217).
+        expression = (measured or {}).get(wiring.channel) or _channel_name(wiring.channel)
+    if wiring.parts is PartsWiring.SPREAD:
+        # Each sample's parts become items of their own (#466, stage 6). A splitter making one
+        # part emits a path rather than a list.
+        expression += (".flatMap { meta, parts -> def list = parts instanceof List ? parts : "
+                       "[parts]; if (!list) error(\"sample ${meta.id}: its splitter made no "
+                       "parts\"); list.withIndex().collect { f, i -> [ meta + [part: i, "
+                       "comeni_parts: list.size()], f ] } }")
+    if wiring.parts is PartsWiring.GATHER:
+        # One sample's parts, gathered as soon as they are all done, never waiting for the
+        # study: `groupKey` knows how many there are.
+        # Keyed on the whole `meta` but the part, and merged in part order, not in the order the
+        # parts finished, so the merge is the same every run (final review 5).
+        whole = "findAll { it.key !in ['part', 'comeni_parts'] }"
+        return (f"{expression}.map {{ meta, f -> [ groupKey(meta.{whole}, meta.comeni_parts), "
+                "[meta, f] ] }.groupTuple().map { k, items -> def s = items.sort { it[0].part }; "
+                f"[ s[0][0].{whole}, s.collect {{ it[1] }}.flatten() ] }}")
+    if wiring.select:
+        # Only the samples the port selects, such as a tumour (#466).
+        held = " && ".join(condition(c, f"{step.id}.{port_name}") for c in wiring.select)
+        expression = f"{expression}.filter {{ it -> def meta = it[0]; {held} }}"
+    if wiring.gather and wiring.by is not None:
+        # One call per group of the key, gathered once its own samples are done (#466).
+        key = wiring.by
+        return (f"{expression}.map {{ it -> [ groupKey(it[0].{key}, "
+                f"it[0].comeni_groups['{key}']), it ] }}.groupTuple().map {{ k, items -> "
+                f"[ [id: k.toString(), {key}: k.toString()], "
+                "items.collect { it[1] }.flatten() ] }")
     return f"{expression}.collect()" if wiring.gather else expression
 
 
-def _argument(pipeline: Pipeline, step: Step, arg) -> str:
+def _argument(pipeline: Pipeline, step: Step, arg, measured: dict[str, str] | None = None) -> str:
     if arg.empty_width:
         return _empty(arg.empty_width)
     if arg.from_setting is not None:
@@ -144,8 +189,13 @@ def _argument(pipeline: Pipeline, step: Step, arg) -> str:
         return _render_literal(setting.value)
     if not arg.ports:
         return _render_literal(arg.literal)
-    expressions = [_port_expression(pipeline, step, name) for name in arg.ports]
-    if len(expressions) == 1:
+    # A port that is off has no channel: the tuple is built from the ports that are on, and
+    # `[]` then takes each left-out port's position, so the order still matches the module's
+    # input block (#464). The first port that is on stands in for the head.
+    off = {r.port for r in step.input_states if r.state is InputState.OFF}
+    on = [name for name in arg.ports if name not in off]
+    expressions = [_port_expression(pipeline, step, name, measured) for name in on]
+    if len(arg.ports) == 1:
         return expressions[0]
     # Several semantic ports share one channel — featurecounts wants
     # tuple(meta, bams, annotation). The contract says how they meet, because the emitter
@@ -157,12 +207,41 @@ def _argument(pipeline: Pipeline, step: Step, arg) -> str:
     # samples in gave four processes, half of them pairing one sample's data with another's,
     # and Nextflow exited 0. `--gate test` cannot see the class: the nf-core dataset has one
     # sample, so 1 x 1 == 1.
+    # A per-sample input a run may leave empty is refused where the samplesheet is built
+    # (#466); with one sample-scoped channel there is no samplesheet, and nothing else is
+    # per-sample to pair it with, so `.join` cannot mis-pair it.
     head, *rest = expressions
-    if arg.join is Join.BY_SAMPLE:
-        joined = "".join(f".join({expr})" for expr in rest)
-    else:
-        joined = "".join(f".combine({expr}.map {{ it[1] }})" for expr in rest)
-    return f"{head}{joined}"
+    if arg.join in (Join.BY_KEY, Join.BY_REF) and len(on) == 2 == len(arg.ports):
+        return _related(arg, head, rest[0])
+    if arg.join in (Join.BY_KEY, Join.BY_REF) or any(
+            j.join in (Join.BY_KEY, Join.BY_REF) for j in arg.joins):
+        # Anything else would pair every member with every other (final review C2).
+        raise ValueError(coded("MD0344", f"{step.id} relates {', '.join(arg.ports)} by a key "
+                               "or a reference; only two ports may — `mendel explain MD0344`."))
+    joined = "".join(
+        f".join({expr})" if arg.join_for(name) is Join.BY_SAMPLE
+        else f".combine({expr}.map {{ it[1] }})"
+        for name, expr in zip(on[1:], rest, strict=True))
+    if len(on) == len(arg.ports):
+        return f"{head}{joined}"
+    names = [chr(ord("a") + n) for n in range(len(on))]
+    given = iter(names)
+    slots = ", ".join("[]" if port in off else next(given) for port in arg.ports)
+    return f"{head}{joined}.map {{ meta, {', '.join(names)} -> [ meta, {slots} ] }}"
+
+
+def _related(arg, head: str, other: str) -> str:
+    """Two ports of one call that relate samples (#466). `by_key`: one member of each per key,
+    joined, so a patient with two normals or none stops the run naming the patient. `by_ref`:
+    each sample of the first port with the item of the sample its reference names, which may
+    feed several."""
+    key = arg.key
+    if arg.join is Join.BY_KEY:
+        return (f"{head}.map {{ it -> [ it[0].{key}, it ] }}.join({other}.map {{ it -> "
+                f"[ it[0].{key}, it ] }}, failOnDuplicate: true, failOnMismatch: true)"
+                ".map { k, a, b -> [ a[0] ] + a[1..-1] + b[1..-1] }")
+    return (f"{head}.map {{ it -> [ it[0].{key}, it ] }}.combine({other}.map {{ it -> "
+            "[ it[0].id, it ] }, by: 0).map { k, a, b -> [ a[0] ] + a[1..-1] + b[1..-1] }")
 
 
 def _render_meta(entries: list) -> str:
@@ -206,11 +285,25 @@ def _entry_channels(pipeline: Pipeline) -> list[tuple[str, str]]:
     return [
         (
             _channel_name(channel.name),
-            _optional(channel, _as_value(_with_meta(channel.expression, channel.meta),
-                                         channel.scope)),
+            _study(channel),
         )
         for channel in pipeline.channels
     ]
+
+
+def _sample_guard(step: Step) -> str:
+    """Each sample checked against the step's per-sample rules before the step runs (#466): one
+    that breaks a rule stops the run, naming the sample and the rule."""
+    checks = "; ".join(
+        f"if ({' && '.join(condition(c, step.id) for c in rule.when) or 'true'}) "
+        f"error(\"sample ${{meta.id}}: \" + '{_groovy_single(rule.says)}')"
+        for rule in step.sample_rules)
+    return f".map {{ it -> def meta = it[0]; {checks}; it }}"
+
+
+def _groovy_single(text: str) -> str:
+    """Text inside a Groovy single-quoted string: no interpolation, no early end."""
+    return text.replace("\\", "\\\\").replace("'", "\\'")
 
 
 def _run_guards(pipeline: Pipeline) -> list[str]:
@@ -257,13 +350,15 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
     a counts matrix nobody could tell was wrong. A row is what makes *reads with their
     respective annotations* expressible at all.
 
-    ═══ NO EXPLICIT JOIN, AND THAT IS DELIBERATE ═════════════════════════════════════════════
+    ═══ NO EXPLICIT JOIN TO DERIVE THEM, AND THAT IS DELIBERATE ═════════════════════════════
 
     Every sample-scoped channel derives from **one** `splitCsv`, so they emit in row order and
     a process consuming several of them sees one row's values together. Joining them back on
     `meta.id` would be re-deriving an alignment that was never lost — and `.join()` on a queue
     is a synchronisation point, so it would also make the pipeline wait for the whole table
-    before the first sample could start.
+    before the first sample could start. A shared slot whose contract pairs two per-sample
+    ports (`by_sample`, #464) still joins them at the call; the projections share
+    `[id: row.sample]` and duplicate ids are refused, so that join is exact.
 
     A run-scoped channel is untouched: it is one file for the whole analysis, it has its own
     `params.<name>`, and it has no column.
@@ -272,16 +367,17 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
         (
             SAMPLESHEET,
             f"Channel.fromPath(params.input, checkIfExists: true)"
-            f".splitCsv(header: true){_no_duplicate_ids()}",
+            f".splitCsv(header: true)"
+            f"{_no_duplicate_ids(any(c.units for c in pipeline.channels))}{_cells(pipeline)}",
         )
     ]
+    carried = {f.describes for f in pipeline.sheet_facts}
     for channel in pipeline.channels:
-        if channel.scope is not Scope.SAMPLE:
+        if channel.grain is not Grain.SAMPLE:
             lines.append(
                 (
                     _channel_name(channel.name),
-                    _optional(channel, _as_value(_with_meta(channel.expression, channel.meta),
-                                                 channel.scope)),
+                    _study(channel),
                 )
             )
             continue
@@ -289,16 +385,228 @@ def _from_samplesheet(pipeline: Pipeline) -> list[tuple[str, str]]:
             # A column some rows may leave blank needs per-row placeholders (#466).
             raise ValueError(f"{channel.name} is a per-sample input each run may leave empty, "
                              "which a samplesheet cannot carry yet (#466)")
-        files = ", ".join(f"file(row.{column})" for column in channel.columns)
-        payload = files if len(channel.columns) == 1 else f"[ {files} ]"
-        projection = (
-            f"{SAMPLESHEET}.map {{ row -> [ [id: row.{SAMPLE_COLUMN}], {payload} ] }}"
-        )
-        lines.append((_channel_name(channel.name), _with_meta(projection, channel.meta)))
+        payload = _files(channel, pipeline)
+        # The row's facts ride on the input they describe (#466), parsed and checked above.
+        identity = (f"[id: row.{SAMPLE_COLUMN}] + row.comeni" if channel.type_id in carried
+                    else f"[id: row.{SAMPLE_COLUMN}]")
+        if channel.type_id in carried and _keys(pipeline):
+            identity += " + [comeni_groups: row.comeni_groups]"
+        name = _channel_name(channel.name)
+        if channel.units:
+            # One item per row, each knowing how many rows its sample has (#466): merged below.
+            identity += " + [comeni_units: row.comeni_units]"
+            name = f"{name}_rows"
+        projection = f"{SAMPLESHEET}.map {{ row -> [ {identity}, {payload} ] }}"
+        lines.append((name, _with_meta(projection, channel.meta)))
     return lines
 
 
-def _no_duplicate_ids() -> str:
+def _files(channel, pipeline: Pipeline) -> str:
+    """A row's files for one input: each named file, a blank cell stopping the run naming it;
+    and where a fact is read off the row, one file or two as the row gives (#466)."""
+    def one(column: str) -> str:
+        return (f"file(row.{column} ?: error(\"samplesheet sample ${{row.{SAMPLE_COLUMN}}}, "
+                f"column {column} is required\"))")
+    if len(channel.columns) == 1:
+        return one(channel.columns[0])
+    first, second = channel.columns[0], channel.columns[1]
+    if any(f.from_row and f.column == second for f in pipeline.sheet_facts):
+        given = f"(row.{second} != null && row.{second}.trim() != '')"
+        return f"({given} ? [ {one(first)}, file(row.{second}) ] : [ {one(first)} ])"
+    return "[ " + ", ".join(one(c) for c in channel.columns) + " ]"
+
+
+def _cells(pipeline: Pipeline) -> str:
+    """Each row's facts, parsed and checked before any sample is processed (#466): every cell
+    its declared kind and values, a blank only where the fact is optional, `auto` only where a
+    step measures it. A bad cell stops the run naming the row, the sample and the column. The
+    parsed values sit on `row.comeni`: each fact under its id and under a module's key, and
+    `comeni_from`, which facts the row stated."""
+    if not pipeline.sheet_facts:
+        return ""
+    values = ",\n".join(f"                {f.measurement}: {_cell(f)}"
+                        for f in pipeline.sheet_facts)
+    keys = [f"{m.key}: {_translated(f, m)}" for f in pipeline.sheet_facts for m in f.meta
+            if m.key != f.measurement]
+    module = (" + [" + ", ".join(keys) + "]") if keys else ""
+    return (
+        ".toList().flatMap { rows ->\n"
+        "        rows.withIndex().collect { row, i ->\n"
+        "            def n = i + 1\n"
+        "            def v = [\n" + values + "\n            ]\n"
+        "            row + [comeni: v" + module + " + [comeni_from: v.findAll { it.value != null }"
+        ".collectEntries { [it.key, 'cell'] }]]\n"
+        "        }\n"
+        "    }" + _group_sizes(pipeline) + _references(pipeline)
+    )
+
+
+def _references(pipeline: Pipeline) -> str:
+    """A reference to another row names a sample this samplesheet has; one that does not stops
+    the run naming both rows (#466)."""
+    refs = [f.measurement for f in pipeline.sheet_facts if f.kind.value == "sample_ref"]
+    if not refs:
+        return ""
+    checks = "\n".join(
+        f"        rows.each {{ row -> if (row.comeni.{r} != null && !ids.contains(row.comeni.{r})) "
+        f"error(\"samplesheet sample ${{row.{SAMPLE_COLUMN}}}: {r} names ${{row.{r}}}, which is "
+        "no row of this samplesheet\") }"
+        for r in refs)
+    return (".toList().flatMap { rows ->\n"
+            f"        def ids = rows.collect {{ it.{SAMPLE_COLUMN} }} as Set\n"
+            f"{checks}\n"
+            "        rows\n"
+            "    }")
+
+
+def _keys(pipeline: Pipeline) -> list[str]:
+    """The keys some step gathers by (#466), sorted."""
+    return sorted({i.by for s in pipeline.steps for i in s.inputs if i.by is not None})
+
+
+def _group_sizes(pipeline: Pipeline) -> str:
+    """Each row learns how many samples share each key's value with it, so a group gathers as
+    soon as its own samples are done (#466)."""
+    keys = _keys(pipeline)
+    if not keys:
+        return ""
+    # Samples, not rows: a sample's lanes are one member of its group (final review C1).
+    counts = ", ".join(f"{k}: rows.groupBy {{ it.comeni.{k} }}.collectEntries {{ v, rs -> "
+                       f"[v, rs*.{SAMPLE_COLUMN}.unique().size()] }}" for k in keys)
+    sizes = ", ".join(f"{k}: sizes.{k}[row.comeni.{k}]" for k in keys)
+    return (".toList().flatMap { rows ->\n"
+            f"        def sizes = [{counts}]\n"
+            f"        rows.collect {{ row -> row + [comeni_groups: [{sizes}]] }}\n"
+            "    }")
+
+
+def _cell(fact) -> str:
+    if fact.from_row is not None:
+        # Read off the row (#466): whether its input's second file is given.
+        return f"(row.{fact.column} != null && row.{fact.column}.trim() != '')"
+    return _stated_cell(fact)
+
+
+def _stated_cell(fact) -> str:
+    """One cell as a closure call: its value; `null` for a blank the fact may leave, or `auto`
+    where a step measures it; otherwise a stop naming the row, the sample and the column. Only
+    declared identifiers and values, each checked substitutable, reach the message."""
+    where = f"samplesheet row ${{n}} (sample ${{row.{SAMPLE_COLUMN}}}), column {fact.column}"
+    listed = ", ".join(literal(v, f"samplesheet column {fact.column}") for v in fact.values)
+    kind = fact.kind.value
+    if kind == "enum":
+        parsed = (f"c in [{listed}] ? c : error(\"{where}: '${{c}}' is not one of "
+                  f"{', '.join(fact.values)}\")")
+    elif kind == "boolean":
+        parsed = (f"c == 'true' ? true : c == 'false' ? false : "
+                  f"error(\"{where}: '${{c}}' is not one of true, false\")")
+    elif kind in ("key", "sample_ref"):
+        # A laboratory's identifier for a relation (#466): letters, digits and `_ . -` only.
+        parsed = (f"c ==~ /[A-Za-z0-9_.-]+/ ? c : error(\"{where}: '${{c}}' is not a key: "
+                  "letters, digits and _ . - only\")")
+    else:
+        number = ("c ==~ /-?\\d+/ ? (c as long)" if kind == "integer"
+                  else "c.isBigDecimal() ? (c as BigDecimal)")
+        what = "a whole number" if kind == "integer" else "a number"
+        parsed = f"{number} : error(\"{where}: '${{c}}' is not {what}\")"
+        bounds = []
+        if fact.minimum is not None:
+            bounds.append(f"x < {float(fact.minimum)!r} ? error(\"{where}: '${{c}}' is below "
+                          f"{_shown(fact.minimum)}\")")
+        if fact.maximum is not None:
+            bounds.append(f"x > {float(fact.maximum)!r} ? error(\"{where}: '${{c}}' is above "
+                          f"{_shown(fact.maximum)}\")")
+        if bounds:
+            parsed = f"{{ -> def x = ({parsed}); " + " : ".join(bounds) + " : x }()"
+    blank = "null" if not fact.required else f'error("{where} is required")'
+    auto = ("null" if fact.auto
+            else f'error("{where}: auto is allowed only where the run measures the fact")')
+    return (f"({{ -> def c = (row.{fact.column} ?: '').trim(); "
+            f"c == '' ? {blank} : c == 'auto' ? {auto} : ({parsed}) }}())")
+
+
+def _shown(number: float) -> str:
+    return str(int(number)) if float(number).is_integer() else str(number)
+
+
+def _translated(fact, key) -> str:
+    """The fact under a module's key, spelled as that module expects (`paired` true is
+    `single_end` false)."""
+    var = f"v.{fact.measurement}"
+    if not key.translate:
+        return var
+    pairs = ", ".join(f"({literal(t.when, fact.column)}): {literal(t.then, fact.column)}"
+                      for t in key.translate)
+    return f"({var} == null ? null : [{pairs}][{var}])"
+
+
+UNIT_COLUMN = "unit"
+"""The column telling one sample's rows apart, such as its lanes, where an input may span several
+rows per sample (#466)."""
+
+
+def _no_units_twice() -> str:
+    """Rows sharing a sample are its units; a repeated sample and unit is refused, naming them.
+    Each row learns how many its sample has, so its lanes gather as soon as they are all done
+    (#466)."""
+    return (
+        ".toList().map { rows ->\n"
+        "        def keys = rows.collect { \"${it.sample} unit ${it.unit ?: ''}\" }\n"
+        "        def twice = keys.countBy { it }.findAll { _k, v -> v > 1 }.keySet()\n"
+        "        if (twice) {\n"
+        "            error \"samplesheet has a repeated sample and unit: \" +\n"
+        "                \"${twice.join(', ')}. \" +\n"
+        "                \"Each row is one unit of a sample, such as a lane; give each its own.\"\n"
+        "        }\n"
+        "        def units = rows.collect { it.sample }.countBy { it }\n"
+        "        rows.collect { it + [comeni_units: units[it.sample]] }\n"
+        "    }.flatMap { it }"
+    )
+
+
+def _merging(pipeline: Pipeline) -> tuple[Pipeline, list[str]]:
+    """Each input whose rows may repeat a sample, merged before anything reads it (#466): its
+    rows split into one-row samples, which pass straight on, and samples with several, gathered
+    by `groupKey` sized from the sheet and merged; the two streams make the input's channel. The
+    rest of the emitter then sees a pipeline whose readers take that channel, one item per
+    sample, and no merging step."""
+    by_channel = {c.name: c for c in pipeline.channels}
+    merges = [step for step in pipeline.steps if step.inputs and step.inputs[0].channel
+              and by_channel[step.inputs[0].channel].units]
+    if not merges:
+        return pipeline, []
+    lines, rewired = [], {}
+    for step in merges:
+        channel = _channel_name(step.inputs[0].channel)
+        out = next(iter(_outputs_read(pipeline, step.id)), "reads")
+        rewired[f"{step.id}.{out}"] = step.inputs[0].channel
+        lines += [
+            f"{channel}_units = {channel}_rows.branch {{ it -> one: it[0].comeni_units == 1; "
+            "many: true }",
+            f"{step.process}({channel}_units.many.map {{ meta, files -> "
+            "[ groupKey(meta.id, meta.comeni_units), meta, files ] }.groupTuple().map { "
+            "key, metas, files -> def m = metas[0]; "
+            "def differ = metas.collectMany { x -> x.findAll { k, v -> m[k] != v }*.key }"
+            ".unique(); if (differ) error(\"samplesheet sample ${m.id}: its rows disagree on "
+            "${differ.join(', ')}\"); [ m, files.flatten() ] })",
+            f"{channel} = {channel}_units.one.mix({step.process}.out.{out})",
+        ]
+    steps = []
+    for step in pipeline.steps:
+        if step in merges:
+            continue
+        inputs = [i.model_copy(update={"source": None, "channel": rewired[i.source]})
+                  if i.source in rewired else i for i in step.inputs]
+        steps.append(step.model_copy(update={"inputs": inputs}))
+    return pipeline.model_copy(update={"steps": steps}), lines
+
+
+def _outputs_read(pipeline: Pipeline, step_id: str) -> list[str]:
+    return sorted({i.source.partition(".")[2] for s in pipeline.steps for i in s.inputs
+                   if i.source and i.source.partition(".")[0] == step_id})
+
+
+def _no_duplicate_ids(units: bool = False) -> str:
     """Refuse a table whose sample ids repeat, naming them. Plan 5B §5.4.
 
     Two sample-scoped channels are aligned by row, so a sample split across lanes or flowcells —
@@ -311,8 +619,11 @@ def _no_duplicate_ids() -> str:
     guessing, and names the ids so the person can fix the table.
 
     Emitted into the pipeline because that is where the table is: Mendel never reads one
-    (invariant 15), so the only place this check can run is the run itself.
+    (invariant 15), so the only place this check can run is the run itself. Where an input may
+    span several rows per sample, a repeated sample is its units instead (#466).
     """
+    if units:
+        return _no_units_twice()
     return (
         ".toList().map { rows ->\n"
         "        def seen = rows.collect { it.sample }\n"
@@ -333,9 +644,32 @@ def _no_duplicate_ids() -> str:
     )
 
 
-def _as_value(expression: str, scope: Scope) -> str:
-    """A run-scoped channel becomes a value channel; a sample-scoped one stays a queue."""
-    return f"({expression}).first()" if scope is Scope.RUN else expression
+def _study(channel) -> str:
+    """A channel read as given: a value channel for one study item, a queue for per-sample
+    items, and a table of several study items read from its own CSV (#466)."""
+    if channel.table is not None:
+        return _table(channel)
+    return _optional(channel, _as_value(_with_meta(channel.expression, channel.meta),
+                                        channel.grain))
+
+
+def _table(channel) -> str:
+    """Several items for the study, one per row of the table at `params.<param>` (#466): each
+    named, the name its `meta.id`, with the item facts a port selects on. A blank or repeated
+    name stops the run naming the row; a file that does not exist stops it naming the file."""
+    table, param = channel.table, channel.param
+    facts = "".join(f", {fact}: row.{fact}" for fact in table.facts)
+    files = ", ".join(f"file(row.{column}, checkIfExists: true)" for column in table.columns)
+    return (f"Channel.fromPath(params.{param}, checkIfExists: true).splitCsv(header: true)"
+            ".toList().flatMap { rows -> def seen = [] as Set; rows.withIndex().collect "
+            "{ row, n -> if (!row.name) error(\"table " + param + " row ${n + 1} has no "
+            "name\"); if (!seen.add(row.name)) error(\"table " + param + ": ${row.name} is "
+            f"named twice\"); [ [id: row.name{facts}], {files} ] }} }}")
+
+
+def _as_value(expression: str, grain: Grain) -> str:
+    """A study's channel becomes a value channel; a per-sample one stays a queue."""
+    return f"({expression}).first()" if grain is Grain.STUDY else expression
 
 
 def _meta_injection(step: Step) -> str:
@@ -356,15 +690,537 @@ def _meta_injection(step: Step) -> str:
     return f".map {{ it -> [ it[0] + [{rendered}] ] + it[1..-1] }}"
 
 
-def _calls(pipeline: Pipeline) -> list[str]:
-    calls = []
+def _call(pipeline: Pipeline, step: Step, measured: dict[str, str] | None = None,
+          guard: bool = True) -> str:
+    args = [_argument(pipeline, step, arg, measured) for arg in step.call]
+    injection = _meta_injection(step)
+    if injection and args:
+        args[0] = f"({args[0]}){injection}"
+    if guard and step.sample_rules and args:
+        args[0] = f"({args[0]}){_sample_guard(step)}"
+    _table_argument(pipeline, step)  # refuses a table read where it cannot be crossed
+    return f"{step.process}({', '.join(args)})"
+
+
+def _table_argument(pipeline: Pipeline, step: Step):
+    """The call position reading a table, and the table, or None (#466)."""
+    tables = {c.name: c.table for c in pipeline.channels if c.table is not None}
+    for n, arg in enumerate(step.call):
+        read = [i for i in step.inputs if i.port in arg.ports and i.channel in tables]
+        if read:
+            if n == 0 or len(arg.ports) != 1:
+                raise ValueError(coded(
+                    "MD0348", f"{step.id} reads the table {read[0].channel} with another input "
+                    "in one tuple, or first; it reads it on its own, after the sample — "
+                    "`mendel explain MD0348`."))
+            return n, tables[read[0].channel]
+    return None
+
+
+def _split_args(args: str) -> list[str]:
+    """A call's argument list, split at its top level."""
+    parts, depth, start = [], 0, 0
+    for n, ch in enumerate(args):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            parts.append(args[start:n].strip())
+            start = n + 1
+    return [*parts, args[start:].strip()]
+
+
+def _crossing(pipeline: Pipeline, lines: list[str]) -> list[str]:
+    """Each step reading a sample and a table, its finished call turned into the pairs (#466):
+    every wrapper on its sample input (a branch's filter, a tool rule, measured facts) is
+    already in place, so it applies before the pairs are made rather than to one side after.
+    The pairs are made once and split into the call's two inputs in step, each sample's `meta`
+    carrying the row's under the table's name. A table no row of which the step reads stops the
+    run rather than dropping every sample."""
+    tables = {s.process: (s, _table_argument(pipeline, s)) for s in pipeline.steps}
+    out = []
+    for line in lines:
+        process, _, rest = line.partition("(")
+        step, table = tables.get(process, (None, None))
+        if table is None or not rest.endswith(")"):
+            out.append(line)
+            continue
+        at, shape = table
+        args = _split_args(rest[:-1])
+        name = f"ch_cross_{step.id}"
+        rows = (f"{args[at]}.ifEmpty {{ error(\"each sample meets no row of {shape.name}: "
+                f"{step.process} reads none of its rows\") }}")
+        out.append(f"{name} = {args[0]}.map {{ [it] }}.combine({rows}.map {{ [it] }}).multiMap "
+                   f"{{ s, t -> sample: [ s[0] + [{shape.name}: t[0]] ] + s.drop(1); "
+                   "table: t }")
+        called = [f"{name}.sample" if n == 0 else f"{name}.table" if n == at else arg
+                  for n, arg in enumerate(args)]
+        out.append(f"{process}({', '.join(called)})")
+    return out
+
+
+def _measuring_branch(pipeline: Pipeline) -> set[str]:
+    """The steps that measure a run-time fact, and every step they descend from: they run on
+    the raw inputs, before the measured fact can be joined into anyone's `meta` (#217)."""
+    wanted = {m.measured_at for c in pipeline.channels for m in c.meta_at_run}
+    by_id = {step.id: step for step in pipeline.steps}
+    branch: set[str] = set()
+    while wanted:
+        node = wanted.pop()
+        if node in branch:
+            continue
+        branch.add(node)
+        wanted |= {i.source.partition(".")[0] for i in by_id[node].inputs if i.source}
+        wanted |= {m.partition(".")[0] for i in by_id[node].inputs for m in i.mixed}
+    return branch
+
+
+def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str], dict[str, str], list[str]]:
+    """Each input channel carrying run-measured facts, joined with them by `meta`: its name for
+    the consumers outside the measuring branch and the lines that define it; and, for a channel
+    whose measured facts the samplesheet may state (#466), the channel the measuring branch reads
+    instead, of the rows that left a cell blank, with the lines defining it. A stated cell wins
+    over a measurement, and `meta.comeni_from` says which each sample's value is."""
+    auto = {f.measurement for f in pipeline.sheet_facts if f.auto}
+    names, lines, unstated, before = {}, [], {}, []
+    for channel in pipeline.channels:
+        if not channel.meta_at_run:
+            continue
+        raw = _channel_name(channel.name)
+        name = f"{raw}_measured"
+        facts = [m.measurement for m in channel.meta_at_run]
+        bypass = all(f in auto for f in facts)
+        source = raw
+        if bypass:
+            blank = " || ".join(f"meta.{f} == null" for f in facts)
+            source = f"{raw}_unstated"
+            before.append(f"{source} = {raw}.filter {{ meta, data -> {blank} }}")
+            # Only the measuring steps see just the blank rows; every other step, in the
+            # branch or not, keeps every row (Task 6 review, Critical).
+            unstated[channel.name] = " || ".join(f"it[0].{f} == null" for f in facts)
+        # `failOnMismatch`: a sample whose measurement never matches its input must stop the
+        # run, not vanish from it with exit 0 (Task 7 review).
+        joins = "".join(
+            f".join({_process_of(pipeline, m.measured_at)}.out.{m.measured_port}.map {{ meta, "
+            f"report -> [ meta, new groovy.json.JsonSlurper().parseText(report.text)"
+            f".facts?.get('{m.measurement}')?.value ] }}, failOnMismatch: true, "
+            "failOnDuplicate: true)"
+            for m in channel.meta_at_run
+        )
+        values = [f"v{n}" for n in range(len(channel.meta_at_run))]
+        merged = ", ".join(
+            f"{m.meta_key}: (meta.{m.meta_key} != null ? meta.{m.meta_key} : {v})"
+            for m, v in zip(channel.meta_at_run, values, strict=True))
+        sources = ", ".join(
+            f"{m.measurement}: (meta.{m.meta_key} != null ? 'cell' : 'measured')"
+            for m in channel.meta_at_run)
+        expression = (f"{source}{joins}.map {{ meta, data, {', '.join(values)} -> "
+                      f"[ meta + [{merged}, comeni_from: (meta.comeni_from ?: [:]) + "
+                      f"[{sources}]], data ] }}")
+        if bypass:
+            stated = " && ".join(f"meta.{f} != null" for f in facts)
+            expression = f"{raw}.filter {{ meta, data -> {stated} }}.mix({expression})"
+        names[channel.name] = name
+        lines.append(f"{name} = {_as_value(expression, channel.grain)}")
+    return names, lines, unstated, before
+
+
+def _meta_root(pipeline: Pipeline, step: Step) -> str | None:
+    """The input channel whose `meta` reaches this step's first input: its own, or, through
+    upstream steps' first inputs, the one they read. nf-core passes `meta` along that way."""
+    by_id = {s.id: s for s in pipeline.steps}
+    seen: set[str] = set()
+    while step.id not in seen and step.call and step.call[0].ports:
+        seen.add(step.id)
+        wiring = next(i for i in step.inputs if i.port == step.call[0].ports[0])
+        if wiring.source is None:
+            return wiring.channel
+        step = by_id[wiring.source.partition(".")[0]]
+    return None
+
+
+_FOLDS = {
+    "agree": "known.size() == vs.size() && known.toSet().size() == 1 ? known[0] : null",
+    "all": "vs.every { it == true }",
+    "any": "vs.any { it == true }",
+    "count": "known.size()",
+    "distinct": "known.toSet().size()",
+    "max": "known ? known.max() : null",
+    "min": "known ? known.min() : null",
+    "mean": "known ? ((known.sum() as double) / known.size()) : null",
+}
+"""Each fold in Groovy over `vs`, every sample's value, and `known`, those with one: what
+`premises._REDUCERS` does at build time (#466)."""
+
+
+def _folds_of(pipeline: Pipeline) -> dict[str, list]:
+    """The facts folded over the study, by the input channel whose items carry them: the one
+    behind each step that reads one (#466). Sorted by fact."""
+    found: dict[str, dict[str, object]] = {}
     for step in pipeline.steps:
-        args = [_argument(pipeline, step, arg) for arg in step.call]
-        injection = _meta_injection(step)
-        if injection and args:
-            args[0] = f"({args[0]}){injection}"
-        calls.append(f"{step.process}({', '.join(args)})")
-    return calls
+        for setting in step.settings:
+            if setting.at_run is None:
+                continue
+            for fact in setting.at_run.facts:
+                root = _meta_root(pipeline, step)
+                if fact.source is AtRunSource.FOLDED and root is not None:
+                    found.setdefault(root, {})[fact.measurement] = fact
+    return {root: [facts[k] for k in sorted(facts)] for root, facts in found.items()}
+
+
+def _folding(pipeline: Pipeline, names: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    """Each fact folded over the study, as a channel of its one value (#466): from every
+    sample's row where the samplesheet carries the fact, else from the channel the run measured
+    it on. Only the steps that read a fold join it (`_with_folds`), so no other step waits for
+    the study (final review I1). Returns each fold's channel by fact, and the lines defining
+    them."""
+    values, lines = {}, []
+    for root, facts in sorted(_folds_of(pipeline).items()):
+        channel = next((c for c in pipeline.channels if c.name == root), None)
+        measured = {m.measurement for m in channel.meta_at_run} if channel else set()
+        for fact in facts:
+            if fact.using.value not in _FOLDS:
+                raise ValueError(f"{fact.measurement}: no fold {fact.using!r}")
+            if fact.folds in measured:
+                members = f"{names.get(root, _channel_name(root))}.map {{ it[0].{fact.folds} }}"
+            else:
+                # One value per sample, its lanes counted once.
+                members = (f"{SAMPLESHEET}.map {{ [ it.{SAMPLE_COLUMN}, it.comeni.{fact.folds} ] }}"
+                           ".unique { it[0] }.map { it[1] }")
+            name = f"ch_fold_{fact.meta_key}"
+            lines.append(f"{name} = {members}.toList().map {{ vs -> def known = "
+                         f"vs.findAll {{ it != null }}; [ {_FOLDS[fact.using.value]} ] }}")
+            values[fact.measurement] = name
+    return values, lines
+
+
+def _with_folds(expression: str, facts, values: dict[str, str]) -> str:
+    """`expression`'s items with each folded fact among `facts` joined into their `meta`."""
+    for fact in facts:
+        if fact.source is not AtRunSource.FOLDED or fact.measurement not in values:
+            continue
+        expression = (f"({expression}).combine({values[fact.measurement]}).map {{ it -> [ it[0] + "
+                      f"[{fact.meta_key}: it[-1], comeni_from: (it[0].comeni_from ?: [:]) + "
+                      f"[{fact.measurement}: 'folded']] ] + it[1..-2] }}")
+    return expression
+
+
+def _folded_call(step: Step, call: str, values: dict[str, str]) -> str:
+    """A step reading a fold, with it joined into its first input's `meta`."""
+    facts = [f for setting in step.settings if setting.at_run is not None
+             for f in setting.at_run.facts]
+    if not any(f.source is AtRunSource.FOLDED for f in facts) or "(" not in call:
+        return call
+    process, _, rest = call.partition("(")
+    first, sep, others = _split_first(rest[:-1])
+    return f"{process}({_with_folds(first, facts, values)}{sep}{others})"
+
+
+def _check_measuring(pipeline: Pipeline, branch: set[str], measured: dict[str, str]) -> None:
+    """What would make a measured fact miss the step it is for, refused at emit (MD0330)."""
+    for step in pipeline.steps:
+        if step.id in branch and any(s.via is Via.META and s.value is not None
+                                     for s in step.settings):
+            raise ValueError(coded(
+                "MD0330", f"{step.id} measures a run-time fact and adds to `meta` itself, so "
+                "its measurement would not match its input's `meta` — `mendel explain MD0330`."))
+        for setting in (s for s in step.settings if s.at_run is not None):
+            root = _meta_root(pipeline, step)
+            channel = next((c for c in pipeline.channels if c.name == root), None)
+            carried = {m.measurement for m in channel.meta_at_run} if channel else set()
+            carried |= {f.measurement for f in _folds_of(pipeline).get(root, [])}
+            # Every fact a step measures must be joined into the `meta` this step reads; a fact
+            # from the samplesheet arrives on the row itself (#466).
+            missing = [f.measurement for f in setting.at_run.facts
+                       if f.source is not AtRunSource.CELL and f.measurement not in carried]
+            if root is None or missing:
+                raise ValueError(coded(
+                    "MD0330", f"{step.id} is decided at run time, and its first input's `meta` "
+                    f"does not carry {', '.join(missing) or 'its facts'}, so the setting would "
+                    "read nothing — `mendel explain MD0330`."))
+    seen: dict[tuple[str, str], str] = {}
+    for channel in pipeline.channels:
+        for m in channel.meta_at_run:
+            key = (m.measured_at, m.measurement)
+            if key in seen:
+                raise ValueError(coded(
+                    "MD0330", f"{m.measurement} is measured once, by {m.measured_at}, and two "
+                    f"inputs carry it ({seen[key]}, {channel.name}): one of them could never "
+                    "match its measurement — `mendel explain MD0330`."))
+            seen[key] = channel.name
+
+
+def _decided(pipeline: Pipeline, measured: dict[str, str],
+             folds: dict[str, str] | None = None) -> list[str]:
+    """Every run-time value the run used, per sample, beside its facts: what a setting became
+    is recorded by the run itself, from the `meta` the step reads, not recomputed afterwards
+    (#217)."""
+    lines = []
+    for step in pipeline.steps:
+        for setting in sorted(step.settings, key=lambda s: s.name):
+            if setting.at_run is None:
+                continue
+            root = _meta_root(pipeline, step)
+            channel = _with_folds(measured.get(root, _channel_name(root)), setting.at_run.facts,
+                                  folds or {})
+            expr = closure(setting.at_run, where=f"{step.id}.{setting.name}")
+            # Each fact beside the value, with where it came from (#466): `fact=value:source`.
+            facts = " + ".join(
+                f"\"\\t{f.measurement}=${{meta.{f.meta_key}}}:"
+                f"${{meta.comeni_from?.get('{f.measurement}') ?: "
+                f"(meta.{f.meta_key} == null ? 'missing' : 'measured')}}\""
+                for f in setting.at_run.facts)
+            lines.append(
+                "if (params.outdir) {\n"
+                f"        {channel}.map {{ meta, data -> \"${{meta.id}}\\t\" + "
+                f"String.valueOf({expr}) + {facts} }}.collectFile(name: "
+                f"'{step.id}.{setting.name}.tsv', storeDir: \"${{params.outdir}}/decided\", "
+                "newLine: true, sort: true)\n"
+                "    }"
+            )
+    return lines
+
+
+def _calls(pipeline: Pipeline) -> list[str]:
+    """Every statement after the entry channels: the measuring branch first, on the raw
+    inputs (only the rows that left a cell blank, where the samplesheet may state the fact);
+    then the inputs joined with what it measured; then every other step reading the joined
+    inputs; then the record of each run-time value (#217, #466). A pipeline that decides
+    nothing in the run gets exactly its calls in step order, as before."""
+    _check_cells(pipeline)
+    branch = _measuring_branch(pipeline)
+    if not branch:
+        folds, folding = _folding(pipeline, {})
+        _check_measuring(pipeline, branch, {})
+        calls = {step.id: _folded_call(step, _call(pipeline, step, guard=False), folds)
+                 for step in pipeline.steps}
+        ordered, routed = _branched(pipeline, calls, set())
+        return [*folding, *ordered, *_decided(pipeline, {}, folds), *routed]
+    measured, joined, unstated, before = _joined(pipeline)
+    folds, folding = _folding(pipeline, measured)
+    joined = [*joined, *folding]
+    _check_measuring(pipeline, branch, measured)
+    first = [_measuring_call(pipeline, step, unstated) for step in pipeline.steps
+             if step.id in branch]
+    for step in pipeline.steps:
+        if step.id in branch and step.sample_rules:
+            # A measuring-branch step reads `meta` before any measurement is joined in, so a
+            # rule on a sample's facts could read nothing there (Task 7 review).
+            raise ValueError(coded(
+                "MD0330", f"{step.id} checks per-sample rules and runs before the facts are "
+                "measured — `mendel explain MD0330`."))
+    # The guard goes on after the measured facts are joined back, so it reads them.
+    samples = {f.describes for f in pipeline.sheet_facts}
+    for step in pipeline.steps:
+        root = next((c for c in pipeline.channels if c.name == _meta_root(pipeline, step)), None)
+        if step.id in branch and step.guard is not None and root is not None \
+                and root.type_id in samples:
+            # A step only some samples take, read by a measurement, would take them all
+            # (final review I3).
+            raise ValueError(coded(
+                "MD0330", f"{step.id} takes only some samples and a run-time measurement reads "
+                "what it makes, so it would run on every sample — `mendel explain MD0330`."))
+    # Each step's per-sample rules go on in `_branched`, after its branch's filter.
+    calls = {step.id: _folded_call(step, _remeta(pipeline, step, branch, measured,
+                                                 _call(pipeline, step, measured, guard=False)),
+                                   folds)
+             for step in pipeline.steps if step.id not in branch}
+    rest, routed = _branched(pipeline, calls, branch)
+    return [*before, *first, *joined, *rest, *_decided(pipeline, measured, folds), *routed]
+
+
+def _token(contract_id: str) -> str:
+    """A tool as the run writes it: its id within the substitutable class."""
+    return contract_id.replace("/", ".").replace("@", ":")
+
+
+def _tool_of(step: Step) -> str:
+    """The tool each sample's facts send it to, as one expression over its `meta` (#466). A
+    fallback still a question stops the run, as a stop does: a sample never vanishes."""
+    lookup: AtRun = step.guard.lookup
+    stop = lookup.fallback_is in (AtRunFallback.STOP, AtRunFallback.QUESTION)
+    tokened = lookup.model_copy(update={
+        "rows": [r.model_copy(update={"then": _token(r.then)}) for r in lookup.rows],
+        "fallback": None if stop else _token(lookup.fallback),
+        "fallback_is": AtRunFallback.STOP if stop else lookup.fallback_is,
+    })
+    return closure(tokened, where=f"{step.id}'s samples")
+
+
+def _wrap_first(call: str, suffix: str) -> str:
+    process, _, rest = call.partition("(")
+    first, sep, others = _split_first(rest[:-1])
+    return f"{process}(({first}){suffix}{sep}{others})"
+
+
+def _first_arg(call: str) -> str:
+    return _split_first(call.partition("(")[2][:-1])[0]
+
+
+def _branched(pipeline: Pipeline, calls: dict[str, str], measuring: set[str]
+              ) -> tuple[list[str], list[str]]:
+    """The calls, with each sample sent down its own branch (#466): a guarded step the samples
+    enter takes only those its tool's rows admit; a guarded step that does not carry them (an
+    index) starts only once one of its samples arrives, and is called after what they come
+    from. Also the record of each sample's tool. Without guards, the calls in step order."""
+    by_id = {step.id: step for step in pipeline.steps}
+    sample_types = {f.describes for f in pipeline.sheet_facts}
+
+    def source_of(step: Step) -> Step | None:
+        if not step.call or not step.call[0].ports:
+            return None
+        wiring = next(i for i in step.inputs if i.port == step.call[0].ports[0])
+        return by_id[wiring.source.partition(".")[0]] if wiring.source else None
+
+    def carries(step: Step) -> bool:
+        root = _meta_root(pipeline, step)
+        channel = next((c for c in pipeline.channels if c.name == root), None)
+        return channel is not None and channel.type_id in sample_types
+
+    entering, gated = [], []
+    for step in pipeline.steps:
+        if step.guard is None or step.id not in calls or "(" not in calls[step.id]:
+            continue
+        upstream = source_of(step)
+        if upstream is not None and upstream.guard is not None and upstream.id not in measuring:
+            continue
+        (entering if carries(step) else gated).append(step)
+    if not entering and not gated:
+        return [_guarded(s, calls[s.id]) for s in pipeline.steps if s.id in calls], []
+    unfiltered = {step.id: _first_arg(calls[step.id]) for step in entering}
+    after: dict[str, set[str]] = {}
+    for step in entering:
+        takes = ", ".join(f"'{_token(t)}'" for t in step.guard.takes)
+        admits = f".filter {{ it -> def meta = it[0]; ({_tool_of(step)}) in [{takes}] }}"
+        calls[step.id] = _wrap_first(calls[step.id], admits)
+    for step in gated:
+        mine = [e for e in entering if set(e.guard.takes) & set(step.guard.takes)]
+        if not mine:
+            continue
+        admitted = _first_arg(calls[mine[0].id])
+        for other in mine[1:]:
+            admitted = f"({admitted}).mix({_first_arg(calls[other.id])})"
+        calls[step.id] = _wrap_first(
+            calls[step.id], f".combine(({admitted}).first().map {{ true }})"
+            ".map { it.size() == 2 ? it[0] : it[0..-2] }.first()")
+        after[step.id] = {s.id for e in mine if (s := source_of(e)) is not None}
+    # Each step after its inputs, and an index after what its samples come from.
+    order, done = [], set()
+    waiting = [s for s in pipeline.steps if s.id in calls]
+    while waiting:
+        for step in waiting:
+            needs = {i.source.partition(".")[0] for i in step.inputs if i.source}
+            needs |= {m.partition(".")[0] for i in step.inputs for m in i.mixed}
+            needs |= after.get(step.id, set())
+            if not (needs & {s.id for s in waiting}):
+                # A tool's per-sample rules read only the samples its branch admits (I1).
+                order.append(_guarded(step, calls[step.id]))
+                done.add(step.id)
+                waiting.remove(step)
+                break
+        else:
+            raise AssertionError("the steps' order has a cycle")
+    routed, seen = [], set()
+    for step in entering:
+        if step.guard.lookup.rule in seen:
+            continue
+        seen.add(step.guard.lookup.rule)
+        facts = " + ".join(
+            f"\"\\t{f.measurement}=${{meta.{f.meta_key}}}:"
+            f"${{meta.comeni_from?.get('{f.measurement}') ?: "
+            f"(meta.{f.meta_key} == null ? 'missing' : 'measured')}}\""
+            for f in step.guard.lookup.facts)
+        # Recorded as the role's `tool`, beside the run-time settings: `decided/alignment.tool.tsv`.
+        name = f"{step.guard.lookup.rule.split(':')[1]}.tool"
+        routed.append(
+            "if (params.outdir) {\n"
+            f"        ({unfiltered[step.id]}).map {{ it -> def meta = it[0]; \"${{meta.id}}\\t\" + "
+            f"String.valueOf({_tool_of(step)}) + {facts} }}.collectFile(name: '{name}.tsv', "
+            "storeDir: \"${params.outdir}/decided\", newLine: true, sort: true)\n"
+            "    }")
+    return order, routed
+
+
+def _guarded(step: Step, call: str) -> str:
+    if not step.sample_rules or "(" not in call:
+        return call
+    process, _, rest = call.partition("(")
+    first, sep, others = _split_first(rest[:-1])
+    return f"{process}(({first}){_sample_guard(step)}{sep}{others})"
+
+
+def _measuring_call(pipeline: Pipeline, step: Step, unstated: dict[str, str]) -> str:
+    """A step of the measuring branch; a measurer of facts the samplesheet may state reads only
+    the rows that left them blank (#466)."""
+    call = _call(pipeline, step)
+    root = _meta_root(pipeline, step)
+    blank = unstated.get(root) if step.include.startswith(MEASURING) else None
+    if blank is None or "(" not in call:
+        return call
+    process, _, rest = call.partition("(")
+    first, sep, others = _split_first(rest[:-1])
+    return f"{process}(({first}).filter {{ it -> {blank} }}{sep}{others})"
+
+
+def _split_first(args: str) -> tuple[str, str, str]:
+    """The first argument of a call's argument list, at its top level."""
+    depth = 0
+    for n, ch in enumerate(args):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            return args[:n], ", ", args[n + 1:].lstrip()
+    return args, "", ""
+
+
+def _remeta(pipeline: Pipeline, step: Step, branch: set[str], measured: dict[str, str],
+            call: str) -> str:
+    """A step whose first input comes out of the measuring branch never had the measured facts
+    joined into its `meta`: they are joined back by sample id, so its lookup and the decided
+    record read the same values (Task 6 review)."""
+    if not step.call or not step.call[0].ports:
+        return call
+    wiring = next(i for i in step.inputs if i.port == step.call[0].ports[0])
+    if wiring.source is None or wiring.source.partition(".")[0] not in branch:
+        return call
+    root = _meta_root(pipeline, step)
+    channel = next((c for c in pipeline.channels if c.name == root), None)
+    if channel is None or root not in measured or channel.grain is not Grain.SAMPLE:
+        return call
+    keys = ", ".join(f"'{m.meta_key}'" for m in channel.meta_at_run)
+    process, _, rest = call.partition("(")
+    first, sep, others = _split_first(rest[:-1])
+    merged = (f"({first}).map {{ it -> [it[0].id, it] }}.join({measured[root]}.map {{ meta, d -> "
+              f"[meta.id, meta.subMap([{keys}, 'comeni_from'])] }}, failOnMismatch: true)"
+              ".map { id, it, m -> [it[0] + m] + it[1..-1] }")
+    return f"{process}({merged}{sep}{others})"
+
+
+def _check_cells(pipeline: Pipeline) -> None:
+    """Every fact a run-time lookup reads from the samplesheet has its column (MD0335): without
+    it every sample would read nothing and take the fallback (Task 5 review)."""
+    columns = {f.measurement for f in pipeline.sheet_facts}
+    for step in pipeline.steps:
+        for setting in step.settings:
+            if setting.at_run is None:
+                continue
+            # A folded fact reads the fact it folds, which needs its column unless the run
+            # measures it (#466; final review I2).
+            root = next((c for c in pipeline.channels
+                         if c.name == _meta_root(pipeline, step)), None)
+            measured = {m.measurement for m in root.meta_at_run} if root else set()
+            read = [f.folds if f.source is AtRunSource.FOLDED else f.measurement
+                    for f in setting.at_run.facts if f.source is not AtRunSource.MEASURED
+                    and not (f.source is AtRunSource.FOLDED and f.folds in measured)]
+            missing = [f for f in read if f not in columns]
+            if missing:
+                raise ValueError(coded(
+                    "MD0335", f"{step.id}.{setting.name} reads {', '.join(missing)} from the "
+                    "samplesheet, and the samplesheet has no such column — "
+                    "`mendel explain MD0335`."))
 
 
 def emit(pipeline: Pipeline) -> str:
@@ -385,11 +1241,12 @@ def emit(pipeline: Pipeline) -> str:
         {"id": step.id, "process": step.process, "include": step.include}
         for step in pipeline.steps
     ]
+    view, merging = _merging(pipeline)
     return env.get_template("main.nf.j2").render(
         nodes=nodes,
         entry_channels=_entry_channels(pipeline),
         guards=_run_guards(pipeline),
-        calls=_calls(pipeline),
+        calls=[*merging, *_crossing(view, _calls(view))],
     )
 
 
@@ -472,15 +1329,49 @@ def test_samplesheet(pipeline: Pipeline) -> str:
     columns: list[str] = [SAMPLE_COLUMN]
     values: list[str] = ["test"]
     for channel in pipeline.channels:
-        if channel.scope is not Scope.SAMPLE:
+        if channel.grain is not Grain.SAMPLE:
             continue
         for column, url in zip(channel.columns, by_param[channel.param].test_data, strict=False):
             columns.append(column)
             values.append(url)
+    # Each fact column gets a value its check accepts (#466): `auto` where the run measures it,
+    # the first allowed value, `true`, or the smallest number allowed.
+    for fact in pipeline.sheet_facts:
+        columns.append(fact.column)
+        values.append(_test_cell(fact))
+    if any(c.units for c in pipeline.channels):
+        columns.append(UNIT_COLUMN)
+        values.append("1")
     return ",".join(columns) + "\n" + ",".join(values) + "\n"
 
 
-def _ext_scope(step: Step) -> list[str]:
+def _test_cell(fact) -> str:
+    if fact.auto:
+        return "auto"
+    if fact.values:
+        return fact.values[0]
+    if fact.kind.value == "boolean":
+        return "true"
+    return _shown(fact.minimum if fact.minimum is not None else 1)
+
+
+def _at_run_fragment(step: Step, setting) -> str:
+    """The setting's flag with its value from the lookup over `meta`, or nothing when the
+    lookup gives nothing (an unanswered fallback and an undetermined fact) (#217)."""
+    where = f"{step.id}.{setting.name}"
+    expr = closure(setting.at_run, where=where)
+    template = setting.template or "{value}"
+    if template.count("{value}") != 1 or "${" in template:
+        raise ValueError(coded(
+            "MD0330",
+            f"{where} is decided at run time and its template {template!r} does not hold "
+            "`{value}` once, plainly — `mendel explain MD0330`."))
+    before, _, after = template.partition("{value}")
+    return (f"${{ ({expr}) == null ? '' : {_render_literal(before)} + ({expr}) + "
+            f"{_render_literal(after)} }}")
+
+
+def _ext_scope(step: Step, crosses: str | None = None) -> list[str]:
     """Every `ext.<key>` this step needs, composed.
 
     The contract's static flags first, then each routed setting in **name-sorted** order. With
@@ -499,6 +1390,15 @@ def _ext_scope(step: Step) -> list[str]:
 
     for setting in sorted(step.settings, key=lambda s: s.name):
         if setting.via is not Via.EXT:
+            if setting.at_run is not None:
+                raise ValueError(coded(
+                    "MD0330",
+                    f"{step.id}.{setting.name} is decided at run time and routes through "
+                    f"`{setting.via.value}`; only an `ext` setting can read the measured fact "
+                    "from its task's `meta` — `mendel explain MD0330`."))
+            continue
+        if setting.at_run is not None:
+            fragments.setdefault(setting.key.value, []).append(_at_run_fragment(step, setting))
             continue
         if setting.value is None:
             # An unanswered tier-4 setting contributes nothing, and must not block the build.
@@ -556,6 +1456,13 @@ def _ext_scope(step: Step) -> list[str]:
             setting.template.replace("{value}", rendered)
         )
 
+    # Each pair's and each part's results under a name of its own, or publishing would overwrite
+    # them (#466). A contract's own prefix is kept and suffixed (final review 4).
+    suffix = (f"_${{meta.{crosses}.id}}" if crosses is not None else "") + (
+        ".part${meta.part}" if step.parts is not None and step.parts.on else "")
+    if suffix:
+        own = fragments.get("prefix")
+        fragments["prefix"] = [*own[:-1], own[-1] + suffix] if own else ["${meta.id}" + suffix]
     lines = []
     for key in sorted(fragments):
         joined = " ".join(fragments[key])
@@ -729,10 +1636,15 @@ def _label_scope() -> list[str]:
 def _process_scope(pipeline: Pipeline) -> list[str]:
     """`ext.*` and directives per process, for modules that declare flags or carry settings."""
     blocks: list[str] = []
+    crossed = crossed_steps(pipeline.steps, pipeline.channels)
     for step in pipeline.steps:
-        blocks += _ext_scope(step)
+        blocks += _ext_scope(step, crosses=crossed.get(step.id))
         blocks += _directive_scope(step)
     return ["process {", *_label_scope(), *sorted(set(blocks)), "}", ""]
+
+
+MEASURING = "modules/comeni/measure/"
+"""Where every generated measuring step's module is staged (#465)."""
 
 
 def emit_config(pipeline: Pipeline) -> str:
@@ -746,8 +1658,13 @@ def emit_config(pipeline: Pipeline) -> str:
     lines = [
         "// Generated by Mendel. Do not edit by hand — edit the goal and recompile.",
         "",
-        "params {",
     ]
+    if any(step.include.startswith(MEASURING) for step in pipeline.steps):
+        # A measuring step's runner is a module binary in its own `resources/usr/bin` (#465);
+        # Nextflow stages it into the task only with this switched on. Emitted only then, so a
+        # pipeline that measures nothing keeps exactly the config it had.
+        lines += ["nextflow.enable.moduleBinaries = true", ""]
+    lines += ["params {"]
     lines += [f"    {name} = null" for name in params]
     # **After the entry params, and outside their loop.** `outdir` is not an entry channel — it
     # is where results go, which is a site fact — so it must not join the loops below that give

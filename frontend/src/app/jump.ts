@@ -31,10 +31,13 @@ export function jumpTargets(query: string, drafts: DraftRow[], runs: RunRow[]): 
   const q = query.trim().toLowerCase();
   const pipelines = [...drafts]
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-    .filter((d) => !q || d.name.toLowerCase().includes(q))
+    // A pipeline with no name is its short id, as Home shows it (issue 494): a blank row read as
+    // nothing at all.
+    .filter((d) => !q || d.name.toLowerCase().includes(q) || d.id.toLowerCase().startsWith(q))
     .slice(0, EACH)
     .map((d): Target => ({
-      kind: "pipeline", id: d.id, label: d.name, detail: `${d.steps} steps`, to: pipelineAddress(d),
+      kind: "pipeline", id: d.id, label: d.name || d.id.slice(0, 8), detail: `${d.steps} steps`,
+      to: pipelineAddress(d),
     }));
   const found = runs
     .filter((r) => !q || r.name.toLowerCase().includes(q) || r.id.toLowerCase().startsWith(q))

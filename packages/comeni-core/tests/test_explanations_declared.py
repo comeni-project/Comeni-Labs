@@ -13,10 +13,10 @@ def _write(root, rel, body):
 
 def test_a_type_carries_its_name_and_explanation(tmp_path):
     _write(tmp_path, "vocabulary/annotation.gtf.yml",
-           "declares: vocabulary\nid: annotation.gtf\nscope: run\n"
+           "declares: vocabulary\nid: annotation.gtf\ngrain: study\n"
            "name: gene annotation (GTF)\nexplain: Where each gene lies.\n")
     _write(tmp_path, "vocabulary/genome.fasta.yml",
-           "declares: vocabulary\nid: genome.fasta\nscope: run\n")
+           "declares: vocabulary\nid: genome.fasta\ngrain: study\n")
     vocabulary = Vocabulary.load(tmp_path)
     assert vocabulary.names == {"annotation.gtf": "gene annotation (GTF)"}
     assert vocabulary.explains == {"annotation.gtf": "Where each gene lies."}

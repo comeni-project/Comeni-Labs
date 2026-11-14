@@ -14,7 +14,7 @@ type Setting = AnsweredStep["settings"][number];
  *  grouped by how they were decided — what still needs the person first, as questions; then what
  *  was measured; then what a rule settled, folded — each opening its reason in place; then the
  *  step's tools. × and *Back to the conversation* return to the chat where it was. */
-export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onClose, onSwitchInput }: {
+export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onClose, onSwitchInput, onWhole }: {
   node: string;
   step: AnsweredStep | undefined;
   graph: DraftGraph;
@@ -25,10 +25,15 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
   onClose: () => void;
   /** Switch a tool's optional input off, optional or required: the person's change (issue 460). */
   onSwitchInput?: (contract: string, port: string, state: InputState) => void;
+  /** Keep a tool whole, or let it run on parts of each sample again (issue 466). */
+  onWhole?: (contract: string, whole: boolean) => void;
 }) {
   const [showSettled, setShowSettled] = useState(false);
   const settings = step?.settings ?? [];
-  const asking = [...settings.filter(open), ...settings.filter(optionalOpen)];
+  // **Needs you, then optional, apart** (issues 384, 494): counted together, an optional prefix read
+  // "Needs you · 1" beside "none need you".
+  const asking = settings.filter(open);
+  const optionalValues = settings.filter(optionalOpen);
   const measured = settings.filter((s) => s.tier === 3 && (s.evidence === "measured" || s.evidence === "read_by_ai"));
   const settled = settings.filter((s) => !asking.includes(s) && !measured.includes(s));
   const optional = (step?.ports ?? []).filter((p) => p.side === "in" && p.optional);
@@ -52,15 +57,15 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
           ×
         </button>
       </div>
-      {asking.length > 0 && (
-        <Group label="Needs you" count={asking.length}>
-          {/* What needs you first, then what is optional (issue 384). */}
-          {asking.map((setting) => (
-            <QuestionCard key={`${node}.${setting.name}`} setting={setting} step={processName(node)}
-                          onSave={(value, why) => onSetParam(node, setting.name, value, why)} onCancel={onClose} />
-          ))}
-        </Group>
-      )}
+      {([["Needs you", asking], ["Optional to answer", optionalValues]] as const).map(([label, list]) =>
+        list.length > 0 && (
+          <Group key={label} label={label} count={list.length}>
+            {list.map((setting) => (
+              <QuestionCard key={`${node}.${setting.name}`} setting={setting} step={processName(node)}
+                            onSave={(value, why) => onSetParam(node, setting.name, value, why)} onCancel={onClose} />
+            ))}
+          </Group>
+        ))}
       {measured.length > 0 && (
         <Group label="Measured" count={measured.length}>
           {measured.map((s) => <Value key={s.name} setting={s} />)}
@@ -82,6 +87,19 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
                            onSwitch={onSwitchInput && ((state) => onSwitchInput(step.contract_id, port.name, state))} />
           ))}
         </Group>
+      )}
+      {step?.parts && (
+        <section aria-label="Runs in parts" className="flex flex-col gap-2">
+          <h3 className="m-0 text-label text-ink-3">
+            {step.parts.on ? "Runs in parts" : "Can run in parts"}
+          </h3>
+          <p className="m-0 text-[12.5px] text-ink-2">{step.parts.because}</p>
+          <label className="flex items-center gap-2 text-[12.5px] text-ink">
+            <input type="checkbox" checked={!step.parts.on} disabled={!onWhole}
+                   onChange={(e) => onWhole?.(step.contract_id, e.target.checked)} />
+            Run each sample whole
+          </label>
+        </section>
       )}
       <section aria-label="Change this step" className="flex flex-col gap-3">
         <h3 className="m-0 text-[13px] font-semibold text-ink-2">Change this step</h3>

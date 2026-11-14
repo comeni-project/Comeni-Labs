@@ -40,7 +40,7 @@ to disagree — and `vocabularies` is not `vocabularys`."""
 
 def test_the_layer_loads_from_its_new_home():
     loaded = layers.load(ROOT / "registry")
-    assert len(loaded.registry.all()) >= 12
+    assert len(loaded.registry.all()) >= 10
     assert loaded.measurements.ids() == [
         "adapter_content",
         "duplicate_rate",
@@ -64,7 +64,7 @@ def test_the_layer_loads_from_anywhere(tmp_path):
 
     elsewhere = tmp_path / "comeni-registry"
     shutil.copytree(ROOT / "registry", elsewhere)
-    assert len(layers.load(elsewhere).registry.all()) >= 12
+    assert len(layers.load(elsewhere).registry.all()) >= 10
 
 
 def test_the_goal_file_stayed_behind():

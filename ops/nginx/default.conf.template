@@ -1,10 +1,21 @@
 # Serve the browser app and proxy Mendel and Wiener under the same origin.
-# This configuration is copied into the browser image by frontend/Dockerfile.
+# A template: the nginx image fills ${WIENER_PROXY_AUTHORIZATION} from the environment at start.
+# This file is copied into the browser image by frontend/Dockerfile.
 
 # Forward an upgrade connection only for clients requesting one, including run WebSockets.
 map $http_upgrade $connection_upgrade {
   default upgrade;
   ""      close;
+}
+
+# **The token Wiener asks for, so a person need not** (issue 498). The worker behind Wiener holds
+# the host's Docker socket, and WIENER_API_TOKEN is the boundary in front of it. A browser that
+# sends its own Authorization header keeps it; otherwise the proxy adds the one Compose gives it.
+# Development sets that from .env, where this port is bound to loopback; production sets it
+# empty, because its port is public and anyone reaching it would reach the host.
+map $http_authorization $wiener_authorization {
+  default $http_authorization;
+  "" "${WIENER_PROXY_AUTHORIZATION}";
 }
 
 server {
@@ -23,6 +34,7 @@ server {
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Authorization $wiener_authorization;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     # Allow a day between upstream reads on a long-lived run stream.
@@ -32,6 +44,7 @@ server {
   location /api/artifacts {
     set $wiener http://wiener-api:8001;
     proxy_pass $wiener$request_uri;
+    proxy_set_header Authorization $wiener_authorization;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     # Artifact uploads carry a complete pipeline bundle.
@@ -42,6 +55,7 @@ server {
   location /api/wiener {
     set $wiener http://wiener-api:8001;
     proxy_pass $wiener$request_uri;
+    proxy_set_header Authorization $wiener_authorization;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   }

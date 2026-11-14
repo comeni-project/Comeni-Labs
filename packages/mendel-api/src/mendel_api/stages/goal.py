@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from mendel_api.authoring.types import FactKind, FactSource, Phase, ProposalState
 from mendel_api.db import session_scope
-from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession
+from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
 from mendel_api.services import authoring_ai, decisions, registry, session
 from mendel_api.services.session import Ctx, handles, records
 from mendel_api.stages import _jobs, _rows, gathering
@@ -46,7 +46,8 @@ def readback_context(session_id: str) -> str:
     wanted, facts, _ = gathering._gathered(session_id)
     goal = gathering.compose_goal(session_id)
     said = {FactSource.PERSON_SAID: "you said", FactSource.MEASURED: "measured",
-            FactSource.MODEL_READ: "read by AI", FactSource.OPEN: "left open"}
+            FactSource.MODEL_READ: "read by AI", FactSource.OPEN: "left open",
+            FactSource.VARIES: "you said it differs between samples"}
     lines = [
         "have: " + (", ".join(
             f"{f.subject} ({said[f.source]})" for f in facts if f.kind is FactKind.INPUT
@@ -164,8 +165,25 @@ def _decide_goal(ctx: Ctx, cmd: c.DecideGoal) -> tuple[st.Settlement, Phase]:
                 draft_id = db.get(PipelineAuthoringSession, ctx.session_id).draft_id
             decisions.confirm(draft_id)
         _settle_card_suggestions(ctx.session_id)
+        _named(ctx.session_id, goal)
     session.take(ctx, arrow.value)
     return outcome, session.current_phase(ctx.session_id)
+
+
+def _named(session_id: str, goal: dict | None) -> None:
+    """An untitled pipeline is named after what it makes once its goal is confirmed (issue
+    496), in the vocabulary's declared words. Never from the prompt: a first sentence may carry
+    a sample name (`describe.UNTITLED`). A name somebody gave is kept."""
+    from mendel_api.stages.describe import UNTITLED
+
+    names = registry.stack().vocabulary.names
+    said = " and ".join(dict.fromkeys(names.get(t, t) for t in (goal or {}).get("want", [])))
+    if not said:
+        return
+    with session_scope() as db:
+        draft = db.get(PipelineDraft, db.get(PipelineAuthoringSession, session_id).draft_id)
+        if draft.name == UNTITLED:
+            draft.name = (said[0].upper() + said[1:])[:120]
 
 
 def _settle_card_suggestions(session_id: str) -> None:

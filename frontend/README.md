@@ -39,7 +39,7 @@ order. Browser routes such as `/runs` stay with the application router.
 
 The proxy reads `WEB_HOST_PORT`, `API_HOST_PORT` and `VITE_HOST_PORT` from the root `.env`,
 with exported environment values taking precedence. `make dev` supplies Compose-parsed values;
-standalone `npm run dev` uses Vite's dotenv loader. Keep its prefix split aligned with [nginx configuration](../ops/nginx/default.conf).
+standalone `npm run dev` uses Vite's dotenv loader. Keep its prefix split aligned with [nginx configuration](../ops/nginx/default.conf.template).
 
 Wiener requests use its own client because authentication and parameter-refusal responses differ
 from Mendel's. The Wiener bearer token is stored in browser local storage and sent as a request
@@ -101,7 +101,7 @@ inspect the app in a browser for layout, scrolling and visual changes.
 ## Browser image
 
 [Dockerfile](Dockerfile) builds the application and copies `dist/` into nginx's static directory.
-Its build context is the repository root so it can also copy `ops/nginx/default.conf`.
+Its build context is the repository root so it can also copy `ops/nginx/default.conf.template`.
 Rebuild the web image after changing frontend source or that proxy configuration. Nginx handles
 API routing, WebSocket upgrades, artifact upload limits and browser deep-link fallback.
 

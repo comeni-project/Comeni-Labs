@@ -21,8 +21,11 @@ def test_the_committed_stub_matches_the_declarations():
 def test_the_stub_types_each_declared_measurement():
     stub = STUB.read_text()
     assert 'Literal["read_length"]' in stub
-    assert "-> int | None" in stub
-    assert 'Literal["forward", "reverse", "unstranded"] | None' in stub
+    # Per sample (#466): read length describes reads, so a profile may carry one per sample.
+    assert 'Literal["read_length"]) -> int | list[int] | None' in stub
+    # The study's: the sample count describes nothing, so it is one value.
+    assert 'Literal["n_samples"]) -> int | None' in stub
+    assert 'list[Literal["forward", "reverse", "unstranded"]' in stub
 
 
 def test_the_stub_keeps_a_fallback_for_an_undeclared_id():

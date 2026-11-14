@@ -68,3 +68,12 @@ def test_the_chat_prompt_teaches_optional_inputs():
     prompt = ROOT / "packages/mendel-api/src/mendel_api/authoring/prompts/builder.chat.v8.md"
     text = prompt.read_text()
     assert "**`optional_inputs`**" in text
+
+
+def test_a_refused_port_name_does_not_wipe_the_reply(stack):
+    """Issue 467: `reads` refused on STAR dropped every reply that said "reads"."""
+    reply = _reply(STAR, "reads").model_copy(update={"say": "Your reads are trimmed first."})
+    sifted = replies.sift(reply, stack)
+    assert sifted.set_aside and sifted.reply.say == "Your reads are trimmed first."
+    named = _reply(STAR, "reads").model_copy(update={"say": f"I switched {STAR}'s reads off."})
+    assert replies.sift(named, stack).reply.say is None

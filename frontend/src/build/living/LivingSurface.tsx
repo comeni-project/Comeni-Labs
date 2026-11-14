@@ -66,9 +66,10 @@ export function LivingSurface({
   onAddStep,
   onDismiss,
   vocabulary = null,
-  declarations, onCorrect, onRelease, onDisagreement, correcting = false,
+  declarations, onCorrect, onRelease, onUnits, onTable, onDisagreement, correcting = false,
   onSetParam,
   onSwitchInput,
+  onWhole,
   onApplyChange,
   onEdit,
   onRename,
@@ -104,11 +105,17 @@ export function LivingSurface({
   declarations?: AuthoringVocabulary["measurements"];
   onCorrect?: CorrectFact;
   onRelease?: (type: string, states: string[]) => Promise<unknown>;
+  /** A sample may span several rows of an input, such as its lanes (issue 466). */
+  onUnits?: (type: string, on: boolean) => Promise<unknown>;
+  /** A study input is a table of several items (issue 466). */
+  onTable?: (type: string, on: boolean) => Promise<unknown>;
   onDisagreement?: (proposal: AuthoringProposal, option: string, value?: FactValue) => Promise<unknown>;
   correcting?: boolean;
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
   /** Switch a tool's optional input (issue 460). */
   onSwitchInput?: (contract: string, port: string, state: "off" | "optional" | "required") => void;
+  /** Keep a tool whole, or let it run on parts of each sample again (issue 466). */
+  onWhole?: (contract: string, whole: boolean) => void;
   onApplyChange: (block: Extract<AuthoringBlock, { kind: "change_set" }>) => void;
   /** A direct change to a step already drawn — swap, settings, remove — as the whole next graph,
    *  for the session's edit verb to save, stamp as the person's and write a receipt for. */
@@ -293,18 +300,20 @@ export function LivingSurface({
     // **Describing in the same frame as building** (one builder plan 3): what was understood where
     // the canvas will be, the conversation where it stays; *Start building* in the header.
     const goal = pending?.kind === "goal" ? pending : null;
-    const left = pending?.kind === "gap" ? 1 : 0;
+    // **No count** (issue 496): what the engine needs is found as it is answered, so a number
+    // read "1 question left" through four questions.
+    const asking = pending?.kind === "gap";
     return (
       <div className="grid grid-rows-[auto_auto_1fr] h-full overflow-hidden" data-testid="living">
         <header data-testid="describe-header"
                 className="flex items-center gap-3 px-[28px] py-[14px] border-b border-line">
           <span className="text-[17px] font-semibold text-ink truncate">{session.name || "New analysis"}</span>
           <StatusChip session={session} />
-          {(goal || left > 0) && (
+          {(goal || asking) && (
             <span className="ml-auto">
               <Primary data-testid="accept-goal" disabled={!goal || busy(goal.id)}
                        onClick={() => setConfirmRequest((n) => n + 1)}>
-                {goal ? "→ Start building" : `Start building · ${left} question left`}
+                {goal ? "→ Start building" : "Start building · answer the question first"}
               </Primary>
             </span>
           )}
@@ -337,7 +346,7 @@ export function LivingSurface({
                           onConfirm={(edited) => onAccept(goal, "keep", edited)} onReject={() => onReject(goal)} />
               </div>
             ) : (
-              <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
+              <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease} onUnits={onUnits} onTable={onTable}
                           openRequest={factsRequest} disabled={factsDisabled} onOpenQuestion={openQuestion} highlight={flash?.subject ?? null} />
             )}
           </div>
@@ -351,6 +360,7 @@ export function LivingSurface({
             onEdit={onEdit}
             onSetParam={onSetParam}
             onSwitchInput={onSwitchInput}
+            onWhole={onWhole}
             onApplyChange={onApplyChange}
             suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
             questionRequest={questionRequest}
@@ -408,7 +418,7 @@ export function LivingSurface({
           {/* **The canvas, or what was understood** (one builder plan 3): the record the Step tab
               held, one switch away. */}
           <div role="radiogroup" aria-label="beside the conversation"
-               className="flex gap-1 mx-4 mt-3 self-start p-1 rounded-button" style={{ background: "var(--paper)" }}>
+               className="beside-switch flex gap-1 mx-4 mt-3 self-start p-1 rounded-button" style={{ background: "var(--paper)" }}>
             {(["canvas", "understood"] as const).map((name) => (
               <button key={name} type="button" role="radio" aria-checked={left === name} onClick={() => setLeft(name)}
                       className={`px-3 py-[4px] rounded-control border text-[12.5px] cursor-pointer
@@ -419,7 +429,7 @@ export function LivingSurface({
             ))}
           </div>
           {left === "understood" && (
-            <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
+            <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease} onUnits={onUnits} onTable={onTable}
                         openRequest={factsRequest} disabled={factsDisabled}
                         onOpenQuestion={openQuestion} highlight={flash?.subject ?? null} />
           )}
@@ -468,6 +478,7 @@ export function LivingSurface({
                inert={showing || left === "understood" ? true : undefined} data-testid="build-canvas"
                style={left === "understood" ? { display: "none" } : undefined}>
           <LivingCanvas
+            shown={`${pane}:${view}:${left}`}
             empty={session.phase === "stopped"
               ? "This analysis stopped before anything was built — see why on the right"
               : undefined}
@@ -518,6 +529,7 @@ export function LivingSurface({
           onEdit={onEdit}
           onSetParam={onSetParam}
           onSwitchInput={onSwitchInput}
+            onWhole={onWhole}
           onApplyChange={onApplyChange}
           suggestions={{ busy: suggesting, onApply: onApplySuggestion, onDismiss: onDismissSuggestion }}
           questionRequest={questionRequest}

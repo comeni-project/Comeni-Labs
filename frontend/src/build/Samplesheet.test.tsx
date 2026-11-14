@@ -69,3 +69,95 @@ describe("incomplete", () => {
     expect(incomplete([{ sample: "  ", gtf: "/a.gtf" }], ["gtf"])).toEqual(["row 1: sample"]);
   });
 });
+
+describe("a samplesheet's fact columns (issue 466)", () => {
+  const strandedness = {
+    column: "strandedness", kind: "enum" as const, values: ["forward", "reverse", "unstranded"],
+    minimum: null, maximum: null, required: true, auto: false,
+    why: "you said strandedness differs between samples",
+  };
+  const readLength = {
+    column: "read_length", kind: "integer" as const, values: [], minimum: 1, maximum: null,
+    required: false, auto: true, why: "measured where left blank",
+  };
+
+  it("offers exactly a fact's values", () => {
+    render(<Samplesheet columns={["reads_1"]} facts={[strandedness]} rows={[{}]} onChange={vi.fn()} />);
+    const cell = screen.getByLabelText("strandedness for row 1") as HTMLSelectElement;
+    expect(cell.tagName).toBe("SELECT");
+    expect(Array.from(cell.options, (o) => o.value).filter(Boolean)).toEqual(
+      ["forward", "reverse", "unstranded"]);
+  });
+
+  it("offers auto where the run measures a blank, and a number box with its bounds", () => {
+    render(<Samplesheet columns={["reads_1"]} facts={[readLength]} rows={[{}]} onChange={vi.fn()} />);
+    const cell = screen.getByLabelText("read_length for row 1") as HTMLInputElement;
+    expect(cell.inputMode).toBe("numeric");
+    expect(cell.placeholder).toBe("auto — measured in the run");
+  });
+
+  it("names a missing required fact, and lets an optional one stay blank", () => {
+    const rows = [{ sample: "A", reads_1: "/a.fq" }];
+    expect(incomplete(rows, ["reads_1"], [strandedness])).toEqual(["row 1: strandedness"]);
+    expect(incomplete(rows, ["reads_1"], [readLength])).toEqual([]);
+  });
+});
+
+describe("a fact cell is checked as the pipeline will check it (issue 466)", () => {
+  const readLength = {
+    column: "read_length", kind: "integer" as const, values: [], minimum: 1, maximum: 500,
+    required: true, auto: false, why: "you said read length differs",
+  };
+  const row = (value: string) => [{ sample: "A", reads_1: "/a.fq", read_length: value }];
+
+  it("names a number outside its bounds, or not whole, before the run", () => {
+    expect(incomplete(row("0"), ["reads_1"], [readLength])).toEqual(["row 1: read_length is below 1"]);
+    expect(incomplete(row("600"), ["reads_1"], [readLength])).toEqual(["row 1: read_length is above 500"]);
+    expect(incomplete(row("150.5"), ["reads_1"], [readLength])).toEqual(["row 1: read_length is not a whole number"]);
+    expect(incomplete(row("1,5"), ["reads_1"], [readLength])).toEqual(["row 1: read_length is not a number"]);
+    expect(incomplete(row("150"), ["reads_1"], [readLength])).toEqual([]);
+  });
+
+  it("keeps what was typed, so a comma decimal is not silently blank", async () => {
+    const onChange = vi.fn();
+    render(<Samplesheet columns={[]} facts={[readLength]} rows={[{}]} onChange={onChange} />);
+    await userEvent.type(screen.getByLabelText("read_length for row 1"), "1,5");
+    expect(onChange).toHaveBeenLastCalledWith([{ read_length: "5" }]);
+    expect((screen.getByLabelText("read_length for row 1") as HTMLInputElement).type).toBe("text");
+  });
+});
+
+describe("a second file a row may leave blank (issue 466)", () => {
+  it("is not asked for", () => {
+    const rows = [{ sample: "A", reads_1: "/a.fq", reads_2: "" }];
+    expect(incomplete(rows, ["reads_1", "reads_2"], [], ["reads_2"])).toEqual([]);
+    expect(incomplete(rows, ["reads_1", "reads_2"], [])).toEqual(["row 1: reads_2"]);
+  });
+});
+
+
+describe("a key column (issue 466)", () => {
+  const group = { column: "group", kind: "key" as const, values: [] as string[], required: true,
+                  auto: false, why: "a step groups samples by group" };
+
+  it("takes letters, digits and _ . - only, as the pipeline checks it", () => {
+    expect(incomplete([{ sample: "A", reads_1: "/a.fq", group: "patient 1" }], ["reads_1"], [group]))
+      .toEqual(["row 1: group is not a key: letters, digits and _ . - only"]);
+    expect(incomplete([{ sample: "A", reads_1: "/a.fq", group: "patient-1" }], ["reads_1"], [group]))
+      .toEqual([]);
+  });
+});
+
+
+describe("a reference to another row (issue 466)", () => {
+  const control = { column: "control", kind: "sample_ref" as const, values: [] as string[],
+                    required: false, auto: false, why: "a step reads each sample's control" };
+
+  it("may stay blank, and is checked as a name otherwise", () => {
+    expect(incomplete([{ sample: "IN", reads_1: "/a.fq", control: "" }], ["reads_1"], [control]))
+      .toEqual([]);
+    expect(incomplete([{ sample: "C1", reads_1: "/b.fq", control: "in put" }], ["reads_1"], [control]))
+      .toEqual(["row 1: control is not a key: letters, digits and _ . - only"]);
+  });
+});
+

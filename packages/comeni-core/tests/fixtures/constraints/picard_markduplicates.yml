@@ -1,0 +1,26 @@
+# nf-core/picard/markduplicates, as #464's module survey found it: CRAM is read only against
+# the reference it was compressed with.
+id: nf-core/picard/markduplicates@3.4.0
+nf_process: PICARD_MARKDUPLICATES
+nf_include: modules/nf-core/picard/markduplicates/main
+roles: [deduplication]
+consumes:
+  - name: reads
+    accepts: [{type_id: alignment.bam}, {type_id: alignment.cram}]
+  - {name: fasta, type_id: genome.fasta, required: false}
+  - {name: fai, type_id: genome.fai, required: false}
+produces:
+  - {name: bam, type_id: alignment.bam, produced_when: {type.reads: alignment.bam}}
+  - {name: cram, type_id: alignment.cram, produced_when: {type.reads: alignment.cram}}
+  - {name: metrics, type_id: qc.report}
+nf_inputs:
+  - {ports: [reads]}
+  - {ports: [fasta, fai], join: broadcast, absent: 3}
+groups:
+  - {kind: all_or_none, members: [fasta, fai], because: "the index is read with the FASTA"}
+constraints:
+  - when: {type.reads: alignment.cram}
+    requires: [fasta]
+    because: "a CRAM is decoded against the reference it was compressed with"
+    cite: "picard MarkDuplicates: --REFERENCE_SEQUENCE is required for CRAM"
+provenance: {source: test, drafted_by: test, approved_by: test, approved_at: "2026-11-10"}

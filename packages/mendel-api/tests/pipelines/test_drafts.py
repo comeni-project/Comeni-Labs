@@ -280,7 +280,8 @@ def test_an_optional_open_value_is_counted_and_not_named_as_waiting_on_you(clien
     row = _row(client, made["id"])
 
     assert row["open_values"] == []
-    assert row["provenance"]["optional"] == 1
+    # `seq_platform`, and STAR's index size: the drawn spine does not measure the genome (#217).
+    assert row["provenance"]["optional"] == 2
     assert row["provenance"]["open"] == 0
 
 

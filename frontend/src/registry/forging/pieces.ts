@@ -8,6 +8,7 @@ export const PIECE_HELP: Record<string, string> = {
   vocabulary: "Review each new family, type, state, measurement or job. These declarations extend the words available to every tool in this registry layer.",
   rules: "Review the ordered conditions, their decisions and citations. Try hypothetical facts below; the server evaluates the stored rule.",
   tests: "Check the supplied inputs, setup, settings and expected outputs. Approving these declarations does not run the tool. Run tests after Assembly.",
+  measurers: "Review each parser that reads a fact from this tool's output: the measurement, the output it reads, its code and its tests. Most tools need none. Tests after Assembly run each parser on the tool's real output.",
 };
 
 /** Attempts are durable events: an empty refused piece still has a history. */

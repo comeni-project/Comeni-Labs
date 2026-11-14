@@ -1,0 +1,20 @@
+declares: contract
+id: test/fastp_like@1.0
+roles: [trimming]
+nf_process: FASTP
+nf_include: modules/test/fastp_like/main
+consumes: [{name: reads, type_id: fastq.reads}]
+produces: [{name: reads, type_id: fastq.reads}]
+params:
+  - name: save_merged
+    via: ext
+    key: args
+    template: "--merge {value}"
+    default: true
+    domain: {kind: boolean}
+constraints:
+  - when: {fact.paired: false}
+    forbids: [save_merged]
+    because: merging needs both reads
+container: x:1
+provenance: {source: hand, drafted_by: hand, approved_by: test, approved_at: "2026-11-12"}

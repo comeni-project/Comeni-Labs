@@ -178,7 +178,7 @@ function QuestionBody({ id, item, question, review, actions, onReject, onAnswere
         const c = choiceOf(o.id);
         const checked = picked === o.id;
         const fresh = isNew(o.id);
-        const clash = !fresh && !!data?.arrival && !!c?.scope && c.scope !== data.arrival;
+        const clash = !fresh && !!data?.arrival && !!c?.grain && c.grain !== data.arrival;
         return <div key={o.id} className={`option-card ${checked ? "is-checked" : ""} ${hidden(n) ? "is-folded" : ""}`}>
           <button type="button" role="radio" aria-checked={checked} tabIndex={checked || (!picked && n === 0) ? 0 : -1}
             ref={(el) => { radios.current[n] = el; }} className="option" disabled={pending}
@@ -193,7 +193,7 @@ function QuestionBody({ id, item, question, review, actions, onReject, onAnswere
               <span className="flex flex-wrap gap-[6px] items-center">
                 {(c?.name ?? o.label) !== o.id && <span className="font-data text-[12px] text-ink-3 break-all">{o.id}</span>}
                 {fresh ? <span className="chip chip-new">new{data?.arrival ? ` · one per ${data.arrival}` : ""}</span>
-                  : c?.scope && <span className={`chip ${clash ? "chip-flag" : "chip-plain"}`}>one per {c.scope}</span>}
+                  : c?.grain && <span className={`chip ${clash ? "chip-flag" : "chip-plain"}`}>one per {c.grain}</span>}
                 {chosen === o.id && <span className="chip chip-done">chosen by you</span>}
                 {!chosen && question.suggested === o.id && <span className="chip chip-now">AI suggests</span>}
               </span>

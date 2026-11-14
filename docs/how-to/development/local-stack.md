@@ -53,7 +53,8 @@ make dev-down
 The local development worker uses the Docker socket so it can launch Nextflow, which launches
 containers. Treat that as root-equivalent access to your machine. Do not expose the development
 stack to a network you do not control. Published development ports bind to `127.0.0.1`.
-An empty `WIENER_API_TOKEN` disables local run-management authentication.
+An empty `WIENER_API_TOKEN` disables local run-management authentication. A set one is presented
+by the web proxy on your behalf, so the browser never asks for it.
 
 ## Production overlay
 
@@ -63,7 +64,8 @@ make prod-down
 ```
 
 `docker-compose.prod.yml` overlays the development compose file. Set a nonempty
-`WIENER_API_TOKEN` before startup. Only the web port is published; application source comes
+`WIENER_API_TOKEN` before startup. The proxy does not present it here, because the web port is
+public: a person enters it in the browser. Only the web port is published; application source comes
 from the image while registry, drafts and workspace remain writable. See the
 [operations guide](https://github.com/comeni-project/Comeni-Labs/blob/main/ops/README.md#application-deployment) for binding and image requirements.
 

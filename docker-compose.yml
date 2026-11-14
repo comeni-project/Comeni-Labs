@@ -234,6 +234,10 @@ services:
     # Restart nginx if it exits during startup while an API is unavailable.
     restart: unless-stopped
     ports: ["127.0.0.1:${WEB_HOST_PORT:-80}:80"]
+    # The proxy presents Wiener's token, so the browser never asks for it (issue 498). Only here,
+    # where the port is loopback-bound; docker-compose.prod.yml empties it.
+    environment:
+      WIENER_PROXY_AUTHORIZATION: "Bearer ${WIENER_API_TOKEN:-}"
 
   # Serve the project documentation with MkDocs and reload it when source files change.
   wiki:

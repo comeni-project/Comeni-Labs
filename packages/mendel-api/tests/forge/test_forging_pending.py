@@ -52,6 +52,7 @@ def _earlier(assembled: bool = True) -> str:
         "inputs": {"reads": ["genomics/a.fq"], "index": ["genomics/star"],
                    "gtf": ["genomics/a.gtf"]},
         "expect": [{"port": "bam", "pattern": "*.bam"}]})
+    _do(a, Move.WRITE, "measurers:none", {"because": "nothing to measure"})
     if assembled:
         proof = forging.assemble(a)
         assert proof.loaded and proof.conforms, proof.problems
@@ -131,6 +132,7 @@ def test_a_new_type_can_depend_on_a_pending_family_and_reopens_when_it_changes()
     _do(b, Move.WRITE, "tests:test:small", {
         "inputs": {"reads": ["genomics/a.fq"]},
         "expect": [{"port": "bam", "pattern": "*.bam"}]})
+    _do(b, Move.WRITE, "measurers:none", {"because": "nothing to measure"})
     proof = forging.assemble(b)
     assert proof.loaded and proof.conforms, proof.problems
     forging.abandon(a)

@@ -180,13 +180,14 @@
             "title": "Alternative",
             "type": "object"
           },
-          "Cardinality": {
-            "description": "Whether a process invocation consumes one item or the complete channel.",
+          "Grain": {
+            "description": "How many items a channel carries relative to the analysis, and what a fact is about\n(#466): one for the whole study, one per sample, or a part of one sample's item between a\nsplitter and its merger. Groups and lanes are declared on ports and channels instead (`by`,\n`Channel.units`).",
             "enum": [
-              "1",
-              "*"
+              "study",
+              "sample",
+              "part"
             ],
-            "title": "Cardinality",
+            "title": "Grain",
             "type": "string"
           }
         },
@@ -249,9 +250,69 @@
             "type": "array",
             "uniqueItems": true
           },
-          "cardinality": {
-            "$ref": "#/$defs/Cardinality",
-            "default": "1"
+          "grain": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Grain"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "many": {
+            "default": false,
+            "title": "Many",
+            "type": "boolean"
+          },
+          "select": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Select"
+          },
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "By"
+          },
+          "parts": {
+            "default": false,
+            "title": "Parts",
+            "type": "boolean"
           },
           "required": {
             "default": true,
@@ -276,6 +337,18 @@
       "label": "Output",
       "named": true,
       "fields": {
+        "$defs": {
+          "Grain": {
+            "description": "How many items a channel carries relative to the analysis, and what a fact is about\n(#466): one for the whole study, one per sample, or a part of one sample's item between a\nsplitter and its merger. Groups and lanes are declared on ports and channels instead (`by`,\n`Channel.units`).",
+            "enum": [
+              "study",
+              "sample",
+              "part"
+            ],
+            "title": "Grain",
+            "type": "string"
+          }
+        },
         "additionalProperties": false,
         "properties": {
           "name": {
@@ -317,6 +390,17 @@
             "default": null,
             "title": "Produced When"
           },
+          "fans_out": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Grain"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "position": {
             "title": "Position",
             "type": "integer"
@@ -341,7 +425,9 @@
             "description": "How two channels filling one process input are matched.\n\nClosed for the same reason `Via` is: each member needs its own line in the emitter.\n\nThere is no default because broadcast and per-sample pairing have different cardinality.\n`.combine()` is a Cartesian product, while `.join()` pairs matching sample metadata.",
             "enum": [
               "broadcast",
-              "by_sample"
+              "by_sample",
+              "by_key",
+              "by_ref"
             ],
             "title": "Join",
             "type": "string"
@@ -382,10 +468,30 @@
                     "$ref": "#/$defs/Join"
                   },
                   {
+                    "additionalProperties": {
+                      "$ref": "#/$defs/Join"
+                    },
+                    "title": "Per port",
+                    "type": "object"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
-                "default": null
+                "default": null,
+                "title": "Join"
+              },
+              "key": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Key"
               },
               "absent": {
                 "default": 0,
@@ -425,7 +531,9 @@
               "integer",
               "number",
               "boolean",
-              "enum"
+              "enum",
+              "key",
+              "sample_ref"
             ],
             "title": "MeasurementKind",
             "type": "string"
@@ -594,6 +702,16 @@
       "named": true,
       "fields": {
         "$defs": {
+          "Grain": {
+            "description": "How many items a channel carries relative to the analysis, and what a fact is about\n(#466): one for the whole study, one per sample, or a part of one sample's item between a\nsplitter and its merger. Groups and lanes are declared on ports and channels instead (`by`,\n`Channel.units`).",
+            "enum": [
+              "study",
+              "sample",
+              "part"
+            ],
+            "title": "Grain",
+            "type": "string"
+          },
           "TypeDeclaration": {
             "additionalProperties": false,
             "description": "One data type, including its closed states and default pipeline-entry settings.",
@@ -616,10 +734,14 @@
                 "title": "Sample Columns",
                 "type": "integer"
               },
-              "scope": {
-                "default": "sample",
-                "title": "Scope",
-                "type": "string"
+              "second_may_be_blank": {
+                "default": false,
+                "title": "Second May Be Blank",
+                "type": "boolean"
+              },
+              "grain": {
+                "$ref": "#/$defs/Grain",
+                "default": "sample"
               },
               "entry_channel": {
                 "anyOf": [
@@ -743,7 +865,9 @@
               "integer",
               "number",
               "boolean",
-              "enum"
+              "enum",
+              "key",
+              "sample_ref"
             ],
             "title": "MeasurementKind",
             "type": "string"
@@ -802,7 +926,7 @@
           }
         },
         "additionalProperties": false,
-        "description": "A typed property that a goal may assert or a profiling contract may measure.",
+        "description": "A typed property that a goal may assert or a measurer may measure.",
         "properties": {
           "id": {
             "title": "Id",
@@ -821,11 +945,6 @@
           "extensible": {
             "default": false,
             "title": "Extensible",
-            "type": "boolean"
-          },
-          "per_sample": {
-            "default": false,
-            "title": "Per Sample",
             "type": "boolean"
           },
           "assertion_only": {
@@ -940,6 +1059,19 @@
             ],
             "default": null,
             "title": "Meta Key"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "const": "second_file_present",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Row"
           },
           "meta_values": {
             "items": {
@@ -1113,6 +1245,9 @@
               "then": {
                 "anyOf": [
                   {
+                    "$ref": "#/$defs/FactRef"
+                  },
+                  {
                     "type": "integer"
                   },
                   {
@@ -1206,6 +1341,21 @@
             ],
             "title": "Effect",
             "type": "string"
+          },
+          "FactRef": {
+            "additionalProperties": false,
+            "description": "`then: {fact: <id>}`: a setting takes the value of a measured or derived fact (#461).\n\nThe value is the fact's, so it carries the fact's provenance; a literal `then` cannot\nexpress `min(14, log2(genome_length) / 2 - 1)`, and a string `then` is refused (MD0300).",
+            "properties": {
+              "fact": {
+                "title": "Fact",
+                "type": "string"
+              }
+            },
+            "required": [
+              "fact"
+            ],
+            "title": "FactRef",
+            "type": "object"
           }
         },
         "additionalProperties": false,
@@ -1223,6 +1373,28 @@
               }
             ],
             "title": "Decides"
+          },
+          "hit": {
+            "default": "first",
+            "enum": [
+              "first",
+              "unique"
+            ],
+            "title": "Hit",
+            "type": "string"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "const": "all",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage"
           },
           "rows": {
             "items": {
@@ -1386,6 +1558,14 @@
             "default": {},
             "title": "Unchecked",
             "type": "object"
+          },
+          "types": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Types",
+            "type": "object"
           }
         },
         "required": [
@@ -1393,6 +1573,319 @@
           "expect"
         ],
         "title": "TestDraft",
+        "type": "object"
+      }
+    },
+    {
+      "family": "measurers:measurer",
+      "label": "Measurer",
+      "named": true,
+      "fields": {
+        "$defs": {
+          "JsonValue": {}
+        },
+        "additionalProperties": false,
+        "description": "A `by: tool` measurer of the tool being forged (#487). Only what a model or person drafts:\nthe engine fixes `by: tool`, `uses:` (this contract), `runs: [pipeline]`, `version`, and the\npiece's files, `piece/<id>.py` and `piece/test_<id>.py`.",
+        "properties": {
+          "measures": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Measures",
+            "type": "string"
+          },
+          "output": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Output",
+            "type": "string"
+          },
+          "explain": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Explain",
+            "type": "string"
+          },
+          "decided": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "default": {},
+            "title": "Decided",
+            "type": "object"
+          },
+          "code": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "tests": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Tests",
+            "type": "string"
+          }
+        },
+        "required": [
+          "measures",
+          "output",
+          "explain",
+          "code",
+          "tests"
+        ],
+        "title": "MeasurerDraft",
+        "type": "object"
+      }
+    },
+    {
+      "family": "measurers:measurement",
+      "label": "Measurement",
+      "named": true,
+      "fields": {
+        "$defs": {
+          "MeasurementKind": {
+            "enum": [
+              "integer",
+              "number",
+              "boolean",
+              "enum",
+              "key",
+              "sample_ref"
+            ],
+            "title": "MeasurementKind",
+            "type": "string"
+          },
+          "MetaValue": {
+            "additionalProperties": false,
+            "description": "Translate one declared value to the value expected in module metadata.",
+            "properties": {
+              "when": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "When"
+              },
+              "then": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Then"
+              }
+            },
+            "required": [
+              "when",
+              "then"
+            ],
+            "title": "MetaValue",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "A typed property that a goal may assert or a measurer may measure.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/MeasurementKind"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "array"
+          },
+          "extensible": {
+            "default": false,
+            "title": "Extensible",
+            "type": "boolean"
+          },
+          "assertion_only": {
+            "default": false,
+            "title": "Assertion Only",
+            "type": "boolean"
+          },
+          "assertion_only_because": {
+            "default": "",
+            "title": "Assertion Only Because",
+            "type": "string"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minimum"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Maximum"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Unit"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "cite": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cite"
+          },
+          "explain": {
+            "anyOf": [
+              {
+                "maxLength": 600,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Explain"
+          },
+          "edam": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Edam"
+          },
+          "describes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Describes"
+          },
+          "meta_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Meta Key"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "const": "second_file_present",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Row"
+          },
+          "meta_values": {
+            "items": {
+              "$ref": "#/$defs/MetaValue"
+            },
+            "title": "Meta Values",
+            "type": "array"
+          },
+          "deprecated": {
+            "default": false,
+            "title": "Deprecated",
+            "type": "boolean"
+          },
+          "replaced_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Replaced By"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "title": "Measurement",
         "type": "object"
       }
     },
@@ -1438,6 +1931,26 @@
     },
     {
       "family": "rules:none",
+      "label": "Nothing needed",
+      "named": false,
+      "fields": {
+        "additionalProperties": false,
+        "description": "A piece that needs nothing, said explicitly: an empty piece is an unfinished one.",
+        "properties": {
+          "because": {
+            "title": "Because",
+            "type": "string"
+          }
+        },
+        "required": [
+          "because"
+        ],
+        "title": "NoneNeeded",
+        "type": "object"
+      }
+    },
+    {
+      "family": "measurers:none",
       "label": "Nothing needed",
       "named": false,
       "fields": {

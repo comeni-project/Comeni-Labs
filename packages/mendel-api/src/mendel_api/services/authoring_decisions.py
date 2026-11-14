@@ -34,8 +34,10 @@ def facts(draft_id):
                 source=FactSource(f.origin),
                 pieces=f.pieces,
                 evidence=(
-                    f.evidence.model_dump(mode="json", exclude_none=True) if f.evidence else None
+                    f.evidence.model_dump(mode="json", exclude_none=True, exclude={"coverage"})
+                    or None if f.evidence else None
                 ),
+                coverage=f.evidence.coverage if f.evidence else None,
                 heard=words("fact", f.subject),
             )
             for f in current.facts
@@ -56,9 +58,10 @@ def record(draft_id, fact: Fact, *, who, proposal_id=None):
             who=who,
             proposal_id=proposal_id,
         )
-    if fact.source in (FactSource.OPEN, FactSource.PERSON_SAID):
+    if fact.source in (FactSource.OPEN, FactSource.PERSON_SAID, FactSource.VARIES):
         return decisions.set_fact(
-            draft_id, fact.subject, fact.value, who=who, proposal_id=proposal_id
+            draft_id, fact.subject, fact.value, who=who, proposal_id=proposal_id,
+            varies=fact.source is FactSource.VARIES,
         )
     observed = decisions.observe(
         draft_id,

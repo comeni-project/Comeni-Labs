@@ -15,6 +15,7 @@ from comeni_core.declared.layered import Displacement
 from comeni_core.goal.asked import InputState, Site
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.goal.profile import DataProfile
+from comeni_core.plan.at_run import AtRun, Confirm, Guard, MetaAtRun
 from comeni_core.plan.decision import DecisionRecord
 from comeni_core.plan.tiers import ReviewLevel, Tier, ValueSource, review_level_for
 from comeni_core.spell.marks import (
@@ -67,6 +68,10 @@ class ResolvedValue(BaseModel):
     displaced_layer: LayerName | None = None
     """Lower layer displaced by this value, when an overlay changed an existing route."""
 
+    at_run: AtRun | None = Field(default=None, exclude_if=lambda at_run: at_run is None)
+    """For a setting decided at run time (#217): the lookup the pipeline runs over a measured
+    fact. `value` is then the fallback."""
+
     @computed_field
     @property
     def review_level(self) -> ReviewLevel:
@@ -100,6 +105,38 @@ class InputRecord(BaseModel):
     by: InputDecider
 
 
+class EntryType(BaseModel):
+    """Which accepted type a pipeline input connected to one port (#464)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    port: PortName
+    type_id: TypeId
+
+
+class PartsMerger(BaseModel):
+    """The tool that merges one output of a step run on parts (#466)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    port: PortName
+    contract: ContractId
+
+
+class Parts(BaseModel):
+    """A step that can run on parts of a sample's item (#466): split before it by `splitter`
+    and merged after it, per output something reads, by `mergers`. Recorded whether it is `on`
+    or the person keeps the step whole (`constraints.whole`), so the switch works both ways."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    on: bool
+    splitter: ContractId
+    mergers: list[PartsMerger]
+    """One per output something reads, sorted by port."""
+    because: Line
+
+
 class IRNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -123,6 +160,19 @@ class IRNode(BaseModel):
     """Why the step exists, independently of which contract was selected for it."""
     inputs: list[InputRecord] = Field(default_factory=list, exclude_if=lambda inputs: not inputs)
     """Each optional input's state, sorted by port; omitted when the step has none."""
+    entry_types: list["EntryType"] = Field(default_factory=list,
+                                           exclude_if=lambda types: not types)
+    """The type a pipeline input matched, for each port with `accepts` fed from outside (#464):
+    such a port has no single type of its own, so its channel is chosen by this one. In
+    contract port order."""
+    guard: Guard | None = Field(default=None, exclude_if=lambda guard: guard is None)
+    parts: Parts | None = Field(default=None, exclude_if=lambda parts: parts is None)
+    """Whether this step runs on parts of a sample, and with which tools (#466)."""
+    """The samples this step takes, when only some samples' tool choice leads here (#466)."""
+
+    def entry_type(self, port: str, default: str) -> str:
+        """The type the pipeline input feeding `port` matched, or `default`."""
+        return next((e.type_id for e in self.entry_types if e.port == port), default)
 
     @model_validator(mode="before")
     @classmethod
@@ -167,8 +217,8 @@ class IRChannel(BaseModel):
     name: ChannelName
     type_id: TypeId
 
-    scope: ResolvedValue | None = None
-    """Resolved scope override, or `None` when the type's declared default applies."""
+    grain: ResolvedValue | None = None
+    """Resolved grain override, or `None` when the type's declared default applies."""
 
     ports: list[SocketKey] = Field(default_factory=list)
     """Sorted `<node>.<port>` sockets fed by this channel."""
@@ -195,6 +245,12 @@ class PipelineIR(BaseModel):
 
     unverified: list[ContractId] = Field(default_factory=list)
     """Contracts whose module source was unavailable for conformance checking."""
+
+    meta_at_run: list[MetaAtRun] = Field(default_factory=list, exclude_if=lambda m: not m)
+    """Facts measured in the run and joined into an input's `meta` for a run-time setting."""
+
+    confirms: list[Confirm] = Field(default_factory=list, exclude_if=lambda c: not c)
+    """Estimates the build used, measured again over all the data in the run (#465)."""
 
     def needs_review(self) -> list[str]:
         """Return unresolved parameter, module-selection, and decision keys requiring review."""

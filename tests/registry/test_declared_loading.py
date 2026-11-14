@@ -129,3 +129,21 @@ def test_the_shipped_registry_refuses_none_of_its_inspector_pieces():
     loaded = layers.load(REGISTRY)
     assert loaded.inspection.formats, "the shipped registry has no inspector formats"
     assert loaded.refused_pieces == []
+
+
+def test_a_tool_measurer_whose_tool_is_missing_is_refused_and_the_rest_load(tmp_path):
+    """MD0327 runs once the registry is assembled, since the tool may come from any layer."""
+    from mendel_resolver import layers
+
+    folder = tmp_path / "measurers" / "measures" / "genome_length_fai"
+    (folder / "piece").mkdir(parents=True)
+    (folder / "piece" / "fai.py").write_text("def parse(stream, decided):\n    return None\n")
+    (folder / "measurer.yml").write_text(
+        "declares: measurer\nid: genome_length_fai\nversion: 1.0.0\nmeasures: genome_length\n"
+        "by: tool\nuses: nf-core/samtools/faidx@9.9\noutput: fai\nentry: piece/fai.py\n"
+        "runs: [pipeline]\n"
+    )
+    loaded = layers.load([REGISTRY, tmp_path])
+    assert "genome_length_fai" not in loaded.inspection.measurers
+    assert "read_length" in loaded.inspection.measurers
+    assert len(loaded.refused_pieces) == 1 and "MD0327" in loaded.refused_pieces[0]

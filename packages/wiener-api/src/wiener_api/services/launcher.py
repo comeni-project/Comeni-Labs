@@ -7,6 +7,7 @@ without it fifteen resource fields never arrive and the dashboard is empty for a
 on screen would explain.
 """
 
+import csv
 import json
 import logging
 import pathlib
@@ -190,9 +191,11 @@ def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dic
             continue
         columns = list(rows[0])
         path = workdir / f"{name}.csv"
-        lines = [",".join(columns)]
-        lines += [",".join(str(row.get(column, "")) for column in columns) for row in rows]
-        path.write_text("\n".join(lines) + "\n")
+        # Quoted where a cell needs it, so a comma in a name or a path stays in its column.
+        with path.open("w", newline="") as sheet:
+            out = csv.writer(sheet, lineterminator="\n")
+            out.writerow(columns)
+            out.writerows([str(row.get(column, "")) for column in columns] for row in rows)
         written[name] = str(path)
     return written
 

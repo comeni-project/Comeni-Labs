@@ -14,5 +14,13 @@ params:
     via: ext
     key: args
     template: "--genomeSAindexNbases {value}"
+  # The shipped registry's own name for it (#461): its rule `star_index.yml` decides this one,
+  # and a contract replacing the base must still declare what the base's rules decide.
+  - name: sa_index_nbases
+    tier_hint: 4
+    domain: {kind: integer, minimum: 4, maximum: 14}
+    via: ext
+    key: args
+    template: "--genomeSAindexNbases {value}"
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: corpus, approved_at: "2026-08-15"}

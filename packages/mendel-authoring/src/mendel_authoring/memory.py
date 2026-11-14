@@ -16,7 +16,7 @@ class KnownItem(BaseModel):
     """What it is, by name: *sequencing reads (FASTQ)*, *read length*."""
     value: str | None = None
     """*yes*, *150 bp*; none for an input held or a want."""
-    source: Literal["said", "measured", "read_by_ai", "open", "model"]
+    source: Literal["said", "measured", "read_by_ai", "open", "model", "varies"]
     heard: str | None = None
     """The person's own words it was taken from, when it was heard."""
 
@@ -30,6 +30,9 @@ class Known(BaseModel):
     inputs: list[KnownItem] = []
     facts: list[KnownItem] = []
     suggested: list[str] = []
+    uploads: list[str] = []
+    """How the uploaded samples spread over each fact they disagree on, a line each (#466):
+    `paired: yes in 3 samples, no in 1`. Never a sample's name."""
     open: list[str] = []
     confirmed: bool = False
 
@@ -40,6 +43,7 @@ _SOURCE = {
     "read_by_ai": "read by AI from your sample",
     "open": "unknown",
     "model": "the model's reading",
+    "varies": "you said it differs between samples",
 }
 
 
@@ -57,6 +61,7 @@ def render(known: Known) -> str:
         ("Inputs you have", [_item(i) for i in known.inputs]),
         ("Facts about your data", [_item(i) for i in known.facts]),
         ("Suggested, waiting for you", [f"- {s}" for s in known.suggested]),
+        ("Your uploaded samples differ on", [f"- {u}" for u in known.uploads]),
         ("Still open", [f"- {o}" for o in known.open]),
     ]
     lines = ["What is known (recorded; do not ask for it again):"]
