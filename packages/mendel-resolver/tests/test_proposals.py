@@ -21,7 +21,7 @@ from mendel_resolver.proposals import (
     replay,
     table_with,
 )
-from mendel_resolver.rules import DecisionRow, DecisionTarget
+from mendel_resolver.rules import Decision, DecisionRow, DecisionTarget
 
 ROOT = pathlib.Path(__file__).parents[3]
 FIXTURE = ROOT / "tests/fixtures/pipeline-v9/pipeline.yml"
@@ -216,3 +216,51 @@ def test_a_new_row_is_narrowed_to_where_the_existing_rows_missed():
     table = table_with(ALIGNMENT, existing_alignment(), new, cite_for(cases), cases=cases)
     assert table.rows[2].when == {"paired": True, "read_length": "absent"}
     assert judge(table, table.rows[2:], cases) == []
+
+
+# ---------------- review fixes ----------------
+
+
+def test_a_malformed_test_is_a_problem_not_a_crash():
+    """Review I1: `{"in": 5}` validates as a predicate and raises when evaluated."""
+    cases = _cases([(f"p{n}", {"organism": "human"}, STAR) for n in range(3)])
+    new = _rows(({"organism": {"in": 5}}, STAR))
+    table = table_with(ALIGNMENT, None, new, "c")
+    problems = judge(table, new, cases)
+    assert problems and "row 1" in problems[0]
+    assert replay(table, new, cases) == []
+
+
+def test_a_unique_table_is_not_appended_to():
+    """Review I3: under `hit: unique` an appended row ties rather than fires last."""
+    existing = Decision(decides=ALIGNMENT, hit="unique",
+                        rows=_rows(({"organism": "mouse"}, HISAT2)))
+    cases = _cases([(f"p{n}", {"organism": "human"}, STAR) for n in range(3)])
+    new = _rows(({"organism": "human"}, STAR))
+    assert judge(table_with(ALIGNMENT, existing, new, "c"), new, cases) == [
+        "the table decides by `hit: unique`, and a learned row is only appended to a "
+        "`hit: first` table"]
+
+
+def test_answers_for_another_tool_are_refused():
+    """Review I4: a setting's answers for one tool are not a rule for another."""
+    other = "nf-core/samtools/sort@1.21"
+    one = DecisionTarget(effect="param", of="bam_sorting", name="index_format",
+                         when_implementation=[SORT])
+    two = one.model_copy(update={"when_implementation": [other]})
+    cases = [Case(target=t, facts={"paired": True}, answer="csi", pipeline=f"p{n}",
+                  decision="samtools_sort.index_format", by_person=True, tier=4)
+             for n, t in enumerate([one, one, two])]
+    new = _rows(({"paired": True}, "csi"))
+    assert judge(table_with(one, None, new, "c"), new, cases) == [
+        f"p2 samtools_sort.index_format: answered for {other}, which this table does not "
+        "decide"]
+
+
+def test_a_fact_no_case_can_carry_is_not_narrowed():
+    """Review I7: a derived fact is never in a case, and is present when the build runs."""
+    existing = Decision(decides=ALIGNMENT, rows=_rows(({"derived_x": ">= 3"}, STAR)))
+    cases = _cases([(f"p{n}", {"paired": True}, HISAT2) for n in range(3)])
+    new = _rows(({"paired": True}, HISAT2))
+    table = table_with(ALIGNMENT, existing, new, "c", cases=cases, carried={"paired"})
+    assert table.rows[1].when == {"paired": True}

@@ -77,6 +77,14 @@ def fact_kinds(cases: list[Case], existing: Decision | None,
     return found
 
 
+def carried() -> set[str]:
+    """The facts a case can carry: declared measurements, not facts a rule derives, which a
+    kept pipeline does not record and a build computes."""
+    stack = registry.stack()
+    derived = {d.fact for d in stack.rules.derivations}
+    return set(stack.measurements.ids()) - derived
+
+
 def request(target: DecisionTarget, existing: Decision | None, cases: list[Case],
             facts: list[FactKind], answers: list) -> RuleProposalRequest:
     """The door payload. A case's facts are only those a row may test."""
@@ -85,7 +93,9 @@ def request(target: DecisionTarget, existing: Decision | None, cases: list[Case]
         prompt=PROMPT_ID,
         target=RuleTarget(effect=RuleEffect(target.effect.value), of=target.of, name=target.name,
                           when_implementation=sorted(target.when_implementation)),
-        existing=[json.dumps(row.model_dump(mode="json", exclude_none=True), sort_keys=True)
+        # Never a row's `cite`: a learned row's names the kept pipelines it came from.
+        existing=[json.dumps(row.model_dump(mode="json", exclude_none=True, exclude={"cite"}),
+                             sort_keys=True)
                   for row in (existing.rows if existing else [])],
         facts=facts,
         answers=sorted(answers, key=str),
@@ -197,7 +207,8 @@ def propose(target: DecisionTarget, existing: Decision | None, cases: list[Case]
             return [], reply.why, invocation, []
         rows, problems = _rows(reply, facts, answers)
         if not problems:
-            table = table_with(target, existing, rows, cite, cases=cases)
+            table = table_with(target, existing, rows, cite, cases=cases,
+                               carried=carried())
             new = table.rows[len(table.rows) - len(rows):]
             problems = judge(table, new, cases)
             if not problems:

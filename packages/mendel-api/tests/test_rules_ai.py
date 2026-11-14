@@ -141,3 +141,26 @@ def test_the_payload_holds_no_sample_names():
     assert "paired" in prompt
     for private in ("101", "151", "genome.fasta", "fastq.reads", "trimgalore", "kept0"):
         assert private not in prompt, private
+
+
+def test_a_learned_rows_citation_does_not_reach_the_model():
+    """Review I2: a learned row's `cite` names kept pipelines; the payload carries no ids."""
+    existing = next(d for d in registry.stack().rules.decisions
+                    if d.key() == "implementation:alignment")
+    learned = existing.model_copy(update={"rows": [*existing.rows, existing.rows[0].model_copy(
+        update={"when": {"paired": False, "read_length": "absent"},
+                "cite": "kept pipelines kept0secret, decision alignment.bam"})]})
+    cases = _cases([({"paired": True}, HISAT2)] * 3)
+    model = Model({"rows": [_row({"paired": True}, HISAT2)], "why": "paired"})
+    facts = rules_ai.fact_kinds(cases, learned, registry.stack().measurements)
+    rules_ai.propose(ALIGNMENT, learned, cases, facts, [STAR, HISAT2], model)
+    assert "kept0secret" not in model.prompts[0]
+    assert "Dobin" not in model.prompts[0], "no row's cite is sent"
+
+
+def test_a_malformed_test_is_sent_back_not_raised():
+    """Review I1: `{"in": 5}` is a valid predicate shape that raises when evaluated."""
+    cases = _cases([({"paired": True}, HISAT2)] * 3)
+    bad = {"rows": [_row({"paired": {"in": 5}}, HISAT2)], "why": "x"}
+    rows, _, _, problems = _ask(cases, Model(bad, bad))
+    assert rows == [] and problems and problems[0].startswith("row 1 cannot be evaluated")

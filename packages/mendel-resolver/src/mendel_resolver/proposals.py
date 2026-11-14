@@ -154,12 +154,20 @@ def cite_for(cases: list[Case]) -> str:
     return f"kept pipelines {pipelines}, decision {decisions}"
 
 
-def _narrowed(row: DecisionRow, existing: Decision, cases: list[Case]) -> DecisionRow:
+def _narrowed(row: DecisionRow, existing: Decision, cases: list[Case],
+              carried: set[str] | None) -> DecisionRow:
     """The row, saying `absent` for each fact the existing rows test that none of the answers it
     reaches had. That is why the question was asked, and the loader reads a row after them that
-    does not say so as one that never fires (MD0323)."""
-    reached = [case for case in cases if case.evidence and matches(row.when, _premises(case))]
-    tested = sorted({fact for old in existing.rows for fact in old.when} - set(row.when))
+    does not say so as one that never fires (MD0323). Only a fact a case can carry (`carried`,
+    when given): a derived fact is never in a case, and is present when the build runs."""
+    try:
+        reached = [case for case in cases if case.evidence and matches(row.when, _premises(case))]
+    except (ValueError, TypeError):
+        return row  # the judge names it
+    tested = {fact for old in existing.rows for fact in old.when} - set(row.when)
+    if carried is not None:
+        tested &= carried
+    tested = sorted(tested)
     missing = [fact for fact in tested if reached and not any(fact in c.facts for c in reached)]
     if not missing:
         return row
@@ -167,7 +175,8 @@ def _narrowed(row: DecisionRow, existing: Decision, cases: list[Case]) -> Decisi
 
 
 def table_with(target: DecisionTarget, existing: Decision | None, rows: list[DecisionRow],
-               cite: str, *, cases: list[Case] | None = None) -> Decision:
+               cite: str, *, cases: list[Case] | None = None,
+               carried: set[str] | None = None) -> Decision:
     """The table a proposal would put in force: the existing rows first, then the new ones.
 
     Appended, because the question was asked only where every existing row missed (`hit:
@@ -176,7 +185,7 @@ def table_with(target: DecisionTarget, existing: Decision | None, rows: list[Dec
     cited = [row.model_copy(update={"cite": cite}) for row in rows]
     if existing is None:
         return Decision(decides=target, rows=cited, because=LEARNED)
-    cited = [_narrowed(row, existing, cases or []) for row in cited]
+    cited = [_narrowed(row, existing, cases or [], carried) for row in cited]
     return existing.model_copy(update={"rows": [*existing.rows, *cited]})
 
 
@@ -199,13 +208,29 @@ def judge(table: Decision, new: list[DecisionRow], cases: list[Case]) -> list[st
     - **Shadowed:** a new row an earlier row always beats.
     """
     answers = [case for case in cases if case.evidence]
+    if table.hit == "unique":
+        return ["the table decides by `hit: unique`, and a learned row is only appended to a "
+                "`hit: first` table"]
+    targets = table.targets()
+    foreign = [f"{case.pipeline} {case.decision}: answered for "
+               f"{', '.join(case.target.when_implementation)}, which this table does not decide"
+               for case in answers if case.target not in targets]
+    if foreign:
+        return foreign
     start = len(table.rows) - len(new)
+    for n, row in enumerate(table.rows[start:], start=1):
+        for case in answers:
+            try:
+                row.value(_premises(case))
+                matches(row.when, _premises(case))
+            except (ValueError, TypeError) as exc:
+                return [f"row {n} cannot be evaluated: {exc}"]
     problems = []
     fired: dict[int, list[Case]] = {}
     for case in answers:
         try:
             first = _first(table, case)
-        except ValueError as exc:
+        except (ValueError, TypeError) as exc:
             return [str(exc)]
         if first is None:
             continue
@@ -248,7 +273,10 @@ def replay(table: Decision, new: list[DecisionRow], cases: list[Case]) -> list[R
     start = len(table.rows) - len(new)
     found = []
     for case in cases:
-        first = _first(table, case)
+        try:
+            first = _first(table, case)
+        except (ValueError, TypeError):
+            continue  # a row that cannot be evaluated settles nothing; the judge names it
         if first is None or first[0] < start:
             continue
         found.append(Replayed(pipeline=case.pipeline, decision=case.decision,

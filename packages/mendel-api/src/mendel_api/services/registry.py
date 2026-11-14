@@ -28,7 +28,7 @@ from pathlib import Path
 
 from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_directory
-from mendel_compiler.locate import RELEASE_FILE
+from mendel_compiler.locate import INSTALLATION_FILE, RELEASE_FILE
 from mendel_resolver import layers
 from mendel_resolver.layers import Layers
 
@@ -133,7 +133,19 @@ def ensure_own_layer() -> Path:
             "# This installation's own registry layer, stacked above the release: the rules it\n"
             "# learned from its people's answers (#462), written by Mendel.\n"
             f"name: {OWN_LAYER_NAME}\nrequires_format: 2\n")
+    (layer / INSTALLATION_FILE).write_text(
+        "This folder is this installation's own registry layer. It is local: no repository\n"
+        "holds it, so a pipeline built on it says it cannot be rebuilt from its file alone.\n")
     return layer
+
+
+def retire_own_layer_if_empty() -> None:
+    """Take the own layer out of the stack once it holds no declared file but its own name, so a
+    pipeline built afterwards does not pin, and warn about, an empty local layer."""
+    layer = own_layer()
+    marker = layer / "registry.yml"
+    if marker.is_file() and not [p for p in layer.rglob("*.yml") if p != marker]:
+        marker.unlink()
 
 
 def builder_types(stack: Layers) -> dict[str, frozenset[str]]:

@@ -246,3 +246,39 @@ def test_the_routes_read_approve_and_withdraw(three, monkeypatch):
     assert again.status_code == 422 and again.json()["detail"].startswith("MI0500")
     assert http.post(f"/api/rules/learned/{SLUG}/withdraw").json()["in_use"] == []
     assert http.post("/api/rules/learned/nothing/withdraw").status_code == 404
+
+
+def test_a_reply_that_cannot_be_evaluated_is_stored_as_refused(three):
+    """Review I1: the job records it and goes on, rather than crashing on every Propose."""
+    bad = Model({"rows": [{"when": {"paired": {"in": 5}}, "then": HISAT2, "because": "x"}],
+                 "why": "x"})
+    assert proposals.run(bad) == 1
+    (refused,) = proposals.read().refused
+    assert refused.status == "refused"
+    assert proposals.run(bad) == 0
+
+
+def test_approving_judges_the_table_in_force_now(three, monkeypatch):
+    """Review I6: the table in force changed after the proposal (a release switch, a hand edit),
+    so the stored rows would join a table that overturns people's answers."""
+    from mendel_resolver.rules import Decision, DecisionRow, DecisionTarget
+
+    proposals.run(Model())
+    (proposal,) = proposals.read().proposals
+    changed = Decision(decides=DecisionTarget(effect="implementation", of="alignment"),
+                       rows=[DecisionRow(when={}, then=STAR, cite="x")])
+    monkeypatch.setattr(proposals, "in_force", lambda key: changed)
+    with pytest.raises(Refused, match="MI0500.*a person chose"):
+        proposals.approve(proposal.id, "rafael")
+
+
+def test_withdrawing_the_last_learned_rule_takes_the_layer_out_of_the_stack(three):
+    """Review I5: an empty own layer would stay pinned, and warned about, in every pipeline."""
+    from mendel_api.settings import registry_roots
+
+    proposals.run(Model())
+    (proposal,) = proposals.read().proposals
+    proposals.approve(proposal.id, "rafael")
+    assert len(registry_roots()) == 2
+    proposals.withdraw(SLUG, "rafael")
+    assert len(registry_roots()) == 1

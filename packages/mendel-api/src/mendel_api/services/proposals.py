@@ -35,6 +35,7 @@ from mendel_resolver.proposals import (
     cases_of,
     evidence,
     evidence_digest,
+    judge,
     replay,
 )
 from mendel_resolver.rules import Decision, DecisionRow, DecisionTarget, Effect
@@ -208,10 +209,15 @@ def _table(row: RuleProposal) -> Decision:
 
 
 def check(row: RuleProposal) -> list[str]:
-    """Whether the registry accepts the table this proposal would put in force: written into a
-    copy of the installation's layer and loaded on the release. The loader's refusal, coded, is
-    the finding."""
+    """Whether the table this proposal would put in force, **as it would be now**, is sound: the
+    engine's judge against today's answers, then the registry, by writing it into a copy of the
+    installation's layer and loading it on the release. The table in force may have changed since
+    the model was asked (a release switch, a hand edit), so it is judged again here."""
     table = _table(row)
+    stored = table.rows[len(table.rows) - len(row.rows):]
+    judged = judge(table, stored, [c for c in cases() if c.target_key == row.target_key])
+    if judged:
+        return judged
     with tempfile.TemporaryDirectory() as scratch:
         candidate = Path(scratch) / "layer"
         own = own_layer()
@@ -393,6 +399,7 @@ def withdraw(name: str, by: str) -> ProposalsView:
     if "/" in name or not path.is_file():
         raise KeyError(name)
     path.unlink()
+    registry.retire_own_layer_if_empty()
     with db.session_scope() as session:
         for row in session.scalars(sa.select(RuleProposal)
                                    .where(RuleProposal.status == "approved")).all():
