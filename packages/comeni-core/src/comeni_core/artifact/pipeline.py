@@ -44,7 +44,7 @@ from comeni_core.plan.at_run import (
     SampleRule,
 )
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
-from comeni_core.plan.ir import InputRecord, Parts
+from comeni_core.plan.ir import InputRecord, Overrode, Parts
 from comeni_core.plan.tiers import (
     Grain,
     InputForm,
@@ -156,6 +156,9 @@ class Why(BaseModel):
     from_layer: LayerName | None = None
     displaced_layer: LayerName | None = None
     """Lower-priority layer whose declaration was superseded, if any."""
+
+    overrode: Overrode | None = Field(default=None, exclude_if=lambda o: o is None)
+    """For a value the AI set over a rule's: the rule's result, kept beside it (#463)."""
 
 
 def _no_flags_why() -> Why:

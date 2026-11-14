@@ -392,11 +392,12 @@ def read(draft_id):
                 for s, r in _current(db, draft_id, "fact")
             ],
             producers=[
-                ProducerChoice(site=Site(type_id=r.type_id, states=r.states), contract=r.contract)
+                ProducerChoice(site=Site(type_id=r.type_id, states=r.states), contract=r.contract,
+                               **_authored(r))
                 for s, r in _current(db, draft_id, "producer")
             ],
             parameters=[
-                ParameterChoice(name=r.name, value=r.value)
+                ParameterChoice(name=r.name, value=r.value, **_authored(r))
                 for s, r in _current(db, draft_id, "parameter")
             ],
             roles=[RoleChoice(role=r.role, absent=r.absent)
@@ -416,6 +417,12 @@ def read(draft_id):
             wholes=[WholeChoice(contract=r.contract, whole=r.whole)
                     for s, r in _current(db, draft_id, "whole")],
         )
+
+
+def _authored(revision) -> dict:
+    """Who made a tool choice or a setting, and the AI's reason (#463)."""
+    model = revision.actor_kind == ActorKind.MODEL.value
+    return {"by": "model" if model else "person", "because": revision.because or ""}
 
 
 def goal(draft_id):
@@ -448,7 +455,9 @@ def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):
                 )
                 for p in decisions.producers
             ],
-            "parameter": [(p.name, p.model_dump(mode="json")) for p in decisions.parameters],
+            # An imported goal is the importer's: who made each choice is not carried in.
+            "parameter": [(p.name, p.model_dump(mode="json", exclude={"by", "because"}))
+                          for p in decisions.parameters],
             "role": [(r.role, {"role": r.role, "absent": True}) for r in decisions.roles],
             "exclusion": [
                 (exclusion_key(e.site, e.contract),
@@ -778,14 +787,15 @@ def require_states(draft_id, type_id, states, *, who, actor_kind=ActorKind.PERSO
 
 
 def pin_producer(draft_id, site: Site, contract, *, who, actor_kind=ActorKind.PERSON, heard=None,
-                 heard_seq=None, proposal_id=None):
+                 heard_seq=None, proposal_id=None, because=None):
     with session_scope() as db:
         draft = _draft(db, draft_id)
         # **Pinning a tool withdraws its exclusion at that site** (A1): the later intent wins,
         # and the two are never both applied.
         _withdraw(db, draft, "exclusion", exclusion_key(site, contract), who=who,
                   actor_kind=actor_kind)
-        fields = {"type_id": site.type_id, "states": sorted(site.states), "contract": contract}
+        fields = {"type_id": site.type_id, "states": sorted(site.states), "contract": contract,
+                  "because": because}
         return _write(db, draft, "producer", _site_key(site), _heard(fields, heard, heard_seq),
                       who=who, actor_kind=actor_kind, proposal_id=proposal_id).id
 
@@ -891,11 +901,12 @@ def intent_history(draft_id, family, key) -> list[dict]:
 
 
 def set_parameter(draft_id, name, value, *, who, actor_kind=ActorKind.PERSON, heard=None,
-                  heard_seq=None, proposal_id=None):
+                  heard_seq=None, proposal_id=None, because=None):
     with session_scope() as db:
         draft = _draft(db, draft_id)
         return _write(db, draft, "parameter", name,
-                      _heard({"name": name, "value": value}, heard, heard_seq), who=who,
+                      _heard({"name": name, "value": value, "because": because}, heard,
+                             heard_seq), who=who,
                       actor_kind=actor_kind, proposal_id=proposal_id).id
 
 

@@ -6,7 +6,7 @@ Values and selections retain the tier, source, reason, and premise evidence that
 """
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from comeni_core.declared.constraints import Verdict, condition_words, evaluate, setup_of
 from comeni_core.declared.contract import InputPort, ModuleContract, OutputPort, Param
@@ -45,6 +45,7 @@ from comeni_core.plan.ir import (
     EntryType,
     IREdge,
     IRNode,
+    Overrode,
     Parts,
     PartsMerger,
     PipelineIR,
@@ -740,6 +741,22 @@ def _resolve_param(
 ) -> tuple[ResolvedValue, ParamDecision | None]:
     # Tier 1 — the goal states it outright. No choice exists.
     override = next((o for o in context.goal.constraints.params if o.name == param.name), None)
+    if override is not None and override.by == "model":
+        # **The AI's value is the AI's** (#463): tier 4, source model, flagged; what the ladder
+        # gives without it is kept beside it when a rule decided that.
+        others = [o for o in context.goal.constraints.params if o is not override]
+        without = context.goal.model_copy(update={"constraints": context.goal.constraints
+                                                  .model_copy(update={"params": others})})
+        ruled, _ = _resolve_param(param, replace(context, goal=without))
+        because = f"; because {override.because}" if override.because else ""
+        return ResolvedValue(
+            value=override.value,
+            tier=Tier.AMBIGUOUS,
+            source=ValueSource.MODEL,
+            reason=f"the AI set {param.name} to {override.value}{because}",
+            overrode=(Overrode(rule=ruled.reason, value=ruled.value, cite=ruled.axis_reason)
+                      if ruled.tier is Tier.DATA_PROFILED else None),
+        ), None
     if override is not None:
         return ResolvedValue(
             value=override.value,

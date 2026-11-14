@@ -9,6 +9,7 @@ for callers that construct complete goals.
 """
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
@@ -18,6 +19,7 @@ from comeni_core.spell.marks import (
     ChannelName,
     ContractId,
     HumanParamValue,
+    Line,
     MeasurementId,
     PortName,
     RoleName,
@@ -66,6 +68,11 @@ class ParamOverride(BaseModel):
 
     name: PortName
     value: HumanParamValue
+    by: Literal["person", "model"] = Field(default="person", exclude_if=lambda by: by == "person")
+    """Who made it: a person, or the builder agent (#463). The AI's is resolved as its own,
+    tier 4 and flagged, never as a person's settled intent."""
+    because: Line = Field(default="", exclude_if=lambda because: not because)
+    """The reason the AI gave; empty for a person's."""
     """A value accepted from a person-authored goal file."""
 
 
@@ -110,6 +117,11 @@ class ProducerPin(BaseModel):
 
     site: Site
     contract: ContractId
+    by: Literal["person", "model"] = Field(default="person", exclude_if=lambda by: by == "person")
+    """Who made it: a person, or the builder agent (#463). The AI's is resolved as its own,
+    tier 4 and flagged, never as a person's settled intent."""
+    because: Line = Field(default="", exclude_if=lambda because: not because)
+    """The reason the AI gave; empty for a person's."""
 
 
 class RoleAbsence(BaseModel):

@@ -243,7 +243,8 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             decisions.release_producer(draft_id, site, who=who)
         else:
             _tool(stack, str(change.value))
-            decisions.pin_producer(draft_id, site, str(change.value), **said, **heard)
+            decisions.pin_producer(draft_id, site, str(change.value), **said, **heard,
+                                   because=change.because)
     elif kind == "parameter":
         _parameter(stack, subject)
         if change.retract:
@@ -252,7 +253,8 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
                 return False
             decisions.release_parameter(draft_id, subject, who=who)
         else:
-            decisions.set_parameter(draft_id, subject, change.value, **said, **heard)
+            decisions.set_parameter(draft_id, subject, change.value, **said, **heard,
+                                    because=change.because)
     elif kind == "asked":
         if change.retract:
             return decisions.retract_asked(draft_id, subject, **said) is not None
