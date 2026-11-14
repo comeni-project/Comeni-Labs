@@ -98,6 +98,32 @@ def as_type(value: Any) -> str:
     return f" as {value}"
 
 
+def setup_of(contract: ModuleContract, node: Any, types: dict[str, str] | None = None) -> "Setup":
+    """A built step's setup for its constraints: required inputs and those switched on are
+    given, an input each run may leave empty is unknown, and the params as resolved. One helper
+    for the build's refusal and the run's rules, so the two cannot drift (#460)."""
+    from comeni_core.goal.asked import InputState
+
+    states = {r.port: r.state for r in node.inputs}
+    given = {p.name for p in contract.consumes if p.required}
+    given |= {p for p, s in states.items() if s is InputState.REQUIRED}
+    unknown = frozenset(p for p, s in states.items() if s is InputState.OPTIONAL)
+    params = {p.name: (node.param(p.name).value if node.param(p.name) else None)
+              for p in contract.params}
+    return Setup(given=frozenset(given), params=params, unknown=unknown, types=types or {})
+
+
+def condition_words(when: dict[str, Any]) -> str:
+    """A condition in a few words: `{given.fasta: present}` reads "fasta", `{param.mode: fast}`
+    "mode = fast", and `{type.reads: alignment.cram}` "reads as alignment.cram"."""
+    def one(key: str, value: Any) -> str:
+        space, _, name = key.partition(".")
+        if space == "type":
+            return name + as_type(value)
+        return name if space == "given" or value is True else f"{name} = {value}"
+    return " and ".join(one(k, v) for k, v in when.items())
+
+
 def _subject(row: ConstraintRow) -> tuple[str, str]:
     """The name the row's first condition is on, and what qualifies it: a row on the connected
     type holds only for that type, and says so (#464)."""

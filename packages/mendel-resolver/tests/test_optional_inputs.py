@@ -300,3 +300,18 @@ def test_a_half_routed_optional_input_leaves_no_orphan_step(tmp_path):
                 constraints=_choose(("fasta", InputState.OPTIONAL)))
     with pytest.raises(UnroutableError, match="y.bin"):
         route(goal, registry)
+
+
+def test_a_withheld_output_says_its_condition_in_words():
+    """Issue 467: MD0608 printed `{'given.fasta': 'present'}`."""
+    from types import SimpleNamespace as N
+
+    from mendel_resolver.resolve import _not_withheld
+
+    alternative = N(type_id="assembly.fasta", states=frozenset())
+    port = N(name="contigs", alternatives=lambda: [alternative])
+    output = N(name="misassemblies", type_id="assembly.fasta", state=frozenset(),
+               produced_when={"given.fasta": "present"})
+    with pytest.raises(ConstraintViolation) as refused:
+        _not_withheld([(None, output, "quast")], port, "report")
+    assert "written only with fasta" in str(refused.value) and "{" not in str(refused.value)

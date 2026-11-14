@@ -118,7 +118,9 @@ class Sifted:
 
 
 def _names(item) -> set[str]:
-    return {v for k in ("type", "subject", "name", "tool", "port")
+    """What a refused item is called, for the reply's words. Not a port's name alone: `reads` or
+    `fasta` is said of many things; the tool it belongs to is named instead."""
+    return {v for k in ("type", "subject", "name", "tool")
             if isinstance(v := getattr(item, k, None), str)}
 
 

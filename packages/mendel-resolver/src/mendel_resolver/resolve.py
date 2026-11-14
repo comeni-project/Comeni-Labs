@@ -8,7 +8,7 @@ Values and selections retain the tier, source, reason, and premise evidence that
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from comeni_core.declared.constraints import Setup, Verdict, evaluate
+from comeni_core.declared.constraints import Verdict, condition_words, evaluate, setup_of
 from comeni_core.declared.contract import InputPort, ModuleContract, OutputPort, Param
 from comeni_core.declared.inspection import InspectionCatalogue
 from comeni_core.declared.measurement import MeasurementKind, MeasurementRegistry
@@ -94,14 +94,7 @@ def _constraints_hold(contract: ModuleContract, node: IRNode,
     """The step's constraints once its parameters are resolved (#460). A connection a row
     forbids, or an input a row requires and cannot have, is refused at build time; a row that
     depends on an input each run may leave empty is left to the run."""
-    states = {r.port: r.state for r in node.inputs}
-    given = {p.name for p in contract.consumes if p.required}
-    given |= {p for p, s in states.items() if s is InputState.REQUIRED}
-    unknown = frozenset(p for p, s in states.items() if s is InputState.OPTIONAL)
-    params = {p.name: (node.param(p.name).value if node.param(p.name) else None)
-              for p in contract.params}
-    verdict = evaluate(contract, Setup(given=frozenset(given), params=params, unknown=unknown,
-                                       types=types or {}))
+    verdict = evaluate(contract, setup_of(contract, node, types))
     why = "; ".join(verdict.sentences) or "its constraints"
     if verdict.missing:
         raise ConstraintViolation(coded(
@@ -121,7 +114,8 @@ def _not_withheld(withheld: list, port: InputPort, consumer: str) -> None:
             if output.type_id == alternative.type_id and alternative.states <= output.state:
                 raise ConstraintViolation(coded(
                     "MD0608", f"{consumer}'s {port.name} needs {producer}'s {output.name}, "
-                    f"which is written only when {output.produced_when}, and this pipeline's "
+                    f"which is written only with {condition_words(output.produced_when)}, and "
+                    "this pipeline's "
                     "settings do not meet that — `mendel explain MD0608`."))
 
 

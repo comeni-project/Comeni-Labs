@@ -19,7 +19,7 @@ from functools import lru_cache
 from typing import Literal
 
 from comeni_core.artifact.pipeline import Pipeline
-from comeni_core.declared.constraints import as_type
+from comeni_core.declared.constraints import condition_words
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.draft import DraftGraph
 from comeni_core.plan.tiers import PremiseOrigin
@@ -478,14 +478,7 @@ def _only_with(when: dict | None) -> str | None:
     `{type.reads: alignment.cram}` "only with reads as alignment.cram" (#464)."""
     if not when:
         return None
-    return "only with " + " and ".join(_condition(k, v) for k, v in when.items())
-
-
-def _condition(key: str, value) -> str:
-    space, _, name = key.partition(".")
-    if space == "type":
-        return name + as_type(value)
-    return name if space == "given" or value is True else f"{name} = {value}"
+    return "only with " + condition_words(when)
 
 
 def _connected_type(pipeline, layers, step, port) -> str:

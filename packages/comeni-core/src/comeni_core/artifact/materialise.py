@@ -42,7 +42,7 @@ from comeni_core.artifact.pipeline import (
     _no_flags_why,
     crossed_steps,
 )
-from comeni_core.declared.constraints import Setup, evaluate, rows_of, sentence
+from comeni_core.declared.constraints import Setup, evaluate, rows_of, sentence, setup_of
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.measurement import Measurement, MeasurementKind, MeasurementRegistry
 from comeni_core.declared.registry import Registry
@@ -658,14 +658,7 @@ def _broken_by_every_sample(row, says: str, by_name: dict, contract: ModuleContr
 
 
 def _run_sentences(contract: ModuleContract, node: IRNode) -> list[str]:
-    states = {r.port: r.state for r in node.inputs}
-    given = {p.name for p in contract.consumes if p.required}
-    given |= {p for p, s in states.items() if s is InputState.REQUIRED}
-    unknown = frozenset(p for p, s in states.items() if s is InputState.OPTIONAL)
-    params = {p.name: (node.param(p.name).value if node.param(p.name) else None)
-              for p in contract.params}
-    verdict = evaluate(contract, Setup(given=frozenset(given), params=params, unknown=unknown))
-    return verdict.holds_at_run_time
+    return evaluate(contract, setup_of(contract, node)).holds_at_run_time
 
 
 def _form(channels: Sequence[Channel]) -> InputForm:
