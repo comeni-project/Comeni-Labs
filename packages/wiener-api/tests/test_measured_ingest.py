@@ -200,3 +200,17 @@ def test_a_folded_fact_is_read_beside_its_value(client, a_run, session, tmp_path
     body = client.get(f"/api/runs/{a_run.id}/measured").json()
     assert body["decided"][0]["facts"] == [
         {"fact": "study_read_length", "value": "150", "source": "folded"}]
+
+
+def test_the_record_can_be_read_by_kind(client, a_run, session, tmp_path):
+    """Issue 488: the measured route read every event to keep one kind."""
+    from wiener_api import repository
+
+    _artifact(tmp_path, a_run)
+    _report(a_run.id, "s1", 150)
+    _complete(session, a_run.id)
+    session.commit()
+    every = repository.events(session, settings.lab_id, a_run.id)
+    measured = repository.events(session, settings.lab_id, a_run.id, kind=EventKind.MEASURED)
+    assert len(every) > len(measured) == 1
+    assert measured[0].kind == EventKind.MEASURED

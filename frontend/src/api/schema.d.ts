@@ -3082,17 +3082,10 @@ export interface components {
             acknowledged_by?: string | null;
             acknowledged_kind?: components["schemas"]["ActorKind"] | null;
             /**
-             * Inherited
-             * @default false
-             */
-            inherited: boolean;
-            /**
              * Legacy
              * @default false
              */
             legacy: boolean;
-            /** Source Draft Id */
-            source_draft_id?: string | null;
         };
         /** FactHistoryView */
         FactHistoryView: {

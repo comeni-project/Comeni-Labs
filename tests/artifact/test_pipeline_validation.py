@@ -328,3 +328,13 @@ def test_every_pipeline_model_blames_the_pipeline_file():
     assert _blame("Step") == "this pipeline file"
     assert _blame("Goal") == "this goal"
     assert _blame("ModuleContract") == "contract"
+
+
+def test_a_hand_edited_measuring_file_is_discarded_by_building_not_emitting():
+    """Issue 488: `mendel emit` does not write a measuring step's files; `mendel build` stages
+    them."""
+    from mendel_compiler.cli.artifact_verbs import _discard
+
+    assert _discard("main.nf") == "To discard it instead, delete main.nf and run this again."
+    staged = "modules/comeni/measure/genome_length/main.nf"
+    assert "mendel build" in _discard(staged) and "delete" not in _discard(staged)

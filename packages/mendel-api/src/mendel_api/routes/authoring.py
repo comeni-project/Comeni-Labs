@@ -436,9 +436,7 @@ class FactHistoryEntry(BaseModel):
     acknowledged_at: datetime | None = None
     acknowledged_by: str | None = None
     acknowledged_kind: ActorKind | None = None
-    inherited: bool = False
     legacy: bool = False
-    source_draft_id: str | None = None
 
 
 class FactHistoryView(BaseModel):

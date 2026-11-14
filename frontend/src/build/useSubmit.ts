@@ -23,12 +23,9 @@ import type { components } from "../wiener/api/schema";
 type ArtifactStored = components["schemas"]["ArtifactStored"];
 type RunAccepted = components["schemas"]["RunAccepted"];
 
-/** `name` is the draft's, and **carrying it is the whole of Plan 6 phase 2**.
- *
- *  `PipelineDraft.name` has existed since Plan 3E and `usePipelineDraft`'s own header records
- *  that nothing in the browser ever set it. It is set now, and this is the other end: the
- *  browser is the courier between the two services (`wiener.md` §12, A179), so a name that
- *  never boards here is a name Wiener cannot have — there is no other route between them.
+/** `name` is the draft's (`PipelineDraft.name`). The browser is the courier between the two
+ *  services (`wiener.md` §12, A179), so a name that never boards here is a name Wiener cannot
+ *  have — there is no other route between them.
  *
  *  Empty is ordinary. An unnamed draft uploads without one and the run header draws `run <id>`.
  */

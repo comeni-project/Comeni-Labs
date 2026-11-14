@@ -200,3 +200,10 @@ def test_no_two_models_share_a_schema_name():
         "generated client refers to the qualified spelling, so the collision renames a type "
         "the frontend was already using, on a screen nobody touched."
     )
+
+
+def test_fact_history_carries_no_fork_fields():
+    """Issue 400: with the fork gone, `inherited` and `source_draft_id` were always unset."""
+    from mendel_api.routes.authoring import FactHistoryEntry
+
+    assert not {"inherited", "source_draft_id"} & set(FactHistoryEntry.model_fields)

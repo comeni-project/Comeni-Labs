@@ -21,6 +21,16 @@ from mendel_compiler.gates import (
 )
 
 
+def _discard(name: str) -> str:
+    """How to throw a hand edit away: `emit` rewrites `main.nf` and `nextflow.config`, but a
+    measuring step's files are staged by `mendel build` from the registry (#465), so deleting
+    one and emitting again would leave it missing."""
+    if name.startswith("modules/comeni/measure/"):
+        return (f"To discard it instead, run `mendel build` again, which stages {name} "
+                "afresh; `mendel emit` does not write it.")
+    return f"To discard it instead, delete {name} and run this again."
+
+
 def _refuse_a_starter(pipeline: Pipeline, target: Path) -> int | None:
     """A file with nothing resolved (no steps, no emitted record) is a starter: built, never
     emitted or published (MD0233, review #2 of Plan B)."""
@@ -73,7 +83,7 @@ def _emit_verb(target: Path, out: Path) -> int:
             f"re-emitting would overwrite that.\n"
             f"  Make the change in {target} and run this again — that is the file the "
             f"pipeline is built from.\n"
-            f"  To discard it instead, delete {edited[0]} and run this again."),
+            f"  {_discard(edited[0])}"),
             file=sys.stderr,
         )
         return 2

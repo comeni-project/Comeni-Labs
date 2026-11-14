@@ -295,7 +295,7 @@ describe("a setting decided at run time", () => {
     ]);
     // STAR sizes its own index when the genome cannot be measured: not a question (final review).
     expect(screen.getByTestId("at-run-fallback").textContent).toBe(
-      "if no row applies: the tool's own value");
+      "if measuring fails or no row applies: the tool's own value");
   });
 
   it("says where each fact comes from, and that a stop names the sample (issue 466)", async () => {
@@ -325,7 +325,7 @@ describe("a setting decided at run time", () => {
       "strandedness, from the samplesheet",
     ]);
     expect(screen.getByTestId("at-run-fallback").textContent).toBe(
-      "if no row applies: the run stops and names the sample (a person)");
+      "if measuring fails or no row applies: the run stops and names the sample (a person)");
   });
 });
 

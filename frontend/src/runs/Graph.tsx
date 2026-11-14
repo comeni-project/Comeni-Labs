@@ -206,8 +206,7 @@ export function Graph({ runId, onOpenConsole }: {
           children inside the stage div, which carries `transform: translate(...) scale(...)`
           — and a transformed ancestor becomes the containing block for `position: fixed`.
           The menu was therefore placed relative to the panned, zoomed stage rather than the
-          viewport, so it appeared further away the further you had panned. `Builder.tsx`
-          renders its own menu as a sibling for the same reason. */}
+          viewport, so it appeared further away the further you had panned. */}
         {menu.at && (
         <Menu
           at={menu.at}

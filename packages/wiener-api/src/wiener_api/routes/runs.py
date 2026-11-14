@@ -422,8 +422,8 @@ def run_measured(run_id: str) -> MeasuredOut:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
         found = collect(RunEvent.model_validate(row.payload) for row in
-                        repository.events(session, settings.lab_id, run_id)
-                        if row.kind == EventKind.MEASURED)
+                        repository.events(session, settings.lab_id, run_id,
+                                          kind=EventKind.MEASURED))
         pipeline = _artifact_pipeline(session, settings.lab_id, run_id)
     estimates = [Estimate(measurement=c.measurement, estimate=c.estimate, used_by=c.used_by)
                  for c in (pipeline.confirms if pipeline is not None else [])]

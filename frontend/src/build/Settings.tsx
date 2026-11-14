@@ -214,7 +214,7 @@ function AtRun({ lookup }: { lookup: NonNullable<Setting["at_run"]> }) {
         ))}
       </ul>
       <div data-testid="at-run-fallback" className="text-secondary text-ink-3 pt-[4px]">
-        if no row applies:{" "}
+        if measuring fails or no row applies:{" "}
         {lookup.fallback_is === "tool"
           ? "the tool's own value"
           : lookup.fallback_is === "question"

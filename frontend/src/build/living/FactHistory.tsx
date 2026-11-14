@@ -38,7 +38,6 @@ export function FactHistory({ sessionId, subject, revision }: {
           entry.selected ? entry.action === "retract" ? "returned to unknown" : "previous answer" : entry.legacy ? "legacy observation; activation unknown" : "unused observation"}
         {entry.selected && <> · {entry.actor_kind === "unknown" ? "chooser unknown" :
           `${entry.actor_kind}: ${entry.who ?? "unknown"}`}</>}
-        {entry.inherited && " · inherited"}
         <time className="block text-ink-3" dateTime={entry.at}>{entry.legacy && "Migrated at "}{new Date(entry.at).toLocaleString()}</time>
       </li>)}
     </ol>
