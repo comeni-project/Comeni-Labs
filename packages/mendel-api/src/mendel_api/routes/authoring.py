@@ -34,8 +34,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
 from mendel_api import identity
-from mendel_api.authoring.canvas import AlternativePreview, CanvasFrame
-from mendel_api.authoring.envelopes import HistoryOffer, Offer, OfferContext
+from mendel_api.agent import chat
+from mendel_api.authoring.canvas import CanvasFrame
+from mendel_api.authoring.envelopes import HistoryOffer, Offer
 from mendel_api.authoring.types import (
     Block,
     Fact,
@@ -48,22 +49,11 @@ from mendel_api.authoring.types import (
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringProposal, PipelineAuthoringSession, PipelineDraft
 from mendel_api.refusals import REFUSES
-from mendel_api.services import authoring_preview, drafts, session
+from mendel_api.services import drafts, session
 from mendel_api.settings import model_access
-from mendel_api.stages import building, gathering, goal
+from mendel_api.stages import gathering
 
 router = APIRouter(prefix="/pipeline/authoring", tags=["authoring"])
-
-
-@router.get("/{session_id}/proposals/{proposal_id}/alternatives/{option_id}",
-            operation_id="previewAuthoringAlternative", responses=REFUSES)
-def preview_alternative(session_id: str, proposal_id: str, option_id: OptionId,
-                        expected_revision: int, expected_decision_revision: int,
-                        expected_session_version: int, expected_registry: str,
-                        ) -> AlternativePreview:
-    return authoring_preview.read(session_id, proposal_id, option_id, OfferContext(
-        draft_revision=expected_revision, decision_revision=expected_decision_revision,
-        session_version=expected_session_version, registry=expected_registry))
 
 _FROZEN = ConfigDict(extra="forbid", frozen=True)
 
@@ -233,6 +223,13 @@ class DecideSuggestion(BaseModel):
     decision: Literal["apply", "dismiss"]
 
 
+class AiChoiceView(BaseModel):
+    model_config = _FROZEN
+
+    node: str
+    what: str
+
+
 class AuthoringSessionView(BaseModel):
     """Everything needed to restore the page, from one read."""
 
@@ -283,6 +280,28 @@ class AuthoringSessionView(BaseModel):
     """What the person asked for that is not offered here, in their words (Part I.2)."""
     """The model's suggestions waiting for one click (Part I.0 §5.3)."""
     pending_proposal: AuthoringProposalView | None
+    working: bool = False
+    """Whether the builder agent is answering now (#463)."""
+    ai_unreviewed: list[AiChoiceView] = []
+    """What the AI chose that nobody has reviewed yet, by step (#463)."""
+
+
+class AnswerQuestion(BaseModel):
+    """The person's answer to the agent's question."""
+
+    value: bool | int | float | str
+
+
+class ReviewAiChoices(BaseModel):
+    """The steps whose AI choices the person has looked at, or all of them."""
+
+    nodes: list[str] | Literal["all"]
+
+
+class AuthoringReviewed(BaseModel):
+    model_config = _FROZEN
+
+    ai_unreviewed: list[AiChoiceView]
 
 
 class AuthoringStarted(BaseModel):
@@ -454,16 +473,15 @@ class FactHistoryView(BaseModel):
 @router.post(
     "",
     operation_id="beginAuthoring",
-    summary="Describe an analysis and start building it",
+    summary="Describe an analysis; the builder agent starts building it",
     status_code=status.HTTP_201_CREATED,
     responses=REFUSES,
 )
 async def begin(body: BeginAuthoring) -> AuthoringStarted:
-    """An empty draft, a session, the first turn, and one queued model call — the pending reply
-    is visible in the response, so the page never shows a blank while the worker starts."""
-    done = await session.act(c.Begin(body.prompt, identity.default_author()))
-    session_id, _ = done.result
-    return AuthoringStarted(session=_view(session_id), queued=all(done.queued))
+    """An empty draft, a session, the person's words, and the agent's turn queued (#463): the
+    pending turn is in the response, so the page shows the agent working at once."""
+    session_id, queued = await chat.start(body.prompt, identity.default_author())
+    return AuthoringStarted(session=_view(session_id), queued=queued)
 
 
 @router.get(
@@ -527,120 +545,55 @@ def list_calls(session_id: str) -> list[AuthoringCallView]:
 @router.post(
     "/{session_id}/messages",
     operation_id="sayToAuthoring",
-    summary="Say something in the conversation",
+    summary="Say something to the builder agent",
     status_code=status.HTTP_202_ACCEPTED,
     responses=REFUSES,
 )
 async def say(session_id: str, body: SayToAuthoring) -> AuthoringSaid:
-    done = await session.act(c.Say(session_id, body.text))
-    return AuthoringSaid(seq=done.result, queued=all(done.queued))
+    seq, queued = await chat.say(session_id, body.text)
+    return AuthoringSaid(seq=seq, queued=queued)
 
 
 @router.post(
-    "/{session_id}/proposals/{proposal_id}/decide",
-    operation_id="decideAuthoringProposal",
-    summary="Accept or reject a goal or a step, or answer a question about your data",
+    "/{session_id}/questions/{question_id}",
+    operation_id="answerAgentQuestion",
+    summary="Answer a question the builder agent asked",
+    status_code=status.HTTP_202_ACCEPTED,
     responses=REFUSES,
 )
-async def decide(session_id: str, proposal_id: str, body: DecideProposal) -> AuthoringDecided:
-    """A deterministic request: the answer is in the response, never behind the queue.
-
-    A refusal — a stale revision, a moved registry, an option never offered — answers 422 with
-    its code, and the session has already recorded whatever the refusal changed (a proposal
-    marked stale, a fresh one offered), so the client re-reads rather than retrying blind.
-    """
-    kind = _kind_in(session_id, proposal_id)
-    decision = ProposalState(body.decision)
-    who = identity.default_author()
-
-    if kind == gathering.GAP:
-        if decision is not ProposalState.ACCEPTED or body.option is None:
-            raise ValueError(
-                coded("MI0205", "a question about your data is answered with one of its options")
-            )
-        # The next question is phrased while the person reads: `ask` queues it after the commit
-        # (#331: only the one on offer). A button click is not put behind a model.
-        await session.act(c.AnswerGap(proposal_id, body.option, body.value, who))
-        after = _view(session_id)
-        return AuthoringDecided(
-            phase=after.phase,
-            revision=after.revision,
-            next_proposal=after.pending_proposal.id if after.pending_proposal else None,
-            queued=False,
-        )
-
-    if kind == building.PACING_PROPOSAL:
-        if decision is not ProposalState.ACCEPTED or body.option is None:
-            raise ValueError(
-                coded("MI0205", "the pacing question is answered with one of its paces")
-            )
-        await session.act(c.ChoosePacing(proposal_id, body.option, who))
-        after = _view(session_id)
-        return AuthoringDecided(
-            phase=after.phase,
-            revision=after.revision,
-            next_proposal=after.pending_proposal.id if after.pending_proposal else None,
-            queued=False,
-        )
-
-    if kind == goal.GOAL:
-        done = await session.act(
-            c.DecideGoal(
-                proposal_id,
-                decision.value,
-                body.expected_revision,
-                who,
-                None if body.goal is None else body.goal.model_dump(mode="json"),
-            )
-        )
-        outcome, phase = done.result
-        if outcome.refusal is not None:
-            raise ValueError(outcome.refusal)
-        return await _after_goal(session_id, phase)
-
-    # A step's card is kept as it is (`keep`: *Continue*) or changed by one of the amendments it
-    # offered, by id (spec §14.5). It is never skipped: the draft is the blueprint's reviewed
-    # steps, and removing one is a hand edit, after the walk.
-    if decision is not ProposalState.ACCEPTED:
-        raise ValueError(
-            coded("MI0205", "a step is kept or changed, not skipped")
-            + "\n  to remove a step, edit the draft once the walk is done"
-        )
-    command = (
-        c.SettleStep(proposal_id, body.expected_revision, who)
-        if body.option in (None, "keep")
-        else c.Amend(
-            proposal_id,
-            body.option,
-            body.value,
-            who,
-            expected_draft_revision=body.expected_revision,
-        )
-    )
-    stepped = (await session.act(command)).result
-    if stepped.settlement.refusal is not None:
-        raise ValueError(stepped.settlement.refusal)
-    return AuthoringDecided(
-        phase=stepped.phase,
-        revision=stepped.revision,
-        next_proposal=stepped.next_proposal,
-        queued=False,
-    )
+async def answer_question(session_id: str, question_id: str,
+                          body: AnswerQuestion) -> AuthoringSaid:
+    seq, queued = await chat.answer(session_id, question_id, body.value)
+    return AuthoringSaid(seq=seq, queued=queued)
 
 
 @router.post(
-    "/{session_id}/retry",
-    operation_id="retryAuthoring",
-    summary="Try again from where the session failed",
+    "/{session_id}/turns/{seq}/retry",
+    operation_id="retryAgentTurn",
+    summary="Ask the builder agent again after its turn failed",
+    status_code=status.HTTP_202_ACCEPTED,
     responses=REFUSES,
 )
-async def retry(session_id: str) -> AuthoringRetried:
-    done = await session.act(c.Retry(session_id))
-    phase, seq = done.result
-    if seq is not None:
-        return AuthoringRetried(phase=phase, queued=all(done.queued))
-    decided = await _after_goal(session_id, phase)
-    return AuthoringRetried(phase=decided.phase, queued=decided.queued)
+async def retry_turn(session_id: str, seq: int) -> AuthoringSaid:
+    try:
+        queued = await chat.retry(session_id, seq)
+    except KeyError:
+        raise
+    except LookupError as refused:
+        raise HTTPException(status_code=409, detail=str(refused.args[0])) from None
+    return AuthoringSaid(seq=seq, queued=queued)
+
+
+@router.post(
+    "/{session_id}/reviewed",
+    operation_id="reviewAiChoices",
+    summary="Say you have looked at what the AI chose",
+    responses=REFUSES,
+)
+async def reviewed(session_id: str, body: ReviewAiChoices) -> AuthoringReviewed:
+    await run_in_threadpool(chat.review, session_id, body.nodes, identity.default_author())
+    left = await run_in_threadpool(chat.unreviewed, session_id)
+    return AuthoringReviewed(ai_unreviewed=[AiChoiceView(**m) for m in left])
 
 
 @router.post(
@@ -788,6 +741,8 @@ def _view(session_id: str) -> AuthoringSessionView:
         history=[AuthoringDecisionView(**decision) for decision in picture["history"]],
         suggestions=[AuthoringSuggestionView(**s) for s in picture["suggestions"]],
         not_offered=picture["not_offered"],
+        working=chat.working(picture["turns"]),
+        ai_unreviewed=[AiChoiceView(**m) for m in chat.unreviewed(session_id)],
         pending_proposal=(
             None
             if pending is None
@@ -970,28 +925,6 @@ async def change_authoring(session_id: str, body: ChangeAuthoring) -> AuthoringC
 
 
 @router.post(
-    "/{session_id}/suggestions/{suggestion_id}",
-    operation_id="decideAuthoringSuggestion",
-    summary="Apply or set aside one of the model's suggestions",
-    responses=REFUSES,
-)
-async def decide_suggestion(
-    session_id: str, suggestion_id: str, body: DecideSuggestion
-) -> AuthoringCorrected | None:
-    from starlette.concurrency import run_in_threadpool
-
-    from mendel_api.services import suggestions
-
-    if body.decision == "dismiss":
-        await run_in_threadpool(suggestions.dismiss, session_id, suggestion_id,
-                                by=identity.default_author())
-        return None
-    return AuthoringCorrected.model_validate(
-        await suggestions.apply(session_id, suggestion_id, by=identity.default_author())
-    )
-
-
-@router.post(
     "/{session_id}/release-tool",
     operation_id="releaseAuthoringTool",
     summary="Let the engine choose a producer again",
@@ -1003,31 +936,6 @@ async def release_tool(session_id: str, body: ReleaseToolChoice) -> AuthoringCor
             session_id,
             body.type_id,
             tuple(body.states),
-            identity.default_author(),
-            body.expected_decision_revision,
-            body.expected_draft_revision,
-            body.expected_session_version,
-        )
-    )
-    return AuthoringCorrected.model_validate(done.result)
-
-
-@router.post(
-    "/{session_id}/disagreements/{proposal_id}",
-    operation_id="answerAuthoringDisagreement",
-    summary="Choose which answer to use after an evidence disagreement",
-    responses=REFUSES,
-)
-async def answer_disagreement(
-    session_id: str, proposal_id: str, body: AnswerEvidenceQuestion
-) -> AuthoringCorrected:
-    if await run_in_threadpool(_kind_in, session_id, proposal_id) != "disagreement":
-        raise ValueError(coded("MI0205", "that proposal is not an evidence question"))
-    done = await session.act(
-        c.AnswerDisagreement(
-            proposal_id,
-            body.option,
-            body.value,
             identity.default_author(),
             body.expected_decision_revision,
             body.expected_draft_revision,

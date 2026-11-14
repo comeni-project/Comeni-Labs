@@ -55,6 +55,18 @@ def resolve(ctx: ToolContext, _: Nothing) -> ResolvedView:
     before = _LAST.get(ctx.draft_id)
     _LAST[ctx.draft_id] = blueprint
     _project(ctx, blueprint)
+    if ctx.session_id is not None:
+        # **Kept on the session**: what the page draws and marks as the AI's comes from it,
+        # without resolving again on every poll.
+        from mendel_api.models import PipelineAuthoringSession
+        from mendel_authoring.blueprint import Blueprint
+
+        with session_scope() as db:
+            row = db.get(PipelineAuthoringSession, ctx.session_id)
+            if before is None and row.blueprint:
+                before = Blueprint.model_validate(row.blueprint)
+            row.blueprint = blueprint.model_dump(mode="json")
+            row.registry_digest = blueprint.registry
     pipeline = read_pipeline(ctx, Nothing())
     said = diff_of(before, blueprint).sentence() if before is not None else "built the pipeline"
     return ResolvedView(

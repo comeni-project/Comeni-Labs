@@ -585,23 +585,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/pipeline/authoring/{session_id}/proposals/{proposal_id}/alternatives/{option_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Preview Alternative */
-        get: operations["previewAuthoringAlternative"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/pipeline/authoring": {
         parameters: {
             query?: never;
@@ -612,9 +595,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Describe an analysis and start building it
-         * @description An empty draft, a session, the first turn, and one queued model call — the pending reply
-         *     is visible in the response, so the page never shows a blank while the worker starts.
+         * Describe an analysis; the builder agent starts building it
+         * @description An empty draft, a session, the person's words, and the agent's turn queued (#463): the
+         *     pending turn is in the response, so the page shows the agent working at once.
          */
         post: operations["beginAuthoring"];
         delete?: never;
@@ -708,7 +691,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Say something in the conversation */
+        /** Say something to the builder agent */
         post: operations["sayToAuthoring"];
         delete?: never;
         options?: never;
@@ -716,7 +699,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/pipeline/authoring/{session_id}/proposals/{proposal_id}/decide": {
+    "/api/pipeline/authoring/{session_id}/questions/{question_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -725,22 +708,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Accept or reject a goal or a step, or answer a question about your data
-         * @description A deterministic request: the answer is in the response, never behind the queue.
-         *
-         *     A refusal — a stale revision, a moved registry, an option never offered — answers 422 with
-         *     its code, and the session has already recorded whatever the refusal changed (a proposal
-         *     marked stale, a fresh one offered), so the client re-reads rather than retrying blind.
-         */
-        post: operations["decideAuthoringProposal"];
+        /** Answer a question the builder agent asked */
+        post: operations["answerAgentQuestion"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/pipeline/authoring/{session_id}/retry": {
+    "/api/pipeline/authoring/{session_id}/turns/{seq}/retry": {
         parameters: {
             query?: never;
             header?: never;
@@ -749,8 +725,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Try again from where the session failed */
-        post: operations["retryAuthoring"];
+        /** Ask the builder agent again after its turn failed */
+        post: operations["retryAgentTurn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pipeline/authoring/{session_id}/reviewed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say you have looked at what the AI chose */
+        post: operations["reviewAiChoices"];
         delete?: never;
         options?: never;
         head?: never;
@@ -852,23 +845,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/pipeline/authoring/{session_id}/suggestions/{suggestion_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Apply or set aside one of the model's suggestions */
-        post: operations["decideAuthoringSuggestion"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/pipeline/authoring/{session_id}/release-tool": {
         parameters: {
             query?: never;
@@ -880,23 +856,6 @@ export interface paths {
         put?: never;
         /** Let the engine choose a producer again */
         post: operations["releaseAuthoringTool"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/pipeline/authoring/{session_id}/disagreements/{proposal_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Choose which answer to use after an evidence disagreement */
-        post: operations["answerAuthoringDisagreement"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1527,6 +1486,62 @@ export interface components {
             /** Publish Unavailable */
             publish_unavailable?: string | null;
         };
+        /**
+         * AgentAsk
+         * @description A question the agent put to the person, and how it is answered (#463).
+         */
+        AgentAsk: {
+            /** Id */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "ask";
+            /** Question Id */
+            question_id: string;
+            /** Question */
+            question: string;
+            /**
+             * Shape
+             * @enum {string}
+             */
+            shape: "options" | "number" | "yes_no" | "upload" | "text";
+            /**
+             * Options
+             * @default []
+             */
+            options: string[];
+            /**
+             * Unit
+             * @default
+             */
+            unit: string;
+            /** Type Id */
+            type_id?: string | null;
+        };
+        /**
+         * AgentMessage
+         * @description What the builder agent says, in its own words (#463).
+         */
+        AgentMessage: {
+            /** Id */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "message";
+            /** Text */
+            text: string;
+        };
+        /** AiChoiceView */
+        AiChoiceView: {
+            /** Node */
+            node: string;
+            /** What */
+            what: string;
+        };
         /** AiConfigured */
         AiConfigured: {
             /** Configured */
@@ -1586,30 +1601,13 @@ export interface components {
          * @enum {string}
          */
         Alignment: "same" | "differs" | "yours-only" | "mendel-only";
-        /** AlternativePreview */
-        AlternativePreview: {
-            /** Option Id */
-            option_id: string;
-            /** Contract */
-            contract: string;
-            frame: components["schemas"]["CanvasFrame"];
-            observed_context: components["schemas"]["OfferContext"];
-        };
-        /** AnswerEvidenceQuestion */
-        AnswerEvidenceQuestion: {
-            /** Expected Decision Revision */
-            expected_decision_revision: number;
-            /** Expected Draft Revision */
-            expected_draft_revision: number;
-            /** Expected Session Version */
-            expected_session_version: number;
-            /**
-             * Option
-             * @enum {string}
-             */
-            option: "keep_current" | "use_measurement" | "correct" | "unknown";
+        /**
+         * AnswerQuestion
+         * @description The person's answer to the agent's question.
+         */
+        AnswerQuestion: {
             /** Value */
-            value?: number | boolean | string | null | (number | boolean | string | null)[];
+            value: boolean | number | string;
         };
         /**
          * Artifact
@@ -1686,6 +1684,12 @@ export interface components {
             mendel?: components["schemas"]["Call"][];
         };
         /**
+         * Author
+         * @description Who made a choice in the goal: a person, or the builder agent (#463).
+         * @enum {string}
+         */
+        Author: "person" | "model";
+        /**
          * AuthoringCallView
          * @description One model call in the session, for the call panel (#182, #191).
          */
@@ -1731,16 +1735,6 @@ export interface components {
             /** Projection Current */
             projection_current: boolean;
         };
-        /** AuthoringDecided */
-        AuthoringDecided: {
-            phase: components["schemas"]["Phase"];
-            /** Revision */
-            revision: number;
-            /** Next Proposal */
-            next_proposal: string | null;
-            /** Queued */
-            queued: boolean;
-        };
         /**
          * AuthoringDecisionView
          * @description A proposal that has been answered — one collapsed row of the decision log.
@@ -1757,7 +1751,7 @@ export interface components {
             kind: "goal" | "step" | "gap" | "pacing" | "disagreement";
             state: components["schemas"]["ProposalState"];
             /** Block */
-            block: components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"];
+            block: components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"] | components["schemas"]["AgentMessage"] | components["schemas"]["ToolLine"] | components["schemas"]["AgentAsk"];
             /** By */
             by: string | null;
             /** @default unknown */
@@ -1824,7 +1818,7 @@ export interface components {
             /** Draft Revision */
             draft_revision: number;
             /** Block */
-            block: components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"];
+            block: components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"] | components["schemas"]["AgentMessage"] | components["schemas"]["ToolLine"] | components["schemas"]["AgentAsk"];
             /** Options */
             options: string[];
             /**
@@ -1835,11 +1829,10 @@ export interface components {
             /** Asked At */
             asked_at: string;
         };
-        /** AuthoringRetried */
-        AuthoringRetried: {
-            phase: components["schemas"]["Phase"];
-            /** Queued */
-            queued: boolean;
+        /** AuthoringReviewed */
+        AuthoringReviewed: {
+            /** Ai Unreviewed */
+            ai_unreviewed: components["schemas"]["AiChoiceView"][];
         };
         /** AuthoringSaid */
         AuthoringSaid: {
@@ -1958,6 +1951,16 @@ export interface components {
              */
             not_offered: string[];
             pending_proposal: components["schemas"]["AuthoringProposalView"] | null;
+            /**
+             * Working
+             * @default false
+             */
+            working: boolean;
+            /**
+             * Ai Unreviewed
+             * @default []
+             */
+            ai_unreviewed: components["schemas"]["AiChoiceView"][];
         };
         /** AuthoringStarted */
         AuthoringStarted: {
@@ -1997,7 +2000,7 @@ export interface components {
             /** Text */
             text: string;
             /** Blocks */
-            blocks: (components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"])[];
+            blocks: (components["schemas"]["Narrative"] | components["schemas"]["GoalSummary"] | components["schemas"]["Question"] | components["schemas"]["StepProposal"] | components["schemas"]["SettingRequest"] | components["schemas"]["ChangeSet"] | components["schemas"]["Receipt"] | components["schemas"]["Notice"] | components["schemas"]["AgentMessage"] | components["schemas"]["ToolLine"] | components["schemas"]["AgentAsk"])[];
             /** Base Revision */
             base_revision: number;
             /** At */
@@ -2579,32 +2582,6 @@ export interface components {
             measurements?: components["schemas"]["Measured"][];
         };
         /**
-         * DecideProposal
-         * @description An answer to one proposal, against the draft revision the person was looking at.
-         */
-        DecideProposal: {
-            /**
-             * Decision
-             * @enum {string}
-             */
-            decision: "accepted" | "rejected";
-            /** Expected Revision */
-            expected_revision: number;
-            goal?: components["schemas"]["Goal-Input"] | null;
-            /** Option */
-            option?: string | null;
-            /** Value */
-            value?: number | boolean | string | null | (number | boolean | string | null)[];
-        };
-        /** DecideSuggestion */
-        DecideSuggestion: {
-            /**
-             * Decision
-             * @enum {string}
-             */
-            decision: "apply" | "dismiss";
-        };
-        /**
          * DecisionChange
          * @description One change to intent or facts, from any caller — the person's click or edit, the chat
          *     model's reply, a stage's own handler (Part I.0 spec §5.1). `heard` is the person's words it
@@ -2637,6 +2614,8 @@ export interface components {
              * @enum {string}
              */
             actor: "person" | "model";
+            /** Because */
+            because?: string | null;
             /** Invocation Id */
             invocation_id?: string | null;
             /** Observation Id */
@@ -4007,7 +3986,7 @@ export interface components {
          *     surfaces, and it carries a code rather than a provider's message for `GateFailure`'s reason.
          * @enum {string}
          */
-        NoticeKind: "pending" | "refusal" | "stale" | "validation" | "complete";
+        NoticeKind: "pending" | "refusal" | "stale" | "validation" | "complete" | "limit";
         /** OfferContext */
         OfferContext: {
             /** Draft Revision */
@@ -4097,6 +4076,13 @@ export interface components {
             name: string;
             /** Value */
             value: number | boolean | string | null;
+            /** @default person */
+            by: components["schemas"]["Author"];
+            /**
+             * Because
+             * @default
+             */
+            because: string;
         };
         /** ParamView */
         ParamView: {
@@ -4348,6 +4334,13 @@ export interface components {
             site: components["schemas"]["Site-Input"];
             /** Contract */
             contract: string;
+            /** @default person */
+            by: components["schemas"]["Author"];
+            /**
+             * Because
+             * @default
+             */
+            because: string;
         };
         /**
          * ProducerPin
@@ -4359,6 +4352,13 @@ export interface components {
             site: components["schemas"]["Site-Output"];
             /** Contract */
             contract: string;
+            /** @default person */
+            by: components["schemas"]["Author"];
+            /**
+             * Because
+             * @default
+             */
+            because: string;
         };
         /**
          * ProposalState
@@ -4745,6 +4745,14 @@ export interface components {
             type_id: string;
             /** States */
             states?: string[];
+        };
+        /**
+         * ReviewAiChoices
+         * @description The steps whose AI choices the person has looked at, or all of them.
+         */
+        ReviewAiChoices: {
+            /** Nodes */
+            nodes: string[] | "all";
         };
         /** ReviewView */
         ReviewView: {
@@ -5350,6 +5358,31 @@ export interface components {
             makes: string[];
             /** Feeds */
             feeds: string[];
+        };
+        /**
+         * ToolLine
+         * @description One tool the agent called: its name, a line a person reads, whether it worked, and the
+         *     refusal when it did not (#463).
+         */
+        ToolLine: {
+            /** Id */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "tool";
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
         };
         /**
          * TurnState
@@ -6560,53 +6593,6 @@ export interface operations {
             };
         };
     };
-    previewAuthoringAlternative: {
-        parameters: {
-            query: {
-                expected_revision: number;
-                expected_decision_revision: number;
-                expected_session_version: number;
-                expected_registry: string;
-            };
-            header?: never;
-            path: {
-                session_id: string;
-                proposal_id: string;
-                option_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AlternativePreview"];
-                };
-            };
-            /** @description The id in the path names nothing. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Refusal"];
-                };
-            };
-            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Refusal"];
-                };
-            };
-        };
-    };
     beginAuthoring: {
         parameters: {
             query?: never;
@@ -6834,29 +6820,29 @@ export interface operations {
             };
         };
     };
-    decideAuthoringProposal: {
+    answerAgentQuestion: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 session_id: string;
-                proposal_id: string;
+                question_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DecideProposal"];
+                "application/json": components["schemas"]["AnswerQuestion"];
             };
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthoringDecided"];
+                    "application/json": components["schemas"]["AuthoringSaid"];
                 };
             };
             /** @description The id in the path names nothing. */
@@ -6879,7 +6865,48 @@ export interface operations {
             };
         };
     };
-    retryAuthoring: {
+    retryAgentTurn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringSaid"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    reviewAiChoices: {
         parameters: {
             query?: never;
             header?: never;
@@ -6888,7 +6915,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewAiChoices"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6896,7 +6927,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthoringRetried"];
+                    "application/json": components["schemas"]["AuthoringReviewed"];
                 };
             };
             /** @description The id in the path names nothing. */
@@ -7146,51 +7177,6 @@ export interface operations {
             };
         };
     };
-    decideAuthoringSuggestion: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-                suggestion_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DecideSuggestion"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthoringCorrected"] | null;
-                };
-            };
-            /** @description The id in the path names nothing. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Refusal"];
-                };
-            };
-            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Refusal"];
-                };
-            };
-        };
-    };
     releaseAuthoringTool: {
         parameters: {
             query?: never;
@@ -7203,51 +7189,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReleaseToolChoice"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthoringCorrected"];
-                };
-            };
-            /** @description The id in the path names nothing. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Refusal"];
-                };
-            };
-            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Refusal"];
-                };
-            };
-        };
-    };
-    answerAuthoringDisagreement: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-                proposal_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AnswerEvidenceQuestion"];
             };
         };
         responses: {
