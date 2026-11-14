@@ -9,8 +9,17 @@ import pytest
 import yaml
 from comeni_core.artifact.pipeline import Pipeline
 from mendel_resolver import layers
-from mendel_resolver.proposals import MIN_CASES, Case, cases_of, evidence, evidence_digest
-from mendel_resolver.rules import DecisionTarget
+from mendel_resolver.proposals import (
+    MIN_CASES,
+    Case,
+    cases_of,
+    cite_for,
+    evidence,
+    evidence_digest,
+    judge,
+    table_with,
+)
+from mendel_resolver.rules import DecisionRow, DecisionTarget
 
 ROOT = pathlib.Path(__file__).parents[3]
 FIXTURE = ROOT / "tests/fixtures/pipeline-v9/pipeline.yml"
@@ -96,3 +105,69 @@ def test_evidence_needs_three_answers_and_its_digest_is_stable_under_order(regis
     assert evidence_digest(cases) != evidence_digest(cases[:-1])
     assert evidence_digest(cases).startswith("sha256:")
     assert all(isinstance(case, Case) for case in cases)
+
+
+# ---------------- the engine's judge ----------------
+
+ALIGNMENT = DecisionTarget(effect="implementation", of="alignment")
+
+
+def _cases(answers, *, person=True, tier=4):
+    """One case per (pipeline, facts, answer)."""
+    return [Case(target=ALIGNMENT, facts=facts, answer=answer, pipeline=pid,
+                 decision="alignment.bam", by_person=person, tier=tier)
+            for pid, facts, answer in answers]
+
+
+def _rows(*rows):
+    return [DecisionRow(when=when, then=then, because="people chose it") for when, then in rows]
+
+
+def existing_alignment():
+    stack = layers.load(ROOT / "registry")
+    return next(d for d in stack.rules.decisions if d.key() == "implementation:alignment")
+
+
+def test_a_row_agreeing_with_every_answer_is_sound():
+    cases = _cases([(f"p{n}", {"organism": "human"}, STAR) for n in range(3)])
+    new = _rows(({"organism": "human"}, STAR))
+    table = table_with(ALIGNMENT, None, new, cite_for(cases))
+    assert judge(table, new, cases) == []
+    assert table.because == "learned from people's answers"
+    assert [row.cite for row in table.rows] == ["kept pipelines p0, p1, p2, decision alignment.bam"]
+
+
+def test_a_row_overturning_a_person_is_refused_and_names_the_case():
+    cases = _cases([("p0", {}, STAR), ("p1", {}, STAR), ("p2", {}, HISAT2)])
+    new = _rows(({}, STAR))
+    problems = judge(table_with(ALIGNMENT, None, new, cite_for(cases)), new, cases)
+    assert problems == [f"p2 alignment.bam: a person chose {HISAT2}; the table would choose {STAR}"]
+
+
+def test_an_invented_row_is_refused():
+    cases = _cases([(f"p{n}", {"organism": "human"}, STAR) for n in range(3)])
+    new = _rows(({"organism": "human"}, STAR), ({"organism": "mouse"}, HISAT2))
+    problems = judge(table_with(ALIGNMENT, None, new, cite_for(cases)), new, cases)
+    assert problems == ["row 2 matches none of the answers it was drafted from"]
+
+
+def test_existing_rows_stay_first():
+    existing = existing_alignment()
+    cases = _cases([(f"p{n}", {"read_length": 150}, STAR) for n in range(3)])
+    new = _rows(({"read_length": ">= 100"}, STAR))
+    table = table_with(ALIGNMENT, existing, new, cite_for(cases))
+    assert table.rows[:2] == existing.rows and table.rows[2].when == {"read_length": ">= 100"}
+    assert table.because == existing.because
+    assert judge(table, new, cases) == [
+        "row 1 never fires: an earlier row settles every case it matches"]
+
+
+def test_a_threshold_row_is_judged_by_its_comparison():
+    cases = _cases([("p0", {"organism": "human", "insert": 300}, STAR),
+                    ("p1", {"organism": "human", "insert": 250}, STAR),
+                    ("p2", {"organism": "human", "insert": 90}, HISAT2)])
+    sound = _rows(({"insert": ">= 100"}, STAR), ({"insert": "< 100"}, HISAT2))
+    assert judge(table_with(ALIGNMENT, None, sound, cite_for(cases)), sound, cases) == []
+    loose = _rows(({"insert": ">= 50"}, STAR))
+    assert judge(table_with(ALIGNMENT, None, loose, cite_for(cases)), loose, cases) == [
+        f"p2 alignment.bam: a person chose {HISAT2}; the table would choose {STAR}"]

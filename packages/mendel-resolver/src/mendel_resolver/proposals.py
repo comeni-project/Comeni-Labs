@@ -16,11 +16,12 @@ from collections import defaultdict
 
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.declared.registry import Registry
+from comeni_core.logic.when import matches
 from comeni_core.plan.decision import DecisionKind
 from comeni_core.spell.marks import ParamValue
 from pydantic import BaseModel, ConfigDict
 
-from mendel_resolver.rules.format import DecisionTarget, Effect
+from mendel_resolver.rules.format import Decision, DecisionRow, DecisionTarget, Effect
 
 MIN_CASES = 3
 """How many people's answers to one question it takes before the model is asked for a rule.
@@ -128,3 +129,82 @@ def evidence_digest(cases: list[Case]) -> str:
     when it moves."""
     rows = sorted(json.dumps(case.model_dump(mode="json"), sort_keys=True) for case in cases)
     return "sha256:" + hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
+# ---------------- the engine's judge ----------------
+
+LEARNED = "learned from people's answers"
+
+
+class _Fact(BaseModel):
+    """A recorded fact as a rule reads it: only its value matters here."""
+
+    model_config = ConfigDict(frozen=True)
+
+    value: ParamValue
+
+
+def _premises(case: Case) -> dict[str, _Fact]:
+    return {name: _Fact(value=value) for name, value in case.facts.items()}
+
+
+def cite_for(cases: list[Case]) -> str:
+    """The citation a learned row carries, set by the engine and never by the model."""
+    pipelines = ", ".join(sorted({case.pipeline for case in cases}))
+    decisions = ", ".join(sorted({case.decision for case in cases}))
+    return f"kept pipelines {pipelines}, decision {decisions}"
+
+
+def table_with(target: DecisionTarget, existing: Decision | None, rows: list[DecisionRow],
+               cite: str) -> Decision:
+    """The table a proposal would put in force: the existing rows first, then the new ones.
+
+    Appended, because the question was asked only where every existing row missed (`hit:
+    first`), so the new rows only ever fire there."""
+    cited = [row.model_copy(update={"cite": cite}) for row in rows]
+    if existing is None:
+        return Decision(decides=target, rows=cited, because=LEARNED)
+    return existing.model_copy(update={"rows": [*existing.rows, *cited]})
+
+
+def _first(table: Decision, case: Case) -> tuple[int, ParamValue] | None:
+    """The index of the first row of `table` that fires on this case's facts, and its value."""
+    premises = _premises(case)
+    for index, row in enumerate(table.rows):
+        gives, value = row.value(premises)
+        if gives and matches(row.when, premises):
+            return index, value
+    return None
+
+
+def judge(table: Decision, new: list[DecisionRow], cases: list[Case]) -> list[str]:
+    """What is wrong with putting `table` in force, given the answers its `new` rows were drafted
+    from. Empty when it is sound.
+
+    - **Contradiction:** a person's answer the table would overturn.
+    - **Unsupported:** a new row no answer reaches; the model may not invent support.
+    - **Shadowed:** a new row an earlier row always beats.
+    """
+    answers = [case for case in cases if case.evidence]
+    start = len(table.rows) - len(new)
+    problems = []
+    fired: dict[int, list[Case]] = {}
+    for case in answers:
+        try:
+            first = _first(table, case)
+        except ValueError as exc:
+            return [str(exc)]
+        if first is None:
+            continue
+        index, value = first
+        fired.setdefault(index, []).append(case)
+        if value != case.answer:
+            problems.append(f"{case.pipeline} {case.decision}: a person chose {case.answer}; "
+                            f"the table would choose {value}")
+    for n, row in enumerate(table.rows[start:], start=1):
+        reached = [case for case in answers if matches(row.when, _premises(case))]
+        if not reached:
+            problems.append(f"row {n} matches none of the answers it was drafted from")
+        elif not fired.get(start + n - 1):
+            problems.append(f"row {n} never fires: an earlier row settles every case it matches")
+    return problems
