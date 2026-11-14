@@ -1,5 +1,5 @@
 import type { AuthoringSession } from "../../api/types";
-import { processName } from "./format";
+import { processName, stepsInOrder } from "./format";
 import { stageOf } from "./stage";
 
 /** **The plan, slim, pinned above the conversation** (one builder plan 3): the steps decided, the
@@ -13,9 +13,9 @@ export function StepStrip({ session, selected, onSelect, planOpen = false, onTog
   planOpen?: boolean;
   onTogglePlan?: () => void;
 }) {
-  const decided = session.history
-    .filter((d) => d.block.kind === "step_proposal" && d.state === "accepted")
-    .map((d) => (d.block.kind === "step_proposal" ? d.block.node : ""));
+  // Once each, as the hand-over lists them (issue 496): a review accepts a step again.
+  const decided = stepsInOrder(session).filter((node) => session.history.some(
+    (d) => d.state === "accepted" && d.block.kind === "step_proposal" && d.block.node === node));
   const pending = session.pending_proposal;
   const offered = pending?.block.kind === "step_proposal" ? pending.block.node : null;
   const later = offered ? (session.progress?.upcoming ?? []).map((s) => s.node) : [];
@@ -28,7 +28,7 @@ export function StepStrip({ session, selected, onSelect, planOpen = false, onTog
   return (
     <nav aria-label="the plan"
          className="flex items-center gap-[6px] px-[16px] py-[10px] border-b border-line text-[12px] text-ink-2
-                    overflow-x-auto whitespace-nowrap">
+                    overflow-x-auto whitespace-nowrap no-scrollbar">
       {describing ? (
         <span><span className="font-semibold text-now-ink">Describing</span> · then you choose how to build</span>
       ) : steps.map(({ node, state }) => (

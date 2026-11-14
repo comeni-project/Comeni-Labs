@@ -418,7 +418,7 @@ export function LivingSurface({
           {/* **The canvas, or what was understood** (one builder plan 3): the record the Step tab
               held, one switch away. */}
           <div role="radiogroup" aria-label="beside the conversation"
-               className="flex gap-1 mx-4 mt-3 self-start p-1 rounded-button" style={{ background: "var(--paper)" }}>
+               className="beside-switch flex gap-1 mx-4 mt-3 self-start p-1 rounded-button" style={{ background: "var(--paper)" }}>
             {(["canvas", "understood"] as const).map((name) => (
               <button key={name} type="button" role="radio" aria-checked={left === name} onClick={() => setLeft(name)}
                       className={`px-3 py-[4px] rounded-control border text-[12.5px] cursor-pointer
@@ -478,6 +478,7 @@ export function LivingSurface({
                inert={showing || left === "understood" ? true : undefined} data-testid="build-canvas"
                style={left === "understood" ? { display: "none" } : undefined}>
           <LivingCanvas
+            shown={`${pane}:${view}:${left}`}
             empty={session.phase === "stopped"
               ? "This analysis stopped before anything was built — see why on the right"
               : undefined}

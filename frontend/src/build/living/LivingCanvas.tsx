@@ -65,6 +65,7 @@ export function LivingCanvas({
   working = false,
   focus = null,
   onEdit,
+  shown,
 }: {
   graph: DraftGraph;
   /** The node id of the step on offer, when there is one. */
@@ -97,6 +98,8 @@ export function LivingCanvas({
   focus?: string | null;
   /** A hand edit, as the whole next graph. Absent where the canvas is a preview. */
   onEdit?: (next: DraftGraph) => void;
+  /** Changes when the page shows the canvas again (a phone's tab); the canvas fits itself then. */
+  shown?: string;
 }) {
   const view = useView();
   const probe = useRef<HTMLSpanElement>(null);
@@ -235,6 +238,20 @@ export function LivingCanvas({
     const rect = frame.getBoundingClientRect();
     view.fit(right - left, bottom - top, rect.width, rect.height - 96, { x: left, y: top - 40 });
   };
+  // **Fitted again when it is shown again** (issue 496): on a phone the canvas is a tab, laid out
+  // while hidden, and opened cut off. The page says when it is shown (`shown`); a person who has
+  // panned or zoomed keeps their view. Following the engine still only pans.
+  const touched = useRef(false);
+  const fitLatest = useRef(fitView);
+  fitLatest.current = fitView;
+  const firstShown = useRef(shown);
+  useEffect(() => {
+    if (shown === firstShown.current || touched.current) return;
+    fitLatest.current();
+  }, [shown]);
+  const moving = (e: React.SyntheticEvent) => {
+    if (!(e.target as HTMLElement).closest("[data-node]")) touched.current = true;
+  };
   const width = Math.max(0, ...ids.map((id) => (at[id]?.x ?? 0) + NODE_W + 80));
   const height = Math.max(
     0,
@@ -259,8 +276,8 @@ export function LivingCanvas({
   return (
     <Canvas
       view={view.view}
-      onWheel={view.onWheel}
-      onPointerDown={view.onPointerDown}
+      onWheel={(e) => { touched.current = true; view.onWheel(e); }}
+      onPointerDown={(e) => { moving(e); view.onPointerDown(e); }}
       dots
       onClick={(e) => {
         if (!(e.target as HTMLElement).closest("[data-node]")) onSelect(null);
@@ -297,10 +314,10 @@ export function LivingCanvas({
           {/* One wrapping row: where the legend cannot sit beside the controls it goes above them. */}
           <div className="absolute left-4 right-4 bottom-4 flex flex-wrap-reverse items-end gap-2 pointer-events-none
                           [&>*]:pointer-events-auto">
-            <button type="button" onClick={fitView} className={CONTROL}>Fit</button>
-            <button type="button" aria-label="zoom out" onClick={() => view.nudge(-0.1)} className={CONTROL}>−</button>
-            <button type="button" aria-label="zoom in" onClick={() => view.nudge(0.1)} className={CONTROL}>+</button>
-            <button type="button" aria-label="reset the view" onClick={view.reset} className={CONTROL}>1:1</button>
+            <button type="button" onClick={() => { touched.current = false; fitView(); }} className={CONTROL}>Fit</button>
+            <button type="button" aria-label="zoom out" onClick={() => { touched.current = true; view.nudge(-0.1); }} className={CONTROL}>−</button>
+            <button type="button" aria-label="zoom in" onClick={() => { touched.current = true; view.nudge(0.1); }} className={CONTROL}>+</button>
+            <button type="button" aria-label="reset the view" onClick={() => { touched.current = true; view.reset(); }} className={CONTROL}>1:1</button>
             {footer}
             {Object.keys(moved).length > 0 && (
               <button type="button" data-testid="tidy" onClick={() => setMoved({})} className={CONTROL}>
