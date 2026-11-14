@@ -2967,6 +2967,10 @@ export interface components {
             pipeline: string;
             /** Decision */
             decision: string;
+            /** Facts */
+            facts: {
+                [key: string]: number | boolean | string | null;
+            };
             /** Answer */
             answer: number | boolean | string | null;
             /** Reason */
@@ -3416,6 +3420,8 @@ export interface components {
             rows: {
                 [key: string]: components["schemas"]["JsonValue"];
             }[];
+            /** Learned */
+            learned: boolean[];
             /** Approved By */
             approved_by: string | null;
             /** Approved At */

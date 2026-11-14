@@ -14,6 +14,7 @@ differently.
 """
 
 import logging
+import os
 import secrets
 import shutil
 import tempfile
@@ -94,7 +95,9 @@ kept = _cases_for
 
 
 def slug(target_key: str) -> str:
-    return target_key.replace(":", "-").replace(".", "-")
+    """The learned file's name. Only `:` is replaced: roles and setting names hold no `-`, so
+    two targets never share a file."""
+    return target_key.replace(":", "-")
 
 
 def in_force(target_key: str) -> Decision | None:
@@ -197,14 +200,12 @@ def _file(table: Decision, header: list[str]) -> str:
 
 def _table(row: RuleProposal) -> Decision:
     """The table this proposal puts in force: the one in force now, then its rows (stored cited
-    and narrowed by the engine). Once approved, the table in force already ends with them."""
+    and narrowed by the engine). Read only for an open proposal."""
     stored = [DecisionRow.model_validate(r) for r in row.rows]
     existing = in_force(row.target_key)
     if existing is None:
         return Decision(decides=DecisionTarget.model_validate(row.target), rows=stored,
                         because=LEARNED_BECAUSE)
-    if stored and existing.rows[-len(stored):] == stored:
-        return existing
     return existing.model_copy(update={"rows": [*existing.rows, *stored]})
 
 
@@ -237,12 +238,28 @@ def check(row: RuleProposal) -> list[str]:
     return []
 
 
+_checks: dict[tuple, list[str]] = {}
+
+
+def _checked(row: RuleProposal) -> list[str]:
+    """`check`, remembered while the kept pipelines and the registry stay as they are: the page
+    reads every open proposal on each load. Approving always checks again."""
+    key = (row.id, _kept_rows(), registry.digest())
+    if key not in _checks:
+        if len(_checks) > 64:
+            _checks.clear()
+        _checks[key] = check(row)
+    return _checks[key]
+
+
 # ── the view ─────────────────────────────────────────────────────────────────────────────────
 
 
 class EvidenceView(BaseModel):
     pipeline: str
     decision: str
+    facts: dict[str, ParamValue]
+    """The study facts the person answered on."""
     answer: ParamValue
     reason: str
 
@@ -276,6 +293,8 @@ class InUseView(BaseModel):
     target_key: str
     target: str
     rows: list[dict[str, JsonValue]]
+    learned: list[bool]
+    """Per row: learned from people's answers, or a row of the release the file copies."""
     approved_by: str | None
     approved_at: datetime | None
     proposal: str | None
@@ -316,9 +335,9 @@ def read() -> ProposalsView:
                 id=row.id, target_key=row.target_key, target=words(target), rows=row.rows,
                 why=row.why, model=_model_of(session, row.invocation),
                 invocation=row.invocation,
-                evidence=[EvidenceView(pipeline=c.pipeline, decision=c.decision,
+                evidence=[EvidenceView(pipeline=c.pipeline, decision=c.decision, facts=c.facts,
                                        answer=c.answer, reason=c.reason) for c in found],
-                check=check(row),
+                check=_checked(row),
                 replay=replay(table, new, [c for c in every if c.target_key == row.target_key]),
                 stale=evidence_digest(found) != row.evidence_digest,
                 created_at=row.created_at))
@@ -335,6 +354,7 @@ def read() -> ProposalsView:
             in_use.append(InUseView(
                 slug=path.stem, target_key=target.key(), target=words(target),
                 rows=[r.model_dump(mode="json", exclude_none=True) for r in decision.rows],
+                learned=[(r.cite or "").startswith("kept pipelines ") for r in decision.rows],
                 approved_by=row.decided_by if row else None,
                 approved_at=row.decided_at if row else None, proposal=row.id if row else None))
     return ProposalsView(proposals=open_, refused=refused, in_use=in_use,
@@ -348,37 +368,52 @@ def _cannot(why: str) -> Refused:
     return Refused(coded("MI0500", f"a rule proposal cannot be approved as it stands: {why}"))
 
 
+def _supersede(session, target_key: str) -> None:
+    session.execute(sa.update(RuleProposal)
+                    .where(RuleProposal.target_key == target_key,
+                           RuleProposal.status == "approved")
+                    .values(status="superseded"))
+
+
 def approve(proposal_id: str, by: str) -> ProposalsView:
-    """Write the table this proposal puts in force to the installation's own layer."""
-    with db.session_scope() as session:
-        row = session.get(RuleProposal, proposal_id)
-        if row is None:
-            raise KeyError(proposal_id)
-        if row.status != "proposed":
-            raise _cannot(f"it is {row.status}")
-        found = evidence(cases()).get(row.target_key, [])
-        if evidence_digest(found) != row.evidence_digest:
-            raise _cannot("people have answered since it was proposed; choose Propose again")
-        problems = check(row)
-        if problems:
-            raise _cannot(problems[0])
-        table = _table(row)
-        now = datetime.now(UTC)
-        header = [
-            f"Learned from people's answers (#462): approved by {by} on {now:%Y-%m-%d}.",
-            f"Proposed by a model (ai_invocation {row.invocation}); checked by the engine.",
-            "Evidence: kept pipelines " + ", ".join(sorted({c.pipeline for c in found})) + ".",
-            "Withdraw it on the Learned rules page; edit it as any rule.",
-        ]
-        layer = registry.ensure_own_layer()
-        path = layer / LEARNED / f"{slug(row.target_key)}.yml"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(_file(table, header))
-        session.execute(sa.update(RuleProposal)
-                        .where(RuleProposal.target_key == row.target_key,
-                               RuleProposal.status == "approved")
-                        .values(status="superseded"))
-        row.status, row.decided_by, row.decided_at = "approved", by, now
+    """Write the table this proposal puts in force to the installation's own layer.
+
+    The row is locked while it is judged. The file is written beside its place and renamed into
+    it once the approval is committed, so a failure leaves neither a file nor an approval."""
+    pending: Path | None = None
+    try:
+        with db.session_scope() as session:
+            row = session.get(RuleProposal, proposal_id, with_for_update=True)
+            if row is None:
+                raise KeyError(proposal_id)
+            if row.status != "proposed":
+                raise _cannot(f"it is {row.status}")
+            found = evidence(cases()).get(row.target_key, [])
+            if evidence_digest(found) != row.evidence_digest:
+                raise _cannot("people have answered since it was proposed; choose Propose again")
+            problems = check(row)
+            if problems:
+                raise _cannot(problems[0])
+            now = datetime.now(UTC)
+            header = [
+                f"Learned from people's answers (#462): approved by {by} on {now:%Y-%m-%d}.",
+                f"Proposed by a model (ai_invocation {row.invocation}); checked by the engine.",
+                "Evidence: kept pipelines " + ", ".join(sorted({c.pipeline for c in found}))
+                + ".",
+                "Withdraw it on the Learned rules page; edit it as any rule.",
+            ]
+            path = registry.ensure_own_layer() / LEARNED / f"{slug(row.target_key)}.yml"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            pending = path.with_name(f".{path.name}.pending")
+            pending.write_text(_file(_table(row), header))
+            _supersede(session, row.target_key)
+            row.status, row.decided_by, row.decided_at = "approved", by, now
+        os.replace(pending, path)
+        pending = None
+    finally:
+        if pending is not None:
+            pending.unlink(missing_ok=True)
+            registry.retire_own_layer_if_empty()
     return read()
 
 
@@ -394,15 +429,17 @@ def reject(proposal_id: str, by: str) -> ProposalsView:
 
 
 def withdraw(name: str, by: str) -> ProposalsView:
-    """Remove a learned table: the question it settled is asked again."""
+    """Remove a learned table: the question it settled is asked again. The file goes once the
+    withdrawal is committed."""
     path = own_layer() / LEARNED / f"{name}.yml"
     if "/" in name or not path.is_file():
         raise KeyError(name)
-    path.unlink()
-    registry.retire_own_layer_if_empty()
     with db.session_scope() as session:
         for row in session.scalars(sa.select(RuleProposal)
-                                   .where(RuleProposal.status == "approved")).all():
+                                   .where(RuleProposal.status == "approved")
+                                   .with_for_update()).all():
             if slug(row.target_key) == name:
                 row.status, row.decided_by, row.decided_at = "withdrawn", by, datetime.now(UTC)
+    path.unlink()
+    registry.retire_own_layer_if_empty()
     return read()

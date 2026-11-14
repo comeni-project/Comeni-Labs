@@ -264,3 +264,48 @@ def test_a_fact_no_case_can_carry_is_not_narrowed():
     new = _rows(({"paired": True}, HISAT2))
     table = table_with(ALIGNMENT, existing, new, "c", cases=cases, carried={"paired"})
     assert table.rows[1].when == {"paired": True}
+
+
+# ---------------- deferred minors (issue 489) ----------------
+
+
+def test_true_is_not_one():
+    """`True == 1` in Python; a person's yes is not a rule's 1."""
+    target = DecisionTarget(effect="param", of="bam_sorting", name="index_format",
+                            when_implementation=[SORT])
+    cases = [Case(target=target, facts={}, answer=True, pipeline=f"p{n}",
+                  decision="samtools_sort.index_format", by_person=True, tier=4)
+             for n in range(3)]
+    new = _rows(({}, 1))
+    table = table_with(target, None, new, "c")
+    assert judge(table, new, cases) == [
+        f"p{n} samtools_sort.index_format: a person chose True; the table would choose 1"
+        for n in range(3)]
+    assert [r.agrees for r in replay(table, new, cases)] == [False, False, False]
+
+
+def test_a_persons_override_of_a_rule_that_a_new_row_would_change_is_refused():
+    """A person overrode a settled answer (tier 3); the new row would overturn them."""
+    cases = _cases([(f"p{n}", {"organism": "human"}, STAR) for n in range(3)])
+    cases += _cases([("p9", {"organism": "human"}, HISAT2)], tier=3)
+    new = _rows(({"organism": "human"}, STAR))
+    assert judge(table_with(ALIGNMENT, None, new, "c"), new, cases) == [
+        f"p9 alignment.bam: a person chose {HISAT2}; the table would choose {STAR}"]
+
+
+def test_a_persons_override_an_existing_row_settles_is_not_the_proposals_fault():
+    cases = _cases([("p9", {"read_length": 150}, HISAT2)], tier=3)
+    cases += _cases([(f"q{n}", {"organism": "human"}, STAR) for n in range(3)])
+    new = _rows(({"organism": "human"}, STAR))
+    table = table_with(ALIGNMENT, existing_alignment(), new, "c", cases=cases)
+    assert judge(table, table.rows[2:], cases) == []
+
+
+def test_an_existing_row_overturning_an_answer_says_it_is_already_in_force():
+    existing = Decision(decides=ALIGNMENT, rows=_rows(({}, STAR)))
+    cases = _cases([(f"p{n}", {"paired": True}, HISAT2) for n in range(3)])
+    new = _rows(({"paired": True}, HISAT2))
+    problems = judge(table_with(ALIGNMENT, existing, new, "c"), new, cases)
+    assert problems[:3] == [
+        f"p{n} alignment.bam: a person chose {HISAT2}; row 1, already in force, would choose "
+        f"{STAR}: change that row before a rule is learned" for n in range(3)]

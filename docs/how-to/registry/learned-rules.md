@@ -50,5 +50,11 @@ answer where those rows could not.
 - **Reject** sets it aside. The question is not proposed again until people answer it again.
 - **Withdraw**, under **In use**, removes the file. The question is asked again in the next build.
 
+The file holds the whole table for that question: the release's rows first, then the learned
+ones. **In use** marks each row as learned or from the release. The file replaces the release's
+table, so a later release that changes those rows stays hidden behind it. After you update the
+release, withdraw the rule if the release's new rows should apply. It is proposed again once
+people answer the question again.
+
 The layer is an ordinary registry layer: review, edit or version it like
 [your lab's own layer](add-layer.md). Set `MENDEL_OWN_LAYER` to put it somewhere else.

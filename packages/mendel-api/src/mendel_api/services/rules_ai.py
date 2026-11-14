@@ -28,7 +28,7 @@ from comeni_core.egress.rules import (
     RuleProposalRequest,
     RuleTarget,
 )
-from mendel_resolver.proposals import Case, cite_for, judge, table_with
+from mendel_resolver.proposals import Case, cite_for, judge, same, table_with
 from mendel_resolver.rules import Decision, DecisionRow, DecisionTarget
 from pydantic import ValidationError
 
@@ -175,7 +175,7 @@ def _rows(reply: ProposalReply, facts: list[FactKind],
             continue
         problems += [f"row {n} tests {fact}, which is not one of the facts given"
                      for fact in sorted(set(row.when) - allowed)]
-        if row.then not in answers:
+        if not any(same(row.then, answer) for answer in answers):
             problems.append(f"row {n}: {row.then} is not one of the legal answers")
         rows.append(row)
     return rows, problems
@@ -186,7 +186,8 @@ def propose(target: DecisionTarget, existing: Decision | None, cases: list[Case]
             *, evidence: str = "") -> tuple[list[DecisionRow], str, str | None, list[str]]:
     """Ask for rows, checked where they arrive: the rows (cited and narrowed by the engine), the
     model's `why`, the last invocation's id, and the problems a refused reply left. `([], why,
-    id, [])` is the model saying the answers hold no rule."""
+    id, [])` is the model saying the answers hold no rule; `([], "", None, [why])` is no model
+    set, or a model that never answered (a timeout), so nothing is stored and it is asked again."""
     client = client or _client()
     if client is None:
         return [], "", None, [NO_MODEL]
@@ -202,6 +203,8 @@ def propose(target: DecisionTarget, existing: Decision | None, cases: list[Case]
         invocation = _record(rendered.digest, client, started, evidence, ok=reply is not None)
         if reply is None:
             problems = [getattr(client, "last_refusal", None) or "the reply did not fit its shape"]
+            if getattr(client, "last_response", None) is None:
+                return [], "", None, problems
             continue
         if not reply.rows:
             return [], reply.why, invocation, []

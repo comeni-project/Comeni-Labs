@@ -125,6 +125,7 @@ function Proposal({ proposal }: { proposal: ProposalView }) {
             {proposal.evidence.map((e) => (
               <li key={`${e.pipeline}-${e.decision}`} className="break-words">
                 <span className="font-data">{e.pipeline}</span>: a person chose <span className="font-data">{value(e.answer)}</span>
+                {Object.keys(e.facts).length > 0 && <span> on {Object.entries(e.facts).map(([k, v]) => test(k, v)).join(", ")}</span>}
                 {e.reason && <span className="text-ink-2"> ({e.reason})</span>}
               </li>
             ))}
@@ -177,7 +178,14 @@ function InUse({ rules }: { rules: InUseView[] }) {
             {rules.map((r) => (
               <li key={r.slug} className="px-5 py-3 border-t border-line-soft first:border-t-0 text-[13px] flex flex-col gap-1">
                 <span className="font-semibold">{r.target}</span>
-                {(r.rows as Row[]).map((row, n) => <span key={n} className="font-data break-words">{rowWords(row)}</span>)}
+                <ul className="m-0 p-0 list-none flex flex-col gap-1">
+                  {(r.rows as Row[]).map((row, n) => (
+                    <li key={n} className={`flex flex-col ${r.learned[n] ? "" : "text-ink-3"}`}>
+                      <span className="font-data break-words">{rowWords(row)}</span>
+                      <span className="text-[12px] text-ink-3">{r.learned[n] ? "learned" : "from the release"}</span>
+                    </li>
+                  ))}
+                </ul>
                 {r.approved_by && <span className="text-ink-3">approved by {r.approved_by}</span>}
                 <button type="button" className="control self-start" disabled={verb.isPending}
                         onClick={() => verb.mutate(`/rules/learned/${r.slug}/withdraw`)}>

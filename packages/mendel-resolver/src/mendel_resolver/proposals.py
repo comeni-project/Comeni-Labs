@@ -189,6 +189,11 @@ def table_with(target: DecisionTarget, existing: Decision | None, rows: list[Dec
     return existing.model_copy(update={"rows": [*existing.rows, *cited]})
 
 
+def same(a: ParamValue, b: ParamValue) -> bool:
+    """Equal and of one kind: `True == 1` in Python, but a person's yes is not a rule's 1."""
+    return a == b and isinstance(a, bool) == isinstance(b, bool)
+
+
 def _first(table: Decision, case: Case) -> tuple[int, ParamValue] | None:
     """The index of the first row of `table` that fires on this case's facts, and its value."""
     premises = _premises(case)
@@ -203,7 +208,9 @@ def judge(table: Decision, new: list[DecisionRow], cases: list[Case]) -> list[st
     """What is wrong with putting `table` in force, given the answers its `new` rows were drafted
     from. Empty when it is sound.
 
-    - **Contradiction:** a person's answer the table would overturn.
+    - **Contradiction:** a person's answer the table would overturn: any tier-4 answer, and a
+      person's override of a settled answer where a new row fires. An existing row that
+      overturns a tier-4 answer is named as already in force, since the proposal cannot fix it.
     - **Unsupported:** a new row no answer reaches; the model may not invent support.
     - **Shadowed:** a new row an earlier row always beats.
     """
@@ -227,7 +234,9 @@ def judge(table: Decision, new: list[DecisionRow], cases: list[Case]) -> list[st
                 return [f"row {n} cannot be evaluated: {exc}"]
     problems = []
     fired: dict[int, list[Case]] = {}
-    for case in answers:
+    overrides = [case for case in cases
+                 if case.by_person and not case.evidence and case.target in targets]
+    for case in [*answers, *overrides]:
         try:
             first = _first(table, case)
         except (ValueError, TypeError) as exc:
@@ -235,10 +244,16 @@ def judge(table: Decision, new: list[DecisionRow], cases: list[Case]) -> list[st
         if first is None:
             continue
         index, value = first
-        fired.setdefault(index, []).append(case)
-        if value != case.answer:
-            problems.append(f"{case.pipeline} {case.decision}: a person chose {case.answer}; "
-                            f"the table would choose {value}")
+        if case.evidence:
+            fired.setdefault(index, []).append(case)
+        elif index < start:
+            continue  # the person overrode a row already in force; not this proposal's doing
+        if same(value, case.answer):
+            continue
+        chose = f"{case.pipeline} {case.decision}: a person chose {case.answer}; "
+        problems.append(chose + (f"row {index + 1}, already in force, would choose {value}: "
+                                 "change that row before a rule is learned" if index < start
+                                 else f"the table would choose {value}"))
     for n, row in enumerate(table.rows[start:], start=1):
         reached = [case for case in answers if matches(row.when, _premises(case))]
         if not reached:
@@ -281,5 +296,5 @@ def replay(table: Decision, new: list[DecisionRow], cases: list[Case]) -> list[R
             continue
         found.append(Replayed(pipeline=case.pipeline, decision=case.decision,
                               recorded=case.answer, would=first[1],
-                              agrees=first[1] == case.answer, by_person=case.by_person))
+                              agrees=same(first[1], case.answer), by_person=case.by_person))
     return sorted(found, key=lambda r: (r.agrees, r.pipeline, r.decision))

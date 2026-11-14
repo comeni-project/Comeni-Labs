@@ -164,3 +164,35 @@ def test_a_malformed_test_is_sent_back_not_raised():
     bad = {"rows": [_row({"paired": {"in": 5}}, HISAT2)], "why": "x"}
     rows, _, _, problems = _ask(cases, Model(bad, bad))
     assert rows == [] and problems and problems[0].startswith("row 1 cannot be evaluated")
+
+
+def test_a_then_of_one_is_not_the_legal_answer_true():
+    """Issue 489: `1 in [False, True]` is true in Python."""
+    target = DecisionTarget(effect="param", of="bam_sorting", name="index_format",
+                            when_implementation=["nf-core/samtools/sort@1.24"])
+    cases = [Case(target=target, facts={"paired": True}, answer=True, pipeline=f"p{n}",
+                  decision="samtools_sort.index_format", by_person=True, tier=4)
+             for n in range(3)]
+    bad = {"rows": [_row({"paired": True}, 1)], "why": "x"}
+    facts = rules_ai.fact_kinds(cases, None, registry.stack().measurements)
+    rows, _, _, problems = rules_ai.propose(target, None, cases, facts, [False, True],
+                                            Model(bad, bad))
+    assert rows == [] and problems == ["row 1: 1 is not one of the legal answers"]
+
+
+class Unreachable(Model):
+    """The provider timed out: no reply arrived at all."""
+
+    def respond(self, prompt, shape, choices=None):
+        self.prompts.append(prompt)
+        self.last_prompt, self.last_response = prompt, None
+        self.last_refusal = "the model did not answer in time"
+        return None
+
+
+def test_a_model_that_never_answered_leaves_nothing_to_store():
+    """Issue 489: a timeout is not the model refusing; the target is asked again next time."""
+    model = Unreachable()
+    rows, _, invocation, problems = _ask(_cases([({"paired": True}, HISAT2)] * 3), model)
+    assert (rows, invocation) == ([], None) and len(model.prompts) == 1
+    assert problems == ["the model did not answer in time"]

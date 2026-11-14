@@ -14,9 +14,9 @@ const PROPOSAL = {
            because: "our runs are paired", cite: "kept pipelines a, b, c, decision alignment.bam" }],
   why: "every person chose HISAT2 on paired reads", model: "fake/rules", invocation: "inv1",
   evidence: [
-    { pipeline: "a", decision: "alignment.bam", answer: HISAT2, reason: "short reads here" },
-    { pipeline: "b", decision: "alignment.bam", answer: HISAT2, reason: "" },
-    { pipeline: "c", decision: "alignment.bam", answer: HISAT2, reason: "" },
+    { pipeline: "a", decision: "alignment.bam", facts: { paired: true }, answer: HISAT2, reason: "short reads here" },
+    { pipeline: "b", decision: "alignment.bam", facts: { paired: true }, answer: HISAT2, reason: "" },
+    { pipeline: "c", decision: "alignment.bam", facts: { paired: true }, answer: HISAT2, reason: "" },
   ],
   check: [],
   replay: [
@@ -28,7 +28,9 @@ const PROPOSAL = {
 };
 const PAGE = { proposals: [PROPOSAL], refused: [], in_use: [], running: false, model: true };
 const IN_USE = { slug: "implementation-alignment", target_key: "implementation:alignment",
-                 target: "Which tool fills alignment", rows: PROPOSAL.rows,
+                 target: "Which tool fills alignment",
+                 rows: [{ when: { read_length: ">= 50" }, then: STAR, cite: "Dobin 2013" }, ...PROPOSAL.rows],
+                 learned: [false, true],
                  approved_by: "rafael", approved_at: "2026-11-14T11:00:00Z", proposal: "p1" };
 
 function at(body: object) {
@@ -94,4 +96,16 @@ it("Withdraw posts", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Withdraw" }));
   await vi.waitFor(() => expect(calls.some((c) => c.method === "POST"
     && c.url.endsWith("/rules/learned/implementation-alignment/withdraw"))).toBe(true));
+});
+
+it("evidence says the facts each person answered on", async () => {
+  at(PAGE);
+  expect((await screen.findAllByText(/on paired is yes/)).length).toBe(3);
+});
+
+it("in use marks the release's rows apart from the learned ones", async () => {
+  at({ ...PAGE, proposals: [], in_use: [IN_USE] });
+  const release = await screen.findByText(/read length ≥ 50/);
+  expect(release.closest("li")?.textContent).toContain("from the release");
+  expect(screen.getByText(/When paired is yes/).closest("li")?.textContent).toContain("learned");
 });

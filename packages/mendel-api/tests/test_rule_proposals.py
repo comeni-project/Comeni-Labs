@@ -282,3 +282,71 @@ def test_withdrawing_the_last_learned_rule_takes_the_layer_out_of_the_stack(thre
     assert len(registry_roots()) == 2
     proposals.withdraw(SLUG, "rafael")
     assert len(registry_roots()) == 1
+
+
+# ---------------- deferred minors (issue 489) ----------------
+
+
+def test_in_use_marks_which_rows_were_learned(three):
+    """The learned file holds the whole table; the release's rows in it are not learned."""
+    proposals.run(Model())
+    (proposal,) = proposals.read().proposals
+    proposals.approve(proposal.id, "rafael")
+    (used,) = proposals.read().in_use
+    assert len(used.learned) == len(used.rows) > 1
+    assert used.learned[-1] is True and not any(used.learned[:-1])
+
+
+def test_evidence_carries_each_cases_facts(three):
+    proposals.run(Model())
+    (proposal,) = proposals.read().proposals
+    assert proposal.evidence, "the proposal has evidence"
+    assert all(e.facts.get("paired") is True for e in proposal.evidence)
+
+
+def test_a_failed_approval_writes_no_file(three, monkeypatch):
+    proposals.run(Model())
+    (proposal,) = proposals.read().proposals
+
+    def broken(*args):
+        raise RuntimeError("the database went away")
+
+    monkeypatch.setattr(proposals, "_supersede", broken)
+    with pytest.raises(RuntimeError):
+        proposals.approve(proposal.id, "rafael")
+    folder = settings.own_layer / "rules/learned"
+    assert not folder.exists() or list(folder.iterdir()) == []
+    with session_scope() as db:
+        assert db.get(RuleProposal, proposal.id).status == "proposed"
+
+
+def test_reading_twice_checks_once(three, monkeypatch):
+    proposals.run(Model())
+    first = proposals.read().proposals
+    assert first and first[0].check == []
+
+    def again(row):
+        raise AssertionError("checked again with nothing changed")
+
+    monkeypatch.setattr(proposals, "check", again)
+    assert proposals.read().proposals[0].check == []
+
+
+def test_a_timeout_is_asked_again(three):
+    class Timeout(Model):
+        def respond(self, prompt, shape, choices=None):
+            self.calls += 1
+            self.last_prompt, self.last_response = prompt, None
+            self.last_refusal = "the model did not answer in time"
+            return None
+
+    model = Timeout()
+    assert proposals.run(model) == 0
+    assert proposals.read().refused == []
+    proposals.run(model)
+    assert model.calls == 2
+
+
+def test_slugs_of_different_targets_differ():
+    assert proposals.slug("param:a:b.c") != proposals.slug("param:a.b:c")
+    assert proposals.slug("implementation:alignment") == SLUG
