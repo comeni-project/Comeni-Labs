@@ -5538,3 +5538,11 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `test_a_piece_imports_only_the_allowlist` now calls `registry_lint.piece_problems`. With
   `import socket` appended to `fastq.py` it failed (`fastq.py reaches past the allowlist:
   ['socket']`); restored, pass.
+- 2026-11-14, #463 the builder agent's door: `test_only_the_characterisation_and_agent_doors_can_reach_a_sample`
+  and `test_the_builder_agent_door_is_one_typed_result_per_tool_call` failed before
+  `builder_agent` was declared (the set was `{"characterisation"}`; no such payload). A recorded
+  level-0 loosening, the operator's decision: the agent's tool results may carry a sample's name
+  (`SamplesView.names`, `marks.SampleName`), declared in `SAMPLE_FIELDS`; the engine's sentences
+  and refusals in `FREE_TEXT_FIELDS`. The same run caught task 3's `ProducerPin.because`,
+  `ParamOverride.because` and `Overrode.rule`/`cite` reaching doors 1 and 4 undeclared, and a bare
+  `str` author; declared, and `by` became the `Author` enum. Pass.

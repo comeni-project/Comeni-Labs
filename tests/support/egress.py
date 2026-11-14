@@ -23,6 +23,10 @@ PIPELINE_DOORS = {
     # Door 6, 14.7.7: the characteriser. The first door that carries data from a person's file,
     # at protection level 0 only. On the pipeline path because what it reads becomes the goal.
     "characterisation",
+    # #463: the builder agent's tool results. Engine views of the pipeline, the registry and
+    # the person's facts, and at level 0 a sample's name: on the pipeline path because they
+    # are what the agent builds from.
+    "builder_agent",
 }
 """The pipeline path's doors, and *pipeline data leaves through these* stays checkable against
 this set rather than against the whole list."""
@@ -152,6 +156,19 @@ FREE_TEXT_FIELDS = {
     # `reason` does. Nothing newly crosses; one thing that already crossed is now legible.
     ("ResolvedValue", "axis_reason"),
     ("Why", "axis_reason"),
+    # The builder agent's choices (#463): the reason the AI gave for a tool it chose or a value
+    # it set, in the goal's constraints, and the rule's own result kept beside a value it set
+    # over a rule (the decision's line and its citation, registry data). Written by the agent
+    # or the resolver; no lab data.
+    ("ProducerPin", "because"),
+    ("ParamOverride", "because"),
+    ("Overrode", "rule"),
+    ("Overrode", "cite"),
+    # The builder agent's door (#463): a tool's name, the engine's sentence about what it did,
+    # and the coded refusal it gave. Engine-written; the agent's own words never cross back.
+    ("AgentToolResult", "tool"),
+    ("AgentToolResult", "refusal"),
+    ("TextView", "text"),
     # A setting decided at run time (#217): the decision it compiles, named by its key, and
     # why its fallback is the value it is. Both are written by the resolver from a rule and a
     # contract, the same authors as `reason`; nothing about a sample crosses with them.
@@ -197,6 +214,10 @@ SAMPLE_FIELDS = {
     # printed, and this is what a person's *file* holds. At most 8 KB and 200 lines, which the
     # type enforces (`marks.SampleText`), and only at protection level 0.
     ("CharacteriseRequest", "excerpt"),
+    # The second, #463: the samples of the person's last upload, by name, returned to the
+    # builder agent's model by a read tool. Level 0 only (the operator's decision, 2026-11-14;
+    # `tests/fixtures/guard-ledger.md`); a stricter level filters it before the view is built.
+    ("SamplesView", "names"),
 }
 """Every field that may hold data from a person's file. This set is the count."""
 

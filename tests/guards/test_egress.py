@@ -115,15 +115,25 @@ def test_sample_data_lives_only_where_declared():
     assert found == SAMPLE_FIELDS
 
 
-def test_only_the_characterisation_door_can_reach_a_sample():
-    """A sample field nested in any other door's payload, through any path, fails here."""
+def test_only_the_characterisation_and_agent_doors_can_reach_a_sample():
+    """A sample field nested in any other door's payload, through any path, fails here. The
+    builder agent's door reaches one at level 0 (the operator's decision, 2026-11-14; see
+    `tests/fixtures/guard-ledger.md`)."""
     reaching = {
         name
         for name, payload in egress.PAYLOADS.items()
         for model in reachable(payload)
         if _fields(model, Mark.SAMPLE)
     }
-    assert reaching == {"characterisation"}
+    assert reaching == {"characterisation", "builder_agent"}
+
+
+def test_the_builder_agent_door_is_one_typed_result_per_tool_call():
+    """#463: what a tool returns to the agent's model is one payload, a tool's name, whether it
+    worked, a typed view or a coded refusal — never a raw row or a dict."""
+    door = egress.PAYLOADS["builder_agent"]
+    assert list(door.model_fields) == ["tool", "ok", "view", "refusal"]
+    assert egress.FLOWS["builder_agent"] is egress.BoundaryFlow.PIPELINE
 
 
 def test_the_characterisation_door_carries_the_excerpt_and_nothing_of_the_file():
@@ -655,7 +665,11 @@ def test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample():
     }, f"door 1 reaches a mark nobody argued for: {sorted(m.value for m in marks)}"
 
     free = {field for model in models for field in _fields(model, Mark.FREE_TEXT)}
-    assert free == {("AuthoringRequest", "prompt"), ("AuthoringTurn", "content")}, (
+    # The AI's reason for a tool it chose or a value it set (#463) rides in the goal's
+    # constraints: written by the builder agent, holding no lab data. Door 1 retires with the
+    # scripted flow.
+    assert free == {("AuthoringRequest", "prompt"), ("AuthoringTurn", "content"),
+                    ("ProducerPin", "because"), ("ParamOverride", "because")}, (
         f"free text reached door 1 somewhere new: {sorted(free)}"
     )
 

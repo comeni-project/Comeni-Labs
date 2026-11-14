@@ -22,6 +22,8 @@ class Crossing(StrEnum):
     """A model reads a sample's head (14.7.7)."""
     DOOR_6 = "door_6"
     """The characterise payload leaves (14.7.7)."""
+    AGENT = "agent"
+    """The builder agent's tools return lab data to its model (#463): the `builder_agent` door."""
 
 
 _ALLOWED = {"level_0": frozenset(Crossing)}

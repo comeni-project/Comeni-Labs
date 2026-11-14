@@ -43,3 +43,11 @@ def test_level_0_in_the_environment_is_not_warned(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING, logger="mendel_api.services.protection"):
         create_app()
     assert not [r for r in caplog.records if r.name == "mendel_api.services.protection"]
+
+
+def test_the_agent_crossing_is_allowed_at_level_0_only(monkeypatch):
+    """#463: the builder agent's tools may return lab data to its model at level 0."""
+    monkeypatch.setattr(protection, "level", lambda: "level_0")
+    assert protection.allows(protection.Crossing.AGENT)
+    monkeypatch.setattr(protection, "level", lambda: "sealed")
+    assert not protection.allows(protection.Crossing.AGENT)

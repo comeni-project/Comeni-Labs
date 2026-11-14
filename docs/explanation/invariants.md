@@ -187,6 +187,11 @@ person's file**: up to 8 KB and 200 lines of a sample's text, bounded by its own
 that can reach a `Mark.SAMPLE`. The payload carries no file name, extension, session or
 conversation. The vocabulary the model chooses from is the public registry, rendered into the
 prompt as door 1's is.
+**The builder agent's door (2026-11-14, #463) is the second that may reach a sample**: what
+its tools return to its model, as typed views (`comeni_core.egress.agent`). At protection level
+0, the operator's decision, a view may carry a sample's name (`marks.SampleName`), so the guard
+holds `characterisation` and `builder_agent` to be the only doors that reach a `Mark.SAMPLE`.
+A stricter level filters a view before it is built; none is built yet.
 **A prompt composed only from public sources is not a door**, and the line drawn is *who
 authored the string* rather than *how much text crosses*: text composed entirely from vendored
 modules and registry files has the same public bound that keeps `Excerpt` honest.

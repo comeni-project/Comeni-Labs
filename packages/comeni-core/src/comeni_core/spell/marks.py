@@ -258,6 +258,18 @@ def _sample_text(value: str) -> str:
 SampleText = Annotated[str, Mark.SAMPLE, AfterValidator(_sample_text)]
 """A bounded excerpt from the start of a sample."""
 
+
+def _sample_name(value: str) -> str:
+    """One line, at most 200 characters: a sample's name as a person or a samplesheet gave it."""
+    _single_line(value)
+    if len(value) > 200:
+        raise ValueError("a sample name is at most 200 characters")
+    return value
+
+
+SampleName = Annotated[str, Mark.SAMPLE, AfterValidator(_sample_name)]
+"""A sample's name. Lab data: it crosses only the doors that may carry a sample, at level 0."""
+
 def _edge_ref(value: str) -> str:
     """`<node>.<port>`, both Groovy identifiers.
 

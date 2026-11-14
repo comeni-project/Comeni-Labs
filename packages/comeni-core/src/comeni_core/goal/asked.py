@@ -9,7 +9,6 @@ for callers that construct complete goals.
 """
 
 from enum import StrEnum
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
@@ -58,6 +57,13 @@ class GoalInput(BaseModel):
         return sorted(states)
 
 
+class Author(StrEnum):
+    """Who made a choice in the goal: a person, or the builder agent (#463)."""
+
+    PERSON = "person"
+    MODEL = "model"
+
+
 class ParamOverride(BaseModel):
     """A validated human parameter override.
 
@@ -68,7 +74,7 @@ class ParamOverride(BaseModel):
 
     name: PortName
     value: HumanParamValue
-    by: Literal["person", "model"] = Field(default="person", exclude_if=lambda by: by == "person")
+    by: Author = Field(default=Author.PERSON, exclude_if=lambda by: by is Author.PERSON)
     """Who made it: a person, or the builder agent (#463). The AI's is resolved as its own,
     tier 4 and flagged, never as a person's settled intent."""
     because: Line = Field(default="", exclude_if=lambda because: not because)
@@ -117,7 +123,7 @@ class ProducerPin(BaseModel):
 
     site: Site
     contract: ContractId
-    by: Literal["person", "model"] = Field(default="person", exclude_if=lambda by: by == "person")
+    by: Author = Field(default=Author.PERSON, exclude_if=lambda by: by is Author.PERSON)
     """Who made it: a person, or the builder agent (#463). The AI's is resolved as its own,
     tier 4 and flagged, never as a person's settled intent."""
     because: Line = Field(default="", exclude_if=lambda because: not because)

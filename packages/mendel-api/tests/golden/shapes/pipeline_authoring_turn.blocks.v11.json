@@ -1,5 +1,12 @@
 {
   "$defs": {
+    "Author": {
+      "enum": [
+        "person",
+        "model"
+      ],
+      "type": "string"
+    },
     "Brief": {
       "additionalProperties": false,
       "properties": {
@@ -737,12 +744,8 @@
           "type": "string"
         },
         "by": {
-          "default": "person",
-          "enum": [
-            "person",
-            "model"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/Author",
+          "default": "person"
         },
         "name": {
           "type": "string"
@@ -797,12 +800,8 @@
           "type": "string"
         },
         "by": {
-          "default": "person",
-          "enum": [
-            "person",
-            "model"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/Author",
+          "default": "person"
         },
         "contract": {
           "type": "string"
