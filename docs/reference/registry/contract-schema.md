@@ -46,6 +46,7 @@ Model: `comeni_core.declared.contract.ModuleContract`
 | `roles` | [string] | `[]` | the jobs it can fill, e.g. `bam_sorting` |
 | `priority` | integer | `0` | breaks a routing tie. Higher wins |
 | `priority_because` | string | `""` | why. A priority with no reason is a silent preference |
+| `does` | string \| null | `null` | what this step does, in one line, where the tool's description covers a whole suite. Context for the builder's AI; it is never shown to a person as written |
 | `container` | string \| null | `null` | the image. Take the **last** quoted string in `main.nf`'s ternary |
 | `nf_inputs` | [nf-input] | `[]` | the real call signature — see below |
 | `ext_args` | string \| object | `""` | flags the module always needs, via `task.ext.args` |
