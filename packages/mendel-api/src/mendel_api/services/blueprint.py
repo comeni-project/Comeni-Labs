@@ -66,25 +66,32 @@ def registry_digest(roots: Sequence[Path]) -> str:
 
 
 def _after_measurers(order: list[str], pipeline) -> list[str]:
-    """Each step after the steps that measure what its settings are looked up from (issue 496).
+    """The layout's order, with each step's measurers brought forward to just before it (issue
+    496).
 
     The layout ranks by edges, and a measured fact reaches a step through its input's meta, so
     STAR's index was offered before the genome-length measurement its `sa_index_nbases` reads.
-    A step moves to just after its last measurer; everything else keeps the layout's order."""
+    A measurer moves up, with the steps it is wired from; nothing else moves."""
     measured_at = {m.measurement: m.measured_at
                    for channel in pipeline.channels for m in channel.meta_at_run}
-    needs = {
-        step.id: {measured_at[f.measurement] for setting in step.settings if setting.at_run
-                  for f in setting.at_run.facts if f.measurement in measured_at}
-        for step in pipeline.steps
-    }
+    position = {node: n for n, node in enumerate(order)}
+    after: dict[str, set[str]] = {}
+    for step in pipeline.steps:
+        wired = {i.source.split(".", 1)[0] for i in step.inputs if i.source}
+        measurers = {measured_at[f.measurement] for setting in step.settings if setting.at_run
+                     for f in setting.at_run.facts if f.measurement in measured_at}
+        after[step.id] = {n for n in wired | measurers if n in position and n != step.id}
     placed: list[str] = []
-    waiting = list(order)
-    while waiting:
-        ready = next((n for n in waiting
-                      if not (needs.get(n, set()) & set(waiting)) - {n}), waiting[0])
-        placed.append(ready)
-        waiting.remove(ready)
+
+    def place(node: str, visiting: frozenset[str]) -> None:
+        if node in placed or node in visiting:
+            return
+        for first in sorted(after.get(node, ()), key=position.__getitem__):
+            place(first, visiting | {node})
+        placed.append(node)
+
+    for node in order:
+        place(node, frozenset())
     return placed
 
 

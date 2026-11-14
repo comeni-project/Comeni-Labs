@@ -79,11 +79,12 @@ def test_the_rnaseq_spine_is_revealed_in_layout_order(spine):
     comes from the layout rather than from dictionary order or which one the router met first."""
     # samtools faidx and its measuring step measure the genome's length for STAR's index in
     # the run (#217); nothing feeds STAR from them on the graph, the fact travels on `meta`.
+    # The measurement comes before the index whose setting it decides (issue 496).
     assert spine.order == [
         "samtools_faidx",
+        "measure_genome_length_fai",
         "star_genomegenerate",
         "trimgalore",
-        "measure_genome_length_fai",
         "star_align",
         "samtools_sort",
         "subread_featurecounts",
