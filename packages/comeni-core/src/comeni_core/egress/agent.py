@@ -22,6 +22,7 @@ from comeni_core.spell.marks import (
     RoleName,
     SampleName,
     StateName,
+    Text,
     TypeId,
 )
 
@@ -38,6 +39,9 @@ class ViewKind(StrEnum):
     RULES = "rules"
     FACTS = "facts"
     NEEDS = "needs"
+    RESOLVED = "resolved"
+    COMPILED = "compiled"
+    ASKED = "asked"
 
 
 class TypeLine(EgressPayload):
@@ -199,9 +203,49 @@ class SamplesView(EgressPayload):
     names: list[SampleName] = Field(default_factory=list)
 
 
+class FiredLine(EgressPayload):
+    """A rule that decided something in this pipeline: what, the value, why, and the citation."""
+
+    decides: Line
+    value: ParamValue = None
+    reason: Line
+    cite: Line = ""
+
+
+class ResolvedView(EgressPayload):
+    """The pipeline the decisions resolve to now, what changed, what is open, what rules did."""
+
+    kind: Literal[ViewKind.RESOLVED] = ViewKind.RESOLVED
+    steps: list[StepLine] = Field(default_factory=list)
+    open_values: list[Line] = Field(default_factory=list)
+    rules: list[FiredLine] = Field(default_factory=list)
+    changed: Line = ""
+    unbuilt: Line = ""
+
+
+class CompiledView(EgressPayload):
+    """The Nextflow the pipeline compiles to."""
+
+    kind: Literal[ViewKind.COMPILED] = ViewKind.COMPILED
+    main_nf: Text
+    nextflow_config: Text
+
+
+class AskedView(EgressPayload):
+    """A question put to the person, and the shape of answer it takes."""
+
+    kind: Literal[ViewKind.ASKED] = ViewKind.ASKED
+    id: Line
+    question: Line
+    shape: Line
+    options: list[Line] = Field(default_factory=list)
+    unit: Line = ""
+    type_id: TypeId | None = None
+
+
 AgentView = Annotated[
     TextView | SamplesView | GoalView | PipelineView | StepView | ToolsView | RulesView
-    | FactsView | NeedsView,
+    | FactsView | NeedsView | ResolvedView | CompiledView | AskedView,
     Field(discriminator="kind"),
 ]
 """Every view a tool may return. Each tool's own view joins this union."""

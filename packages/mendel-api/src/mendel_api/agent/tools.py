@@ -68,16 +68,26 @@ def call(ctx: ToolContext, name: str, arguments: dict) -> AgentToolResult:
         given = tool.input.model_validate(arguments)
     except ValidationError as failure:
         return AgentToolResult(tool=name, ok=False, refusal=f"MI0204: {_said(failure)}")
+    from mendel_api.services import decisions
+
+    # **A write against a revision that moved is refused** (Review Focus 2): somebody — the
+    # person on the canvas, another agent — changed the decisions since this agent last read
+    # them. It reads again and decides again; their change stands.
+    if tool.writes and decisions.revision(ctx.draft_id) != ctx.expected_revision:
+        return AgentToolResult(tool=name, ok=False, refusal=(
+            "MI0201: the pipeline changed since you last read it; read it again before "
+            "changing it"))
     try:
         view = tool.run(ctx, given)
-    except (ValueError, KeyError) as refused:
+    except (ValueError, KeyError, LookupError) as refused:
         said = refused.args[0] if refused.args else type(refused).__name__
         return AgentToolResult(tool=name, ok=False, refusal=" ".join(str(said).split())[:500])
+    ctx.expected_revision = decisions.revision(ctx.draft_id)
     return AgentToolResult(tool=name, ok=True, view=view)
 
 
 def _load() -> None:
-    from mendel_api.agent import read  # noqa: F401  (registers the read tools)
+    from mendel_api.agent import ask, build, change, read  # noqa: F401  (register their tools)
 
 
 _load()

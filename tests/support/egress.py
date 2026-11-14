@@ -198,6 +198,23 @@ FREE_TEXT_FIELDS = {
     ("NeedLine", "subject"),
     ("NeedLine", "name"),
     ("NeedLine", "why"),
+    # The build tools (#463): rules that fired (the resolver's reason and the rule's citation),
+    # what changed and why nothing built (engine sentences), the compiled Nextflow (the
+    # compiler's output from declared modules), and a question the agent put to the person (the
+    # agent's own words, going back to the same agent).
+    ("FiredLine", "decides"),
+    ("FiredLine", "reason"),
+    ("FiredLine", "cite"),
+    ("ResolvedView", "open_values"),
+    ("ResolvedView", "changed"),
+    ("ResolvedView", "unbuilt"),
+    ("CompiledView", "main_nf"),
+    ("CompiledView", "nextflow_config"),
+    ("AskedView", "id"),
+    ("AskedView", "question"),
+    ("AskedView", "shape"),
+    ("AskedView", "options"),
+    ("AskedView", "unit"),
     # A setting decided at run time (#217): the decision it compiles, named by its key, and
     # why its fallback is the value it is. Both are written by the resolver from a rule and a
     # contract, the same authors as `reason`; nothing about a sample crosses with them.
