@@ -169,6 +169,35 @@ FREE_TEXT_FIELDS = {
     ("AgentToolResult", "tool"),
     ("AgentToolResult", "refusal"),
     ("TextView", "text"),
+    # Its read views (#463): every one is engine- or registry-written — declared names and
+    # descriptions, the resolver's reasons and citations, rule rows as sentences, who chose a
+    # value and the reason the AI gave for it. Sample names are counted in SAMPLE_FIELDS.
+    ("TypeLine", "name"),
+    ("FactLine", "source"),
+    ("ChoiceLine", "subject"),
+    ("ChoiceLine", "by"),
+    ("ChoiceLine", "because"),
+    ("StepLine", "tool"),
+    ("StepLine", "chosen_by"),
+    ("PipelineView", "unbuilt"),
+    ("SettingLine", "source"),
+    ("SettingLine", "reason"),
+    ("SettingLine", "cite"),
+    ("StepView", "tool"),
+    ("StepView", "description"),
+    ("StepView", "does"),
+    ("StepView", "why_here"),
+    ("StepView", "chosen"),
+    ("ToolRef", "tool"),
+    ("ToolsView", "name"),
+    ("RuleLine", "decides"),
+    ("RuleLine", "rows"),
+    ("RuleLine", "because"),
+    ("RuleLine", "cite"),
+    ("NeedLine", "kind"),
+    ("NeedLine", "subject"),
+    ("NeedLine", "name"),
+    ("NeedLine", "why"),
     # A setting decided at run time (#217): the decision it compiles, named by its key, and
     # why its fallback is the value it is. Both are written by the resolver from a rule and a
     # contract, the same authors as `reason`; nothing about a sample crosses with them.
@@ -218,6 +247,7 @@ SAMPLE_FIELDS = {
     # builder agent's model by a read tool. Level 0 only (the operator's decision, 2026-11-14;
     # `tests/fixtures/guard-ledger.md`); a stricter level filters it before the view is built.
     ("SamplesView", "names"),
+    ("FactsView", "samples"),
 }
 """Every field that may hold data from a person's file. This set is the count."""
 

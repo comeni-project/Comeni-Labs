@@ -425,6 +425,12 @@ def _authored(revision) -> dict:
     return {"by": "model" if model else "person", "because": revision.because or ""}
 
 
+def revision(draft_id) -> int:
+    """The decisions' revision: it moves with every change, whoever made it."""
+    with session_scope() as db:
+        return _draft(db, draft_id).decision_revision
+
+
 def goal(draft_id):
     return read(draft_id).goal(registry.stack().measurements)
 

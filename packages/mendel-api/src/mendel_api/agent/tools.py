@@ -1,0 +1,83 @@
+"""The engine's operations as tools, defined once (#463).
+
+The builder agent calls them in-process; the MCP server serves the same definitions. A tool
+takes a typed input and returns a typed view. `call` turns a refused argument, or a coded
+refusal from the engine, into a result the model reads, never an exception that ends its turn.
+"""
+
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from comeni_ai.agent import ToolSpec
+from comeni_core.egress.agent import AgentToolResult
+from pydantic import BaseModel, ValidationError
+
+
+@dataclass
+class ToolContext:
+    """Which draft a tool works on, who is acting, and the decisions' revision last read."""
+
+    draft_id: str
+    session_id: str | None
+    who: str
+    expected_revision: int
+
+
+@dataclass(frozen=True)
+class Tool:
+    """One engine operation: its name, what it is for, its input, and what runs it."""
+
+    name: str
+    description: str
+    input: type[BaseModel]
+    run: Callable[[ToolContext, BaseModel], BaseModel]
+    writes: bool = False
+
+
+TOOLS: dict[str, Tool] = {}
+"""Every tool, by name. The read, change and build modules register theirs on import."""
+
+
+def register(tool: Tool) -> Tool:
+    if tool.name in TOOLS:
+        raise ValueError(f"two tools are called {tool.name}")
+    TOOLS[tool.name] = tool
+    return tool
+
+
+def spec_of(tool: Tool) -> ToolSpec:
+    """The tool as a model sees it: name, description, and its input's JSON schema."""
+    schema = tool.input.model_json_schema()
+    schema.pop("title", None)
+    return ToolSpec(name=tool.name, description=tool.description, parameters=schema)
+
+
+def _said(failure: ValidationError) -> str:
+    return "; ".join(f"{'.'.join(str(p) for p in e['loc']) or 'arguments'}: {e['msg']}"
+                     for e in failure.errors()[:3])
+
+
+def call(ctx: ToolContext, name: str, arguments: dict) -> AgentToolResult:
+    """Run one tool. A tool that does not exist, arguments that do not fit, or a refusal the
+    engine gives (a coded `ValueError` or `KeyError`) come back as `ok=False` with the reason."""
+    tool = TOOLS.get(name)
+    if tool is None:
+        return AgentToolResult(tool=name[:200], ok=False,
+                               refusal=f"there is no tool called {name[:100]}")
+    try:
+        given = tool.input.model_validate(arguments)
+    except ValidationError as failure:
+        return AgentToolResult(tool=name, ok=False, refusal=f"MI0204: {_said(failure)}")
+    try:
+        view = tool.run(ctx, given)
+    except (ValueError, KeyError) as refused:
+        said = refused.args[0] if refused.args else type(refused).__name__
+        return AgentToolResult(tool=name, ok=False, refusal=" ".join(str(said).split())[:500])
+    return AgentToolResult(tool=name, ok=True, view=view)
+
+
+def _load() -> None:
+    from mendel_api.agent import read  # noqa: F401  (registers the read tools)
+
+
+_load()
