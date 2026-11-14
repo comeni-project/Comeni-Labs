@@ -49,6 +49,7 @@ function proposal(): AuthoringProposal {
         check: [{ text: "read_length is 150, measured by fastq@1.1.0", source: "engine" }],
       },
       need: { kind: "fact", facts: ["read_length"], choices: [] },
+      unresolved_settings: ["seq_platform"],
       gaps: [
         {
           kind: "no_description",
@@ -95,6 +96,11 @@ describe("the step card's brief", () => {
     expect(brief).toHaveTextContent("quality reports");
     expect(brief).toHaveTextContent("Check");
     expect(brief).toHaveTextContent("read_length is 150, measured by fastq@1.1.0");
+  });
+
+  it("says nothing of a registry gap outside Dev mode", () => {
+    card({ showGapDetails: false });
+    expect(screen.queryByTestId("step-gaps")).toBeNull();
   });
 
   it("marks a registry gap and names the file to fix under Dev mode", () => {

@@ -83,7 +83,6 @@ export function StepProposalCard({
   const values = fact ? block.need?.fact_values?.[fact] ?? null : null;
   const answer = values ? pick : typed(told);
   const accept = () => onAccept(chosen, fact ? answer ?? undefined : undefined);
-  const unresolved = block.unresolved_settings ?? [];
 
   // **The card leads in plain words** (issue 387): the tool's curated description when there is
   // one, and the engine's reason only when there is not. The brief does not say the lead again.
@@ -113,27 +112,22 @@ export function StepProposalCard({
         </span>
       </button>
       {block.brief && <Brief brief={block.brief} lead={lead} />}
-      {(showGapDetails ? (block.gaps ?? []).length : unresolved.length) > 0 && (
+      {/* **Dev mode only** (issue 496): what the registry lacks is its maintainer's to fix, and
+          to a person building a pipeline it was noise they could not act on. */}
+      {showGapDetails && (block.gaps ?? []).length > 0 && (
         <div data-testid="step-gaps" className="mb-3 px-[10px] py-2 border"
              style={{ borderColor: "var(--line-2)" }}>
           <p className="m-0 mb-1 text-label text-ink-2">
             Registry information is incomplete
           </p>
-          {showGapDetails ? (
-            <ul className="m-0 p-0 list-none">
-              {(block.gaps ?? []).map((gap) => (
-                <li key={`${gap.kind}-${gap.subject}`} className="text-[12px] text-ink-2">
-                  {gap.kind.replaceAll("_", " ")}: {gap.subject}{" "}
-                  <span className="font-data text-[11px] text-ink-3">— fix {gap.fix}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="m-0 text-[12px] text-ink-2">
-              No values are listed for {unresolved.join(", ")}, so {unresolved.length === 1 ? "it stays" : "they stay"} unset.
-              It is not something you need to provide.
-            </p>
-          )}
+          <ul className="m-0 p-0 list-none">
+            {(block.gaps ?? []).map((gap) => (
+              <li key={`${gap.kind}-${gap.subject}`} className="text-[12px] text-ink-2">
+                {gap.kind.replaceAll("_", " ")}: {gap.subject}{" "}
+                <span className="font-data text-[11px] text-ink-3">— fix {gap.fix}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       {previewable.length === 0 && block.alternatives.some((o) => offered.has(o.id)) && (

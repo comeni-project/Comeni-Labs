@@ -223,8 +223,9 @@ def test_a_registry_gap_is_reported_apart_from_what_a_run_needs(authoring_case):
     receipt = _receipt(picture)
     provide = receipt.split("To run, provide: ", 1)[1].split(".", 1)[0]
     assert "seq_platform" not in provide
-    assert "Registry information is incomplete: " in receipt and "seq_platform" in receipt
+    assert "Registry information is incomplete" not in receipt
     assert "registry/tools/" not in receipt
+    assert "Decided: " in receipt and "tier" not in receipt
     assert picture["show_gap_details"] is False
 
 

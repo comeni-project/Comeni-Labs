@@ -32,6 +32,9 @@ class PremiseRecord(BaseModel):
 
     def prose(self) -> str:
         """Render the fact, evidence quality, and optional measurer for a reviewer."""
+        if self.value is None:
+            # A fact nothing settled has no value to state (issue 496): "is None" is Python.
+            return f"{self.id} is not known yet"
         said = f"{self.id} is {self.value}, {_ORIGIN_PROSE[self.origin]}"
         if self.coverage == "head" and self.origin is PremiseOrigin.MEASURED:
             said += " on part of the data"

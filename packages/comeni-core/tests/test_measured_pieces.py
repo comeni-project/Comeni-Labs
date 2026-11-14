@@ -149,3 +149,9 @@ def test_a_fact_measured_on_part_of_the_data_says_so():
     whole = head.model_copy(update={"coverage": "all"})
     assert whole.prose() == "read_length is 150, measured by fastq@1.1.0 + read_length@1.0.0"
     assert "coverage" not in head.model_copy(update={"coverage": None}).model_dump()
+
+
+def test_a_fact_with_no_value_reads_as_not_known_rather_than_none():
+    """The step card's check read *genome_length is None, not measured* (issue 496)."""
+    record = PremiseRecord(id="genome_length", value=None, origin=PremiseOrigin.UNMEASURED)
+    assert record.prose() == "genome_length is not known yet"

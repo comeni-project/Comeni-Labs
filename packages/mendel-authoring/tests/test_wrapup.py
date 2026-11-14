@@ -61,3 +61,18 @@ def test_a_deferred_setting_with_values_stays_a_run_setting(rnaseq, declared):
 def test_each_gap_is_listed_once(rnaseq, declared):
     gaps = wrap_up(_without_domain(rnaseq(150, strandedness_open=True)), declared).gaps
     assert len(gaps) == len(set(gaps))
+
+
+def test_a_setting_the_run_decides_is_not_one_to_provide(rnaseq, declared):
+    """`star_genomegenerate.sa_index_nbases` was listed under *to run, provide* while the
+    pipeline measured the genome length it is looked up from (issue 496)."""
+    from types import SimpleNamespace
+
+    blueprint = rnaseq(150, strandedness_open=True)
+    pipeline = blueprint.pipeline
+    steps = [s.model_copy(update={"settings": [
+        x.model_copy(update={"at_run": SimpleNamespace(fallback_is="tool")})
+        if x.name == "strandedness" else x for x in s.settings]}) for s in pipeline.steps]
+    looked_up = blueprint.model_copy(update={
+        "pipeline": pipeline.model_copy(update={"steps": steps})})
+    assert wrap_up(looked_up, declared).unset == []

@@ -64,6 +64,9 @@ def wrap_up(blueprint: Blueprint, declared: Declared) -> WrapUp:
             for step in pipeline.steps
             for setting in step.settings
             if setting.value is None and f"{step.id}.{setting.name}" not in domain_gaps
+            # A setting the run looks up from a fact it measures is not the person's to supply
+            # (issue 496), unless the lookup's fallback is still their question.
+            and (setting.at_run is None or setting.at_run.fallback_is == "question")
         ],
         gaps=list(dict.fromkeys(
             gap for step in pipeline.steps for gap in gaps_of(step, pipeline, declared))),
