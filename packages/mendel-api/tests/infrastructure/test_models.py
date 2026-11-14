@@ -109,6 +109,9 @@ def test_the_registry_is_not_in_the_database():
         "forge_test_run",
         "forge_pull_request",
         "forge_release",
+        # Rules a model proposed from people's answers (#462). No build reads them: an approved
+        # one is written as a file in the installation's own layer, and builds read the file.
+        "rule_proposal",
     }, (
         f"the tables moved: {sorted(tables)}. Each argued for itself in its own class "
         "docstring, and a new one needs the same argument written down. Two rejections in "

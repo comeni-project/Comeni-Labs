@@ -31,6 +31,7 @@ VERSIONS: dict[str, int] = {
     "pipeline_phrasing": 1,
     "pipeline_producer_revision": 1,
     "pipeline_want_revision": 1,
+    "rule_proposal": 1,
 }
 
 

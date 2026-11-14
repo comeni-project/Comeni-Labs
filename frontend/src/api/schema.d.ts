@@ -1337,6 +1337,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/rules/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rules proposed from people's answers, refused targets, and rules in use */
+        get: operations["readRuleProposals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rules/proposals/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask the model again for each target whose answers changed */
+        post: operations["proposeRules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rules/proposals/{proposal_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put a proposed rule in force in this installation */
+        post: operations["approveRuleProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rules/proposals/{proposal_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject a proposed rule */
+        post: operations["rejectRuleProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rules/learned/{name}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove a learned rule; its question is asked again */
+        post: operations["withdrawLearnedRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2876,6 +2961,17 @@ export interface components {
             share?: number | null;
             coverage?: components["schemas"]["Coverage"] | null;
         };
+        /** EvidenceView */
+        EvidenceView: {
+            /** Pipeline */
+            pipeline: string;
+            /** Decision */
+            decision: string;
+            /** Answer */
+            answer: number | boolean | string | null;
+            /** Reason */
+            reason: string;
+        };
         /**
          * Explanation
          * @description What a question is about and why it is asked: `what` is curated (the registry's
@@ -3307,6 +3403,25 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** InUseView */
+        InUseView: {
+            /** Slug */
+            slug: string;
+            /** Target Key */
+            target_key: string;
+            /** Target */
+            target: string;
+            /** Rows */
+            rows: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Approved By */
+            approved_by: string | null;
+            /** Approved At */
+            approved_at: string | null;
+            /** Proposal */
+            proposal: string | null;
         };
         /**
          * InputChoice
@@ -4246,6 +4361,54 @@ export interface components {
          * @enum {string}
          */
         ProposalState: "pending" | "accepted" | "rejected" | "stale";
+        /** ProposalView */
+        ProposalView: {
+            /** Id */
+            id: string;
+            /** Target Key */
+            target_key: string;
+            /** Target */
+            target: string;
+            /** Rows */
+            rows: {
+                [key: string]: components["schemas"]["JsonValue"];
+            }[];
+            /** Why */
+            why: string;
+            /** Model */
+            model: string;
+            /** Invocation */
+            invocation: string | null;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceView"][];
+            /** Check */
+            check: string[];
+            /** Replay */
+            replay: components["schemas"]["Replayed"][];
+            /** Stale */
+            stale: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ProposalsView */
+        ProposalsView: {
+            /** Proposals */
+            proposals: components["schemas"]["ProposalView"][];
+            /** Refused */
+            refused: components["schemas"]["RefusedView"][];
+            /** In Use */
+            in_use: components["schemas"]["InUseView"][];
+            /**
+             * Running
+             * @default false
+             */
+            running: boolean;
+            /** Model */
+            model: boolean;
+        };
         /**
          * Provenance
          * @description How much of one pipeline was settled without judgement — a proportion of one whole.
@@ -4441,6 +4604,21 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** RefusedView */
+        RefusedView: {
+            /** Id */
+            id: string;
+            /** Target Key */
+            target_key: string;
+            /** Target */
+            target: string;
+            /** Status */
+            status: string;
+            /** Why */
+            why: string;
+            /** Problems */
+            problems: string[];
+        };
         /** Release */
         Release: {
             /** Tag */
@@ -4525,6 +4703,24 @@ export interface components {
             unavailable?: string | null;
             /** Problem */
             problem?: string | null;
+        };
+        /**
+         * Replayed
+         * @description One past decision the proposed rows would have settled, and whether the same way.
+         */
+        Replayed: {
+            /** Pipeline */
+            pipeline: string;
+            /** Decision */
+            decision: string;
+            /** Recorded */
+            recorded: number | boolean | string | null;
+            /** Would */
+            would: number | boolean | string | null;
+            /** Agrees */
+            agrees: boolean;
+            /** By Person */
+            by_person: boolean;
         };
         /**
          * RequiredStates
@@ -8098,6 +8294,184 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReleasesPage"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readRuleProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalsView"];
+                };
+            };
+        };
+    };
+    proposeRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalsView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    approveRuleProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalsView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    rejectRuleProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalsView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    withdrawLearnedRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalsView"];
                 };
             };
             /** @description The id in the path names nothing. */

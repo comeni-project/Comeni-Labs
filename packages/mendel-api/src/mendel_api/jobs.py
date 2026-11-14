@@ -77,6 +77,18 @@ async def enqueue(
     return await pool.enqueue_job(name, *args, _job_id=job_id, **extra) is not None
 
 
+async def running(job_id: str, queue: str = DEFAULT_QUEUE) -> bool:
+    """Whether a job with this id is queued or running now. `False` when Redis cannot say."""
+    from arq.jobs import Job, JobStatus
+
+    try:
+        pool = await _pool(queue)
+        status = await Job(job_id, pool, _queue_name=queue).status()
+    except Exception:  # noqa: BLE001 — a page asking whether work runs must not fail on Redis
+        return False
+    return status in (JobStatus.queued, JobStatus.deferred, JobStatus.in_progress)
+
+
 def job_id_for(*parts: str) -> str:
     """A stable id for one piece of work: `forge:generate:<adaptation>:<revision>`.
 

@@ -43,6 +43,12 @@ def test_every_operation_is_named_by_hand():
         ("/api/forge/catalogue/{source}/{path}", "get"): "readCatalogueModule",
         ("/api/forge/catalogue/sync", "post"): "syncCatalogue",
         ("/api/registry/tools/{contract_id}", "get"): "readTool",
+        # Rules proposed from people's answers (#462).
+        ("/api/rules/proposals", "get"): "readRuleProposals",
+        ("/api/rules/proposals/run", "post"): "proposeRules",
+        ("/api/rules/proposals/{proposal_id}/approve", "post"): "approveRuleProposal",
+        ("/api/rules/proposals/{proposal_id}/reject", "post"): "rejectRuleProposal",
+        ("/api/rules/learned/{name}/withdraw", "post"): "withdrawLearnedRule",
         # Forging (forge MVP 3, #364).
         ("/api/forge/adaptations", "post"): "startAdaptation",
         ("/api/forge/adaptations", "get"): "listAdaptations",

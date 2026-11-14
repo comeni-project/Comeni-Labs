@@ -69,6 +69,9 @@ def _shapes() -> tuple[Shape, ...]:
         Shape("pipeline_phrasing", "asked", AskedGap | None),
         Shape("pipeline_producer_revision", "states", list[str]),
         Shape("pipeline_want_revision", "states", list[str]),
+        Shape("rule_proposal", "target", loose),
+        Shape("rule_proposal", "rows", list[loose]),
+        Shape("rule_proposal", "problems", list[str]),
     )
 
 

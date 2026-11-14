@@ -20,6 +20,7 @@ from mendel_api.routes import authoring as authoring_routes
 from mendel_api.routes import build as build_routes
 from mendel_api.routes import forge as forge_routes
 from mendel_api.routes import health as health_routes
+from mendel_api.routes import proposals as proposal_routes
 from mendel_api.routes import registry as registry_routes
 from mendel_api.routes import settings as settings_routes
 from mendel_api.services import protection
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_routes.router, prefix="/api")
     # The forge's catalogue (forge part 1, #362).
     app.include_router(forge_routes.router, prefix="/api")
+    app.include_router(proposal_routes.router, prefix="/api")
     return app
 
 
