@@ -1022,7 +1022,7 @@ def record_review(draft_id, blueprint, node, *, who, actor_kind=ActorKind.PERSON
 
 
 def cascade_reviews(draft_id, before, fresh):
-    from mendel_authoring.reviews import Applicability, cascade
+    from mendel_authoring.reviews import Applicability, cascade, fingerprint
 
     with session_scope() as db:
         draft = _draft(db, draft_id)
@@ -1032,6 +1032,9 @@ def cascade_reviews(draft_id, before, fresh):
         for subject, revision in _current(db, draft_id, "review"):
             applied = by_node.get(subject.subject_key)
             if applied is not None and applied.status is not Applicability.RETAINED:
+                # **Updated in place** (issue 496): settings alone changed, so the review stands
+                # on the step as it now is, and the walk does not offer it again.
+                updated = applied.status is Applicability.UPDATED
                 _write(
                     db,
                     draft,
@@ -1040,13 +1043,15 @@ def cascade_reviews(draft_id, before, fresh):
                     {
                         "node": revision.node,
                         "contract": revision.contract,
-                        "fingerprint": revision.fingerprint,
-                        "status": applied.status.value,
+                        "fingerprint": (fingerprint(fresh, revision.node) if updated
+                                        else revision.fingerprint),
+                        "status": "reviewed" if updated else applied.status.value,
                         "decision_revision": revision.decision_revision,
                         "proposal_id": revision.proposal_id,
                     },
-                    who="resolver",
-                    actor_kind=ActorKind.RESOLVER,
+                    # Still the person's review, of the step as it now is.
+                    who=revision.who if updated else "resolver",
+                    actor_kind=ActorKind(revision.actor_kind) if updated else ActorKind.RESOLVER,
                 )
         return applicability
 

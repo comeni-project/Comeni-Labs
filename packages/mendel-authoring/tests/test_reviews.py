@@ -18,54 +18,67 @@ def _changed(blueprint, node, **fields):
     )
 
 
-@pytest.mark.parametrize("change", ["contract", "digest", "setting", "wire", "premise", "source"])
-def test_same_id_does_not_reuse_a_review_of_changed_meaning(rnaseq, change):
-    reviews = _reviews()
-    before = rnaseq(150)
+def _changed_one(before, change):
     step = before.step("star_align")
     if change == "contract":
-        after = _changed(
+        return _changed(
             before,
             "star_align",
             module=step.module.model_copy(update={"contract_id": "nf-core/hisat2/align@2.2.2"}),
         )
-    elif change == "digest":
-        after = _changed(
+    if change == "digest":
+        return _changed(
             before,
             "star_align",
             module=step.module.model_copy(update={"digest": "sha256:" + "f" * 64}),
         )
-    elif change == "wire":
-        after = _changed(before, "star_align", inputs=[StepInput(port="reads", source="qc.out")])
-    elif change == "setting":
-        after = _changed(
+    if change == "wire":
+        return _changed(before, "star_align", inputs=[StepInput(port="reads", source="qc.out")])
+    if change == "setting":
+        return _changed(
             before, "star_align", ext_args=step.ext_args.model_copy(update={"template": "--new"})
         )
-    elif change == "source":
-        after = _changed(
-            before,
-            "star_align",
-            why=step.why.model_copy(
-                update={
-                    "premise": [
-                        step.why.premise[0].model_copy(
-                            update={"origin": PremiseOrigin.ASSERTED, "pieces": []}
-                        )
-                    ]
-                }
-            ),
-        )
-    else:
-        after = _changed(
-            before,
-            "star_align",
-            why=step.why.model_copy(
-                update={"premise": [step.why.premise[0].model_copy(update={"value": 100})]}
-            ),
-        )
-    [outcome] = reviews.cascade(before, after, [reviews.review(before, "star_align", "ana")])
+    if change == "source":
+        return _changed(before, "star_align", why=step.why.model_copy(update={"premise": [
+            step.why.premise[0].model_copy(update={"origin": PremiseOrigin.ASSERTED, "pieces": []})
+        ]}))
+    return _changed(before, "star_align", why=step.why.model_copy(
+        update={"premise": [step.why.premise[0].model_copy(update={"value": 100})]}))
+
+
+@pytest.mark.parametrize("change", ["contract", "digest", "wire"])
+def test_a_new_tool_or_wiring_supersedes_the_review(rnaseq, change):
+    reviews = _reviews()
+    before = rnaseq(150)
+    [outcome] = reviews.cascade(before, _changed_one(before, change),
+                                [reviews.review(before, "star_align", "ana")])
     assert outcome.status.value == "superseded"
     assert outcome.reason.value == "meaning_changed"
+
+
+@pytest.mark.parametrize("change", ["setting", "premise", "source"])
+def test_a_step_whose_settings_alone_change_is_updated_in_place(rnaseq, change):
+    """The operator's decision on issue 496: an answer that changes only a step's settings, or
+    the facts behind them, updates the step; it does not send the walk back to it."""
+    reviews = _reviews()
+    before = rnaseq(150)
+    [outcome] = reviews.cascade(before, _changed_one(before, change),
+                                [reviews.review(before, "star_align", "ana")])
+    assert outcome.status.value == "updated"
+    assert outcome.reason.value == "settings_changed"
+
+
+def test_a_settings_change_upstream_leaves_the_steps_after_it_reviewed(blueprint_of):
+    """Strandedness changed Trim Galore's settings and sent STAR, sort and counts back (496)."""
+    reviews = _reviews()
+    before = blueprint_of({"producer": "lab/p@1.0.0", "consumer": "lab/c@1.0.0"})
+    before = _changed(before, "consumer", inputs=[StepInput(port="reads", source="producer.out")])
+    flags = before.step("producer").ext_args.model_copy(update={"template": "-x"})
+    after = _changed(before, "producer", ext_args=flags)
+    reviewed = [reviews.review(before, n, "ana") for n in before.order]
+    outcomes = reviews.cascade(before, after, reviewed)
+    assert [(o.node, o.status.value) for o in outcomes] == [
+        ("producer", "updated"), ("consumer", "retained")]
 
 
 def test_removing_an_old_producer_invalidates_a_surviving_consumer(blueprint_of):
@@ -112,7 +125,8 @@ def test_disconnected_review_is_preserved_when_another_branch_changes(blueprint_
     outcomes = reviews.cascade(
         before, after, [reviews.review(before, n, "ana") for n in before.order]
     )
-    assert [o.status.value for o in outcomes] == ["superseded", "retained"]
+    # A changed reason alone updates the step in place (issue 496); the other branch is untouched.
+    assert [o.status.value for o in outcomes] == ["updated", "retained"]
 
 
 def test_receipt_describes_changed_evidence_when_the_tool_list_is_unchanged(rnaseq):
@@ -124,3 +138,15 @@ def test_receipt_describes_changed_evidence_when_the_tool_list_is_unchanged(rnas
     assert not difference.empty
     assert "star_align" in difference.updated
     assert "updates" in difference.sentence()
+
+
+def test_a_tool_choice_that_falls_to_a_question_is_reviewed_again(rnaseq):
+    """A rule miss makes the aligner a tier-4 question, which stays flagged for review."""
+    from comeni_core.plan.tiers import Tier
+
+    reviews = _reviews()
+    before = rnaseq(150)
+    step = before.step("star_align")
+    after = _changed(before, "star_align", why=step.why.model_copy(update={"tier": Tier.AMBIGUOUS}))
+    [outcome] = reviews.cascade(before, after, [reviews.review(before, "star_align", "ana")])
+    assert outcome.status.value == "superseded"

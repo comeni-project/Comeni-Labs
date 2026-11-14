@@ -22,6 +22,9 @@ class Reviewed(BaseModel):
 
 class Applicability(StrEnum):
     RETAINED = "retained"
+    UPDATED = "updated"
+    """Only the step's settings, or the facts behind them, changed: the review stands, on the
+    step as it is now (issue 496)."""
     SUPERSEDED = "superseded"
     REMOVED = "removed"
 
@@ -31,6 +34,7 @@ class Reason(StrEnum):
     MEANING_CHANGED = "meaning_changed"
     DEPENDENCY_CHANGED = "dependency_changed"
     STEP_REMOVED = "step_removed"
+    SETTINGS_CHANGED = "settings_changed"
 
 
 class ReviewApplicability(BaseModel):
@@ -63,6 +67,27 @@ def fingerprint(blueprint: Blueprint, node: str) -> str:
     ).hexdigest()
 
 
+def shape(blueprint: Blueprint, node: str) -> str:
+    """What a step is, apart from how it is set: its tool, the module's digest, how the tool was
+    chosen, its wiring and the channels it reads by name and type (issue 496). A change here is
+    one a person reviews again; a change to settings alone is not."""
+    step = blueprint.step(node)
+    names = {i.channel for i in step.inputs if i.channel is not None}
+    payload = {
+        "module": step.module.model_dump(mode="json"),
+        # How the tool was chosen: a rule miss turns tier 3 into a tier-4 question, which stays
+        # flagged for review (CLAUDE.md), so that is never a settings change.
+        "chosen": [int(step.why.tier), step.why.source.value],
+        "inputs": [i.model_dump(mode="json") for i in step.inputs],
+        "call": [c.model_dump(mode="json") for c in step.call],
+        "channels": sorted((c.name, c.type_id) for c in blueprint.pipeline.channels
+                           if c.name in names),
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
 def review(blueprint: Blueprint, node: str, by: str, *, actor_kind=ActorKind.PERSON) -> Reviewed:
     return Reviewed(
         node=node,
@@ -74,9 +99,14 @@ def review(blueprint: Blueprint, node: str, by: str, *, actor_kind=ActorKind.PER
 
 
 def cascade(before: Blueprint, after: Blueprint, reviewed: list[Reviewed]):
+    """Which reviews stand. **Only a new tool or new wiring re-opens a step and the steps after
+    it** (the operator's decision on issue 496): a late answer that changes only settings, such
+    as strandedness, updates the steps it touches in place rather than sending the walk back."""
     old = {s.id: fingerprint(before, s.id) for s in before.pipeline.steps}
     fresh = {s.id: fingerprint(after, s.id) for s in after.pipeline.steps}
-    roots = {n for n in old.keys() | fresh.keys() if old.get(n) != fresh.get(n)}
+    old_shape = {s.id: shape(before, s.id) for s in before.pipeline.steps}
+    new_shape = {s.id: shape(after, s.id) for s in after.pipeline.steps}
+    roots = {n for n in old.keys() | fresh.keys() if old_shape.get(n) != new_shape.get(n)}
     children = {}
     for blueprint in (before, after):
         for step in blueprint.pipeline.steps:
@@ -95,10 +125,12 @@ def cascade(before: Blueprint, after: Blueprint, reviewed: list[Reviewed]):
     for entry in reviewed:
         if entry.node not in fresh:
             status, reason = Applicability.REMOVED, Reason.STEP_REMOVED
-        elif entry.node in roots or entry.fingerprint != fresh[entry.node]:
+        elif entry.node in roots:
             status, reason = Applicability.SUPERSEDED, Reason.MEANING_CHANGED
         elif entry.node in affected:
             status, reason = Applicability.SUPERSEDED, Reason.DEPENDENCY_CHANGED
+        elif entry.fingerprint != fresh[entry.node]:
+            status, reason = Applicability.UPDATED, Reason.SETTINGS_CHANGED
         else:
             status, reason = Applicability.RETAINED, Reason.SAME_MEANING
         outcomes.append(ReviewApplicability(node=entry.node, status=status, reason=reason))
