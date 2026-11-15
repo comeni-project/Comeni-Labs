@@ -6,7 +6,7 @@ from mendel_authoring.blueprint import Blueprint
 from sqlalchemy import func, select
 
 from mendel_api.agent import chat
-from mendel_api.authoring import envelopes
+from mendel_api.authoring.canvas import OfferContext
 from mendel_api.authoring.types import TurnState
 from mendel_api.db import session_scope
 from mendel_api.models import (
@@ -51,8 +51,7 @@ def read(session_id: str) -> dict:
                 blueprint=Blueprint.model_validate(blueprint_json) if blueprint_json else None,
                 graph=DraftGraph.model_validate(graph_json),
                 provenance=DraftProvenance.model_validate(draft.provenance or {}),
-                pending=None, proposal_id=None,
-                context=envelopes.OfferContext(
+                context=OfferContext(
                     draft_revision=draft.revision, decision_revision=draft.decision_revision,
                     session_version=row.row_version, registry=row.registry_digest or ""),
                 current=draft.projection_current, placement=placement, layers=registry.stack())
@@ -81,7 +80,6 @@ def read(session_id: str) -> dict:
             "canvas": canvas.model_dump(mode="json") if canvas is not None else None,
             "placement": placement,
             "steps_total": len((blueprint_json or {}).get("order") or []),
-            "show_gap_details": bool(row.show_gaps),
             "row_version": row.row_version,
             "usage": {"input": int(spent[0]), "output": int(spent[1]), "cached": int(spent[2]),
                       "calls": int(spent[3]),

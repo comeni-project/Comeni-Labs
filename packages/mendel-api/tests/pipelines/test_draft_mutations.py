@@ -1,6 +1,5 @@
 """Every draft writer shares revision checks and one transaction stamp."""
 
-from datetime import UTC, datetime
 from importlib import import_module
 
 import pytest
@@ -51,27 +50,15 @@ def test_unchanged_graph_is_a_noop_and_rename_does_not_replace_it():
     assert row.graph == _graph().model_dump(mode="json")
 
 
-def test_unfinished_authored_work_refuses_external_graph_replacement():
-    from mendel_api.models import PipelineAuthoringSession
+def test_a_conversation_never_locks_the_canvas():
+    """The agent and the person build together (#463): a draft with a conversation saves."""
+    from mendel_api.agent import loop
 
     service = _service()
     draft = drafts.create(DraftGraph(), "draft", "ana")
-    with session_scope() as db:
-        db.add(
-            PipelineAuthoringSession(
-                id="mutation-" + draft[:23],
-                draft_id=draft,
-                phase="gathering",
-                at="list_needs",
-                who="ana",
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-            )
-        )
-    with pytest.raises(ValueError, match="MI0217"):
-        service.save(draft, graph=_graph(), expected_revision=0)
-    service.save(draft, name="new", expected_revision=0)
-    assert drafts.read(draft).graph == DraftGraph().model_dump(mode="json")
+    loop.start_session(draft, who="ana")
+    service.save(draft, graph=_graph(), expected_revision=0)
+    assert drafts.read(draft).graph == _graph().model_dump(mode="json")
 
 
 def test_http_save_requires_a_revision_and_returns_conflict_for_a_stale_tab():

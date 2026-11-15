@@ -1,0 +1,208 @@
+{
+  "$defs": {
+    "AgentAsk": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "ask",
+          "default": "ask",
+          "type": "string"
+        },
+        "options": {
+          "default": [],
+          "items": {
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "question": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "question_id": {
+          "maxLength": 32,
+          "type": "string"
+        },
+        "shape": {
+          "enum": [
+            "options",
+            "number",
+            "yes_no",
+            "upload",
+            "text"
+          ],
+          "type": "string"
+        },
+        "type_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "unit": {
+          "default": "",
+          "maxLength": 20,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "question_id",
+        "question",
+        "shape"
+      ],
+      "type": "object"
+    },
+    "AgentMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "message",
+          "default": "message",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 16000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "type": "object"
+    },
+    "Notice": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "notice",
+          "default": "notice",
+          "type": "string"
+        },
+        "notice": {
+          "$ref": "#/$defs/NoticeKind"
+        },
+        "text": {
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "notice",
+        "text"
+      ],
+      "type": "object"
+    },
+    "NoticeKind": {
+      "enum": [
+        "refusal",
+        "limit"
+      ],
+      "type": "string"
+    },
+    "ToolLine": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "kind": {
+          "const": "tool",
+          "default": "tool",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "summary": {
+          "default": "",
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "label",
+        "ok"
+      ],
+      "type": "object"
+    }
+  },
+  "items": {
+    "discriminator": {
+      "mapping": {
+        "ask": "#/$defs/AgentAsk",
+        "message": "#/$defs/AgentMessage",
+        "notice": "#/$defs/Notice",
+        "tool": "#/$defs/ToolLine"
+      },
+      "propertyName": "kind"
+    },
+    "oneOf": [
+      {
+        "$ref": "#/$defs/Notice"
+      },
+      {
+        "$ref": "#/$defs/AgentMessage"
+      },
+      {
+        "$ref": "#/$defs/ToolLine"
+      },
+      {
+        "$ref": "#/$defs/AgentAsk"
+      }
+    ]
+  },
+  "type": "array"
+}

@@ -14,18 +14,27 @@ and `workspace_root`, and whose `/drafts/land` ran `git commit` in whatever path
 The module was **deleted** rather than left unmounted — zero production consumers, an optional
 `fastapi` extra nothing installed, and a guide section telling operators to mount it. The
 argument, and what was lost with it, is `docs/notes/specs/2026-08-19-sources-and-drafting.md` §3.2.
+
+**One mount is allowed, by name: `/api/mcp`** (#463). It serves the builder agent's tools over
+MCP, whose contract is the protocol's own tool listing rather than an OpenAPI document; it is
+behind a bearer token (`MENDEL_MCP_TOKEN`, off without one); and its tools are the same declared
+inputs the in-process agent uses, which `test_no_mcp_tool_takes_a_filesystem_path` scans.
 """
 
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from mendel_api.main import create_app
 
+MOUNTS = {"/api/mcp"}
+"""The one sub-app served outside the document, and why, is the module docstring's."""
+
 
 def test_the_served_surface_is_the_openapi_document():
-    """No mounts — because a mount is by construction outside the document."""
+    """No mounts but MCP's — because a mount is by construction outside the document."""
     from starlette.routing import Mount
 
-    mounts = [(r.path, type(r).__name__) for r in create_app().routes if isinstance(r, Mount)]
+    mounts = [(r.path, type(r).__name__) for r in create_app().routes
+              if isinstance(r, Mount) and r.path not in MOUNTS]
     assert mounts == [], (
         f"{mounts} is served and not in the OpenAPI document. If a sub-app is wanted, it has to "
         "be reachable through the schema — and the forge's own transport additionally took "
@@ -75,6 +84,17 @@ def test_no_request_body_accepts_a_filesystem_path():
         if field.endswith("_root") or field.endswith("_path")
     ]
     assert offenders == [], f"a request body takes a filesystem path: {offenders}"
+
+
+def test_no_mcp_tool_takes_a_filesystem_path():
+    """The MCP mount's general form of the same claim: no tool input names a root or a path."""
+    from mendel_api.agent.tools import TOOLS
+
+    assert TOOLS, "no tool is declared: the scan reads nothing"
+    offenders = [f"{name}.{field}" for name, tool in TOOLS.items()
+                 for field in tool.input.model_fields
+                 if field.endswith("_root") or field.endswith("_path")]
+    assert offenders == [], f"an MCP tool takes a filesystem path: {offenders}"
 
 
 def test_every_route_is_under_api():

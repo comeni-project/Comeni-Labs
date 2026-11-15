@@ -176,6 +176,7 @@ SERIALISED_SHAPE = {
         "axis_reason",
         "from_layer",
         "displaced_layer",
+        "overrode",
     ],
     "CallArg": ["ports", "literal", "empty_width", "from_setting", "join", "key", "joins",
                 "why"],

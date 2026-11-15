@@ -50,11 +50,12 @@ behavior groups, shared scenarios, and narrow test commands.
 | `migrations/` | Alembic migration history; add migrations, do not rewrite migrations already in use. |
 | `migration_data/` | Versioned migration transforms retained for historical rows. |
 
-The application owns effects and storage. Conversation legality remains in `mendel-authoring`,
+The application owns effects and storage, and the builder agent's loop and tools
+(`mendel_api/agent/`). Decisions and their projections remain in `mendel-authoring`,
 resolution in `mendel-resolver`, artifact generation in `mendel-compiler`, provider transport in
 `comeni-ai`, and bounded sample reading in `comeni-inspect`. Read the
 [package-boundary reference](../../docs/explanation/package-boundaries.md) and the
-[authoring protocol explanation](../../docs/explanation/authoring-protocol.md) before moving
+[builder agent explanation](../../docs/explanation/builder-agent.md) before moving
 responsibilities between packages.
 
 ## Contract and operations references

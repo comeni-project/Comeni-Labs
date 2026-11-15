@@ -29,51 +29,36 @@ cites its entry; the long form is in [the archive](journal/archive/).
 
 ## The living pipeline (describe → build)
 
+- **The builder is an agent** (#463, on the builder-agent branch): it reads, chooses through
+  tools, builds and explains; the engine validates, routes, offers rules as advice and emits.
+  How it works: `docs/explanation/builder-agent.md`; design:
+  `docs/superpowers/specs/2026-11-14-builder-agent-design.md`; plan:
+  `docs/superpowers/plans/2026-11-14-builder-agent.md`.
+  The scripted walk (stages, proposals, suggestions, pacing, the protocol) is deleted. (11-15)
 - A researcher types a sentence and builds beside a conversation at `/build?session=<id>`;
   `/build?draft=<id>` and a bare `/build` open one too: every pipeline has one. (09-13, 10-22)
-- **The authoring protocol** is `docs/design/authoring-protocol.md`: the engine decides what is
-  missing, a model only phrases and reads answers, nothing is guessed, an open measurement falls
-  to tier 4, and stage ④ (the consultant build) is knowingly optimistic. (2026-09-28)
-- **The diagram runs the engine:** protocol, interpreter and commands are the pure
-  `mendel-authoring`; a session moves only by a drawn arrow, one command in one transaction through
-  `mendel_api/services/session.py`, one module per stage. One build; tier 4 always stops. (2026-10-05, 10-06)
-- **Protection level 0** (everything open) is the MVP; invariant 15 does not hold at level 0 and
-  characterisation is a fourth AI point, both recorded loosenings. (2026-09-28, 2026-10-04)
-- **The want is two calls:** `builder.family.v4` answers `fits`, then `builder.goal.v9` reads the
-  chosen families (also the one-step path); a want nothing makes asks the person. (2026-09-30)
-- **The model phrases and returns grounded changes:** `ask.v3` words each gap, `readback.v2` reads
-  the goal back, `chat.v7` reads typed words. A change quoting the turn being answered is *heard*:
-  recorded before the goal is confirmed, offered after; others are offered. (2026-10-13, 10-18)
-- **One writer for every change** (`mendel_api/services/changes.py`); the decision rows are the only home of
-  the want, confirmation is recorded, and every prompt is shown *what is known*. (2026-10-13)
-- **Whatever a chosen tool reads comes from somewhere, or is tier 4** (#338): derived from the
-  module's code (`conformance.facts_read`); strandedness stops once, on the step card. (2026-10-16)
-- **A value against a measured one is asked about, then followed** (#345); a not-offered request is
-  a note that changes nothing (#347, #355); `measurement.*` types reach no builder door (#346). (10-18)
-- **Every data question explains itself:** *What is this?* (the registry's curated `name` and
-  `explain`) and why it is asked (the engine's). The voice is `docs/design/voice.md`. (2026-10-13)
-- **Replies are enforced formats** (`comeni_ai/formats.py`, one per provider), so a shape is never
-  refused; a raw JSON Schema in the prompt made models echo it. (2026-09-29)
+- **Every AI choice is the AI's**: tier 4, source model, with its `because`, and any rule it
+  overrode beside it; flagged for review, never blocking. The person's direct actions go
+  through the same writer (`mendel_api/services/changes.py`) and rebuild at once. (11-14)
+- **The same tools over MCP** at `/api/mcp`, behind `MENDEL_MCP_TOKEN`; off without one. (11-14)
+- **A hand edit is read as intent** (`read_edit`): applied as the person's change and kept as
+  structural intent (`absent_roles`, `exclusions`, `sources`; `MD0319`–`MD0321`). (2026-10-22)
+- **An unanswered tier-4 setting is optional** when its route leaves the tool its own behaviour
+  (`OMITTABLE`: `ext`, `directive`): still flagged, it stops nothing (#384). Tier 3 is never
+  called *measured* (#387, #397). (2026-10-22)
 - **Current decisions are retained rows**, one pointer per subject; corrections cascade reviews,
   truthful unbuildable answers stay. (2026-10-11)
-- **A hand edit is read, not saved** (`read_edit`): readings the engine words, applied on *Yes*,
-  kept as structural intent (`absent_roles`, `exclusions`, `sources`; `MD0319`–`MD0321`). No
-  fork. A drawn pipeline's first reading gathers its inputs (#399). (2026-10-22)
-- **An unanswered tier-4 setting is optional** when its route leaves the tool its own behaviour
-  (`OMITTABLE`: `ext`, `directive`): still flagged, it stops nothing; `positional` and `meta`
-  still need the person (#384). Tier 3 is never called *measured* (#387, #397). (2026-10-22)
-- **The canvas is the session's frame**, read from recorded rows and never re-resolved; progress
-  counts the plan (*Step 4 of 5*); an alternative previews as the whole saved pipeline. (2026-10-12)
-- **Open:** `MD0225` does not cover step selections; the `comeni-core` version bump for goal pins,
-  missing-premise records and provenance. (2026-09-13, 2026-10-06, 2026-10-07)
+- **Open:** the frontend's agent thread (task 12); characterisation as a tool (#501); tier-4
+  structure for the agent (#502); how samples differ, as a spread (#503); `MD0225` does not
+  cover step selections. (2026-11-15)
 
 ## Samples (protection level 0)
 
 - **A gap can be answered with a sample**, one file or a pair: each file's first 4 MB, measured in
   memory by a child process with no secrets and hard limits; facts are kept, never bytes. A
   disagreement asks keep, use, correct or unknown. (2026-10-03, 2026-10-04)
-- **A sample nothing reads is read by the AI** (door 6): up to 8 KB; a family, then a type; each
-  property **quotes its line**, checked, then *read by AI*. Open: #238, #239. (2026-10-04)
+- **A sample nothing reads was read by the AI** (door 6): up to 8 KB, each property quoting its
+  line. Deleted with the walk; it returns as an agent tool (#501). (2026-10-04, 11-15)
 - **Measurers are composed pieces** in `registry/measurers/` (codecs, formats, measurers), run
   only from trusted layers in one pass; below a threshold a measurer says *undetermined*. (11-10)
 - **A measured fact is `MEASURED`**, naming its pieces and evidence. Adding a piece:

@@ -34,8 +34,7 @@ _SUBJECTS = ("pipeline_input", "pipeline_want", "pipeline_fact", "pipeline_produ
 subject, both `RESTRICT`, which Postgres checks at the end of each statement even where the
 constraint is deferrable: so a subject and its revisions go in one statement."""
 
-_AFTER = ("pipeline_evidence_access", "pipeline_observation", "pipeline_phrasing",
-          "pipeline_decision_migration")
+_AFTER = ("pipeline_evidence_access", "pipeline_observation", "pipeline_decision_migration")
 """What the revisions reference, after them."""
 
 
@@ -101,10 +100,8 @@ def delete_draft(draft_id: str) -> Deleted:
             rows += db.execute(sa.text(f"DELETE FROM {table} WHERE draft_id = :d"),
                                {"d": draft_id}).rowcount
         if sessions:
-            for table in ("pipeline_authoring_suggestion", "pipeline_authoring_proposal",
-                          "pipeline_authoring_turn"):
-                rows += db.execute(sa.text(f"DELETE FROM {table} WHERE session_id = ANY(:s)"),
-                                   {"s": sessions}).rowcount
+            rows += db.execute(sa.text("DELETE FROM pipeline_authoring_turn "
+                                       "WHERE session_id = ANY(:s)"), {"s": sessions}).rowcount
             rows += db.execute(sa.delete(PipelineAuthoringSession)
                                .where(PipelineAuthoringSession.draft_id == draft_id)).rowcount
         # **After the sessions go, never before** (review finding 2): a reply being written now

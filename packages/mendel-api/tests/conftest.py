@@ -1,7 +1,8 @@
 """Fixtures for the API tests."""
 
 import pytest
-from mendel_api_tests.canvas_scenarios import authoring_case as authoring_case
+from mendel_api_tests.building import authoring_case as authoring_case
+from mendel_api_tests.building import clean as clean
 from mendel_api_tests.database import truncate
 from support.paths import ROOT as REPOSITORY_ROOT
 
@@ -11,13 +12,13 @@ def clean_invocations():
     """Start each requested scenario with empty invocation-related tables.
 
     PostgreSQL requires these tables in one TRUNCATE because their foreign keys use RESTRICT.
-    Pipeline-authoring turns reference the shared `ai_invocation` table; authoring proposals
-    reference those turns. Any new table referencing these rows must join the truncation list.
+    Pipeline-authoring turns reference the shared `ai_invocation` table. Any new table
+    referencing these rows must join the truncation list.
     """
     from mendel_api.db import session_scope
 
     tables = (
-        "ai_invocation, pipeline_authoring_proposal, pipeline_authoring_turn"
+        "ai_invocation, pipeline_authoring_turn"
     )
     with session_scope() as session:
         session.execute(truncate(f"TRUNCATE TABLE {tables}"))

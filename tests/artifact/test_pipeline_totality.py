@@ -295,6 +295,7 @@ CARRIED_AS: dict[str, str] = {
     "ResolvedValue.axis_reason": "steps.why.axis_reason",
     "ResolvedValue.from_layer": "steps.why.from_layer",
     "ResolvedValue.displaced_layer": "steps.why.displaced_layer",
+    "ResolvedValue.overrode": "steps.why.overrode",
     "Lockfile.version": "version",
     "Lockfile.layers": "registry.layers",
     "LockedContract.id": "steps.module.contract_id",

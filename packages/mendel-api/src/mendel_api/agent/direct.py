@@ -89,9 +89,9 @@ def upload(session_id: str, files: list[tuple[str, bytes]], sizes: tuple[int, ..
     """Samples measured by this server's inspectors (#134, #466): kept on the session, and each
     fact every sample agrees on recorded as measured, unless the person already said it — their
     word stands. Returns what was read, for the person's next message to the agent."""
+    from mendel_api.agent.samples import _agreed, _keep_samples
     from mendel_api.services import inspect
     from mendel_api.services.sample_upload import samples_of
-    from mendel_api.stages.samples import _agreed, _keep_samples
 
     draft_id = _draft_of(session_id)
     grouped = samples_of(list(files), tuple(sizes))

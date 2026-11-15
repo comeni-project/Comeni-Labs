@@ -115,7 +115,7 @@ def spawned_draft() -> str:
     with session_scope() as session:
         session.execute(
             truncate(
-                "TRUNCATE TABLE pipeline_authoring_proposal, pipeline_authoring_turn, "
+                "TRUNCATE TABLE pipeline_authoring_turn, "
                 "pipeline_authoring_session, pipeline_draft, gate_run"
             )
         )
@@ -265,7 +265,7 @@ def test_a_hand_drawn_draft_starts_with_no_sidecar():
     with session_scope() as session:
         session.execute(
             truncate(
-                "TRUNCATE TABLE pipeline_authoring_proposal, pipeline_authoring_turn, "
+                "TRUNCATE TABLE pipeline_authoring_turn, "
                 "pipeline_authoring_session, pipeline_draft, gate_run"
             )
         )

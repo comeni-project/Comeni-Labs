@@ -17,8 +17,8 @@ Use the [tutorials](../tutorials/index.md) to learn through an example or the
 | Which inputs are used to build, and which to run? | [Inputs in the alpha](inputs-and-data.md) |
 | What knowledge does the registry contribute? | [The registry](registry.md) |
 | Which boundaries must implementation preserve? | [Invariants](invariants.md) |
-| How does the authoring conversation progress? | [Authoring protocol](authoring-protocol.md) |
-| How are protocol transitions represented? | [Authoring protocol diagram](diagrams/authoring-protocol.md) |
+| How does the builder agent build a pipeline? | [Builder agent](builder-agent.md) |
+| How are the forge's transitions represented? | [Forging protocol diagram](diagrams/forging-protocol.md) |
 | How should the app phrase questions and decisions? | [Product voice](product-language.md) |
 | Why do the screens look the way they do? | [Visual identity](visual-identity.md) |
 

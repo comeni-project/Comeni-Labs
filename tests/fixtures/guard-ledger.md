@@ -5546,3 +5546,16 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   and refusals in `FREE_TEXT_FIELDS`. The same run caught task 3's `ProducerPin.because`,
   `ParamOverride.because` and `Overrode.rule`/`cite` reaching doors 1 and 4 undeclared, and a bare
   `str` author; declared, and `by` became the `Author` enum. Pass.
+- 2026-11-15, #463 the scripted walk goes: doors `goal_extraction` and `tier4_resolution` are
+  removed with `AuthoringRequest` and `AmbiguityRequest`, and with them
+  `test_every_ambiguity_field_can_cross_the_door`, `test_every_tier_four_question_can_actually_cross_the_door`,
+  `test_the_door_carries_what_the_forge_measured_a_model_needs` and
+  `test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample`; `Excerpt` and the walk's
+  turn and prompt leave `FREE_TEXT_FIELDS` (`test_free_text_lives_only_where_declared` failed
+  on the unreachable `Excerpt` entries until they went). The person's words still reach a model,
+  through the agent's loop, which declared nothing: the door is now `AgentRequest` (the
+  conversation as `AgentTurn`s, and the tool results), and
+  `test_the_builder_agent_door_is_the_conversation_and_one_typed_result_per_tool_call` failed
+  before it (`['tool', 'ok', 'view', 'refusal'] != ['turns', 'results']`); `AgentTurn.content`
+  is declared free text. `test_the_conversation_crosses_as_the_declared_payload` failed before
+  the loop built its history from the payload (no `conversation`). Pass.

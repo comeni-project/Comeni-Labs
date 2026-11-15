@@ -189,7 +189,6 @@ class AuthoringSessionView(BaseModel):
     graph: DraftGraph
     """The draft as the server holds it — the canvas restores from this."""
     canvas: CanvasFrame | None = None
-    show_gap_details: bool = False
     steps_total: int = 0
     placement: dict[str, AuthoringPosition] = {}
     row_version: int

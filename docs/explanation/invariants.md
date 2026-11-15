@@ -52,12 +52,17 @@ person approves them into the registry layer. Nothing writes there automatically
 
 ### 3. Runtime AI is confined to four declared points
 
-They are prompt → goal extraction (user
-corrects the result before anything runs), tier-4 resolution (always flagged, always
+They are the conversation that becomes a goal, tier-4 resolution (always flagged, always
 recorded), compiler repair (bounded to 3 attempts), and characterisation. Nothing else calls a
 model.
-**Characterisation is the fourth, since 2026-10-04 (14.7.7), and it is a recorded loosening**
-(`docs/explanation/authoring-protocol.md`, *Loosenings*). At protection level 0 only, a model reads
+**Since 2026-11-14 (#463) the first two are the builder agent.** It reads the person's words and
+chooses through tools; every choice it makes is recorded as the AI's, at tier 4 with the model
+as its source, with its reason, and flagged for review. A pipeline it built records both points
+(`AiPoint.PROMPT`, `AiPoint.TIER_4`). How it works is
+[the builder agent page](builder-agent.md).
+**Characterisation is the fourth, since 2026-10-04 (14.7.7), and it is a recorded loosening.**
+Its door stays declared; since #463 nothing calls it until it is wired to the agent as a tool (#501).
+At protection level 0 only, a model reads
 the start of an uploaded sample that nothing here reads, and names its declared type, and the
 declared states and measurements a line of it states. Each id is admitted against the
 vocabulary. Each property must quote its line, which the engine checks is really in the file
@@ -177,7 +182,7 @@ survive without them. **The expensive half of that story is deliberately unbuilt
 Do not start them on privacy grounds alone.
 **A model call carrying words a person typed is a door, whichever path it is on.** The old
 forge's review chat became door 5 for exactly that reason: a curator's message reached a
-provider at request time, which is what `AuthoringRequest.prompt` is on the pipeline side. It
+provider at request time, which is what `AgentTurn.content` is on the pipeline side. It
 was removed with the old forge (#361); a forge that sends a person's words to a model declares a
 door again rather than stretching an exemption.
 **Door 6, characterisation (2026-10-04, 14.7.7), is the first whose payload holds data from a
@@ -186,9 +191,10 @@ person's file**: up to 8 KB and 200 lines of a sample's text, bounded by its own
 `SAMPLE_FIELDS` sits beside `FREE_TEXT_FIELDS`, and a guard holds door 6 to be the only door
 that can reach a `Mark.SAMPLE`. The payload carries no file name, extension, session or
 conversation. The vocabulary the model chooses from is the public registry, rendered into the
-prompt as door 1's is.
-**The builder agent's door (2026-11-14, #463) is the second that may reach a sample**: what
-its tools return to its model, as typed views (`comeni_core.egress.agent`). At protection level
+prompt.
+**The builder agent's door (2026-11-14, #463) is the second that may reach a sample**: the
+conversation, and what its tools return to its model as typed views
+(`comeni_core.egress.agent`). It replaced goal extraction's and tier-4 resolution's doors. At protection level
 0, the operator's decision, a view may carry a sample's name (`marks.SampleName`), so the guard
 holds `characterisation` and `builder_agent` to be the only doors that reach a `Mark.SAMPLE`.
 A stricter level filters a view before it is built; none is built yet.
@@ -200,20 +206,16 @@ one — the mechanism this buys is that widening the boundary means editing a fi
 *these are all the ways data leaves*, and two files creates a cheaper file, which is where
 a door belonging on the other list eventually goes.
 Each door carries one declared payload type, and a **named set** of fields across the whole
-surface may hold free text: `AuthoringRequest.prompt`, `GateFailure.tool_message`,
+surface may hold free text: the person's words (`AgentTurn.content`), `GateFailure.tool_message`,
 `ResolvedValue.reason`, one `reason` per decision kind, `Why.reason` — the citation beside
-every value in `pipeline.yml` — the `axis_reason` on `Why` and `ResolvedValue` plus
-`ParamDecision.override_reason` since Plan 1.14, and `AuthoringTurn.content` since door 1
-became a conversation on 2026-09-09.
-**Door 1's payload is `AuthoringRequest`, and it is still one door.** `PromptRequest` carried
-a single string because goal extraction was assumed to be a single call; it is not — a person
-reads back what the engine understood and corrects it, so the second call has to know what
-the first established. Everything it gained beside the bounded tail is typed vocabulary the
-engine itself issued: a `Goal` (which already crosses door 4 inside a `Pipeline`), node and
-contract ids, and the **option ids** a model must answer with. That last one is the product
-claim made enforceable at the boundary — a reply addressed by id cannot name a value nobody
-offered. `AiPoint.PROMPT` is unchanged, and invariant 3 still declares three runtime AI
-points.
+every value in `pipeline.yml` — the `axis_reason` on `Why` and `ResolvedValue`,
+`ParamDecision.override_reason` since Plan 1.14, and the agent's `because` since #463.
+**The conversation crosses as typed turns, and the rest of what the agent sees is engine
+vocabulary.** The person's words and the agent's own replies are `AgentTurn`s; everything a tool
+returns is a typed view of declared data, and a writing tool's arguments are refused at the
+boundary unless they name ids the registry declares. Until #463 the goal-extraction door
+carried the conversation as `AuthoringRequest` with option ids a model had to answer with; the
+agent's tools enforce the same claim per call.
 **The count is deliberately not written here any more** (2026-09-05). It said "exactly two"
 for a plan and a half, then four, six, seven, ten and fourteen, and it was wrong within a
 day of every one of those. `FREE_TEXT_FIELDS` in `tests/guards/test_egress.py` is the count,
@@ -233,22 +235,12 @@ absorbed: `override_reason` is a new author writing at a new moment, and the arg
 it is that the alternative is a reviewer's reasoning living nowhere. Whether that argument
 holds is the sort of thing a literal list exists to put in front of somebody, and it has
 now done so five times.
-**Eleven through fourteen arrived together, with Plan 2.5**, and they are a *refactor*
-increase of the A16 kind rather than four new kinds of string: `Ambiguity` became a
-`comeni_core.review.Question`, so `what` and `why_open` — which the forge had carried on
-every `Hole` since Phase 1 — reach door 2 too, along with `Excerpt.locator` and
-`Excerpt.text`. They were **let through rather than stripped**, on a measurement: the
-forge's prompt search took a local model from 69% to 88%, and two of the three fixes
-behind that were *the question never said what it was about* and *the evidence was not
-readable*. A door handing a model bare candidates rebuilds the 69% configuration on the
-build path. `test_the_door_carries_what_the_forge_measured_a_model_needs` holds it, so
-removing them fails rather than quietly regressing.
-**`Excerpt` is the first entry that is not an author.** Every other field is composed by
-somebody; these two are *quoted* — a source file already holds the text and an excerpt
-copies it. That is a weaker claim than the rest of the list makes, and it is written down
-because *"it is only quoted"* is exactly the reasoning that widens a boundary unnoticed.
-What bounds it is the source: excerpts come from vendored modules and registry files,
-which are public, and never from a prompt or a goal.
+**Eleven through fourteen arrived with Plan 2.5 and left with #463.** A tier-4 question's
+`what` and `why_open`, and `Excerpt.locator` and `Excerpt.text`, crossed the tier-4 door, let
+through on a measurement: the forge's prompt search took a local model from 69% to 88%, and two
+of the three fixes were *the question never said what it was about* and *the evidence was not
+readable*. The agent's views carry open values as engine sentences, not as structured
+questions; carrying that structure back is #502.
 **Door 4 carries a `Pipeline`**: the artifact on disk *is* the payload, so what a person
 reads before publishing and what crosses the boundary cannot disagree. `PublishBundle` is
 retired. The guard's roots come from `DOORS` rather than from what happens to live in
@@ -276,14 +268,16 @@ the guard moved rather than weakened: `MeasurementRegistry.profile()` is the onl
 constructor, `tests/guards/test_construction.py` enforces that nothing else builds a `DataProfile`,
 and `mendel build` re-routes every goal's profile through it. Delete that one call and
 `profile: {sample_name: ...}` builds cleanly — which is how it was watched failing.
-**Protection level 0 loosens this twice, both recorded** (`docs/explanation/authoring-protocol.md`,
-*Loosenings*):
+**Protection level 0 loosens this three times, all recorded:**
 - since 14.7.6, an uploaded sample's first 4 MB is held in memory and measured on this
   server, and only the measured facts are kept;
 - since 14.7.7, when nothing reads its type, up to 8 KB of its text goes to a model through
   door 6, waiting in the AI queue until the worker takes it (and in Redis's snapshot on
   disk, which level 0 allows, #281). Only the ids it admits become
   facts; the model's reply, with the lines it quoted from the file, is kept whole (#238).
+  Nothing calls it since #463, until it is wired to the agent;
+- since #463, the builder agent's model may read the names of a person's uploaded samples,
+  so it can talk about them. The names are kept with the session and deleted with it.
 
 `guarded` and `sealed` will hold the invariant (#71).
 

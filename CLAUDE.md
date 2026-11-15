@@ -4,10 +4,11 @@ Comeni helps a researcher describe an analysis, build a Nextflow pipeline, run i
 watch the result. Mendel owns describe/build; Wiener owns run/watch. Comeni-Code is a
 separate project and is outside this repository's scope.
 
-Construction uses declared contracts, rules and measured facts. Unsettled choices become
-typed questions with reasons and legal answers; people or models answer those questions.
-The engine records the decisions and emits the pipeline. Explain that boundary when
-introducing the project: a model's contribution must remain visible and reviewable.
+Construction uses declared contracts, rules and measured facts. The builder is an agent
+with tools (#463): the engine validates, routes, offers rules as advice and emits; the agent
+chooses and explains, and each choice is recorded as the AI's, with its reason, for review.
+The person can change anything directly. Explain that boundary when introducing the project:
+a model's contribution must remain visible and reviewable.
 
 ## Before working
 
@@ -59,7 +60,7 @@ claims in source and guards before repeating them.
   it does not automatically write new registry entries. Vocabularies and states are closed.
 - Model calls use declared AI points and typed egress payloads. Validate offered IDs and
   legal answers at the receiving boundary, even if a provider enforces an output schema.
-  A tier-3 rule miss or routing tie becomes a tier-4 question; tier 4 remains flagged for review.
+  A rule miss, a routing tie or an agent's override is tier 4, and stays flagged for review.
 - Preserve why a choice was made, who answered it and the supplying layer. Replays use
   recorded decisions. The same inputs and recorded decisions must reproduce the output;
   sort unordered collections before serializing them.
@@ -104,7 +105,8 @@ compliance, call data anonymised, or promise cloud data handling that has not be
 | Shared types, contracts, artifact schema and diagnostics | `packages/comeni-core/` |
 | Routing, rules and decision tiers | `packages/mendel-resolver/` |
 | Nextflow emission, conformance and gates | `packages/mendel-compiler/` |
-| Authoring protocol / the shared flow engine and interpreter | `packages/mendel-authoring/`, `packages/comeni-flow/` |
+| Decisions and projections / the forge's flow engine | `packages/mendel-authoring/`, `packages/comeni-flow/` |
+| The builder agent: tools, loop, chat and MCP | `packages/mendel-api/src/mendel_api/agent/` |
 | Build sessions, API, jobs and installation settings | `packages/mendel-api/` |
 | Shared provider transport / Mendel model integration | `packages/comeni-ai/`, `packages/mendel-ai/` |
 | The forge: module catalogue, sources and state against the registry (#360) | `packages/mendel-forge/` |

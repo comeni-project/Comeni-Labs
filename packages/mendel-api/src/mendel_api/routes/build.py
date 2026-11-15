@@ -256,31 +256,19 @@ def open_draft_session(draft_id: str) -> DraftSession:
     with nothing said, which reads the drawing back for the person to confirm; a draft that has
     one is answered with it. Two opens at once make one: the unique index decides, and the
     loser is answered with the winner's."""
-    from mendel_authoring import commands as c
-    from sqlalchemy.exc import IntegrityError
-
-    from mendel_api.services import session
-    from mendel_api.stages import describe
+    from mendel_api.agent import loop
 
     try:
         draft_service.read(draft_id)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"no draft {draft_id}") from None
-    try:
-        opened = session.perform(c.OpenDrawn(draft_id, identity.default_author())).result
-    except (IntegrityError, ValueError):
-        # The other open won, at the index (`IntegrityError`) or at `open_session`'s own check
-        # (`MI0200`); anything else leaves no session and is raised.
-        opened = describe.session_of(draft_id)
-        if opened is None:
-            raise
+    opened = loop.start_session(draft_id, who=identity.default_author())
     return DraftSession(session_id=opened)
 
 
 @router.put("/drafts/{draft_id}", operation_id="saveDraft", summary="Save a checked draft",
             responses={**REFUSES, 409: {"model": Refusal,
-                        "description": "MI0201: stale save; "
-                                       "MI0217: authored work is in progress."}})
+                        "description": "MI0201: stale save."}})
 def save_draft(draft_id: str, body: DraftSave) -> DraftOut:
     try:
         row = draft_mutations.save(draft_id, graph=body.graph, name=body.name,

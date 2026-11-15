@@ -17,8 +17,8 @@ from pathlib import Path
 
 from comeni_ai import Client
 from comeni_ai.prompts import PromptTemplate
-from comeni_core.egress.authoring import AuthoringRole
 from comeni_core.egress.forge import (
+    AuthoringRole,
     ForgeFinding,
     ForgeItemStatus,
     ForgeItemText,

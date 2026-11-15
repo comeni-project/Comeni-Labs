@@ -400,16 +400,3 @@ class PipelineAskedRevision(_Revision):
 
     phrase: Mapped[str] = mapped_column(Text)
     present: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
-
-
-class PipelinePhrasing(Base):
-    __tablename__ = "pipeline_phrasing"
-    shape_version: Mapped[int] = stamp("pipeline_phrasing")
-
-    draft_id: Mapped[str] = mapped_column(
-        String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True
-    )
-    subject: Mapped[str] = mapped_column(String(128), primary_key=True)
-    decision_revision: Mapped[int] = mapped_column(Integer, primary_key=True)
-    context_digest: Mapped[str] = mapped_column(String(64), primary_key=True)
-    asked: Mapped[dict | None] = mapped_column(Json, nullable=True)

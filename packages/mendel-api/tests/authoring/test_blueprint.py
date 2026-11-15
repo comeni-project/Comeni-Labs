@@ -21,7 +21,7 @@ from mendel_api.services import blueprint as bp
 from mendel_api.services import registry
 from mendel_resolver.goal import Goal
 from mendel_resolver.materialise import ir_of
-from support.example import example_goal, example_mapping
+from support.example import example_goal
 from support.paths import ROOT as REPOSITORY_ROOT
 
 ROOT = REPOSITORY_ROOT
@@ -59,19 +59,6 @@ def contracts():
 
 
 # ── the shapes Task 6 names ───────────────────────────────────────────────────────────────
-
-
-def test_a_one_step_pipeline_is_one_card_with_nothing_else_to_choose():
-    """**Also a regression.** MultiQC produces `qc.report` and consumes it, and the first run of
-    this test offered it as FastQC's alternative — the same self-loop as the sorter, in a shape
-    that had no consuming step to exclude, which is why the rule became one about types."""
-    blueprint, _ = bp.resolve(_one_step())
-    assert blueprint.order == ["fastqc"]
-
-    offered = _payload(blueprint, "fastqc", goal=_one_step())
-    assert offered["block"]["tier"] == 1
-    assert offered["options"] == {bp.KEEP: "nf-core/fastqc@0.12.1"}
-    assert blueprint.after("fastqc") is None
 
 
 def test_the_rnaseq_spine_is_revealed_in_layout_order(spine):
@@ -117,21 +104,6 @@ def test_a_blueprint_survives_being_stored_and_read_back(spine):
 
 
 # ── alternatives ──────────────────────────────────────────────────────────────────────────
-
-
-def test_every_offered_option_id_maps_to_a_contract_the_server_holds():
-    """The block the browser renders and the set the server enforces are written together
-    (spec §14.4): *keep*, each alternative that can be built, and the fact the rule lacked —
-    and every alternative id stands for the amendment stored beside it."""
-    data = example_mapping()
-    data["profile"].pop("read_length")
-    blueprint, _ = bp.resolve(Goal.model_validate(data))
-    offered = _payload(blueprint, "star_align", goal=Goal.model_validate(data))
-    shown = {option["id"] for option in offered["block"]["alternatives"]}
-
-    assert shown, "the aligner offered no alternatives, so this asserted nothing"
-    assert set(offered["options"]) == {bp.KEEP, "fact_read_length"} | set(offered["amendments"])
-    assert set(offered["amendments"]) <= shown
 
 
 def _payload(
@@ -266,28 +238,6 @@ def test_accepting_every_step_rebuilds_the_blueprint_through_ir_of(spine, contra
         }
 
     assert shape(rebuilt) == shape(spine.pipeline)
-
-
-def test_a_step_card_carries_exactly_the_wires_accepting_it_would_add(spine, contracts):
-    """What the browser draws optimistically must be what the server commits. The aligner's
-    proposal, offered after only the index is in the draft, carries the index wire and not the
-    trimmer's — and `committed` adds the same one."""
-    offered = _payload(spine, "star_align", present=frozenset({"star_genomegenerate"}))
-    graph, _ = _accept(
-        spine,
-        DraftGraph(
-            nodes=[
-                {"id": "star_genomegenerate", "contract_id": "nf-core/star/genomegenerate@2.7.11b"}
-            ]
-        ),
-        DraftProvenance(),
-        "star_align",
-        contracts,
-    )
-
-    drawn = {(e["from_node"], e["to_node"]) for e in offered["edges"]}
-    assert drawn == {("star_genomegenerate", "star_align")}
-    assert drawn == {(e.from_node, e.to_node) for e in graph.edges}
 
 
 def test_each_step_knows_its_site_and_its_candidates():

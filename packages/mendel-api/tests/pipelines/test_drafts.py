@@ -233,8 +233,8 @@ def test_a_pipeline_built_in_a_conversation_names_it_and_a_drawn_one_does_not(cl
     drawn = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()["id"]
     with session_scope() as db:
         db.add(PipelineAuthoringSession(
-            id="listing-" + talked[:24], draft_id=talked, phase="complete", at="list_needs",
-            who="ana", created_at=datetime.now(UTC), updated_at=datetime.now(UTC)))
+            id="listing-" + talked[:24], draft_id=talked, who="ana",
+            created_at=datetime.now(UTC), updated_at=datetime.now(UTC)))
 
     assert _row(client, talked)["session"] == "listing-" + talked[:24]
     assert _row(client, drawn)["session"] is None

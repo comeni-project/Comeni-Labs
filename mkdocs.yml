@@ -157,8 +157,7 @@ nav:
       - Mendel AI ownership: explanation/mendel-ai-ownership.md
       - Design boundaries:
           - Invariants: explanation/invariants.md
-          - Authoring protocol: explanation/authoring-protocol.md
+          - Builder agent: explanation/builder-agent.md
           - Product voice: explanation/product-language.md
           - Visual identity: explanation/visual-identity.md
-          - Protocol diagram: explanation/diagrams/authoring-protocol.md
           - Forging protocol diagram: explanation/diagrams/forging-protocol.md

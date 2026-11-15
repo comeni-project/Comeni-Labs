@@ -7,7 +7,6 @@ person's samples, runs or pipelines has a field here.
 
 from enum import StrEnum
 
-from comeni_core.egress.authoring import AuthoringRole
 from comeni_core.egress.base import EgressPayload
 from comeni_core.spell.marks import (
     ContractId,
@@ -18,6 +17,12 @@ from comeni_core.spell.marks import (
     TypeId,
 )
 
+
+class AuthoringRole(StrEnum):
+    """Author of a conversation turn: person or model."""
+
+    PERSON = "person"
+    MODEL = "model"
 
 class ForgePiece(StrEnum):
     QUESTIONS = "questions"

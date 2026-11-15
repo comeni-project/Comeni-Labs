@@ -61,7 +61,7 @@ paragraph grows a choice, it was a protocol issue.
    >
    > - **Loosens / tightens:** <which rule, and in which direction; or neither>
    > - **Rejected:** <each other option, and why>
-   > - **Recorded in:** <`docs/explanation/authoring-protocol.md` changelog, a spec, an invariant; or
+   > - **Recorded in:** <`docs/explanation/builder-agent.md`, a spec, an invariant; or
    >   nowhere, and why>
    > - **Built by:** <the issue or task that implements it, or "this issue">
 

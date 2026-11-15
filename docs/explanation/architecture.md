@@ -7,7 +7,7 @@ The browser carries the pipeline bundle between the APIs and combines their view
 This page explains component ownership and the construction path. Use the
 [contributing guide](../how-to/development/contribute.md) for setup and checks,
 [the invariants](invariants.md) for design constraints, and
-[the authoring protocol](authoring-protocol.md) for the conversation engine.
+[the builder agent](builder-agent.md) for how a conversation builds a pipeline.
 
 ## Component ownership
 
@@ -410,14 +410,10 @@ base carries no behaviour beyond `legal()`.
 
 **Two shapes of candidate, deliberately.** The base offers `Candidate(value, note)` so a
 reviewer sees where an option is declared; the build path narrows `candidates` to bare declared
-ids, because door 2 types them as `CandidateRef` and A129 records that payload accepting only one
-of three `*Asked` types until *values* were checked rather than names. `Question.legal()` reads
-both.
-
-**What the door gained.** `AmbiguityRequest` carries `what`, `why_open`, `closed` and `evidence`
-now. Not padding: the forge measured a local model at 69% without them and 88% with, and two of
-the three fixes behind that were *the question never said what it was about* and *the evidence
-was not readable*.
+ids, because A129 found the tier-4 door's payload accepting only one of three `*Asked` types
+until *values* were checked rather than names. `Question.legal()` reads both. That door was
+replaced by the builder agent's in #463; what a tier-4 question carries to the agent is
+[the invariants page's](invariants.md) to record.
 
 ---
 
@@ -509,7 +505,7 @@ A fact records what measured it: `Measured.pieces` names the format and measurer
 same work: each fact records how much of the data it read (`coverage: head` or `all`), and a
 setting whose fact nobody knew before the build is decided in the pipeline, from the step that
 measures it, by a lookup the build lists in full beforehand (#217). Where each runs, and what crosses, is
-[the protocol page's table](authoring-protocol.md#where-each-measurer-runs).
+[the builder agent page's table](builder-agent.md#where-each-measurer-runs).
 
 A hand-written profile records no tool, and that absence *is* the provenance:
 `ValueSource.GOAL` means a person asserted it. `ValueSource.MEASURED` is what a `sealed`

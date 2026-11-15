@@ -1,46 +1,24 @@
-"""What an authoring session is made of: modes, phases, blocks, proposals, and replies.
+"""What a builder conversation is made of: turns, their blocks, and the facts it gathers.
 
 **This module holds no behaviour.** It is the vocabulary the browser, the service layer and the
-model all read, and keeping it inert is what lets Task 3's state machine be pure and Task 8's
-reducer be a switch rather than a pile of `if`s.
-
-`Phase`, `Event` and `ProposalState` are re-exported from `mendel_authoring.types`: the core owns
-the session's vocabulary, because the protocol is drawn in it (14.7.8.1), and this path stays
-for the shell's own readers.
+agent all read (#463).
 
 Three rules run through everything below, each written down because the alternative is what a
 protocol drifts into:
 
 1. **A state is named, never inferred from an absent field.** `pending` and `failed` are two
-   members of one enum, not two nullable timestamps. A `None` meaning *not yet* and a `None`
-   meaning *no* are the same value on the wire, and the reader cannot tell which was meant.
-2. **Every interactive thing has a stable id, and the browser posts the id.** Not a copied
-   contract, not a value — an id the engine issued. That is what makes "a model cannot produce
-   a value outside the candidate set" checkable at the boundary instead of trusted afterwards.
+   members of one enum, not two nullable timestamps.
+2. **Every interactive thing has a stable id, and the browser posts the id.** That is what makes
+   an answer outside the offered set checkable at the boundary instead of trusted afterwards.
 3. **Prose is bounded and everything else is typed.** An unbounded string in a protocol becomes
    an unbounded string in a prompt.
-
-The block vocabulary is `docs/superpowers/plans/2026-09-07-the-living-pipeline.md` §2. The
-phases are that section's state diagram, and they are transcribed rather than invented so the
-diagram stays the specification.
 """
 
-from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal, Self, get_args
 
-from comeni_core.goal.asked import Constraints, Goal, RequiredStates
-from comeni_core.spell.marks import ContractId, HumanParamValue, NodeId, OptionId, TypeId
-from mendel_authoring.brief import Brief
-from mendel_authoring.gaps import Gap
-from mendel_authoring.needs import Need
-from mendel_authoring.types import Event, Phase, ProposalState  # noqa: F401 (re-exported)
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
-# **How many prior turns a model is shown.** Taken from the old forge's review chat, and §2 says
-# to keep that precedent until evaluation shows a different number is needed. It has not; it is a
-# named constant rather than a literal, so the day somebody measures a better one it is one edit.
-CHAT_TAIL = 6
+from comeni_core.spell.marks import HumanParamValue
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Long enough for a paragraph explaining a choice, short enough that nobody pastes a file into
 # it. `comeni_ai.choice.WHY_LIMIT` bounds the same kind of string for the same reason.
@@ -104,33 +82,15 @@ class TurnRole(StrEnum):
     ASSISTANT = "assistant"
 
 
-class ProposalKind(StrEnum):
-    """What a proposal asks the person to settle (issue 274)."""
-
-    STEP = "step"
-    GOAL = "goal"
-    GAP = "gap"
-    PACING = "pacing"
-    DISAGREEMENT = "disagreement"
-
-
 class BlockKind(StrEnum):
-    """The eight things an assistant turn can contain (§2).
+    """What an agent turn can contain (#463): a notice, its words, a line per tool it called,
+    and a question to the person.
 
     The browser renders these with an exhaustive `switch`, so adding a member here fails
-    TypeScript until it has a renderer — which is the intended order. A ninth kind is a design
-    decision about what the conversation can say, not a formatting choice.
+    TypeScript until it has a renderer — which is the intended order.
     """
 
-    NARRATIVE = "narrative"
-    GOAL_SUMMARY = "goal_summary"
-    QUESTION = "question"
-    STEP_PROPOSAL = "step_proposal"
-    SETTING_REQUEST = "setting_request"
-    CHANGE_SET = "change_set"
-    RECEIPT = "receipt"
     NOTICE = "notice"
-    # The builder agent's (#463): its words, a line per tool it called, a question to the person.
     MESSAGE = "message"
     TOOL = "tool"
     ASK = "ask"
@@ -139,16 +99,11 @@ class BlockKind(StrEnum):
 class NoticeKind(StrEnum):
     """What a `notice` is about.
 
-    Closed, because these are the states the interface draws differently — a refusal is not a
-    validation finding and neither is a completion. `REFUSAL` is where a provider's failure
+    `REFUSAL` is where a provider's failure
     surfaces, and it carries a code rather than a provider's message for `GateFailure`'s reason.
     """
 
-    PENDING = "pending"
     REFUSAL = "refusal"
-    STALE = "stale"
-    VALIDATION = "validation"
-    COMPLETE = "complete"
     LIMIT = "limit"
     """The builder agent stopped at its step or token limit (#463)."""
 
@@ -229,83 +184,6 @@ class Fact(_Shape):
         return self
 
 
-class Option(_Shape):
-    """One answer a person may pick.
-
-    `id` is what comes back. `label` is what a human reads and a model is shown, and it is
-    **never** what is posted — that distinction is the whole mechanism: a value chosen by id
-    cannot be a value nobody offered.
-    """
-
-    id: OptionId
-    label: Prose
-    note: Prose | None = None
-    recommended: bool = False
-
-
-class _Block(_Shape):
-    """Every block has an id, because the next turn has to be able to refer to it."""
-
-    id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
-
-
-class Narrative(_Block):
-    """Bounded prose, optionally naming steps that already exist."""
-
-    kind: Literal[BlockKind.NARRATIVE] = BlockKind.NARRATIVE
-    text: Prose
-    refers_to: list[NodeId] = []
-
-
-class GoalSummary(_Block):
-    """The typed `Goal` beside the plain-language reading of it.
-
-    Both, rather than either. The `Goal` is what the resolver runs on and the summary is what
-    the person checks — and the point of the goal-review phase is that a person can catch a
-    misunderstanding *before* a pipeline is built on it. A summary with no goal cannot be acted
-    on; a goal with no summary cannot be checked by the person whose analysis it is.
-    """
-
-    kind: Literal[BlockKind.GOAL_SUMMARY] = BlockKind.GOAL_SUMMARY
-    goal: Goal
-    have: Prose
-    do: Prose
-    get: Prose
-    readback: Prose | None = None
-    """The goal read back in the model's words, written from the composed goal (#176), shown
-    labelled *in the AI's words*; the chips beside it are what gets built."""
-    readback_pending: bool = False
-    """Whether the read-back is still being written: the page's one poll keeps running."""
-    suggested: list[RequiredStates] = []
-    """Constraints the model wrote, offered for the person to keep or dismiss (#176). Only kept
-    ones reach the goal, through the card's edited goal."""
-
-
-class SampleReading(_Shape):
-    """The AI reading a sample nothing here reads (14.7.7), as the question's card shows it.
-
-    `pending` while the job is out; `read` when what it admitted was recorded; `could_not_tell`
-    when it named no family or no type; `refused` when an id it named is undeclared (`code`);
-    `no_answer` when no model answered, or the job never came back; `hand_back` when it named a
-    type the engine reads, so the browser sends the file again; `handed` once it has.
-    `attempt` keys the job, so a retry is a new job and a late answer to an old one is ignored.
-    """
-
-    state: Literal[
-        "pending", "read", "could_not_tell", "refused", "no_answer", "hand_back", "handed"
-    ]
-    attempt: int = 1
-    decision_revision: int | None = None
-    session_version: int | None = None
-    started_at: datetime | None = None
-    type_id: str | None = None
-    states: list[str] = []
-    recorded: list[str] = []
-    kept: list[str] = []
-    disagreed: list[str] = []
-    code: str | None = None
-
-
 class Reason(_Shape):
     """One line of why a question is asked, and where it comes from (Part I.1)."""
 
@@ -333,122 +211,14 @@ class Explanation(_Shape):
     328). The upload card says *both files if your reads are paired* only then."""
 
 
-class Question(_Block):
-    """One typed question with a closed set of answers, or a declared open one.
+class _Block(_Shape):
+    """Every block has an id, because the next turn has to be able to refer to it."""
 
-    `exhaustive` is the honest half. A closed list that is *not* exhaustive is a shortlist, and
-    the interface has to say which it is showing — this is `comeni_core.review.Question`'s
-    property, kept rather than re-derived.
-    """
-
-    kind: Literal[BlockKind.QUESTION] = BlockKind.QUESTION
-    asks: Prose
-    why_open: Prose
-    options: list[Option] = []
-    exhaustive: bool = True
-    value: HumanParamValue | list[HumanParamValue] | None = None
-    """A value to pre-fill an open field with — a candidate the person confirms, never an
-    answer (#170, #171)."""
-    phrasing: Literal["pending", "done", "none"] = "none"
-    """Whether a model is phrasing this question for the person (#167): `pending` while it is,
-    `done` once `asks` is its words, `none` when the engine's words stand (no model, or it
-    failed). The page keeps its one poll running while a pending question is `pending`."""
-    reading: SampleReading | None = None
-    """The AI reading a sample for this question (14.7.7). The page keeps its one poll running
-    while it is `pending`."""
-
-
-class StepProposal(_Block):
-    """A step the engine proposes, with what it would replace and why.
-
-    `tier` is the resolution tier the choice exits at, so the interface can draw a settled step
-    and an ambiguous one differently without asking a second question. `alternatives` are the
-    other candidates as options — the ghost node the artboards draw on hover.
-    """
-
-    kind: Literal[BlockKind.STEP_PROPOSAL] = BlockKind.STEP_PROPOSAL
-    node: NodeId
-    contract: ContractId
-    consumes: list[TypeId] = []
-    """What it reads — the left half of *alignment.bam → alignment.bam::sorted*."""
-    produces: list[TypeId] = []
-    reason: Prose
-    tier: int = Field(ge=1, le=4)
-    alternatives: list[Option] = []
-    brief: Brief | None = None
-    """The card's four fields, from declared data (spec §4.2), as written."""
-    need: Need | None = None
-    """What the step needs from the person: nothing, a fact, or a choice (spec §4.3)."""
-    gaps: list[Gap] = []
-    """Registry gaps, with the file that would fix each; shown in detail only under Dev mode."""
-    unresolved_settings: list[str] = []
-    """Settings the registry lists no values for, named in plain words whatever Dev mode says:
-    the person learns what stays unset without being shown a repository path."""
-    stop: Literal["tier_four", "gap", "together"] | None = None
-    """Why the walk stopped here (spec §14.4): a tier-4 step, a registry gap shown under Dev mode,
-    or every step under *together*."""
-
-
-class SettingRequest(_Block):
-    """A setting the engine cannot settle, with the premise it read.
-
-    `premise` is separate from `reason` for the reason Plan 1.14 split `axis_reason` off
-    `reason`: *why this question is being asked* and *why this answer would win* are two
-    questions, and one field answering both is how a registry came to cite the STAR paper as the
-    reason HISAT2 was chosen.
-    """
-
-    kind: Literal[BlockKind.SETTING_REQUEST] = BlockKind.SETTING_REQUEST
-    node: NodeId
-    setting: str = Field(min_length=1, max_length=128)
-    current: Prose | None = None
-    options: list[Option] = []
-    reason: Prose
-    premise: Prose | None = None
-
-
-class ChangeSet(_Block):
-    """Exactly what a conversational revision would touch, before it touches it.
-
-    The list is the point. "I will switch the aligner" is a sentence; this is the set of nodes
-    and settings that sentence turns out to mean, shown before the person accepts it.
-    """
-
-    kind: Literal[BlockKind.CHANGE_SET] = BlockKind.CHANGE_SET
-    summary: Prose
-    adds: list[NodeId] = []
-    removes: list[NodeId] = []
-    settings: list[str] = []
-
-
-class ReceiptAbout(BaseModel):
-    """What a receipt changed, so the chat's announcement can point at it (one builder plan 3):
-    a step on the canvas, a subject in *What was understood*, or both."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    node: str | None = Field(default=None, max_length=200)
-    subject: str | None = Field(default=None, max_length=400)
-
-
-class Receipt(_Block):
-    """What was committed, after the fact and immutably.
-
-    A receipt is not a proposal that happened to be accepted — it is the record that something
-    *was* applied, at a revision, by an actor. `by` distinguishes a person from the model for
-    the reason `model_override` exists on all three decision kinds: a pipeline an agent
-    assembled must not read as one a person drew by hand.
-    """
-
-    kind: Literal[BlockKind.RECEIPT] = BlockKind.RECEIPT
-    summary: Prose
-    revision: int = Field(ge=0)
-    by: Literal["person", "model", "resolver"]
-    about: ReceiptAbout | None = None
+    id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
 
 
 class Notice(_Block):
-    """Pending, refusal, stale, validation or completion.
+    """A refusal, or the agent stopping at its limit.
 
     `code` carries a diagnostic rather than a provider's sentence — `GateFailure`'s lesson, one
     level up: machine-generated text is the likeliest leak precisely because nobody wrote it and
@@ -492,14 +262,7 @@ class AgentAsk(_Block):
 
 
 Block = Annotated[
-    Narrative
-    | GoalSummary
-    | Question
-    | StepProposal
-    | SettingRequest
-    | ChangeSet
-    | Receipt
-    | Notice
+    Notice
     | AgentMessage
     | ToolLine
     | AgentAsk,
@@ -518,7 +281,7 @@ BLOCK_TYPES: tuple[type[_Block], ...] = get_args(get_args(Block)[0])
 **Derived, not retyped.** This was a hand-written tuple beside the union for one commit, which
 is the pair-that-must-agree shape this repository keeps finding to be one mechanism and one
 decoration — a block added to the union and forgotten here would leave every test that walks
-this list quietly checking seven of eight kinds.
+this list quietly skipping it.
 """
 
 
@@ -532,426 +295,7 @@ def parse_block(data: object) -> _Block:
     """Validate one block dict against the union, refusing an unknown `kind`.
 
     Wrapped rather than exposed as `TypeAdapter`, because the failure mode this closes is a
-    caller reaching for `Narrative.model_validate` on data whose `kind` says otherwise — which
-    succeeds, silently, by ignoring the discriminator.
+    caller reaching for one member's `model_validate` on data whose `kind` says otherwise —
+    which succeeds, silently, by ignoring the discriminator.
     """
     return _Envelope.model_validate({"block": data}).block
-
-
-# ── what a model may reply ────────────────────────────────────────────────────────────────
-
-
-class AskedQuestion(_Shape):
-    """A question the **model** raises, before the engine has minted ids for it.
-
-    **Deliberately not a `Question`.** That one is a block with an `id` and `Option`s carrying
-    ids, and those ids are the engine's to issue — rule 2 of this module. A model that named its
-    own option ids would be authoring the set that its own next reply is checked against, which
-    turns the boundary into a formality.
-
-    So this carries labels, the engine mints the ids when it stores the question, and the next
-    turn's `chose` is held to *those*.
-    """
-
-    asks: Prose
-    why_open: Prose
-    choices: list[Prose] = []
-    exhaustive: bool = True
-    """Whether `choices` is the whole of what is possible. A shortlist presented as a closed set
-    is how a person comes to believe they were shown everything."""
-
-
-class GoalUnderstanding(_Shape):
-    """The first call's answer: prose in, a typed `Goal` out.
-
-    **Separate from `AuthoringIntent` on purpose.** One shape covering both would have half its
-    fields null on every call, which is precisely the configuration the Forge measured a local
-    model doing worst on. The first call has no pipeline to talk about; a later one has nothing
-    else to talk about.
-
-    `summary_have`/`summary_do`/`summary_get` are the plain-language reading the person checks
-    the `Goal` against. The model writes both halves and the person is shown both, so a
-    misunderstanding is visible at review time rather than after a build.
-
-    **Prefixed so no name is shared with `Goal`.** They were `have`/`do`/`get` beside a `goal`
-    holding `have`/`want`, and the first real model to answer put the typed list at the top
-    level and added a `want` there too. The block the page draws, `GoalSummary`, keeps the
-    short names: it is read by a person, not written by a model.
-    """
-
-    goal: Goal
-    summary_have: Prose
-    summary_do: Prose
-    summary_get: Prose
-    questions: list[AskedQuestion] = []
-    """What could not be settled from what the person said.
-
-    **The grouping question needs somewhere to come back to.** §1.7 says *do not infer one
-    silently*, and a reply shape with nowhere to put a question can only infer: it would force a
-    `Goal` stating a sample structure nobody confirmed, and that goal validates, resolves and
-    builds.
-    """
-
-
-class Stated(_Shape):
-    """Something the person said about their data, as a model heard it: a **candidate**, never a
-    fact. It pre-fills the gap it answers, and only the person's click records it (#170)."""
-
-    kind: FactKind
-    subject: str = Field(min_length=1, max_length=128)
-    value: HumanParamValue | list[HumanParamValue] | None = None
-
-
-class AskedGap(_Shape):
-    """One gathering question, phrased for the person by `builder.ask.v1` (#167).
-
-    `asks` is prose and replaces the engine's wording in place; the options never change.
-    `already_option` / `already_value` name an answer the person already gave, if the model
-    heard one — a suggestion the person confirms, held to the offered ids and the measurement's
-    declaration, and dropped (never refused) when it fails them.
-    """
-
-    asks: Prose
-    already_option: OptionId | None = None
-    already_value: HumanParamValue | list[HumanParamValue] | None = None
-
-
-class ReadBack(_Shape):
-    """The goal read back to the person, by `builder.readback.v1` (#176)."""
-
-    text: Prose
-
-
-class FamilyChoice(_Shape):
-    """The first of the two type-choice calls, `builder.family.v2` (#194, #202).
-
-    `families` names which declared families what the person wants belongs to — held to the
-    declared ids by the reply format and by admission.
-
-    **`fits` comes first, on purpose** (#202). The reply is written left to right, so the model
-    commits to whether anything fits before it can start a list; under v1 an empty list was a
-    way out it had to skip to, and gemma3:12b wrote the nearest family instead. The engine reads
-    the verdict, not the list: anything but `yes` with a family listed is a question.
-    """
-
-    fits: Literal["yes", "no", "unsure"]
-    """Whether one of the families holds what the person wants to end up with."""
-    families: list[str] = []
-    ack: Prose
-    """The acknowledgement the person sees first, moved here from `goal.v6`."""
-    unclear: Prose | None = None
-    """One short question, when the verdict is not `yes`."""
-
-
-class CharacteriseFamilies(_Shape):
-    """The characteriser's first call (14.7.7): the families a sample could belong to. Empty
-    means *none fits, or it cannot tell* — an answer, never a refusal."""
-
-    families: list[str] = []
-
-
-class StateRead(_Shape):
-    """A declared state a sample's start states, and the line that states it (#244)."""
-
-    id: str
-    evidence: Prose
-
-
-class ReadMeasurement(_Shape):
-    """One declared measurement a sample's start states, as a model read it, and the line that
-    states it (#244)."""
-
-    id: str
-    value: HumanParamValue
-    evidence: Prose = ""
-
-
-class Unmatched(_Shape):
-    """Something a sample states that no declared id can hold (14.7.7). **Stored only**:
-    never admitted, never shown, never queued. #236 reads these to propose vocabulary."""
-
-    kind: Literal["type", "state", "measurement"]
-    name: Prose
-    cite: Prose
-
-
-class CharacteriseReply(_Shape):
-    """The characteriser's second call (14.7.7). Every id is admitted against the chosen
-    type's declarations before anything reads it."""
-
-    type_id: str | None = None
-    states: list[StateRead] = []
-    measurements: list[ReadMeasurement] = []
-    undetermined: list[str] = []
-    unmatched: list[Unmatched] = []
-
-
-class WantUnderstanding(_Shape):
-    """The first call's answer under `builder.goal.v3`: what the person wants, and nothing else.
-
-    **No `have`, no `profile`, on purpose (#105).** A shape with a place for inputs is a place a
-    model will guess them; v2's model wrote `deduplicated` onto reads nobody had deduplicated.
-    The engine works out what the want needs (`services.gaps`) and asks the person for it, so a
-    fact always comes from the person, a file, or stays open (protocol rule 5).
-    """
-
-    want: list[TypeId] = Field(min_length=1)
-    constraints: Constraints = Constraints()
-    """Only what the person pinned themselves: a state on an output, a parameter they named."""
-    ack: Prose | None = None
-    """A short acknowledgement of what they asked for, shown as the model's reply (#176, v6).
-    It replaces the up-front summary, which made claims before anything was known. **Empty under
-    `goal.v7`** (#194): the family call acknowledges, having read the person's words first."""
-    questions: list[AskedQuestion] = []
-    """Only when the want itself is ambiguous. What they have is the engine's to ask."""
-    stated: list[Stated] = []
-    """What the person said they have, or stated about their data (v4). Candidates the engine
-    pre-fills gaps with; it still asks, and the person confirms (#170)."""
-
-
-# ── what a model hands over: changes, as flat lists (Part I.0 §7.1) ───────────────────────
-# One list per kind of change and **no tagged union**: a local model that cannot reliably pick
-# a variant tag can still fill a list (`AuthoringIntent`'s reason). Every item may carry `quote`,
-# the person's own words it comes from; the engine checks it (`mendel_authoring.heard`) and
-# records a change only when it checks — otherwise the change is offered as a suggestion.
-
-_Quote = Annotated[str, Field(max_length=500)]
-
-
-class WantItem(_Shape):
-    type: str = Field(min_length=1, max_length=128)
-    quote: _Quote | None = None
-
-
-class InputItem(_Shape):
-    """An input the person says they have."""
-
-    type: str = Field(min_length=1, max_length=128)
-    quote: _Quote | None = None
-
-
-class FactItem(_Shape):
-    subject: str = Field(min_length=1, max_length=128)
-    value: HumanParamValue | list[HumanParamValue]
-    quote: _Quote | None = None
-
-
-class RequireItem(_Shape):
-    type: str = Field(min_length=1, max_length=128)
-    states: list[str] = Field(min_length=1)
-    quote: _Quote | None = None
-
-
-class PinItem(_Shape):
-    type: str = Field(min_length=1, max_length=128)
-    tool: str = Field(min_length=1, max_length=200)
-    quote: _Quote | None = None
-
-
-class OptionalInputItem(_Shape):
-    """A tool's optional input, switched (#460): which tool, which input, and its state."""
-
-    tool: str = Field(min_length=1, max_length=200)
-    port: str = Field(min_length=1, max_length=128)
-    state: str = Field(min_length=2, max_length=16)
-    """`off`, `optional` or `required`; checked here rather than sent as an enum."""
-    quote: _Quote | None = None
-
-    @field_validator("state")
-    @classmethod
-    def _a_state(cls, value: str) -> str:
-        if value not in ("off", "optional", "required"):
-            raise ValueError(f"{value!r} is not off, optional or required")
-        return value
-
-
-class ParameterItem(_Shape):
-    name: str = Field(min_length=1, max_length=128)
-    value: HumanParamValue | list[HumanParamValue]
-    quote: _Quote | None = None
-
-
-class RetractItem(_Shape):
-    subject: str = Field(min_length=1, max_length=128)
-    quote: _Quote | None = None
-
-
-class NotOfferedItem(_Shape):
-    """Something the person asked for that nothing here can make, in their own words: never
-    without a quote, since claiming they asked for something they did not is the one thing it
-    must not do."""
-
-    quote: _Quote
-
-
-class Understanding(_Shape):
-    """`builder.goal.v8`: what the person wants and what they said, as changes (Part I.0 §7.2).
-    Replaces `WantUnderstanding`'s `stated` candidates."""
-
-    say: Prose | None = None
-    wants: list[WantItem] = Field(min_length=1)
-    inputs: list[InputItem] = []
-    facts: list[FactItem] = []
-    requires: list[RequireItem] = []
-    not_offered: list[NotOfferedItem] = []
-    questions: list[AskedQuestion] = []
-
-
-class ChatReply(_Shape):
-    """`builder.chat.v3`: typed words anywhere after the want is read, as something to say and
-    the changes they ask for (Part I.0 §7.2). Replaces `AuthoringIntent` and `GapReply`."""
-
-    say: Prose | None = None
-    wants: list[WantItem] = []
-    inputs: list[InputItem] = []
-    facts: list[FactItem] = []
-    requires: list[RequireItem] = []
-    pins: list[PinItem] = []
-    parameters: list[ParameterItem] = []
-    optional_inputs: list[OptionalInputItem] = []
-    retract: list[RetractItem] = []
-    not_offered: list[NotOfferedItem] = []
-    questions: list[AskedQuestion] = []
-    # No `proceed` (#336, operator: C): settling a step is the person's Continue, never the
-    # model's reading of what they typed. It settled steps recorded as *you chose*.
-
-
-class GapReply(_Shape):
-    """A person's typed answer to one gap, read back by a model (`builder.gap.v1`).
-
-    **One option id, or one typed value, or `unsure`**, never two of them. The ids are the
-    engine's, so admission can hold `chose` to what was offered (MI0205); a value goes through
-    the measurement's declaration (MI0208). `unsure` is the honest answer to words that do not
-    say, and the engine re-offers the options rather than guess (protocol rule 5).
-    """
-
-    chose: OptionId | None = None
-    value: HumanParamValue | list[HumanParamValue] | None = None
-    unsure: bool = False
-
-    @model_validator(mode="after")
-    def _one_answer(self) -> Self:
-        given = [self.chose is not None, self.value is not None, self.unsure]
-        if sum(given) > 1:
-            raise ValueError("a reply is one option, one value, or unsure — never two")
-        return self
-
-
-class SettingProposal(_Shape):
-    """A value the model proposes for an open setting.
-
-    **The one place a model may produce a value rather than choose an id**, and it is bounded
-    three ways rather than trusted: the step is a `NodeId`, the value is a `HumanParamValue` —
-    audit A3's guard, which refuses a path-shaped value — and §1.3 requires the engine to
-    validate it and, when consequential, to show it before applying.
-
-    `chose` is here for the ordinary case where the engine already offered a closed set: naming
-    the option is stronger than restating its value, and a proposal carrying both must agree.
-    """
-
-    node: NodeId
-    setting: str = Field(min_length=1, max_length=128)
-    chose: OptionId | None = None
-    value: HumanParamValue | list[HumanParamValue] | None = None
-    because: Prose
-
-
-class AuthoringIntent(_Shape):
-    """A follow-up turn, reduced to exactly one intent.
-
-    **One object with validated exclusive fields**, which is what Task 2 asks for over a nested
-    union: the JSON schema stays one level deep, and a local model that cannot reliably pick a
-    variant tag can still fill exactly one field.
-
-    Exclusivity is validated rather than documented. A reply naming both a chosen option and a
-    goal revision is a reply nobody can act on, and letting it through means the service layer
-    resolves the ambiguity by field order — a rule that lives wherever somebody wrote it and is
-    different in the next caller.
-
-    There is nowhere here to put YAML, a graph, or a contract body. That is §1.3, and it is a
-    property of the shape rather than a check performed on it: the model chooses among things
-    the engine already named, or it says something in prose that re-enters the loop as a new
-    goal — it never authors the artifact.
-    """
-
-    chose: OptionId | None = None
-    """An option the engine offered, by id. An identifier, so prose and paths are refused."""
-
-    revise: Prose | None = None
-    """A goal revision in the person's own words. Re-enters `understanding`; it does not edit."""
-
-    explain: Prose | None = None
-    """A request for explanation. Mutates nothing, so it needs no revision and no proposal."""
-
-    setting: SettingProposal | None = None
-    """A value proposed for an open setting. Validated, and shown before it is applied."""
-
-    proceed: bool = False
-    """*Go on* — they are happy and want the next step. The one intent with no payload, and it
-    still joins the exclusivity check below: *continue, and also revise the goal* is not a turn
-    anybody can act on."""
-
-    unsupported: Prose | None = None
-    """What was asked is not something this conversation can do, and what would work instead.
-
-    **The sixth intent exists so the other five stay honest.** Without somewhere to say *no*,
-    the closest-looking alternative is always available — and a request to edit the registry
-    arriving as a goal revision is worse than a refusal, because it looks like it worked.
-    """
-
-    refers_to: list[NodeId] = []
-    """The steps an explanation is about, as ids the engine issued.
-
-    Typed rather than parsed back out of the prose, which is what makes rejecting an invented
-    reference a set difference instead of a regex over English.
-    """
-
-    @model_validator(mode="after")
-    def _exactly_one(self) -> Self:
-        """`refers_to` is deliberately outside the count: it qualifies an explanation rather
-        than being an intent of its own, and including it would make a grounded explanation
-        read as two intents at once."""
-        intents = ("chose", "revise", "explain", "setting", "proceed", "unsupported")
-        set_fields = [name for name in intents if getattr(self, name)]
-        if len(set_fields) != 1:
-            raise ValueError(
-                f"an authoring intent carries exactly one of {'/'.join(intents)}, "
-                f"not {set_fields or 'none'}"
-            )
-        return self
-
-
-# ── what the browser posts ────────────────────────────────────────────────────────────────
-
-
-class Say(_Shape):
-    """A person saying something.
-
-    **No `expected_revision`, and that is the point.** Saying something proposes no change, so
-    it cannot conflict with one. Giving every message a revision would make a chat message a
-    thing that can overwrite a draft, which is the confusion §2 separates by having two request
-    types instead of one with a nullable field.
-    """
-
-    text: Prose
-
-
-class AcceptProposal(_Shape):
-    """Applying a proposal, against the revision the person was looking at.
-
-    `expected_revision` is required rather than defaulted. A request that cannot say what it saw
-    cannot be checked for staleness at all, and a default would mean "whatever is current",
-    which is exactly the read-then-write race the field exists to close.
-    """
-
-    proposal_id: str = Field(min_length=1, max_length=64)
-    expected_revision: int = Field(ge=0)
-
-
-class RejectProposal(_Shape):
-    """Declining a proposal. Carries a revision for `AcceptProposal`'s reason: rejecting a
-    proposal the person can no longer see is as wrong as accepting one."""
-
-    proposal_id: str = Field(min_length=1, max_length=64)
-    expected_revision: int = Field(ge=0)
-    because: Prose | None = None

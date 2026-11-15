@@ -94,3 +94,30 @@ def test_asking_ends_the_turn_with_the_question(clean, monkeypatch):
     assert turn.blocks[-1]["kind"] == "ask"
     assert turn.blocks[-1]["question"] == "Do you have a GTF?"
     assert len(script.sent) == 1, "the agent waits for the person after asking"
+
+
+def test_no_model_configured_says_so_and_calls_nothing(clean, monkeypatch):
+    monkeypatch.setattr(loop, "model_access", lambda: None)
+    script = ScriptedAgentTransport([_say("never sent")])
+    session_id = loop.start_session(drafts.create(DraftGraph(), "agent", "ana"), who="ana")
+    seq = loop.add_person_turn(session_id, "gene counts")
+    assert loop.run_turn(session_id, seq, transport=script) == "failed"
+    [notice] = _turn(session_id, seq).blocks
+    assert (notice["notice"], notice["code"]) == ("refusal", "MI0106")
+    assert "Settings" in notice["text"]
+    assert script.sent == [], "nothing reaches a provider without a model"
+
+
+def test_the_conversation_crosses_as_the_declared_payload(clean, monkeypatch):
+    """The person's words and the agent's own reach the model as `AgentRequest`'s turns."""
+    from comeni_core.egress.agent import AgentRequest, Speaker
+
+    session_id, seq, script = _started(monkeypatch, [_say("Gene counts, then.")])
+    later = loop.add_person_turn(session_id, "and trim the reads first")
+    loop.run_turn(session_id, later, transport=ScriptedAgentTransport([_say("Done.")]))
+    sent = loop.conversation(session_id, later + 1)
+    assert isinstance(sent, AgentRequest)
+    assert [(t.speaker, t.content) for t in sent.turns] == [
+        (Speaker.PERSON, "gene counts from my RNA-seq reads"),
+        (Speaker.AGENT, "Gene counts, then."),
+        (Speaker.PERSON, "and trim the reads first"), (Speaker.AGENT, "Done.")]

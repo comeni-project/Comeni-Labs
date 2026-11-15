@@ -16,7 +16,7 @@ import typing
 
 import pytest
 from comeni_core.egress import boundaries as egress
-from comeni_core.egress.authoring import AuthoringRequest
+from comeni_core.egress.agent import AgentToolResult
 from comeni_core.egress.base import EgressPayload
 from comeni_core.egress.characterisation import CharacteriseRequest
 from comeni_core.plan.tiers import Tier, ValueSource
@@ -32,7 +32,6 @@ from support.egress import (
     _fields,
     _has_bare_str,
     _leaf_problems,
-    _marks_in,
     _mentions_any,
     _mentions_binary,
     _mentions_mapping,
@@ -128,11 +127,16 @@ def test_only_the_characterisation_and_agent_doors_can_reach_a_sample():
     assert reaching == {"characterisation", "builder_agent"}
 
 
-def test_the_builder_agent_door_is_one_typed_result_per_tool_call():
-    """#463: what a tool returns to the agent's model is one payload, a tool's name, whether it
-    worked, a typed view or a coded refusal — never a raw row or a dict."""
+def test_the_builder_agent_door_is_the_conversation_and_one_typed_result_per_tool_call():
+    """#463: what reaches the agent's model is the conversation — the person's words and the
+    agent's own — and, per tool call, a tool's name, whether it worked, a typed view or a coded
+    refusal: never a raw row or a dict."""
+    from comeni_core.egress.agent import AgentToolResult, AgentTurn
+
     door = egress.PAYLOADS["builder_agent"]
-    assert list(door.model_fields) == ["tool", "ok", "view", "refusal"]
+    assert list(door.model_fields) == ["turns", "results"]
+    assert list(AgentTurn.model_fields) == ["speaker", "content"]
+    assert list(AgentToolResult.model_fields) == ["tool", "ok", "view", "refusal"]
     assert egress.FLOWS["builder_agent"] is egress.BoundaryFlow.PIPELINE
 
 
@@ -245,76 +249,6 @@ def test_no_payload_carries_an_untyped_container():
     )
 
 
-def test_every_ambiguity_field_can_cross_the_door():
-    """A32 — a field a model is never told is as much a boundary defect as one it should
-    not be told.
-
-    `Ambiguity` projects to `AmbiguityRequest` at door 2. The projection is written in Plan
-    2, so nothing builds one yet — which is exactly when this is worth asserting, because a
-    field added to an ambiguity between now and then would land nowhere and nobody would
-    see it fail. `type_id` and `required` were already in that state when this was written.
-    """
-
-    from comeni_core.egress.resolution import AmbiguityRequest
-    from comeni_core.plan.decision import Ambiguity, AmbiguityKinds
-
-    # `model_fields`, not `_serialised_hints`, and deliberately: this asks whether each
-    # ambiguity field has somewhere *to go*, and a `@computed_field` is not a destination —
-    # nothing can be assigned to it. A57 widened the rules that ask what crosses a door; this
-    # one asks what can be carried, which is a different question with a different answer.
-    crossable = set(AmbiguityRequest.model_fields)
-    for asked in AmbiguityKinds:
-        for name in asked.model_fields:
-            if name == "kind":
-                continue  # the discriminator picks the projection; it is not projected
-            assert name in crossable, (
-                f"{asked.__name__}.{name} has nowhere to go in AmbiguityRequest, so a "
-                f"model behind door 2 would never be told it"
-            )
-    assert Ambiguity.model_config.get("extra") == "forbid"
-
-
-def test_every_tier_four_question_can_actually_cross_the_door():
-    """A129 — the test above compares field *names*, and names were not the problem.
-
-    `AmbiguityRequest` is documented as "the union of what the three `*Asked` types carry",
-    and it accepted **one** of the three. Two failed on their *values*:
-
-        ParamAsked  candidates=[None]                Input should be a valid string
-        SourceAsked candidates=['star_align.bam']    not a contract id
-
-    Door 2 is exactly what Plan 2 Task 5 opens, so today only producer questions can be asked
-    of a model. A name-shaped assertion could never see it: every field had somewhere to go,
-    and two kinds still could not get through. Construct one of each instead.
-    """
-
-    from comeni_core.egress.resolution import AmbiguityRequest
-    from comeni_core.plan.decision import ParamAsked, ProducerAsked, SourceAsked
-
-    for asked in (
-        ParamAsked(node_id="star_align", subject="seq_platform", candidates=[None]),
-        # Shaped exactly as `resolve.py:215` builds one — `type_id` and `required` included,
-        # because a source question that does not say what type it is asking about is not a
-        # question anybody asks. Omitting them here produced a second, spurious failure and
-        # would have made this test assert something the resolver never emits.
-        SourceAsked(
-            node_id="samtools_sort",
-            subject="source:reads",
-            candidates=["star_align.bam", "trimgalore.reads"],
-            type_id="alignment.bam",
-            required=["coordinate_sorted"],
-        ),
-        ProducerAsked(
-            node_id="star_align",
-            subject="producer:alignment.bam",
-            candidates=["nf-core/star/align@2.7.11b"],
-        ),
-    ):
-        payload = asked.model_dump()
-        payload.pop("kind", None)
-        AmbiguityRequest(**payload)
-
-
 # --- Plan 1.10 Task 11: Pipeline is door 4's payload ----------------------------------
 def test_publication_carries_a_pipeline():
     """The artifact a person reads before publishing and the thing that crosses the boundary
@@ -379,11 +313,11 @@ def test_a_computed_field_cannot_cross_a_door_unchecked():
     The leaf allowlist was inverted from a blocklist precisely so that a shape nobody named
     could not be silence (A19, A20, A30). It was still a blocklist with respect to *where a
     value comes from*: the audit put a patient path into door 1's JSON this way with the whole
-    file reporting 15 passed. (The payload was `PromptRequest` then and is `AuthoringRequest`
-    now; the hole and the fix are the same one.)
+    file reporting 15 passed. (The payload was `PromptRequest` then; the hole and the fix are
+    the same on any door.)
     """
 
-    class Sneaky(AuthoringRequest):
+    class Sneaky(AgentToolResult):
         @computed_field
         @property
         def context(self) -> str:
@@ -583,104 +517,13 @@ def test_every_mark_carries_a_validator_or_is_listed_as_a_label():
     )
 
 
-def test_the_door_carries_what_the_forge_measured_a_model_needs():
-    """Not a shape check — a content one.
-
-    The forge's prompt search (`docs/notes/journal/2026-08-17-prompt-search.md`) measured a local
-    model going from 69% to 88% on three fixes, and two of them were **the question did not
-    say what it was about** and **the evidence was not readable**. Door 2 projects a tier-4
-    question to a model. A door that carries candidates and nothing else rebuilds the 69%
-    configuration on the build path, having already paid to learn it.
-
-    `closed` is here for the third measurement: opening a closed field was the *worst*
-    configuration tested, six points below closing it, so whether the candidate list binds
-    is something the model must be told rather than left to infer.
-    """
-    from comeni_core.egress.resolution import AmbiguityRequest
-
-    for needed in ("what", "why_open", "closed", "evidence"):
-        assert needed in AmbiguityRequest.model_fields, (
-            f"{needed} does not cross door 2, so a tier-4 model call is the configuration "
-            f"the forge measured at 69%"
-        )
-
-
-def test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample():
-    """Door 1 grew, and this is the assertion that it grew only where it was argued to.
-
-    `AuthoringRequest` replaced `PromptRequest` so that a *second* authoring turn could be
-    grounded on what the first one established. Everything it gained beside the tail is typed
-    registry vocabulary, and the risk in a change like that is not the field somebody argued
-    for — it is the one that arrives later, on a nested model, because it was convenient.
-
-    So this asks the question as an allowlist, the way `_leaf_problems` does: these are the
-    marks reachable from door 1, and a new one fails here until somebody writes down why a
-    goal-extraction call needs it.
-
-    **What must never appear, and why each is tempting:**
-
-    - `Mark.NF_PATH`, `Mark.TEST_DATA_REF` — a filename. `params.input` is a placeholder the
-      lab fills at run time (invariant 15) and its *value* is the one thing Mendel never sees.
-    - `Mark.FREE_TEXT` anywhere but the two declared fields — a draft's **name** is the
-      tempting one. It is on the row the person clicked, it reads like helpful context, and it
-      is the field a person is most likely to have typed a sample identifier into.
-    - a `Path` of any kind, which `_leaf_problems` already refuses everywhere; named here
-      because door 1 is the door where a path would look most like context.
-
-    Samplesheet rows, run inputs and tool output are absent structurally rather than by a rule:
-    none of the ten models reachable from here has a field that could hold one, and this test
-    is what notices if one gains it.
-    """
-    door = egress.PAYLOADS["goal_extraction"]
-    models = reachable(door)
-    assert len(models) > 5, "the walk is not walking"
-
-    marks = {
-        meta
-        for model in models
-        for annotation in _serialised_hints(model).values()
-        for meta in _marks_in(annotation)
-    }
-    assert marks == {
-        Mark.FREE_TEXT,  # prompt, and a turn's content — the two argued for
-        Mark.CONTRACT_ID,
-        Mark.TYPE_ID,
-        Mark.NODE_ID,
-        Mark.OPTION_ID,
-        Mark.STATE_NAME,
-        # Through `Goal.have`, which names the port an input arrives on. Found by this test
-        # rather than by reading — the list above was written from `AuthoringRequest`'s own
-        # fields, and `Goal` brings its own vocabulary with it.
-        Mark.PORT_NAME,
-        Mark.CHANNEL_NAME,
-        Mark.DIGEST,
-        # Through `Goal.profile`: a fact an inspector measured names its pieces, `fastq@1.0.0`
-        # (#134). A declared id with a validated shape, never prose.
-        Mark.PIECE_REF,
-        Mark.MEASUREMENT_ID,
-        Mark.PARAM_LITERAL,
-        # Through `Goal.constraints.absent_roles`: a role a person switched off (A1). A role is
-        # registry vocabulary with a validated shape (`trimming`), never prose or a person's data.
-        Mark.ROLE_NAME,
-    }, f"door 1 reaches a mark nobody argued for: {sorted(m.value for m in marks)}"
-
-    free = {field for model in models for field in _fields(model, Mark.FREE_TEXT)}
-    # The AI's reason for a tool it chose or a value it set (#463) rides in the goal's
-    # constraints: written by the builder agent, holding no lab data. Door 1 retires with the
-    # scripted flow.
-    assert free == {("AuthoringRequest", "prompt"), ("AuthoringTurn", "content"),
-                    ("ProducerPin", "because"), ("ParamOverride", "because")}, (
-        f"free text reached door 1 somewhere new: {sorted(free)}"
-    )
-
-
 def test_unregistered_payloads_in_separate_modules_are_also_walked(monkeypatch):
-    from comeni_core.egress import authoring
+    from comeni_core.egress import agent
 
     class UnregisteredPayload(EgressPayload):
         pass
 
-    monkeypatch.setattr(authoring, "UnregisteredPayload", UnregisteredPayload, raising=False)
+    monkeypatch.setattr(agent, "UnregisteredPayload", UnregisteredPayload, raising=False)
     assert UnregisteredPayload not in egress.PAYLOADS.values()
     assert UnregisteredPayload in _payload_types()
 

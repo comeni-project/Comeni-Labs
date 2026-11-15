@@ -17,7 +17,9 @@ from secrets import token_hex
 
 from comeni_ai.agent import AgentTransport
 from comeni_ai.client import LiteLLMTransport
+from comeni_core.egress.agent import AgentRequest, AgentTurn, Speaker
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from mendel_api.agent.tools import TOOLS, ToolContext, call, spec_of
 from mendel_api.authoring.types import (
@@ -25,7 +27,6 @@ from mendel_api.authoring.types import (
     AgentMessage,
     Notice,
     NoticeKind,
-    Phase,
     ToolLine,
     TurnRole,
     TurnState,
@@ -56,19 +57,31 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _existing(db, draft_id: str) -> str | None:
+    return db.scalar(select(PipelineAuthoringSession.id)
+                     .where(PipelineAuthoringSession.draft_id == draft_id))
+
+
 def start_session(draft_id: str, *, who: str) -> str:
-    """A conversation about a draft: one session per draft."""
+    """A conversation about a draft: one session per draft. Two opens at once make one: the
+    unique index refuses the second insert, and it is answered with the winner's."""
     with session_scope() as db:
-        existing = db.scalar(select(PipelineAuthoringSession.id)
-                             .where(PipelineAuthoringSession.draft_id == draft_id))
+        existing = _existing(db, draft_id)
         if existing is not None:
             return existing
-        session_id = token_hex(16)
-        db.add(PipelineAuthoringSession(
-            id=session_id, draft_id=draft_id, phase=Phase.COMPLETE.value, at="agent",
-            failed_from=None, blueprint={}, registry_digest="", row_version=1,
-            created_at=_now(), updated_at=_now(), who=who))
-        return session_id
+    session_id = token_hex(16)
+    try:
+        with session_scope() as db:
+            db.add(PipelineAuthoringSession(
+                id=session_id, draft_id=draft_id, blueprint={}, registry_digest="",
+                row_version=1, created_at=_now(), updated_at=_now(), who=who))
+    except IntegrityError:
+        with session_scope() as db:
+            winner = _existing(db, draft_id)
+        if winner is None:
+            raise
+        return winner
+    return session_id
 
 
 def add_person_turn(session_id: str, text: str) -> int:
@@ -91,8 +104,9 @@ def add_person_turn(session_id: str, text: str) -> int:
         return seq + 2
 
 
-def _history(session_id: str, before: int) -> list[dict]:
-    """Earlier turns as the conversation: the person's words and the agent's own messages."""
+def conversation(session_id: str, before: int) -> AgentRequest:
+    """Earlier turns as the declared payload (door `builder_agent`): the person's words and the
+    agent's own messages, and what it asked."""
     with session_scope() as db:
         turns = db.scalars(select(PipelineAuthoringTurn)
                            .where(PipelineAuthoringTurn.session_id == session_id,
@@ -101,14 +115,21 @@ def _history(session_id: str, before: int) -> list[dict]:
         out = []
         for turn in turns:
             if turn.role == TurnRole.PERSON.value:
-                out.append({"role": "user", "content": turn.text})
+                out.append(AgentTurn(speaker=Speaker.PERSON, content=turn.text))
             else:
                 said = [b.get("text", "") for b in turn.blocks if b.get("kind") == "message"]
                 said += [f"(I asked: {b['question']})" for b in turn.blocks
                          if b.get("kind") == "ask"]
                 if said:
-                    out.append({"role": "assistant", "content": "\n\n".join(said)})
-        return out
+                    out.append(AgentTurn(speaker=Speaker.AGENT, content="\n\n".join(said)))
+        return AgentRequest(turns=out)
+
+
+def _history(session_id: str, before: int) -> list[dict]:
+    """The conversation in the provider's message shape."""
+    role = {Speaker.PERSON: "user", Speaker.AGENT: "assistant"}
+    return [{"role": role[t.speaker], "content": t.content}
+            for t in conversation(session_id, before).turns]
 
 
 _LABELS = {
@@ -184,6 +205,13 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
         _write(session_id, seq, blocks, TurnState.FAILED)
         return TurnState.FAILED.value
     access = model_access()
+    if access is None:
+        blocks.append(Notice(id=f"refused-{seq}", notice=NoticeKind.REFUSAL,
+                             text="No model is configured, so the builder cannot answer. Choose "
+                                  "one in Settings → Models.", code="MI0106")
+                      .model_dump(mode="json"))
+        _write(session_id, seq, blocks, TurnState.FAILED)
+        return TurnState.FAILED.value
     transport = transport or transport_for(access)
     ctx = ToolContext(draft_id=draft_id, session_id=session_id, who=WHO,
                       expected_revision=decisions.revision(draft_id))

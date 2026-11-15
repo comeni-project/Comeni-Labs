@@ -2,7 +2,7 @@
 
 # The forging protocol
 
-**Generated from `mendel_forge/forging/protocol.py`**, declared on the same engine as the builder's, so this picture is the machine. Who may do what to each item is in `mendel_forge/forging/rules.py`; the design is [forge MVP 3](../../superpowers/specs/2026-10-30-forge-3-forging-design.md).
+**Generated from `mendel_forge/forging/protocol.py`**, declared on the shared engine (`comeni_flow`), so this picture is the machine. Who may do what to each item is in `mendel_forge/forging/rules.py`; the design is [forge MVP 3](../../superpowers/specs/2026-10-30-forge-3-forging-design.md).
 
 ```mermaid
 flowchart LR

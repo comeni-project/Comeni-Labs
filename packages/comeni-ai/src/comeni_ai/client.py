@@ -378,49 +378,7 @@ class LiteLLMTransport:
             raise ModelUnavailableError(
                 coded("MA0007", f"{access.model}: {failure}")
             ) from failure
-        return self._reply_of(access, response, started)
-
-    @staticmethod
-    def _reply_of(access: ModelAccess, response: object, started: float) -> "AgentReply":
-        """The model's text and tool calls, from a LiteLLM response or its plain-dict form.
-        Arguments that are not a JSON object become `{}`, and the reply says so (MA0004)."""
-        import json
-
-        from comeni_ai.agent import AgentReply, ToolCall
-
-        def field(thing: object, name: str) -> object:
-            return thing.get(name) if isinstance(thing, dict) else getattr(thing, name, None)
-
-        choice = (field(response, "choices") or [None])[0]
-        message = field(choice, "message") if choice is not None else None
-        calls, refusal = [], None
-        for raw in field(message, "tool_calls") or []:
-            function = field(raw, "function")
-            text = field(function, "arguments") or "{}"
-            try:
-                arguments = json.loads(text) if isinstance(text, str) else dict(text)
-                if not isinstance(arguments, dict):
-                    raise ValueError("not an object")
-            except ValueError:
-                arguments = {}
-                refusal = coded("MA0004", f"the arguments to {field(function, 'name')} "
-                                          "were not a JSON object")
-            calls.append(ToolCall(id=str(field(raw, "id")), name=str(field(function, "name")),
-                                  arguments=arguments))
-        usage = field(response, "usage")
-        return AgentReply(
-            text=field(message, "content") or "",
-            calls=calls,
-            usage=Usage(
-                model=field(response, "model") or access.model,
-                duration_ms=0 if not started else _elapsed(started),
-                input_tokens=field(usage, "prompt_tokens"),
-                output_tokens=field(usage, "completion_tokens"),
-                finish_reason=field(choice, "finish_reason") if choice is not None else None,
-            ),
-            refusal=refusal,
-        )
-
+        return reply_of(access, response, started)
 
 def _elapsed(started: float) -> int:
     import time
@@ -443,4 +401,45 @@ def _usage(access: ModelAccess, response: object, started: float) -> Usage:
         output_tokens=getattr(usage, "completion_tokens", None),
         cached_tokens=getattr(details, "cached_tokens", None),
         finish_reason=getattr(choices[0], "finish_reason", None) if choices else None,
+    )
+
+
+def reply_of(access: ModelAccess, response: object, started: float) -> "AgentReply":
+    """The model's text and tool calls, from a LiteLLM response or its plain-dict form.
+    Arguments that are not a JSON object become `{}`, and the reply says so (MA0004)."""
+    import json
+
+    from comeni_ai.agent import AgentReply, ToolCall
+
+    def field(thing: object, name: str) -> object:
+        return thing.get(name) if isinstance(thing, dict) else getattr(thing, name, None)
+
+    choice = (field(response, "choices") or [None])[0]
+    message = field(choice, "message") if choice is not None else None
+    calls, refusal = [], None
+    for raw in field(message, "tool_calls") or []:
+        function = field(raw, "function")
+        text = field(function, "arguments") or "{}"
+        try:
+            arguments = json.loads(text) if isinstance(text, str) else dict(text)
+            if not isinstance(arguments, dict):
+                raise ValueError("not an object")
+        except ValueError:
+            arguments = {}
+            refusal = coded("MA0004", f"the arguments to {field(function, 'name')} "
+                                      "were not a JSON object")
+        calls.append(ToolCall(id=str(field(raw, "id")), name=str(field(function, "name")),
+                              arguments=arguments))
+    usage = field(response, "usage")
+    return AgentReply(
+        text=field(message, "content") or "",
+        calls=calls,
+        usage=Usage(
+            model=field(response, "model") or access.model,
+            duration_ms=0 if not started else _elapsed(started),
+            input_tokens=field(usage, "prompt_tokens"),
+            output_tokens=field(usage, "completion_tokens"),
+            finish_reason=field(choice, "finish_reason") if choice is not None else None,
+        ),
+        refusal=refusal,
     )

@@ -1,16 +1,15 @@
 # mendel-authoring
 
-The pure authoring core that turns a conversation and canvas edits into a goal, a reviewed draft,
-and an auditable pipeline. One declarative protocol defines the stages, acting nodes, forks, and
-legal arrows; the interpreter and session transition table are derived from it.
+The pure core of the builder: the decisions a person or the builder agent made and who made them,
+how they compose a goal, how a resolved pipeline becomes a blueprint and a reviewed draft, and
+what a canvas edit means.
 
 The package depends only on `comeni-core` and Pydantic. It does not access a network, database,
-queue, clock, or model provider; `mendel-api` supplies those effects through typed commands and
-small declared-data ports.
+queue, clock, or model provider; `mendel-api` stores what it computes and supplies declared
+registry data through small ports.
 
 Documentation:
 
-- [How the authoring protocol works](../../docs/explanation/authoring-protocol.md)
-- [Generated protocol diagram](../../docs/explanation/diagrams/authoring-protocol.md)
+- [How the builder agent works](../../docs/explanation/builder-agent.md)
 - [Build and inspect a pipeline](../../docs/how-to/pipelines/build.md)
 - [Builder interface reference](../../docs/reference/pipelines/builder-interface.md)

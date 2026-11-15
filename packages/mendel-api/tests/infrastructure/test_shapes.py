@@ -120,36 +120,3 @@ def test_every_json_column_is_jsonb_in_the_database():
     narrow = [tuple(r) for r in rows if r.data_type != "jsonb"]
     assert {r.data_type for r in rows} == {"jsonb"}, narrow
 
-
-def _canon(value):
-    """A JSON value with every object's keys sorted and every list left as it is: what JSONB
-    keeps (values, list order) and nothing it does not (object key order)."""
-    if isinstance(value, dict):
-        return {k: _canon(value[k]) for k in sorted(value)}
-    if isinstance(value, list):
-        return [_canon(v) for v in value]
-    return value
-
-
-@needs_db
-def test_a_walked_offer_keeps_every_value_and_list_order_through_a_reload(authoring_case):
-    """JSONB orders object keys by length, then bytes; it keeps lists. Nothing a person sees
-    reads an object's key order: cards draw lists, the API sorts option ids
-    (`routes/authoring.py`), and a gap's prompt rebuilds its options from the engine. So the
-    guard is that every value and every list survives, and the options read back sorted."""
-    from mendel_api.authoring import envelopes
-    from mendel_api.models import PipelineAuthoringProposal
-    from mendel_api.services import session as facade
-
-    with session_scope() as db:
-        stored, views = db.execute(
-            sa.select(
-                PipelineAuthoringProposal.payload, PipelineAuthoringProposal.preview_views
-            ).where(PipelineAuthoringProposal.id == authoring_case.proposal_id)
-        ).one()
-    written = envelopes.parse(stored, kind=stored["offer"]).model_dump(mode="json")
-    assert _canon(stored) == _canon(written)
-    assert stored["preview_options"], "no alternative was previewed — measuring nothing"
-    assert sorted(views) == sorted(stored["preview_options"])
-    shown = facade.read(authoring_case.session_id)["pending_proposal"]
-    assert shown["payload"]["preview_options"] == written["preview_options"]

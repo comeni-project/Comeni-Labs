@@ -16,16 +16,14 @@ from pydantic import BaseModel
 from support.walk import reachable
 
 PIPELINE_DOORS = {
-    "goal_extraction",
-    "tier4_resolution",
     "compiler_repair",
     "publication",
     # Door 6, 14.7.7: the characteriser. The first door that carries data from a person's file,
     # at protection level 0 only. On the pipeline path because what it reads becomes the goal.
     "characterisation",
-    # #463: the builder agent's tool results. Engine views of the pipeline, the registry and
-    # the person's facts, and at level 0 a sample's name: on the pipeline path because they
-    # are what the agent builds from.
+    # #463: the builder agent's conversation and tool results. The person's words, engine views
+    # of the pipeline, the registry and the person's facts, and at level 0 a sample's name: on
+    # the pipeline path because they are what the agent builds from.
     "builder_agent",
 }
 """The pipeline path's doors, and *pipeline data leaves through these* stays checkable against
@@ -118,32 +116,6 @@ FREE_TEXT_FIELDS = {
     # It is listed rather than exempted for the reason the whole list is literal: widening
     # the boundary should mean editing a file that says *these are all the ways data leaves*.
     ("Why", "reason"),
-    # Eleventh through fourteenth, Plan 2.5, and they arrive as a GROUP for one reason:
-    # `Ambiguity` became a `comeni_core.review.Question`, so the four fields the forge had
-    # always carried on a `Hole` now reach door 2 as well. Two are prose and two are the
-    # excerpt they point at.
-    #
-    # **Why they were let through rather than stripped.** The forge measured a local model
-    # re-deriving shipped contracts at 69% and then 88%, and two of the three fixes behind
-    # that were exactly *the question never said what it was about* (`what`) and *the
-    # evidence was a Python repr nobody could read* (`evidence`). Door 2 hands a tier-4
-    # question to a model. Carrying candidates and nothing else would rebuild the measured
-    # 69% configuration on the build path, having already paid to learn it.
-    # `test_the_door_carries_what_the_forge_measured_a_model_needs` is that argument as a
-    # test, so removing them fails rather than silently regressing.
-    ("AmbiguityRequest", "what"),
-    ("AmbiguityRequest", "why_open"),
-    # **`Excerpt` is the first author on this list that is not an author.** Every other entry
-    # is composed by somebody — a user, a contract author, a rule author, the resolver, a
-    # reviewer. These two are *quoted*: a source file already contains the text and an
-    # excerpt copies it, with `locator` naming where. That is a weaker claim than the rest of
-    # the list makes and it is written down rather than assumed, because "it is only quoted"
-    # is exactly the kind of reasoning that widens a boundary without anybody noticing.
-    #
-    # What bounds it is the source: excerpts are read from vendored modules and registry
-    # files, which are public data, and never from a prompt or a goal.
-    ("Excerpt", "locator"),
-    ("Excerpt", "text"),
     # Eighth and ninth, Plan 1.14 Task 5, and they are **one field splitting in two** rather
     # than a new kind of string crossing — the same pattern as A16 turning four `reason`
     # entries into six. `reason` was answering two questions at once: why this decision is
@@ -236,21 +208,11 @@ FREE_TEXT_FIELDS = {
     # field is a reviewer's reasoning living nowhere, which is worse for the claim than one
     # more declared string crossing a door somebody has to argue for.
     ("ParamDecision", "override_reason"),
-    # Seventeenth, 2026-09-09, and it is **the same field it replaced**. Door 1's payload grew
-    # from `PromptRequest` — one prompt, one call — into `AuthoringRequest`, because the living
-    # pipeline is a conversation and not a single extraction. `prompt` is still exactly what it
-    # was: the string a person just typed, the single taint source invariant 14 is written
-    # around. The name on the left changed; nothing new crosses here.
-    ("AuthoringRequest", "prompt"),
-    # Eighteenth, and it IS new: the bounded tail. A follow-up turn is only answerable with
-    # what was already said, so prior turns are quoted back, and the shape is argued for here
-    # rather than inherited.
-    #
-    # **What bounds it is that a turn is not a transcript.** The tail is capped (`CHAT_TAIL`),
-    # and a `MODEL` turn is text this system produced from typed data. A `PERSON` turn is prose
-    # the person typed — the same author, the same door, one more sentence of the same
-    # conversation `prompt` already carries.
-    ("AuthoringTurn", "content"),
+    # The person's words (#463), the same author and the same sentence door 1's `prompt` and
+    # its bounded tail carried before the builder became an agent: the single taint source
+    # invariant 14 is written around. An `AGENT` turn is text the model produced from typed
+    # data, quoted back so the conversation can continue.
+    ("AgentTurn", "content"),
 }
 
 

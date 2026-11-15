@@ -3,7 +3,7 @@
 import pytest
 from comeni_ai import ModelAccess
 from comeni_ai.agent import AgentReply, ScriptedAgentTransport, ToolCall, ToolSpec
-from comeni_ai.client import LiteLLMTransport
+from comeni_ai.client import reply_of
 
 ACCESS = ModelAccess(model="fake/test")
 ADD = ToolSpec(name="add", description="Add two numbers",
@@ -34,7 +34,7 @@ def _response(arguments: str, content=None) -> dict:
 
 
 def test_a_native_tool_call_is_read_into_a_tool_call():
-    reply = LiteLLMTransport._reply_of(ACCESS, _response('{"a": 2, "b": 2}'), started=0.0)
+    reply = reply_of(ACCESS, _response('{"a": 2, "b": 2}'), started=0.0)
     assert reply.calls == [ToolCall(id="c1", name="add", arguments={"a": 2, "b": 2})]
     assert reply.text == ""
     assert reply.refusal is None
@@ -42,7 +42,7 @@ def test_a_native_tool_call_is_read_into_a_tool_call():
 
 
 def test_malformed_tool_arguments_are_a_coded_refusal():
-    reply = LiteLLMTransport._reply_of(ACCESS, _response("{not json"), started=0.0)
+    reply = reply_of(ACCESS, _response("{not json"), started=0.0)
     assert reply.calls[0].arguments == {}
     assert reply.text == ""
     assert reply.refusal is not None and reply.refusal.startswith("MA0004")

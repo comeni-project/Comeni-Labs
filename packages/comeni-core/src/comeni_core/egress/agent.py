@@ -1,6 +1,7 @@
-"""What the builder agent's tools return to its model (#463): one result per tool call.
+"""What reaches the builder agent's model (#463): the conversation, and one result per tool call.
 
-A tool's name, whether it worked, a typed view of what it read or did, or the coded refusal the
+The conversation is the person's own words and the agent's own replies, as typed. A tool result
+is its name, whether it worked, a typed view of what it read or did, or the coded refusal the
 engine gave. The views are declared here, beside the door, so the egress guards walk every shape
 that reaches a model. At protection level 0 a view may carry a sample's name (the operator's
 decision, 2026-11-14); stricter levels filter before a view is built.
@@ -258,3 +259,25 @@ class AgentToolResult(EgressPayload):
     ok: bool
     view: AgentView | None = None
     refusal: Line | None = None
+
+
+class Speaker(StrEnum):
+    """Who said a turn of the conversation: the person, or the agent."""
+
+    PERSON = "person"
+    AGENT = "agent"
+
+
+class AgentTurn(EgressPayload):
+    """One earlier turn, as the model is shown it: the person's words or the agent's own."""
+
+    speaker: Speaker
+    content: Text
+
+
+class AgentRequest(EgressPayload):
+    """Everything one model call of an agent turn carries, besides the fixed system prompt and
+    the tool declarations: the conversation so far, and the results of the tools it called."""
+
+    turns: list[AgentTurn] = Field(default_factory=list)
+    results: list[AgentToolResult] = Field(default_factory=list)

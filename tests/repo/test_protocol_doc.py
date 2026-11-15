@@ -46,7 +46,7 @@ def test_check_fails_on_a_stale_page(tmp_path, monkeypatch):
     gen = _generator()
     monkeypatch.setattr(gen, "DIAGRAMS", tmp_path)
     gen.main([])
-    (tmp_path / "authoring-protocol.md").write_text("stale")
+    (tmp_path / "forging-protocol.md").write_text("stale")
     assert gen.main(["--check"]) == 1
 
 
@@ -67,10 +67,9 @@ def test_a_hand_written_page_is_never_deleted(tmp_path, monkeypatch):
     assert (tmp_path / "notes.md").exists()
 
 
-def test_one_diagram_with_sections():
-    """14.7.8.1: the sample's inside is a section of the one diagram, not a page of its own.
-    One page per declared flow: the builder's, and the forge's (#364)."""
+def test_one_page_per_declared_flow():
+    """One page per flow declared on the shared engine: the forge's (#364). The builder is an
+    agent with tools rather than a declared flow (#463), so it has no diagram."""
     pages = _generator().pages()
-    assert set(pages) == {"authoring-protocol.md", "forging-protocol.md"}
-    assert 'subgraph sample ["②a Inside: reading a sample"]' in pages["authoring-protocol.md"]
-    assert "mendel_authoring/protocol.py" in pages["authoring-protocol.md"]
+    assert set(pages) == {"forging-protocol.md"}
+    assert "mendel_forge/forging/protocol.py" in pages["forging-protocol.md"]

@@ -29,7 +29,7 @@
 #   MF0500-MF0599  the forge: the catalogue of upstream modules (#362)
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MI0100-MI0199  the API: retired with the old forge (#361), except MI0106
-#   MI0200-MI0299  the API: authoring a living pipeline — sessions, turns and proposals
+#   MI0200-MI0299  the API: the builder — sessions, turns and the agent's tools (#463)
 #   MI0300-MI0399  the API: settings — what the menu may change
 #   MI0400-MI0499  the API: what is stored — shapes and retention
 #   MI0500-MI0599  the API: rules proposed from people's answers (#462)
@@ -3588,26 +3588,6 @@ MW0002:
     the last line of defence. It is the line that does not depend on anybody remembering, which
     is the argument for an allowlist in the first place.
 
-MI0200:
-  emitted_by: api
-  concern: workflow
-  says: "an authoring session cannot move from this phase by this event"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Re-read the session and act on the phase it reports now. The refusal names the phase it is
-    actually in and what can happen from there, so the recovery is one request rather than a
-    guess.
-  explanation: |
-    The phases are the state diagram in the living-pipeline plan §2, transcribed rather than
-    invented, and the transition table is closed. An event that is legal in `building` and
-    arrives in `understanding` is a client acting on a view it has not refreshed — or two tabs,
-    which is the ordinary case rather than the exotic one.
-
-    Refusing is what keeps the diagram the specification. A machine that silently ignored an
-    illegal event would let the phase and the transcript disagree, and the transcript is what a
-    person reads.
-
 MI0201:
   emitted_by: api
   concern: workflow
@@ -3625,24 +3605,6 @@ MI0201:
     Read-then-write would leave a window between the check and the write. The comparison is
     against a number the client was *shown*, not against a timestamp: two writes inside one
     clock tick are indistinguishable by time, which is precisely when this matters.
-
-MI0202:
-  emitted_by: authoring
-  concern: workflow
-  says: "this proposal was made against an older draft and can no longer be applied"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Nothing to undo — the proposal is marked `stale` and the draft is untouched. Ask again on
-    the current draft; the engine will re-propose if the choice still exists.
-  explanation: |
-    A proposal is offered against a specific draft revision. If the draft moves before the
-    proposal is answered, applying it would write a decision made about a pipeline that no
-    longer looks that way.
-
-    `stale` is a state of its own rather than `rejected`, and the distinction is not
-    bookkeeping: nobody rejected this. A person who reads their own transcript later must be
-    able to tell a choice they declined from one the engine withdrew.
 
 MI0203:
   emitted_by: api
@@ -3685,63 +3647,6 @@ MI0204:
     This is the admission half of the boundary invariant 14 describes. The door declares the
     shape; this declares that the contents were already ours.
 
-MI0205:
-  emitted_by: api
-  concern: workflow
-  says: "the reply names an option or a step that was never offered"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Nothing was applied. Ask again — the engine re-offers the same options, each with the id it
-    issued. If the option you want is genuinely absent, say what you want in prose instead; a
-    goal revision can reach things an option list cannot.
-  explanation: |
-    **This is the product claim, enforced at the moment it would otherwise be lost.** A model
-    answers typed questions addressed by id and cannot produce a value outside the candidate
-    set — which is only true if something checks, and this is the check.
-
-    Both halves are the same rule. An `chose` naming an option nobody minted is a value from
-    outside the set. An explanation citing a step id that is not in the draft is a claim about a
-    pipeline the person cannot see, which is the same failure wearing prose: a fluent, checkable
-    answer about something that does not exist is the hardest kind for a reader to catch.
-
-    The ids are issued by the engine and stored before the call is made, so this comparison is a
-    set difference rather than a judgement.
-
-MI0206:
-  emitted_by: api
-  concern: workflow
-  says: "the registry changed after this step was proposed, so it was re-resolved instead"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Nothing was applied, and nothing needs undoing. The blueprint was resolved again against the
-    registry as it is now, and a fresh proposal for the same place in the pipeline is waiting —
-    read the session and answer that one.
-  explanation: |
-    A session resolves the whole pipeline once and reveals it a step at a time, so a proposal can
-    sit for a while between being offered and being answered. If a registry layer moved in that
-    time — a contract updated, an overlay installed — the option the person is choosing may no
-    longer exist, or may no longer be what the resolver would pick.
-
-    Applying it anyway would write a choice made against one registry into a draft that will be
-    built against another. **The proposal is marked stale rather than rejected**, because nobody
-    rejected it: the engine withdrew it, and the transcript has to be able to say which.
-
-MI0207:
-  emitted_by: api
-  concern: workflow
-  says: "the confirmed goal cannot be built: it needs an input nothing produces"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Nothing was built. Start the analysis again and say that you have the input named here — a
-    reference genome or an annotation is the usual case. The type named is one the pipeline needs
-    and that no tool in the registry can make from what the goal said you have.
-  explanation: |
-    The resolver works backwards from what you want, and every chain has to end at something you
-    have. When one ends at a type nothing produces, the goal is missing an input rather than the
-    registry missing a tool: nothing makes a reference genome, it is supplied.
 MI0208:
   emitted_by: api
   concern: workflow
@@ -3755,33 +3660,6 @@ MI0208:
     Every measurement is declared with what it may hold: a read length is a positive whole
     number, strandedness is one of three words. A value outside that would reach a rule that
     decides on it, and a rule deciding on an impossible value decides wrongly without saying so.
-MI0209:
-  emitted_by: api
-  concern: workflow
-  says: "the analysis cannot be built: nothing can make what it asks for"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Retry, and describe what you want to end up with in other words. The type named here is
-    declared, but no tool in the registry produces it; if it is something you already have, it
-    is an input rather than a result.
-  explanation: |
-    Before asking you anything, the engine works backwards from what you want to what it needs.
-    When nothing can make the thing you asked for, every question it could ask would be wasted,
-    so it stops here instead of showing you a goal it already knows cannot be built.
-MI0212:
-  emitted_by: authoring
-  concern: workflow
-  says: "a failed authoring session cannot resume into this phase"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Retry from where the failure happened. The refusal names the phases a retry may resume into;
-    anything else is a client or a stored session asking to skip a step.
-  explanation: |
-    A retry leaves `failed` for the phase that failed, and only where the authoring protocol
-    draws a return edge (`mendel_authoring/protocol.py`). Resuming anywhere else would enter a
-    phase whose preconditions nobody checked: a build against a goal nobody confirmed.
 MI0213:
   emitted_by: api
   concern: workflow
@@ -3807,56 +3685,6 @@ MI0214:
   explanation: |
     A sample answers a question about the data, and one file or one pair is what a question
     about the data can be answered from. Nothing is read before the count is checked.
-MI0215:
-  emitted_by: api
-  concern: workflow
-  says: "a sample is already being read for this question"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Wait for the AI's reading to arrive on the card. If it says the AI didn't answer, measure
-    again.
-  explanation: |
-    A sample nothing here reads is read by the AI on the AI worker, which takes a while. One
-    reading per question at a time keeps two answers from racing, as a sample being measured
-    holds the question's other answers.
-MI0216:
-  emitted_by: authoring
-  concern: workflow
-  says: "that is not possible from here"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Read where the conversation is: the action named is not one of the ways on from there.
-  explanation: |
-    The authoring protocol is the program the builder runs (docs/design/diagrams/). From each
-    place in it, only the arrows drawn lead on; an action or an outcome that names no arrow from
-    where the session is, is refused here rather than half-done.
-MI0218:
-  emitted_by: api
-  concern: workflow
-  says: "this older offer has no saved alternative preview"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Continue with the existing offer, or review a new offer after a deliberate change.
-    Viewing this older card does not recompute or replace the options it offered.
-  explanation: |
-    Complete previews are saved with new step offers. Older offers have no saved view;
-    resolving again while hovering could show a pipeline different from the one offered.
-MI0217:
-  emitted_by: api
-  concern: workflow
-  says: "editing opens when the walk is done"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Finish the walk first. During it, change a step's tool or tell it a fact on the step's card;
-    once the wrap-up is shown, the draft can be edited by hand.
-  explanation: |
-    During the walk the draft is the projection of the blueprint: the steps you have reviewed,
-    rebuilt from the goal after every change. A hand edit would have nowhere to live — the next
-    change would rebuild the draft without it — so it is refused rather than quietly lost.
 MI0219:
   emitted_by: api
   concern: workflow
