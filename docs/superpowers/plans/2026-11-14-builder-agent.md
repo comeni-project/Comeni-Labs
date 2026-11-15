@@ -306,8 +306,12 @@
 **Interfaces:**
 - Produces: `pipeline.yml` lists each AI choice and whether it was reviewed; keeping and publishing never refuse for unreviewed choices; the dialog shows "N choices by the AI, not reviewed" and one "Looks right" (calls `POST /reviewed {"nodes": "all"}`).
 
-- [ ] **Step 1: Write the failing tests:** `test_keeping_with_unreviewed_ai_choices_works_and_records_them` (`ai_choices[0].reviewed is False`); `test_looks_right_marks_every_choice_reviewed`; vitest `shows how many AI choices are not reviewed before keeping`.
-- [ ] **Step 2:** Run — FAIL. **Step 3:** Implement; shape golden and migration if the stored artifact shape changes. **Step 4:** Run — PASS. **Step 5:** Commit: `feat: a kept pipeline records what the AI chose and whether anyone reviewed it`.
+- [x] **Step 1: Write the failing tests:** `test_keeping_with_unreviewed_ai_choices_works_and_records_them` (`ai_choices[0].reviewed is False`); `test_looks_right_marks_every_choice_reviewed`; vitest `shows how many AI choices are not reviewed before keeping`.
+- [x] **Step 2:** Run — FAIL. **Step 3:** Implement; shape golden and migration if the stored artifact shape changes. **Step 4:** Run — PASS. **Step 5:** Commit: `feat: a kept pipeline records what the AI chose and whether anyone reviewed it`.
+
+---
+
+**Deviations (task 13):** no header summary — the operator chose a small AI tag beside the step name instead, with review per step; the evidence rule (from task 11) landed here. See the ledger.
 
 ---
 
