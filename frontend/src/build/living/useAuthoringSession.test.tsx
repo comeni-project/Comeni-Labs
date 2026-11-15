@@ -251,19 +251,3 @@ describe("coming back to the page (issue 230)", () => {
     await waitFor(() => expect(sessionReads()).toBe(2));
   });
 });
-
-it("sends the decision revision a correction was made against, and takes the session it answers with", async () => {
-  const fetch = vi.fn(async (url: string, request?: RequestInit) => request?.method === "POST"
-    ? ok({ moved: true, session: view("answered", { decision_revision: 3, revision: 8, row_version: 10 }) })
-    : url.endsWith("/vocabulary") ? ok({ types: {}, measurements: {} })
-    : url.endsWith("/preview") ? ok({ revision: 7, text: "" })
-    : ok(view("answered", { decision_revision: 2, revision: 7, row_version: 9 })));
-  vi.stubGlobal("fetch", fetch);
-  const { result } = renderHook(() => useAuthoringSession("s1"), { wrapper: wrap(fresh()) });
-  await waitFor(() => expect(result.current.session?.revision).toBe(7));
-  await act(async () => { await result.current.correct("read_length", 50, "measurement"); });
-  const sent = fetch.mock.calls.find(([url, request]) => url.endsWith("/facts/read_length") && request?.method === "POST")!;
-  expect(JSON.parse(sent[1]!.body as string)).toEqual({ value: 50, kind: "measurement",
-    expected_decision_revision: 2 });
-  await waitFor(() => expect(result.current.session?.revision).toBe(8));
-});

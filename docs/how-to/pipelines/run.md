@@ -43,13 +43,13 @@ If you said some samples are paired-end and some single-end, leave a single-end 
 reads cell blank: the pipeline reads it as single-end, and passes it one file. After the run, the run page
 says each value a setting took and where each fact behind it came from.
 
-If you said a sample may span several rows (in *What was understood*, on the reads), give each
+If you said a sample may span several rows (tell the builder, for the reads), give each
 lane its own row with the same `sample` and its own `unit`. A one-lane sample may leave `unit`
 blank. The pipeline merges each sample's lanes before anything reads them; a one-lane sample
 passes straight on. Lanes of one sample that disagree, one paired and one single-end say, stop the
 run naming the sample, and so does a repeated `sample` and `unit`.
 
-If you said an input is a table of several items (in *What was understood*, on an input the whole
+If you said an input is a table of several items (tell the builder, for an input the whole
 study shares, such as a database), the run form asks for it as a table of its own: one row per
 item, each with a `name` you choose, its files, and any fact a step selects rows by. Every
 sample runs against every row a step reads, and each result is named after the sample and the

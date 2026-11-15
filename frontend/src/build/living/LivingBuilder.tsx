@@ -112,12 +112,6 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
       onReviewed={living.review}
       notice={living.notice}
       onDismiss={living.dismiss}
-      declarations={living.measurements}
-      onCorrect={living.correct}
-      onRelease={living.releaseTool}
-      onUnits={living.spanRows}
-      onTable={living.severalItems}
-      correcting={living.correcting}
       // **Every direct edit goes through the session's edit verb**, which reads it as the person's
       // changes and builds again. A plain draft `PUT` would change the pipeline unrecorded.
       onAddStep={(contract) =>

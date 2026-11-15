@@ -4,26 +4,24 @@ import { processName } from "./format";
 import { StepCard, hasInputs, type CardKind } from "./StepCard";
 import { StepMenu, type MenuItem } from "./StepMenu";
 
-import type { AuthoringSession, AuthoringVocabulary, DraftGraph } from "../../api/types";
+import type { AuthoringSession, DraftGraph } from "../../api/types";
 import type { components } from "../../api/schema";
 import { Browse } from "../Browse";
 import type { Positions } from "../geometry";
 import { type AnsweredStep, withTypedValues } from "../useBuilder";
 import type { AnswerValue } from "./AgentQuestion";
 import { ChatPanel } from "./ChatPanel";
-import type { CorrectFact } from "./CurrentFacts";
 import { LivingCanvas } from "./LivingCanvas";
 import { LivingHeader } from "./LivingHeader";
 import type { ReviewState } from "./LivingNode";
 import { PipelineFile } from "./PipelineFile";
-import { Understood } from "./Understood";
 import type { ServerNotice } from "./useAuthoringSession";
 import { useFocus } from "./useFocus";
 import { valuesOf } from "./values";
 
 /** The builder's composition (#463): **wires state and callbacks, draws nothing itself.**
  *
- * The canvas, or what was understood, beside the conversation with the agent. The canvas is the
+ * The canvas beside the conversation with the agent. The canvas is the
  * pipeline as it stands from the first message: empty until the agent builds, then each step as
  * it lands. The panel's widths are the artboards' (`.living` in `main.css`): 420px, 360px under
  * 1180px, and stacked under 1000px with the conversation first *visually* while the canvas stays
@@ -31,8 +29,8 @@ import { valuesOf } from "./values";
  */
 export function LivingSurface({
   session, graph, preview, selected, onSelect, composer, onCompose, sending, onSay, onAnswer, onRetry,
-  onUpload, onReviewed, notice = null, onDismiss, declarations, onCorrect, onRelease, onUnits, onTable,
-  correcting = false, onSetParam, onSwitchInput, onWhole, onEdit, onAddStep, onRename, run = null,
+  onUpload, onReviewed, notice = null, onDismiss, onSetParam, onSwitchInput, onWhole, onEdit, onAddStep,
+  onRename, run = null,
 }: {
   session: AuthoringSession;
   /** The draft as saved — what an edit changes. The canvas draws the session's frame. */
@@ -50,12 +48,6 @@ export function LivingSurface({
   onReviewed: (node: string) => void;
   notice?: ServerNotice | null;
   onDismiss: () => void;
-  declarations?: AuthoringVocabulary["measurements"];
-  onCorrect?: CorrectFact;
-  onRelease?: (type: string, states: string[]) => Promise<unknown>;
-  onUnits?: (type: string, on: boolean) => Promise<unknown>;
-  onTable?: (type: string, on: boolean) => Promise<unknown>;
-  correcting?: boolean;
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
   onSwitchInput?: (contract: string, port: string, state: "off" | "optional" | "required") => void;
   onWhole?: (contract: string, whole: boolean) => void;
@@ -75,8 +67,7 @@ export function LivingSurface({
 }) {
   const [view, setView] = useState<"canvas" | "artifact">("canvas");
   const [browsing, setBrowsing] = useState(false);
-  const [left, setLeft] = useState<"canvas" | "understood">("canvas");
-  const [pane, setPane] = useState<"chat" | "canvas" | "understood">("chat");
+  const [pane, setPane] = useState<"chat" | "canvas">("chat");
 
   // **The server's frame, whole**: the visible graph, each step's recorded metadata, and the
   // channels that really enter. Nothing here re-derives or guesses any of it.
@@ -185,7 +176,6 @@ export function LivingSurface({
 
   const talk = { session, sending, composer, onCompose, onSay, onAnswer, onRetry, onUpload, notices: null };
   const runnable = run !== null && !session.retired;
-  const factsDisabled = correcting || session.retired || session.working;
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-full overflow-hidden" data-testid="living">
@@ -203,9 +193,9 @@ export function LivingSurface({
       />
       {/* **On a phone, one pane at a time**: the conversation first. Hidden above 640px. */}
       <div role="tablist" aria-label="on a phone" className="phone-tabs gap-1 px-[16px] pt-[8px]">
-        {(["chat", "canvas", "understood"] as const).map((name) => (
+        {(["chat", "canvas"] as const).map((name) => (
           <button key={name} type="button" role="tab" aria-selected={pane === name}
-                  onClick={() => { setPane(name); if (name !== "chat") setLeft(name); }}
+                  onClick={() => setPane(name)}
                   className="flex-1 px-2 py-[5px] rounded-button border text-[12px] cursor-pointer"
                   style={pane === name ? { background: "var(--now-soft)", borderColor: "var(--now-line)", color: "var(--now-ink)" }
                     : { background: "transparent", borderColor: "var(--line)", color: "var(--ink-2)" }}>
@@ -230,29 +220,9 @@ export function LivingSurface({
            style={{ display: view === "artifact" || run?.sheet ? "none" : undefined }}>
         <section aria-label="pipeline canvas"
                  className="living-canvas relative flex flex-col min-h-0 ml-[28px] mr-[8px] mt-[4px] mb-[24px] rounded-panel border border-line overflow-hidden">
-          <div role="radiogroup" aria-label="beside the conversation"
-               className="beside-switch flex gap-1 mx-4 mt-3 self-start p-1 rounded-button" style={{ background: "var(--paper)" }}>
-            {(["canvas", "understood"] as const).map((name) => (
-              <button key={name} type="button" role="radio" aria-checked={left === name} onClick={() => setLeft(name)}
-                      className={`px-3 py-[4px] rounded-control border text-[12.5px] cursor-pointer
-                                  ${left === name ? "text-ink font-semibold" : "text-ink-2 bg-transparent border-transparent"}`}
-                      style={left === name ? { background: "var(--surface)", borderColor: "var(--line)" } : undefined}>
-                {name === "canvas" ? "Canvas" : "What was understood"}
-              </button>
-            ))}
-          </div>
-          {left === "understood" && (
-            <Understood session={session} declarations={declarations} onCorrect={onCorrect} onRelease={onRelease}
-                        onUnits={onUnits} onTable={onTable} disabled={factsDisabled} />
-          )}
-          <div className="relative flex-1 min-h-0 flex flex-col"
-               inert={left === "understood" ? true : undefined} data-testid="build-canvas"
-               style={left === "understood" ? { display: "none" } : undefined}>
+          <div className="relative flex-1 min-h-0 flex flex-col" data-testid="build-canvas">
             <LivingCanvas
-              shown={`${pane}:${view}:${left}`}
-              empty={session.working
-                ? "The agent is working — steps appear here as it builds them"
-                : "The pipeline appears here as the agent builds it, or add a step yourself"}
+              shown={`${pane}:${view}`}
               graph={frame?.graph ?? { nodes: [], edges: [] }}
               stale={frame !== null && !frame.current}
               working={session.working}
@@ -285,10 +255,10 @@ export function LivingSurface({
         </section>
 
         <ChatPanel {...talk} notices={notices}
-                   onStep={(node) => { setLeft("canvas"); setPane("canvas"); pick(node); }} />
+                   onStep={(node) => { setPane("canvas"); pick(node); }} />
       </div>
     </div>
   );
 }
 
-const PANE_WORDS = { chat: "Chat", canvas: "Canvas", understood: "Understood" } as const;
+const PANE_WORDS = { chat: "Chat", canvas: "Canvas" } as const;

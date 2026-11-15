@@ -164,6 +164,10 @@ _DOING = {
 """What each tool is doing while it runs (#504), beside what it did (`_LABELS`)."""
 
 
+_ANNOUNCES = re.compile(r"\s*(I'll|I will|I'm going to|I am going to|Let me|First,? I'll)\b", re.I)
+"""A reply that opens by saying what it is about to do (`_ANNOUNCES.match`)."""
+
+
 def _node_of(session_id: str, arguments: dict) -> str | None:
     """The step a tool call touched (#499): named by its `node`, or found by the tool's contract
     or the setting's name — **and only a step the pipeline last built has** (plan 2 review), so
@@ -271,7 +275,7 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
                       expected_revision=decisions.revision(draft_id))
     tools = [spec_of(t) for t in TOOLS.values()]
     messages = [{"role": "system", "content": PROMPT.read_text()}, *_history(session_id, seq)]
-    spent = 0
+    spent, nudged = 0, False
     for step in range(settings.agent_max_steps):
         try:
             reply = transport.converse(access, messages, tools)
@@ -285,9 +289,22 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
         invocation = _record(session_id, access, messages, reply, None)
         if reply.usage is not None:
             spent += (reply.usage.input_tokens or 0) + (reply.usage.output_tokens or 0)
+        # **A first reply that only announces a plan is told to go ahead** (walk 2026-11-15):
+        # GPT answered "I'll check the current setup, then build…" with no tool call, and the
+        # turn ended with nothing built. Once per turn; a plain answer ends the turn as before.
+        announced = (not reply.calls and step == 0 and not nudged
+                     and bool(_ANNOUNCES.match(reply.text or "")))
         if reply.text:
             blocks.append(AgentMessage(id=f"say-{seq}-{step}", text=reply.text[:16000],
-                                       narration=bool(reply.calls)).model_dump(mode="json"))
+                                       narration=bool(reply.calls) or announced)
+                          .model_dump(mode="json"))
+        if announced:
+            nudged = True
+            messages.append({"role": "assistant", "content": reply.text})
+            messages.append({"role": "user", "content": "Go ahead: do it now with the tools, "
+                                                        "then tell me what you did."})
+            _write(session_id, seq, blocks, invocation=invocation)
+            continue
         if not reply.calls:
             _write(session_id, seq, blocks, TurnState.ANSWERED, invocation)
             return TurnState.ANSWERED.value

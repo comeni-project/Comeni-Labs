@@ -17,8 +17,7 @@ For the task sequence, see [Build and inspect a pipeline](../../how-to/pipelines
 | Wire | click to detach it |
 | Delete | remove the selected step |
 | Fit, −, +, 1:1, Tidy | fit the drawing, zoom, reset the view, give moved steps back their places |
-| Canvas · What was understood | the switch above the canvas: the drawing, or the record of what you said, measured and corrected |
-| Conversation | what you say and what the agent says. While it works, its trail shows what it says it is about to do, each tool it used, the one running now, and *Thinking…* while the model answers; all of it folds into **How I got here** once it answers. Each answer is marked as the AI's words, with links to the steps its tools read or changed |
+| Conversation | what you say and what the agent says. While it works, its trail shows what it says it is doing, each tool it used, the one running now, and *Thinking…* while the model answers; all of it folds into **How I got here** once it answers. An answer links the steps its tools read or changed. To correct a fact about your data, tell the agent |
 | Agent question | a question the agent needs you to answer, drawn as options, a number with its unit, yes or no, an upload, or a line of text; only the newest is answerable |
 | Retry | on a turn that failed: ask the agent again |
 | Composer | never locked: what you type while the agent works is read next |
@@ -32,8 +31,8 @@ layout only. If the agent changed the pipeline while you were looking, your chan
 (`MI0201`) and the canvas shows the pipeline as it now is.
 
 The conversation and the canvas run side by side from the first message: the canvas is empty
-until the agent builds, then shows each step as it lands. On a phone, **Chat**, **Canvas** and
-**Understood** are tabs.
+until the agent builds, then shows each step as it lands. On a phone, **Chat** and **Canvas** are
+tabs.
 
 ## Good signs
 

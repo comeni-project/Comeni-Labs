@@ -103,14 +103,12 @@ function AgentTurn({ turn, answerable, onAnswer, onRetry, onUpload, onStep }: {
   );
 }
 
-/** **Whose words, and what they rest on** (#499): the answer is the AI's, and each step its tools
- *  read or changed is a link — derived by the engine from the tools, never written by the model. */
+/** **What an answer rests on** (#499): each step its tools read or changed, as a link —
+ *  derived by the engine from the tools, never written by the model. Nothing when there is none. */
 function Used({ steps, onStep }: { steps: string[]; onStep?: (node: string) => void }) {
+  if (!onStep || steps.length === 0) return null;
   return (
     <div role="group" aria-label="what this answer used" className="flex flex-wrap items-center gap-[6px] text-[11.5px]">
-      <span className="px-[8px] py-[1px] rounded-full border text-ink-3" style={{ borderColor: "var(--line)" }}>
-        the AI's words
-      </span>
       {onStep && steps.map((node) => (
         <button key={node} type="button" onClick={() => onStep(node)}
                 className="px-[8px] py-[1px] rounded-full border bg-transparent font-data text-now-ink cursor-pointer

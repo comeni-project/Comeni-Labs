@@ -360,14 +360,12 @@ body {
 @media (max-width: 640px) {
   .phone-tabs { display: flex; }
   .living[data-pane="chat"] > .living-canvas { display: none; }
-  .living[data-pane="canvas"] > .living-rail, .living[data-pane="understood"] > .living-rail { display: none; }
+  .living[data-pane="canvas"] > .living-rail { display: none; }
   .living > .living-canvas { height: calc(100dvh - 240px); }
   /* One pane, so one row that fills the screen (issue 496): stacked, the conversation took the
      `auto` row and shrank to a line once the canvas beside it was hidden. */
   .living { grid-template-rows: minmax(0, 1fr); }
   .living { --rail-h: calc(100dvh - 240px); }
-  /* The phone's own tabs already choose canvas or understood (issue 496). */
-  .beside-switch { display: none !important; }
 }
 /* A step's menu and card beside it (#499); on a phone, a sheet along the bottom of the canvas. */
 .step-beside {

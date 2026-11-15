@@ -51,7 +51,6 @@ export function LivingCanvas({
   onSelect,
   footer,
   readOnly = false,
-  empty,
   stale = false,
   reviews = {},
   aiChosen = [],
@@ -72,8 +71,6 @@ export function LivingCanvas({
   footer?: React.ReactNode;
   /** A complete preview: nothing here can be moved, selected or changed. */
   readOnly?: boolean;
-  /** What the empty canvas says instead of the invitation — after an honest stop, why. */
-  empty?: string;
   /** The frame is the last pipeline built, and answers have changed since: said, never hidden. */
   stale?: boolean;
   /** Whether each drawn step's review still holds — said in words, never by repainting its tier. */
@@ -264,12 +261,7 @@ export function LivingCanvas({
   // above a hook changed their order on the first step (#463).
   if (ids.length === 0) {
     return (
-      <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-2"
-           data-testid="canvas-empty">
-        <span className="text-label text-ink-3">Nothing built yet</span>
-        <span className="text-[12.5px] text-ink-2">
-          {empty ?? "The steps appear here as the pipeline is built"}
-        </span>
+      <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center" data-testid="canvas-empty">
         {footer}
       </div>
     );

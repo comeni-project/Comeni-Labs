@@ -145,6 +145,25 @@ def test_a_step_link_is_only_a_step_the_pipeline_has(clean, monkeypatch):
     assert turn.state == "failed" and not any(b.get("running") for b in turn.blocks)
 
 
+def test_a_reply_that_only_announces_a_plan_is_told_to_go_ahead(clean, monkeypatch):
+    """Walk 2026-11-15: GPT answered "I'll check the current setup, then build…" with no tool
+    call, and the turn ended with nothing built. A first reply that only announces what it will
+    do is told once to do it; the turn then goes on."""
+    session_id, seq, script = _started(monkeypatch, [
+        _say("I'll check the current setup, then build the workflow."),
+        _call("read_goal"), _say("Nothing is wanted yet; tell me what you have.")])
+    turn = _turn(session_id, seq)
+    assert [b["kind"] for b in turn.blocks] == ["message", "tool", "message"]
+    assert turn.blocks[0]["narration"] is True, "the announcement is narration, not the answer"
+    nudged = script.sent[1][-1]
+    assert nudged["role"] == "user" and "go ahead" in nudged["content"].lower()
+
+
+def test_a_plain_answer_without_tools_ends_the_turn(clean, monkeypatch):
+    session_id, seq, script = _started(monkeypatch, [_say("A counts matrix has one row per gene.")])
+    assert _turn(session_id, seq).state == "answered" and len(script.sent) == 1
+
+
 def test_a_tool_refusal_goes_back_to_the_model(clean, monkeypatch):
     session_id, seq, script = _started(
         monkeypatch, [_call("want", type_id="no.such.type", because="test"), _say("Sorry")])

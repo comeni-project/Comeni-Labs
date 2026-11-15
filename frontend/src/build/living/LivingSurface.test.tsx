@@ -57,19 +57,10 @@ describe("the two surfaces", () => {
     expect(screen.getByRole("log", { name: "conversation" })).toHaveTextContent("I picked STAR over HISAT2");
   });
 
-  it("swaps the canvas for what was understood, and back", () => {
-    surface();
-    fireEvent.click(screen.getByRole("radio", { name: "What was understood" }));
-    expect(screen.getByRole("region", { name: "What was understood" })).toBeInTheDocument();
-    expect(screen.getByTestId("build-canvas")).not.toBeVisible();
-    fireEvent.click(screen.getByRole("radio", { name: "Canvas" }));
-    expect(screen.getByTestId("build-canvas")).toBeVisible();
-  });
-
-  it("has a phone's three tabs, the conversation first", () => {
+  it("has a phone's two tabs, the conversation first", () => {
     surface();
     const tabs = screen.getByRole("tablist", { name: "on a phone" });
-    expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Chat", "Canvas", "Understood"]);
+    expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Chat", "Canvas"]);
     expect(screen.getByTestId("living").querySelector(".living")).toHaveAttribute("data-pane", "chat");
     fireEvent.click(within(tabs).getByRole("tab", { name: "Canvas" }));
     expect(screen.getByTestId("living").querySelector(".living")).toHaveAttribute("data-pane", "canvas");
@@ -115,9 +106,10 @@ describe("the states a session can be in", () => {
     expect(screen.getByRole("log", { name: "conversation" })).toHaveTextContent("and what does the sorter do?");
   });
 
-  it("says what the empty canvas is waiting for", () => {
+  it("leaves the empty canvas quiet: only a way to add a step", () => {
     surface(with_({ graph: { nodes: [], edges: [] }, placement: {} }));
-    expect(screen.getByText("The agent is working — steps appear here as it builds them")).toBeInTheDocument();
+    const empty = screen.getByTestId("canvas-empty");
+    expect(empty).toHaveTextContent(/^\+ Add step$/);
   });
 
   it("says plainly when no model is configured", () => {

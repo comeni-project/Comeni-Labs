@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 
 import type { components } from "../../api/schema";
-import type { FactValue } from "./FactEditor";
 import type { AnswerValue } from "./AgentQuestion";
 
 import { get, post, postForm, put, Refused } from "../../api/client";
@@ -155,19 +154,6 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     onError: refused,
   });
 
-  const correction = useMutation({
-    mutationFn: (input: { subject: string; value: FactValue; kind: "input" | "measurement" } |
-      { release: { type_id: string; states: string[] } }) => {
-      const expected_decision_revision = session.data?.decision_revision ?? null;
-      return "release" in input
-        ? post<Changed>(`/pipeline/authoring/${sessionId}/release-tool`, { ...input.release, expected_decision_revision })
-        : post<Changed>(`/pipeline/authoring/${sessionId}/facts/${encodeURIComponent(input.subject)}`,
-          { value: input.value, kind: input.kind, expected_decision_revision });
-    },
-    onSuccess: take,
-    onError: refused,
-  });
-
   const upload = useMutation({
     mutationFn: (input: { questionId: string | null; files: File[] }) => {
       const form = new FormData();
@@ -207,17 +193,9 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     edit: (graph: DraftGraph) => edit.mutate(graph),
     rename: (name: string) => void put(`/pipeline/drafts/${session.data?.draft_id}`, {
       name, expected_revision: session.data?.revision }).then(() => refresh(), refused),
-    correcting: correction.isPending,
-    correct: (subject: string, value: FactValue, kind: "input" | "measurement") =>
-      correction.mutateAsync({ subject, value, kind }),
-    releaseTool: (type_id: string, states: string[]) => correction.mutateAsync({ release: { type_id, states } }),
     switchInput: (contract: string, port: string, state: "off" | "optional" | "required") =>
       change.mutate({ kind: "optional_input", subject: `${contract}|${port}`, value: state }),
     keepWhole: (contract: string, whole: boolean) =>
       change.mutate({ kind: "whole", subject: contract, retract: !whole }),
-    /** A sample may span several rows (issue 466). */
-    spanRows: (type_id: string, on: boolean) => change.mutateAsync({ kind: "units", subject: type_id, value: on }),
-    /** A study input given as several items (issue 466). */
-    severalItems: (type_id: string, on: boolean) => change.mutateAsync({ kind: "tables", subject: type_id, value: on }),
   };
 }

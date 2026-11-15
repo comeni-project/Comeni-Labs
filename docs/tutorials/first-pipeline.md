@@ -19,10 +19,10 @@ is enabled when a model is configured. This walkthrough works without one: click
 yourself**, or open `/build` directly. A new, empty pipeline opens.
 
 Click **+ Add step** and choose **SUBREAD_FEATURECOUNTS**, the step that makes gene counts.
-The panel asks *So you also want counts.matrix, made by SUBREAD_FEATURECOUNTS — right?* under
-**From your edit**. Click **Yes**. The engine now asks which inputs you have (reads, genome,
-annotation) and the read facts it needs; answer them, confirm **What was understood**, and the
-engine offers the rest of the pipeline one step at a time. Click **Add it** for each.
+The engine reads that as *you want counts.matrix* and builds the rest of the pipeline from the
+registry's rules. A value nobody could settle carries a red dot: click its step to open the step's
+card and answer it there. With a model configured, you can instead say what you have and want in
+the chat, and the builder agent builds it and tells you what it chose.
 
 The first-screen illustration below is a placeholder; the current manual-entry label
 is **draw it yourself**.
