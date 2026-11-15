@@ -62,7 +62,7 @@ def list_folder(path: Path | str | None, roots: list[Path]) -> FolderListing:
             raise ValueError(coded("MI0222", "no data folders are configured on this installation"))
         found = [r.resolve() for r in roots if r.is_dir()]
         return FolderListing(path=None, files=0, folders=[
-            Folder(name=str(r), path=str(r), files=_count_files(r)) for r in found])
+            Folder(name=r.name or str(r), path=str(r), files=_count_files(r)) for r in found])
     folder = inside_roots(path, roots)
     with os.scandir(folder) as entries:
         visible = _visible(entries)
