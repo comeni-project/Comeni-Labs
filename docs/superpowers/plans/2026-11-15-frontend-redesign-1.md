@@ -51,6 +51,9 @@ comments, and the board sources in `docs/superpowers/specs/2026-11-15-frontend-r
 - No marketing copy and no assistant-voice sentences in the interface. Copy comes from the board files.
 - Colours only through `tokens.css` tokens.
 - Delete what a task replaces. There is no backward compatibility before v0.1.0, and old routes redirect.
+- **Any existing code may change** (frontend or backend, its structure, names and APIs) when the new design fits
+  better and code quality stays high. Treat the plan's file lists as a starting point, not as limits. Record each
+  wider change as a ledger `Ruling:` line. The boundaries in `CLAUDE.md` still hold.
 
 **Working rules**
 - Tests:
