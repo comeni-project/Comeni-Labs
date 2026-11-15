@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS } from "./fake";
-import { LivingBuilder } from "./LivingBuilder";
+import { LiveLiving } from "./LivingBuilder";
 
 /** The live route draws what the session's frame says, and nothing it would have to guess.
  *
@@ -45,8 +45,8 @@ function open(session: unknown) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/build/living?session=s1"]}>
-        <LivingBuilder />
+      <MemoryRouter initialEntries={["/a/d1/build"]}>
+        <LiveLiving sessionId="s1" />
       </MemoryRouter>
     </QueryClientProvider>,
   );

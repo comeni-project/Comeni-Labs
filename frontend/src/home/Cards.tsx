@@ -2,7 +2,7 @@ import { Link } from "react-router";
 
 import type { components } from "../api/schema";
 import type { components as wiener } from "../wiener/api/schema";
-import { pipelineAddress } from "../build/address";
+import { pipelineAddress } from "../app/address";
 
 type DraftRow = components["schemas"]["DraftRow"];
 type RunRow = wiener["schemas"]["RunRow"];

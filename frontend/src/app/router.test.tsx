@@ -32,10 +32,10 @@ describe("routing", () => {
   });
 
   it("keeps the shell mounted across navigation", async () => {
-    at("/runs");
+    at("/registry/releases");
     // The shell is in the layout route, so it must be present on a child route too. Asserted
-    // on the wordmark, which belongs to the shell and to nothing else.
-    await waitFor(() => expect(screen.getByLabelText("Comeni — home")).toBeTruthy());
+    // on the rail, which belongs to the shell and to nothing else.
+    await waitFor(() => expect(screen.getByRole("navigation", { name: "Comeni" })).toBeTruthy());
   });
 
   it("has no destination left to disable", () => {

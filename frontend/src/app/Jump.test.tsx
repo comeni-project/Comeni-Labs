@@ -87,14 +87,14 @@ describe("jump to a pipeline or run", () => {
     expect(screen.queryByRole("dialog", { name: /jump/i })).toBeNull();
   });
 
-  it("opens a pipeline built in a conversation in that conversation (issue 390)", async () => {
-    const router = at("/build");
+  it("opens a pipeline built in a conversation at its Build page (issue 390)", async () => {
+    const router = at("/registry");
     press();
     await userEvent.type(await screen.findByRole("combobox"), "chip");
     await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
     await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(router.state.location.pathname + router.state.location.search)
-      .toBe("/build?session=s2"));
+    // Every pipeline opens at its analysis's Build page; the session is opened there (#511).
+    await waitFor(() => expect(router.state.location.pathname).toBe("/a/d2/build"));
   });
 
   it("still lists pipelines when runs cannot be read", async () => {
@@ -121,7 +121,7 @@ describe("jump to a pipeline or run", () => {
   });
 
   it("closes on Esc without closing the settings behind it, and gives focus back", async () => {
-    at("/build?settings=appearance");
+    at("/registry?settings=appearance");
     const opener = await screen.findByRole("button", { name: /jump to a pipeline or run/i });
     await userEvent.click(opener);
     await screen.findByRole("dialog", { name: /jump/i });
@@ -132,7 +132,7 @@ describe("jump to a pipeline or run", () => {
   });
 
   it("draws above the settings overlay, which comes later in the page", async () => {
-    at("/build?settings=appearance");
+    at("/registry?settings=appearance");
     await screen.findByRole("dialog", { name: "Settings" });
     press();
     const jump = await screen.findByRole("dialog", { name: /jump/i });

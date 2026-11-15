@@ -1,14 +1,15 @@
 @import "tailwindcss";
 
 /* ═══ THE FONTS ARE BUNDLED, NOT FETCHED ═══════════════════════════════════════════════════
-   Lexend sets the interface and headings, and Geist Mono sets data (`--font-data`).
+   Inter sets the interface and headings, and JetBrains Mono sets data (`--font-data`), as on
+   the redesign board (#511).
 
    **`@fontsource`, not a Google Fonts `<link>`**, and that is invariant 13 rather than a
    preference: self-hosted is not a degraded tier, and a clinical laboratory with no egress
    would have got the fallback stack while the hosted instance got the design. Vite bundles
    these, so both installs render the same page. */
-@import "@fontsource-variable/lexend";
-@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
 @import "./tokens.css";
 
 /* Tailwind MIRRORS the tokens; it does not redefine them.
@@ -89,19 +90,30 @@
   --color-done: var(--done);
   --color-done-soft: var(--done-soft);
   --color-done-ink: var(--done-ink);
+  --color-done-line: var(--done-line);
   --color-action: var(--action);
   --color-on-action: var(--on-action);
   --color-action-edge: var(--action-edge);
   --color-measured: var(--measured);
   --color-measured-soft: var(--measured-soft);
   --color-measured-ink: var(--measured-ink);
+  --color-measured-line: var(--measured-line);
   --color-needs-you: var(--needs-you);
   --color-needs-you-soft: var(--needs-you-soft);
   --color-needs-you-ink: var(--needs-you-ink);
+  --color-needs-you-line: var(--needs-you-line);
   --color-now: var(--now);
   --color-now-soft: var(--now-soft);
   --color-now-ink: var(--now-ink);
   --color-now-line: var(--now-line);
+  --color-now-mid: var(--now-mid);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-ai-line: var(--ai-line);
+  --color-report: var(--report);
+  --color-report-soft: var(--report-soft);
+  --color-regions: var(--regions);
+  --color-regions-soft: var(--regions-soft);
   --color-hover: var(--hover);
   --color-hover-strong: var(--hover-strong);
 

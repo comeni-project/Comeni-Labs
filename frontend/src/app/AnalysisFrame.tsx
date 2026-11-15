@@ -1,0 +1,131 @@
+import { useQuery } from "@tanstack/react-query";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { Navigate, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
+
+import { get, post } from "../api/client";
+import type { components } from "../api/schema";
+import { LiveLiving, LivingBuilder } from "../build/living/LivingBuilder";
+import { Failed, Loading } from "../ui/States";
+import { get as fromWiener } from "../wiener/api/client";
+import type { components as wiener } from "../wiener/api/schema";
+import { analysisAddress } from "./address";
+import { AnalysisSlot, type AnalysisPage } from "./rail/AnalysisSlot";
+import { RailSlot } from "./rail/RailContext";
+
+type DraftOut = components["schemas"]["DraftOut"];
+type DraftsPage = components["schemas"]["DraftsPage"];
+type AuthoringSessionView = components["schemas"]["AuthoringSessionView"];
+type RunsPage = wiener["schemas"]["RunsPage"];
+
+type Analysis = { draftId: string; name: string };
+const AnalysisContext = createContext<Analysis | null>(null);
+
+/** The open analysis, for any page inside `/a/:draft/…`. */
+export function useAnalysis(): Analysis {
+  const analysis = useContext(AnalysisContext);
+  if (!analysis) throw new Error("useAnalysis outside AnalysisFrame");
+  return analysis;
+}
+
+/** **An analysis is a pipeline draft** (#511, spec "Approaches" 1): its Data, Build and Run live
+ *  at `/a/<draft>/…`, and this frame puts it in the rail's slot for every page inside. */
+export function AnalysisFrame() {
+  const { draft: draftId = "" } = useParams();
+  const location = useLocation();
+  const draft = useQuery({
+    queryKey: ["draft", draftId],
+    queryFn: () => get<DraftOut>(`/pipeline/drafts/${encodeURIComponent(draftId)}`),
+  });
+  const after = location.pathname.split("/").slice(3);
+  const page: AnalysisPage = after[0] === "build" || after[0] === "run" ? after[0] : "data";
+  const run = page === "run" ? after[1] : undefined;
+
+  return (
+    <AnalysisContext.Provider value={{ draftId, name: draft.data?.name ?? "" }}>
+      <RailSlot><AnalysisSlot draftId={draftId} page={page} run={run} /></RailSlot>
+      {draft.error ? <Failed error={draft.error} /> : <Outlet />}
+    </AnalysisContext.Provider>
+  );
+}
+
+/** Build: the draft's conversation and canvas. Every draft has one conversation (#395), opened
+ *  once per draft, so the address never needs to carry the session. */
+export function BuildPage() {
+  const { draftId } = useAnalysis();
+  const [session, setSession] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  // **Once per draft**, so a re-render (or React's development double effect) never asks twice.
+  const opened = useRef<string | null>(null);
+  useEffect(() => {
+    if (opened.current === draftId) return;
+    opened.current = draftId;
+    setSession(null);
+    post<{ session_id: string }>(`/pipeline/drafts/${encodeURIComponent(draftId)}/session`, {})
+      .then(({ session_id }) => setSession(session_id), setError);
+  }, [draftId]);
+  if (error) return <Failed error={error} />;
+  if (!session) return <Loading what="the pipeline" />;
+  return <LiveLiving key={session} sessionId={session} />;
+}
+
+/** The old `/build` addresses, sent to their analysis. `?fake=` stays: it is the static builder
+ *  the artboards are compared against, with no server. */
+export function LegacyBuild() {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const [error, setError] = useState<unknown>(null);
+  const draft = params.get("draft");
+  const session = params.get("session");
+  const fake = params.get("fake");
+  const sent = useRef(false);
+  useEffect(() => {
+    if (fake || draft || sent.current) return;
+    sent.current = true;
+    (async () => {
+      const id = session
+        ? (await get<AuthoringSessionView>(`/pipeline/authoring/${encodeURIComponent(session)}`)).draft_id
+        : (await post<{ id: string }>("/pipeline/drafts", { graph: { nodes: [], edges: [] } })).id;
+      navigate(analysisAddress(id, "build"), { replace: true });
+    })().catch(setError);
+  }, [fake, draft, session, navigate]);
+  if (fake) return <LivingBuilder />;
+  if (draft) return <Navigate to={analysisAddress(draft, "build")} replace />;
+  return error ? <Failed error={error} /> : <Loading what="the pipeline" />;
+}
+
+/** `/runs/:id`, moved to the analysis whose pipeline it ran: the draft whose digest it carries.
+ *  The run shows at once; the move happens when both lists have answered, and never if no draft
+ *  ran it (a pipeline uploaded to Wiener by hand). */
+export function LegacyRun({ fallback }: { fallback: React.ReactNode }) {
+  const { id = "" } = useParams();
+  const navigate = useNavigate();
+  // A run's own view does not carry its digest; its row in the list does.
+  const runs = useQuery({
+    queryKey: ["runs", "digests"],
+    queryFn: () => fromWiener<RunsPage>("/api/runs?limit=200"),
+    retry: false,
+  });
+  const drafts = useQuery({ queryKey: ["drafts"], queryFn: () => get<DraftsPage>("/pipeline/drafts") });
+  const digest = runs.data?.runs?.find((r) => r.id === id)?.pipeline_digest;
+  const owner = digest ? drafts.data?.drafts?.find((d) => d.digest === digest)?.id : undefined;
+  useEffect(() => {
+    if (owner) navigate(analysisAddress(owner, "run", encodeURIComponent(id)), { replace: true });
+  }, [owner, id, navigate]);
+  return <>{fallback}</>;
+}
+
+/** `/a/:draft` alone opens its Data. */
+export function AnalysisIndex() {
+  return <Navigate to="data" replace />;
+}
+
+/** A page of the frame not built yet (Data is plan Task 8; the run list Task 14). */
+export function Pending({ title }: { title: string }) {
+  return (
+    <div className="overflow-auto">
+      <div className="gutter pt-7 pb-10">
+        <h1 className="m-0 text-title font-semibold tracking-[-.02em] text-ink">{title}</h1>
+      </div>
+    </div>
+  );
+}

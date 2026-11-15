@@ -27,7 +27,7 @@ function first(configured: boolean | "pending", begin = vi.fn()) {
     }
     if (url.endsWith("/pipeline/authoring") && init?.method === "POST") {
       begin(JSON.parse(String(init.body)));
-      return ok({ session: { id: "s42" }, queued: true }, 201);
+      return ok({ session: { id: "s42", draft_id: "d42" }, queued: true }, 201);
     }
     return ok({});
   });
@@ -71,7 +71,7 @@ describe("with a model configured", () => {
     fireEvent.change(input, { target: { value: "gene counts from paired-end RNA-seq" } });
     fireEvent.click(screen.getByTestId("start-building"));
 
-    await waitFor(() => expect(router.state.location.search).toBe("?session=s42"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/a/d42/build"));
     expect(begin).toHaveBeenCalledWith({ prompt: "gene counts from paired-end RNA-seq" });
   });
 
@@ -103,22 +103,23 @@ describe("where /build goes", () => {
   async function at(entry: string) {
     const { routes } = await import("../app/router");
     vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    const router = createMemoryRouter(routes, { initialEntries: [entry] });
     render(
       <QueryClientProvider client={makeClient()}>
-        <RouterProvider router={createMemoryRouter(routes, { initialEntries: [entry] })} />
+        <RouterProvider router={router} />
       </QueryClientProvider>,
     );
+    return router;
   }
 
-  it("restores a living session from ?session=", async () => {
-    await at("/build?session=s42");
-    expect(await screen.findByTestId("living-loading")).toBeInTheDocument();
+  it("sends an old draft address to its analysis's Build page", async () => {
+    const router = await at("/build?draft=d7");
+    await waitFor(() => expect(router.state.location.pathname).toBe("/a/d7/build"));
   });
 
-  it("keeps an existing draft, and a bare /build, in the manual builder", async () => {
-    await at("/build?draft=d7");
+  it("keeps the static builder at ?fake=, with no server", async () => {
+    await at("/build?fake=1");
     await waitFor(() => expect(document.body.textContent).not.toBe(""));
-    expect(screen.queryByTestId("living-loading")).toBeNull();
-    expect(screen.queryByText(/Open a session with/)).toBeNull();
+    expect(screen.queryByText(/Open a static builder/)).toBeNull();
   });
 });

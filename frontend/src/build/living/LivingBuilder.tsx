@@ -18,31 +18,30 @@ import { useAuthoringSession } from "./useAuthoringSession";
 
 const EMPTY_GRAPH: DraftGraph = { nodes: [], edges: [] };
 
-/** The one builder at `/build` (#395; `BuildRoute` opens every pipeline here).
+/** The static builder at `/build?fake=`, for looking at the page without a server. A live
+ *  pipeline opens at `/a/:draft/build` (`LiveLiving`, from `BuildPage`).
  *
- * `?session=<id>` restores a live session. `?fake=1` opens a static session carrying every state
+ * `?fake=1` opens a static session carrying every state
  * the agent's thread can be in, for looking at the page without a server; `?fake=collect`,
  * `?fake=sheet` and `?fake=question` open the collection shapes, the run sheet and a step with an
  * open value. Anything else says what to add rather than opening a default pipeline.
  */
 export function LivingBuilder() {
   const [params] = useSearchParams();
-  const session = params.get("session");
   const fake = params.get("fake");
   if (fake === "collect") return <FakeLiving session={COLLECT_SESSION} steps={COLLECT_STEPS} channels={COLLECT_CHANNELS} />;
   if (fake === "ports") return <FakeLiving session={PORTS_SESSION} steps={PORTS_STEPS} channels={[]} />;
   if (fake === "sheet") return <FakeLiving sheet />;
   if (fake === "question") return <FakeLiving steps={QUESTION_STEPS} selected="star_align" />;
   if (fake) return <FakeLiving />;
-  if (session) return <LiveLiving key={session} sessionId={session} />;
   return (
     <p className="gutter py-10 text-[13px] text-ink-2" data-testid="living-empty">
-      Open a session with <span className="font-data">?session=&lt;id&gt;</span>.
+      Open a static builder with <span className="font-data">?fake=1</span>.
     </p>
   );
 }
 
-function LiveLiving({ sessionId }: { sessionId: string }) {
+export function LiveLiving({ sessionId }: { sessionId: string }) {
   const living = useAuthoringSession(sessionId);
   const [sheet, setSheet] = useState(false);
   // **The run sheet reads the saved draft**, never the frame's preview metadata, and is asked

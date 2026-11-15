@@ -1,4 +1,4 @@
-import { type RouteObject } from "react-router";
+import { Navigate, type RouteObject } from "react-router";
 
 import { Home } from "../home/Home";
 import { Catalogue } from "../registry/Catalogue";
@@ -7,14 +7,15 @@ import { ForgingList } from "../registry/forging/ForgingList";
 import { LearnedRules } from "../registry/LearnedRules";
 import { Releases } from "../registry/Releases";
 import { Tool } from "../registry/Tool";
-import { Board as Runs } from "../runs/Board";
 import { Run } from "../runs/Run";
-import { BuildRoute } from "./BuildRoute";
+import {
+  AnalysisFrame, AnalysisIndex, BuildPage, LegacyBuild, LegacyRun, Pending,
+} from "./AnalysisFrame";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { SettingsLink } from "./SettingsLink";
 import { Shell } from "./Shell";
 
-/** Application destinations.
+/** Application destinations (#511). An analysis is a pipeline draft, at `/a/<draft>/…`.
  * Filters and settings overlays use query parameters so views remain linkable. */
 export const routes: RouteObject[] = [
   {
@@ -22,9 +23,23 @@ export const routes: RouteObject[] = [
     errorElement: <ErrorBoundary />,
     children: [
       { path: "/", element: <Home /> },
-      { path: "/build", element: <BuildRoute /> },
-      { path: "/runs", element: <Runs /> },
-      { path: "/runs/:id", element: <Run /> },
+      {
+        path: "/a/:draft",
+        element: <AnalysisFrame />,
+        children: [
+          { index: true, element: <AnalysisIndex /> },
+          { path: "data/:sub?", element: <Pending title="Data" /> },
+          { path: "build", element: <BuildPage /> },
+          { path: "run", element: <Pending title="Run" /> },
+          { path: "run/:id/:sub?", element: <Run /> },
+        ],
+      },
+
+      // Older addresses, sent to their analysis.
+      { path: "/build", element: <LegacyBuild /> },
+      { path: "/runs", element: <Navigate to="/" replace /> },
+      { path: "/runs/:id", element: <LegacyRun fallback={<Run />} /> },
+
       { path: "/registry", element: <Catalogue /> },
       // The splat is the contract id, which carries `/` and `@` (`nf-core/star/align@2.7.11b`).
       { path: "/registry/tools/*", element: <Tool /> },

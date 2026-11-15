@@ -8,22 +8,28 @@
    twice, identically: for a system that asks for dark (unless this browser chose Light), and for
    an explicit Dark choice. The last `:root` holds what does not change with the theme. */
 :root {
-  --paper: #F4F5F8; --paper-2: #FFFFFF; --surface: #FFFFFF; --surface-2: #F8F9FB;
+  --paper: #F5F6F8; --paper-2: #FFFFFF; --surface: #FFFFFF; --surface-2: #F8F9FB;
   --canvas: #F8F9FB;
-  --line: #E1E4EC; --line-2: #C9CEDB; --line-soft: #ECEFF5;
-  --ink: #171A26; --ink-2: #474D63; --ink-3: #666C84;
-  /* The meanings. A mark wears the plain colour; text wears `-ink`; a chip sits on `-soft`. */
-  --done: #0F9D7A; --done-soft: #DDF3EC; --done-ink: #0B6B53;
-  --action: #0B7F63; --on-action: #FFFFFF; --action-edge: #075C48;
-  --measured: #9A5B00; --measured-soft: #FBF0DC; --measured-ink: #7A4800;
-  --needs-you: #C92F36; --needs-you-soft: #FCE5E6; --needs-you-ink: #A1242B;
-  --now: #2F6FEB; --now-soft: #E6EEFD; --now-ink: #1F57C3; --now-line: #A9C2F5;
+  --line: #E2E5EA; --line-2: #D2D7DE; --line-soft: #EEF0F3;
+  --ink: #15181D; --ink-2: #3B424D; --ink-3: #5F6773;
+  /* The meanings. A mark wears the plain colour; text wears `-ink`; a chip sits on `-soft`; a
+     hairline around a chip is `-line`. */
+  --done: #2E9A5A; --done-soft: #E3F3E9; --done-ink: #1C6B3E; --done-line: #B9DCC6;
+  /* The main button is the board's blue (#511): the action is the next step, drawn like now. */
+  --action: #1D5FC2; --on-action: #FFFFFF; --action-edge: #174C9B;
+  --measured: #C48A1A; --measured-soft: #FFF3DC; --measured-ink: #8A4B0B; --measured-line: #F3DFB6;
+  --needs-you: #C2410C; --needs-you-soft: #FDEEE4; --needs-you-ink: #A0400B; --needs-you-line: #F5CDB3;
+  --now: #1D5FC2; --now-mid: #6FA0E6; --now-soft: #EDF3FC; --now-ink: #174C9B; --now-line: #B8CDEE;
+  /* A choice the AI made, until a person confirms it. */
+  --ai: #5A3EAF; --ai-soft: #EEE9FB; --ai-line: #E3DBF6;
+  /* Format families on the registry's map and the data pages. */
+  --report: #9A2F5C; --report-soft: #FBE8F0; --regions: #156F6F; --regions-soft: #E2F5F4;
   /* The canvas: nodes are outlined, and the rail is the settled tier, so it spends no colour. */
-  --node: #FFFFFF; --node-line: #C9CEDB; --node-rule: #E1E4EC;
-  --rail: #B3B9CA; --port-line: #C9CEDB; --mark: #B3B9CA;
+  --node: #FFFFFF; --node-line: #D2D7DE; --node-rule: #E2E5EA;
+  --rail: #A9B2BF; --port-line: #D2D7DE; --mark: #A9B2BF;
   --grid-1: rgba(40, 60, 110, .055); --grid-2: rgba(40, 60, 110, .028);
-  --shadow: rgba(23, 26, 38, .25);
-  --scrim: rgba(23, 26, 38, .38);
+  --shadow: rgba(21, 24, 29, .25);
+  --scrim: rgba(21, 24, 29, .38);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -32,11 +38,13 @@
     --canvas: #161820;
     --line: #282C3A; --line-2: #3A3F52; --line-soft: #232736;
     --ink: #E8EAF2; --ink-2: #B0B5C8; --ink-3: #8C92A8;
-    --done: #2FC79B; --done-soft: #113529; --done-ink: #2FC79B;
-    --action: #2FC79B; --on-action: #06201A; --action-edge: #1E8C6C;
-    --measured: #F0B840; --measured-soft: #35290F; --measured-ink: #F0B840;
-    --needs-you: #FF6E73; --needs-you-soft: #3A1B20; --needs-you-ink: #FF6E73;
-    --now: #6EA2FF; --now-soft: #172642; --now-ink: #6EA2FF; --now-line: #2A4170;
+    --done: #2FC79B; --done-soft: #113529; --done-ink: #5FD9B0; --done-line: #1E5A45;
+    --action: #6EA2FF; --on-action: #12141B; --action-edge: #3D6FC0;
+    --measured: #F0B840; --measured-soft: #35290F; --measured-ink: #F0B840; --measured-line: #5A4618;
+    --needs-you: #FF6E73; --needs-you-soft: #3A1B20; --needs-you-ink: #FF8A8E; --needs-you-line: #5A2A2F;
+    --now: #6EA2FF; --now-mid: #3D6FC0; --now-soft: #172642; --now-ink: #8FB6FF; --now-line: #2A4170;
+    --ai: #B39DFF; --ai-soft: #241D3A; --ai-line: #3A2F5C;
+    --report: #F08DB8; --report-soft: #3A1A2A; --regions: #5FD9D9; --regions-soft: #0F3333;
     --node: #1A1D27; --node-line: #3A3F52; --node-rule: #282C3A;
     --rail: #4A5068; --port-line: #3A3F52; --mark: #4A5068;
     --grid-1: rgba(140, 170, 255, .06); --grid-2: rgba(140, 170, 255, .03);
@@ -50,11 +58,13 @@
   --canvas: #161820;
   --line: #282C3A; --line-2: #3A3F52; --line-soft: #232736;
   --ink: #E8EAF2; --ink-2: #B0B5C8; --ink-3: #8C92A8;
-  --done: #2FC79B; --done-soft: #113529; --done-ink: #2FC79B;
-  --action: #2FC79B; --on-action: #06201A; --action-edge: #1E8C6C;
-  --measured: #F0B840; --measured-soft: #35290F; --measured-ink: #F0B840;
-  --needs-you: #FF6E73; --needs-you-soft: #3A1B20; --needs-you-ink: #FF6E73;
-  --now: #6EA2FF; --now-soft: #172642; --now-ink: #6EA2FF; --now-line: #2A4170;
+  --done: #2FC79B; --done-soft: #113529; --done-ink: #5FD9B0; --done-line: #1E5A45;
+  --action: #6EA2FF; --on-action: #12141B; --action-edge: #3D6FC0;
+  --measured: #F0B840; --measured-soft: #35290F; --measured-ink: #F0B840; --measured-line: #5A4618;
+  --needs-you: #FF6E73; --needs-you-soft: #3A1B20; --needs-you-ink: #FF8A8E; --needs-you-line: #5A2A2F;
+  --now: #6EA2FF; --now-mid: #3D6FC0; --now-soft: #172642; --now-ink: #8FB6FF; --now-line: #2A4170;
+    --ai: #B39DFF; --ai-soft: #241D3A; --ai-line: #3A2F5C;
+    --report: #F08DB8; --report-soft: #3A1A2A; --regions: #5FD9D9; --regions-soft: #0F3333;
   --node: #1A1D27; --node-line: #3A3F52; --node-rule: #282C3A;
   --rail: #4A5068; --port-line: #3A3F52; --mark: #4A5068;
   --grid-1: rgba(140, 170, 255, .06); --grid-2: rgba(140, 170, 255, .03);
@@ -65,9 +75,9 @@
 /* What does not change with the theme. The derived values read the themed ones above, so they
    follow a theme switch without a second definition. */
 :root {
-  --font-display: "Lexend Variable", "Lexend", system-ui, sans-serif;
-  --font-ui: "Lexend Variable", "Lexend", system-ui, sans-serif;
-  --font-data: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", monospace;
+  --font-display: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-ui: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-data: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", monospace;
 
   /* `--ink` at 5% and 9%: a tint of whatever surface it lands on, in either theme. */
   --hover: color-mix(in oklab, var(--ink) 5%, transparent);

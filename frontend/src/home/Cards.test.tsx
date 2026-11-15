@@ -35,8 +35,8 @@ describe("Needs you", () => {
     expect(rows.length).toBe(2);
     expect(rows[0]).toHaveTextContent("atac-peaks");
     expect(rows[0]).toHaveTextContent("fragment_size, strandedness");
-    expect(within(rows[0]).getByRole("link", { name: "Answer" })).toHaveAttribute("href", "/build?draft=a1");
-    expect(within(rows[1]).getByRole("link", { name: "Answer" })).toHaveAttribute("href", "/build?session=s2");
+    expect(within(rows[0]).getByRole("link", { name: "Answer" })).toHaveAttribute("href", "/a/a1/build");
+    expect(within(rows[1]).getByRole("link", { name: "Answer" })).toHaveAttribute("href", "/a/b2/build");
     expect(rows[1]).toHaveTextContent("2 values");
     expect(card).toHaveTextContent("No rule could settle these, so nothing runs until someone answers.");
   });

@@ -111,7 +111,7 @@ describe("the front door", () => {
     at({});
     const needs = await screen.findByRole("region", { name: "Needs you" });
     expect(within(needs).getByText("seq_platform")).toBeTruthy();
-    expect(within(needs).getByRole("link", { name: "Answer" })).toHaveAttribute("href", "/build?draft=aaaa1111");
+    expect(within(needs).getByRole("link", { name: "Answer" })).toHaveAttribute("href", "/a/aaaa1111/build");
     expect(screen.queryByText(/1 item/)).toBeNull();
   });
 

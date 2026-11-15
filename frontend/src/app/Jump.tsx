@@ -17,11 +17,11 @@ const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator
 const SHORTCUT = MAC ? "⌘K" : "Ctrl K";
 type RunsPage = wiener["schemas"]["RunsPage"];
 
-/** Jump to a pipeline or run: a box in the shell, and ⌘K (Ctrl+K) from anywhere, even a field.
+/** Jump to a pipeline or run: a row in the rail, and ⌘K (Ctrl+K) from anywhere, even a field.
  *
  * The two lists are the ones Home reads, under the same query keys, so the cache is shared and
  * nothing new is asked of either server. Wiener may not answer; the pipelines are still listed. */
-export function Jump() {
+export function Jump({ mini = false }: { mini?: boolean }) {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
 
@@ -64,21 +64,22 @@ export function Jump() {
         type="button"
         onClick={show}
         aria-label="Jump to a pipeline or run"
-        className="flex items-center gap-[10px] h-[38px] px-[14px] w-[38px] sm:w-[340px] justify-center
-                   sm:justify-start rounded-button border border-line-2 bg-surface text-ink-3
-                   text-[13.5px] cursor-pointer hover:text-ink transition-colors"
+        title={mini ? `Jump to a pipeline or run (${SHORTCUT})` : undefined}
+        className={`flex items-center gap-[11px] w-full rounded-control border-0 bg-transparent text-ink-2
+                    text-[13px] cursor-pointer hover:bg-surface-2 hover:text-ink transition-colors
+                    ${mini ? "justify-center py-[9px]" : "px-[10px] py-[7px]"}`}
       >
-        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor"
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor"
              strokeWidth="1.6" strokeLinecap="round" className="shrink-0">
           <circle cx="7" cy="7" r="5" />
           <path d="M11 11l3.5 3.5" />
         </svg>
-        <span className="hidden sm:inline">Jump to a pipeline or run</span>
-        <kbd className="hidden sm:inline ml-auto font-data text-[11px] px-[6px] rounded-xs border border-line-2
-                        bg-paper text-ink-2">{SHORTCUT}</kbd>
+        {!mini && <span>Search</span>}
+        {!mini && <kbd className="ml-auto font-data text-[11px] px-[6px] rounded-xs border border-line-2
+                                  bg-paper text-ink-3">{SHORTCUT}</kbd>}
       </button>
-      {/* In `body`, last: the settings overlay and the run sheet come after the header in the
-          page, so a palette drawn inside it would sit underneath them. */}
+      {/* In `body`, last: the settings overlay comes after the rail in the page, so a palette
+          drawn inside it would sit underneath it. */}
       {open && createPortal(<Palette onClose={close} />, document.body)}
     </>
   );

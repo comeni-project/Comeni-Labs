@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
+import { analysisAddress } from "../app/address";
+
 import { useAiConfigured } from "./useAiConfigured";
 import { useBegin } from "./useBegin";
 
@@ -30,7 +32,7 @@ export function First() {
   const [prompt, setPrompt] = useState("");
   const model = useAiConfigured();
   const live = model.configured;
-  const begin = useBegin((started) => navigate(`/build?session=${started.session.id}`));
+  const begin = useBegin((started) => navigate(analysisAddress(started.session.draft_id, "build")));
   const ready = live && prompt.trim().length > 0 && !begin.isPending;
 
   return (

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
+import { analysisAddress } from "../app/address";
+
 import { useAiConfigured } from "./useAiConfigured";
 import { useBegin } from "./useBegin";
 
@@ -16,7 +18,7 @@ export function Describe() {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const model = useAiConfigured();
-  const begin = useBegin((started) => navigate(`/build?session=${started.session.id}`));
+  const begin = useBegin((started) => navigate(analysisAddress(started.session.draft_id, "build")));
   if (!model.configured) return null;
   const ready = prompt.trim().length > 0 && !begin.isPending;
 
