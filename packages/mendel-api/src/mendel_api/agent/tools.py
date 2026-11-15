@@ -46,11 +46,30 @@ def register(tool: Tool) -> Tool:
     return tool
 
 
+_DROPPED = {"title", "maxLength", "minLength", "maxItems", "minItems", "default"}
+"""Schema keys the model need not read: pydantic's titles repeat each property's name, and the
+limits and defaults are checked and applied here when the call arrives, whatever the model sent."""
+
+
+def _untitled(node):
+    """The schema as the model reads it, small (walk 2026-11-15: the definitions are sent on every
+    round of every turn): without `_DROPPED`, and a union of plain types as one type list."""
+    if isinstance(node, dict):
+        out = {k: _untitled(v) for k, v in node.items() if k not in _DROPPED}
+        plain = out.get("anyOf")
+        if isinstance(plain, list) and all(set(o) == {"type"} for o in plain):
+            out.pop("anyOf")
+            out["type"] = [o["type"] for o in plain]
+        return out
+    if isinstance(node, list):
+        return [_untitled(v) for v in node]
+    return node
+
+
 def spec_of(tool: Tool) -> ToolSpec:
     """The tool as a model sees it: name, description, and its input's JSON schema."""
-    schema = tool.input.model_json_schema()
-    schema.pop("title", None)
-    return ToolSpec(name=tool.name, description=tool.description, parameters=schema)
+    return ToolSpec(name=tool.name, description=tool.description,
+                    parameters=_untitled(tool.input.model_json_schema()))
 
 
 def _said(failure: ValidationError) -> str:

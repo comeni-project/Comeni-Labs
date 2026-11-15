@@ -134,6 +134,16 @@ def test_the_agent_gives_the_analysis_a_working_name(clean):
     assert not call(ctx, "name_pipeline", {"name": ""}).ok
 
 
+def test_resolve_says_what_is_still_needed(clean):
+    """Walk 2026-11-15: the agent nearly always called resolve, then what_is_needed — two rounds,
+    each resending the whole turn. resolve now says what is still needed itself."""
+    ctx = _rnaseq()
+    resolved = call(ctx, "resolve", {})
+    assert resolved.ok, resolved.refusal
+    alone = call(ctx, "what_is_needed", {}).view.needs
+    assert resolved.view.needs == alone
+
+
 def test_resolve_reports_the_rules_that_fired(clean):
     resolved = call(_rnaseq(), "resolve", {})
     assert resolved.ok, resolved.refusal

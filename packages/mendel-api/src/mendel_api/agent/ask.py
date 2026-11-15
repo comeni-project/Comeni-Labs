@@ -13,13 +13,13 @@ from mendel_api.agent.tools import Tool, ToolContext, register
 
 class AskArgs(BaseModel):
     question: str = Field(min_length=1, max_length=400,
-                          description="The question, in plain words, as the person reads it")
+                          description="The question, plainly")
     shape: Literal["options", "number", "yes_no", "upload", "text"] = Field(
-        description="How it is answered: buttons, a number, yes or no, a file, or words")
+        description="Answer shape")
     options: list[str] = Field(default_factory=list, max_length=8,
-                               description="For options: the choices, each a few words")
+                               description="For options: the choices")
     unit: str = Field(default="", max_length=20, description="For a number: its unit, e.g. bp")
-    type_id: str | None = Field(default=None, description="For an upload: the type of the file")
+    type_id: str | None = Field(default=None, description="For upload: the file type")
 
 
 def ask(ctx: ToolContext, a: AskArgs) -> AskedView:
@@ -30,6 +30,5 @@ def ask(ctx: ToolContext, a: AskArgs) -> AskedView:
                      type_id=a.type_id)
 
 
-register(Tool("ask", "Ask the person something only they know, such as whether they have a "
-              "file or what their reads are like. Ends your turn; their answer starts the next.",
-              AskArgs, ask))
+register(Tool("ask", "Ask the person what only they know. Ends your turn; their answer starts "
+              "the next.", AskArgs, ask))

@@ -29,6 +29,11 @@ How to work:
   used it, from `resolve`'s `rules` ("your reads are 150 bp, and the alignment rule picks STAR for
   reads that long, because…"), or your own reason for a choice you made. "STAR aligns the reads"
   is not a why. Where a choice has a cost the person should weigh (memory, time), say it.
+- Every change tool takes `because`: your reason, in one sentence, for the person to read.
+- Call independent tools together, several in one reply (reading the goal, the pipeline and the
+  vocabulary; recording several facts). Each reply is a round trip that resends the whole turn.
+- `resolve` already says what is still needed; call `what_is_needed` only when you have not just
+  resolved.
 - Act, don't announce. Call the tools in the same reply as anything you say about them: a reply
   with no tool call ends your turn, so never reply with only a plan ("I'll check…").
 - When you call tools, you may add one short sentence in that same reply saying what you are

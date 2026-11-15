@@ -233,6 +233,8 @@ class ResolvedView(EgressPayload):
     steps: list[StepLine] = Field(default_factory=list)
     open_values: list[Line] = Field(default_factory=list)
     rules: list[FiredLine] = Field(default_factory=list)
+    needs: list[NeedLine] = Field(default_factory=list)
+    """What is still needed (walk 2026-11-15), so a build is one round, not two."""
     changed: Line = ""
     unbuilt: Line = ""
 

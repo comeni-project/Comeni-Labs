@@ -8,7 +8,7 @@ from mendel_authoring.blueprint import committed
 from mendel_authoring.decisions import ActorKind
 from mendel_authoring.diff import diff_of
 
-from mendel_api.agent.read import Nothing, built, read_pipeline
+from mendel_api.agent.read import Nothing, built, read_pipeline, what_is_needed
 from mendel_api.agent.tools import Tool, ToolContext, register
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineDraft
@@ -49,7 +49,8 @@ def resolve(ctx: ToolContext, _: Nothing) -> ResolvedView:
     resolved_from = decisions.revision(ctx.draft_id)
     blueprint, unbuilt = built(ctx)
     if blueprint is None:
-        return ResolvedView(unbuilt=unbuilt or "nothing is wanted yet")
+        return ResolvedView(unbuilt=unbuilt or "nothing is wanted yet",
+                            needs=what_is_needed(ctx, Nothing()).needs)
     _project(ctx, blueprint, resolved_from)
     before = None
     if ctx.session_id is not None:
@@ -71,6 +72,7 @@ def resolve(ctx: ToolContext, _: Nothing) -> ResolvedView:
         steps=list(pipeline.steps),
         open_values=[f"{s.node}.{v}" for s in pipeline.steps for v in s.open_values],
         rules=_fired(blueprint),
+        needs=what_is_needed(ctx, Nothing()).needs,
         changed=said,
     )
 
@@ -88,12 +90,12 @@ def compile_(ctx: ToolContext, _: Nothing) -> CompiledView:
 
 
 for _tool in (
-    Tool("resolve", "Build the pipeline from the decisions as they stand: the engine routes, "
-         "applies the registry's rules and wires the steps. Returns the steps, what changed, "
-         "values still open, and every rule that decided something. The canvas shows it.",
+    Tool("resolve",
+         "Build the pipeline from the decisions. Returns its steps, what changed, open values, "
+         "fired rules and what is still needed. The canvas shows it.",
+         
          Nothing, resolve),
-    Tool("compile", "Compile the pipeline to Nextflow (main.nf and nextflow.config) and say that "
-         "it compiled, with its processes. The person reads the files in the pipeline file.",
+    Tool("compile", "Compile to Nextflow; says it compiled and lists the processes.",
          Nothing, compile_),
 ):
     register(_tool)

@@ -12,18 +12,19 @@ from pydantic import BaseModel, Field
 from mendel_api.agent.tools import Tool, ToolContext, register
 from mendel_api.services import changes
 
-BECAUSE = Field(description="Why, in a sentence: recorded with the choice for the person to read")
+BECAUSE = Field()
+"""Why, in a sentence, for the person to read: the prompt says so once, not every tool."""
 
 
 class WantArgs(BaseModel):
-    type_id: str = Field(description="The type of result wanted, e.g. counts.matrix")
+    type_id: str = Field(description="Type id, e.g. counts.matrix")
     states: list[str] = Field(default_factory=list,
-                              description="States the result must be in, e.g. gene_level")
+                              description="Required states")
     because: str = BECAUSE
 
 
 class HaveArgs(BaseModel):
-    type_id: str = Field(description="A type the person has, or does not have")
+    type_id: str = Field(description="Type id")
     present: bool = Field(description="Whether they have it")
     because: str = BECAUSE
 
@@ -35,9 +36,9 @@ class FactArgs(BaseModel):
 
 
 class ToolArgs(BaseModel):
-    type_id: str = Field(description="The type the tool makes, e.g. alignment.bam")
+    type_id: str = Field(description="Type id it makes")
     states: list[str] = Field(default_factory=list)
-    contract: str = Field(description="The tool's contract id, as find_tools gives it")
+    contract: str = Field(description="Contract id, from find_tools")
     because: str = BECAUSE
 
 
@@ -55,21 +56,21 @@ class InputArgs(BaseModel):
 
 
 class ValueArgs(BaseModel):
-    name: str = Field(description="A setting's name, as read_step lists it")
+    name: str = Field(description="Setting name, from read_step")
     value: bool | int | float | str = Field(description="The value to set")
     because: str = BECAUSE
 
 
 class WholeArgs(BaseModel):
     contract: str
-    whole: bool = Field(description="True keeps the step whole; false lets it run on parts")
+    whole: bool = Field(description="True keeps it whole")
     because: str = BECAUSE
 
 
 class UndoArgs(BaseModel):
     kind: Literal["want", "input", "measurement", "pin", "parameter", "role", "exclude",
                   "optional_input", "whole"]
-    subject: str = Field(description="What the change was about, as it was made")
+    subject: str = Field(description="Its subject, as made")
     states: list[str] = Field(default_factory=list)
 
 
@@ -128,7 +129,7 @@ def keep_whole(ctx: ToolContext, a: WholeArgs) -> TextView:
 
 class NameArgs(BaseModel):
     name: str = Field(min_length=1, max_length=80,
-                      description="A short working name, e.g. Mouse liver RNA-seq counts")
+                      description="e.g. Mouse liver RNA-seq counts")
 
 
 def name_pipeline(ctx: ToolContext, a: NameArgs) -> TextView:
@@ -148,29 +149,30 @@ def undo(ctx: ToolContext, a: UndoArgs) -> TextView:
 
 
 for _tool in (
-    Tool("want", "Say what result the pipeline should make, and the states it must be in.",
+    Tool("want", "Ask for a result type, in the states it must be in.",
          WantArgs, want, writes=True),
-    Tool("have", "Record that the person has, or does not have, an input of a type.", HaveArgs,
+    Tool("have", "Record whether the person has an input type.", HaveArgs,
          have, writes=True),
-    Tool("set_fact", "Record a fact about the person's data, e.g. their read length.", FactArgs,
+    Tool("set_fact", "Record a fact about the person's data.", FactArgs,
          set_fact, writes=True),
-    Tool("choose_tool", "Choose the tool that makes a type, over the registry's rule if it "
-         "chose another. Recorded as the AI's, with your reason, for the person to review.",
+    Tool("choose_tool",
+         "Choose the tool that makes a type, over a rule if needed. Recorded as yours for review.",
+         
          ToolArgs, choose_tool, writes=True),
     Tool("exclude_tool", "Leave a tool out where it would make a type.", ToolArgs, exclude_tool,
          writes=True),
-    Tool("switch_role", "Leave every tool of a role out (on=false), or let it back in.",
+    Tool("switch_role", "Leave a role's tools out (on=false), or let them back in.",
          RoleArgs, switch_role, writes=True),
-    Tool("switch_input", "Switch a tool's optional input off, optional or required.", InputArgs,
+    Tool("switch_input", "Set a tool's optional input to off, optional or required.", InputArgs,
          switch_input, writes=True),
-    Tool("set_value", "Set a step's setting, over the registry's rule if it decided another. "
-         "Recorded as the AI's, with your reason, for the person to review.", ValueArgs,
+    Tool("set_value",
+         "Set a step's setting, over a rule if needed. Recorded as yours for review.",
+         ValueArgs,
          set_value, writes=True),
-    Tool("keep_whole", "Keep a step whole rather than running it on parts of each sample.",
+    Tool("keep_whole", "Keep a step whole, or let it run on parts of each sample.",
          WholeArgs, keep_whole, writes=True),
-    Tool("undo", "Withdraw a change: a want, an input, a fact, a tool choice, a setting.",
+    Tool("undo", "Withdraw a change you or the person made.",
          UndoArgs, undo, writes=True),
-    Tool("name_pipeline", "Give the analysis a short working name once you know what it is; "
-         "the person can rename it.", NameArgs, name_pipeline),
+    Tool("name_pipeline", "Give the analysis a short working name.", NameArgs, name_pipeline),
 ):
     register(_tool)

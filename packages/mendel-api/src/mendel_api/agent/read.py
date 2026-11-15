@@ -39,15 +39,15 @@ class Nothing(BaseModel):
 
 
 class StepArgs(BaseModel):
-    node: str = Field(description="The step's id, as read_pipeline lists it, e.g. star_align")
+    node: str = Field(description="Step id, e.g. star_align")
 
 
 class TypeArgs(BaseModel):
-    type_id: str = Field(description="A declared type id, e.g. alignment.bam")
+    type_id: str = Field(description="Type id, e.g. alignment.bam")
 
 
 class RoleArgs(BaseModel):
-    role: str = Field(description="A role a tool fills, e.g. alignment or trimming")
+    role: str = Field(description="Role, e.g. alignment")
 
 
 def _type_line(stack, type_id: str, states=()) -> TypeLine:
@@ -246,24 +246,30 @@ def what_is_needed(ctx: ToolContext, _: Nothing) -> NeedsView:
 
 
 for _tool in (
-    Tool("list_vocabulary", "Every type and measurement the registry declares, by exact id: read "
-         "this before naming a type (want, have) or a fact (set_fact).", Nothing, list_vocabulary),
-    Tool("read_goal", "What is wanted, what the person has, the facts about their data, and the "
-         "tools and values chosen so far, with who chose them.", Nothing, read_goal),
-    Tool("read_pipeline", "The pipeline the engine builds from the decisions now: each step, "
-         "what it reads and makes, who chose it, and values still open.", Nothing,
+    Tool("list_vocabulary",
+         "All registry types and measurements by exact id. Read before want, have or set_fact.",
+         Nothing, list_vocabulary),
+    Tool("read_goal",
+         "The analysis name, what is wanted and had, facts, and choices made so far.",
+         Nothing, read_goal),
+    Tool("read_pipeline",
+         "The pipeline now: each step, what it reads and makes, who chose it, open values.",
+         Nothing,
          read_pipeline),
-    Tool("read_step", "One step in full: the tool, what it does, why it is here, why this tool, "
-         "and every setting with its value, how it was decided, and the citation.", StepArgs,
+    Tool("read_step",
+         "One step: tool, what it does, why here, its inputs, and each setting with its reason.",
+         StepArgs,
          read_step),
-    Tool("find_tools", "Which tools in the registry make a type, and which read it.", TypeArgs,
+    Tool("find_tools", "Tools that make or read a type.", TypeArgs,
          find_tools),
-    Tool("read_rules", "The registry's rules for a role: what each decides, its conditions, "
-         "why, and its citation. Rules are advice: you may choose otherwise, with a reason.",
+    Tool("read_rules",
+         "A role's rules: what each decides, when, why, and its citation. Advice only.",
+         
          RoleArgs, read_rules),
-    Tool("read_facts", "The facts about the person's data, and their samples by name.", Nothing,
+    Tool("read_facts", "Facts about the person's data, and their samples by name.", Nothing,
          read_facts),
-    Tool("what_is_needed", "What the wanted results still need that nothing settles: inputs "
-         "to ask for and facts to find out.", Nothing, what_is_needed),
+    Tool("what_is_needed",
+         "Inputs and facts the wanted results still need.",
+         Nothing, what_is_needed),
 ):
     register(_tool)

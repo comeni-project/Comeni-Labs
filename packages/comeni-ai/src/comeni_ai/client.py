@@ -357,7 +357,7 @@ class LiteLLMTransport:
         try:
             response = litellm.completion(
                 model=access.model,
-                messages=messages,
+                messages=_cacheable(access.model, messages),
                 tools=[tool.as_provider() for tool in tools] or None,
                 api_key=access.api_key,
                 base_url=access.base_url,
@@ -379,6 +379,20 @@ class LiteLLMTransport:
                 coded("MA0007", f"{access.model}: {failure}")
             ) from failure
         return reply_of(access, response, started)
+
+def _cacheable(model: str, messages: list[dict]) -> list[dict]:
+    """**The repeated prompt, marked for the provider's cache where it needs marking** (walk
+    2026-11-15): every round of an agent's turn resends the system prompt and the tools. Claude
+    caches only what a request marks, and the tools ahead of a marked system prompt are cached
+    with it; OpenAI-shaped providers cache on their own. The caller's list is not changed."""
+    claude = model.startswith(("anthropic/", "claude", "bedrock/anthropic", "vertex_ai/claude"))
+    if not claude or not messages or messages[0].get("role") != "system" \
+            or not isinstance(messages[0].get("content"), str):
+        return messages
+    system = {**messages[0], "content": [{"type": "text", "text": messages[0]["content"],
+                                          "cache_control": {"type": "ephemeral"}}]}
+    return [system, *messages[1:]]
+
 
 def _elapsed(started: float) -> int:
     import time
@@ -439,6 +453,10 @@ def reply_of(access: ModelAccess, response: object, started: float) -> "AgentRep
             duration_ms=0 if not started else _elapsed(started),
             input_tokens=field(usage, "prompt_tokens"),
             output_tokens=field(usage, "completion_tokens"),
+            # Cached input, as OpenAI-shaped (`prompt_tokens_details.cached_tokens`) or Anthropic-
+            # shaped (`cache_read_input_tokens`) providers report it; `None` when unreported.
+            cached_tokens=(field(field(usage, "prompt_tokens_details"), "cached_tokens")
+                           or field(usage, "cache_read_input_tokens")),
             finish_reason=field(choice, "finish_reason") if choice is not None else None,
         ),
         refusal=refusal,

@@ -51,3 +51,30 @@ def test_malformed_tool_arguments_are_a_coded_refusal():
 def test_a_tool_spec_is_sent_in_the_providers_shape():
     assert ADD.as_provider() == {"type": "function", "function": {
         "name": "add", "description": "Add two numbers", "parameters": ADD.parameters}}
+
+
+def test_cached_input_tokens_are_read_when_the_provider_reports_them():
+    """Walk 2026-11-15: the agent's calls recorded no cached tokens on any route, so a provider
+    that caches the repeated prompt would still show it as paid in full."""
+    openai = {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
+              "usage": {"prompt_tokens": 4000, "completion_tokens": 5,
+                        "prompt_tokens_details": {"cached_tokens": 3500}}}
+    assert reply_of(ACCESS, openai, started=0.0).usage.cached_tokens == 3500
+    anthropic = {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
+                 "usage": {"prompt_tokens": 4000, "completion_tokens": 5,
+                           "cache_read_input_tokens": 3200}}
+    assert reply_of(ACCESS, anthropic, started=0.0).usage.cached_tokens == 3200
+
+
+def test_a_claude_model_is_asked_to_cache_the_system_prompt():
+    """Walk 2026-11-15: every round resends the prompt and the tools. Claude caches only what a
+    request marks; the system prompt is marked, and the tools before it are cached with it.
+    Other providers are sent the messages as they are, and the caller's list is not changed."""
+    from comeni_ai.client import _cacheable
+
+    messages = [{"role": "system", "content": "the prompt"}, {"role": "user", "content": "hi"}]
+    marked = _cacheable("anthropic/claude-sonnet-5", messages)
+    assert marked[0]["content"] == [{"type": "text", "text": "the prompt",
+                                     "cache_control": {"type": "ephemeral"}}]
+    assert marked[1] == messages[1] and messages[0]["content"] == "the prompt"
+    assert _cacheable("chatgpt/gpt-6.1-sol", messages) is messages

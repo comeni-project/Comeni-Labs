@@ -104,3 +104,14 @@ def test_a_step_says_its_inputs_by_name(clean):
     assert [(i.name, i.type_id, i.optional) for i in step.inputs] == [
         (p.name, p.type_id, not p.required) for p in contract.consumes]
     assert step.inputs, "STAR reads something"
+
+
+def test_the_tool_definitions_stay_small():
+    """Walk 2026-11-15: the tool definitions were about 2,700 tokens, sent on every round of
+    every turn. They are kept under a budget, with no per-property titles."""
+    import json
+
+    specs = [spec_of(t).as_provider() for t in TOOLS.values()]
+    text = json.dumps(specs)
+    assert '"title"' not in text, "pydantic's titles repeat each property's name"
+    assert len(text) < 8000, f"{len(text)} characters of tool definitions"

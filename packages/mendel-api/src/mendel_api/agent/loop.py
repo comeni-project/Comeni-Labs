@@ -242,6 +242,7 @@ def _record(session_id: str, access, sent: list[dict], reply, failure: str | Non
             failure_code=(failure or "")[:16], started_at=_now(), finished_at=_now(),
             input_tokens=getattr(usage, "input_tokens", None),
             output_tokens=getattr(usage, "output_tokens", None),
+            cached_tokens=getattr(usage, "cached_tokens", None),
             response=None if reply is None else json.dumps(
                 {"text": reply.text, "calls": [c.model_dump() for c in reply.calls]}),
             session_id=session_id))
