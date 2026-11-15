@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Registry — Comeni</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{--c-paper:#F5F6F8;--c-surface:#FFFFFF;--c-surface-2:#F8F9FB;--c-line-soft:#EEF0F3;--c-line:#E2E5EA;--c-line-2:#D2D7DE;--c-mark:#A9B2BF;--c-ink:#15181D;--c-ink-2:#3B424D;--c-ink-3:#5F6773;--c-now:#1D5FC2;--c-now-mid:#6FA0E6;--c-now-ink:#174C9B;--c-now-soft:#EDF3FC;--c-now-line:#B8CDEE;--c-done:#2E9A5A;--c-done-ink:#1C6B3E;--c-done-soft:#E3F3E9;--c-done-line:#B9DCC6;--c-measured:#C48A1A;--c-measured-ink:#8A4B0B;--c-measured-soft:#FFF3DC;--c-measured-line:#F3DFB6;--c-needs-you:#C2410C;--c-needs-you-ink:#A0400B;--c-needs-you-soft:#FDEEE4;--c-needs-you-line:#F5CDB3;--c-ai:#5A3EAF;--c-ai-soft:#EEE9FB;--c-ai-line:#E3DBF6;--c-report:#9A2F5C;--c-report-soft:#FBE8F0;--c-regions:#156F6F;--c-regions-soft:#E2F5F4}
+.theme-root{background:var(--c-paper);color:var(--c-ink);min-height:900px;transition:background .2s}
+.theme-root.theme-dark{--c-paper:#12141B;--c-surface:#1A1D27;--c-surface-2:#161820;--c-line-soft:#232736;--c-line:#282C3A;--c-line-2:#3A3F52;--c-mark:#4A5068;--c-ink:#E8EAF2;--c-ink-2:#B0B5C8;--c-ink-3:#8C92A8;--c-now:#6EA2FF;--c-now-mid:#3D6FC0;--c-now-ink:#8FB6FF;--c-now-soft:#172642;--c-now-line:#2A4170;--c-done:#2FC79B;--c-done-ink:#5FD9B0;--c-done-soft:#113529;--c-done-line:#1E5A45;--c-measured:#F0B840;--c-measured-ink:#F0B840;--c-measured-soft:#35290F;--c-measured-line:#5A4618;--c-needs-you:#FF6E73;--c-needs-you-ink:#FF8A8E;--c-needs-you-soft:#3A1B20;--c-needs-you-line:#5A2A2F;--c-ai:#B39DFF;--c-ai-soft:#241D3A;--c-ai-line:#3A2F5C;--c-report:#F08DB8;--c-report-soft:#3A1A2A;--c-regions:#5FD9D9;--c-regions-soft:#0F3333}
+.theme-dark input,.theme-dark select,.theme-dark textarea{background:var(--c-surface);color:var(--c-ink)}
+
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--c-ink);-webkit-font-smoothing:antialiased}
+a{color:var(--c-now);text-decoration:none}
+button,input,select{font-family:inherit}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.rail{flex:0 0 244px;background:var(--c-surface);border-right:1px solid var(--c-line);display:flex;flex-direction:column;padding:12px 10px;box-sizing:border-box;height:900px;overflow-y:auto}
+.mode{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;color:var(--c-ink-2)}
+.mode:hover{background:var(--c-surface-2)}
+.mode.on{background:var(--c-now-soft);color:var(--c-now-ink)}
+.mn{font-size:14px;font-weight:600}
+.subp{display:flex;align-items:center;justify-content:space-between;width:100%;padding:6px 10px 6px 39px;border:0;border-radius:8px;background:transparent;font-size:13px;color:var(--c-ink-2);cursor:pointer;text-align:left}
+.subp:hover{background:var(--c-surface-2)}
+.subp.on{color:var(--c-now-ink);font-weight:600;background:var(--c-now-soft)}
+.cnt{font-size:11.5px;color:var(--c-ink-3);font-weight:500}
+.group{font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--c-ink-3);padding:14px 10px 4px;display:flex;justify-content:space-between}
+.topic{display:flex;align-items:center;justify-content:space-between;width:100%;padding:6px 10px;border:0;border-radius:7px;background:transparent;font-size:13px;color:var(--c-ink-2);cursor:pointer;text-align:left;position:relative;overflow:hidden}
+.topic:hover{background:var(--c-surface-2)}
+.topic.on{background:var(--c-now-soft);color:var(--c-now-ink);font-weight:600}
+.tbar{position:absolute;left:0;top:4px;bottom:4px;border-radius:0 3px 3px 0;background:var(--c-now-soft)}
+.iconbtn{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--c-ink-2);border:0;background:transparent;cursor:pointer}
+.iconbtn:hover{background:var(--c-surface-2)}
+.iconbtn.on{background:var(--c-now-soft);color:var(--c-now-ink)}
+.card{background:var(--c-surface);border:1px solid var(--c-line);border-radius:12px}
+.chipf{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:8px;border:1px solid var(--c-line-2);background:var(--c-surface);font-size:12.5px;cursor:pointer;color:var(--c-ink-2);white-space:nowrap}
+.chipf.on{background:var(--c-now-soft);border-color:var(--c-now-line);color:var(--c-now-ink);font-weight:600}
+.fmt{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;white-space:nowrap}
+.fbtn{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:28px;padding:0 8px;border:0;border-radius:6px;background:transparent;cursor:pointer;font-size:12.5px;color:var(--c-ink-2);overflow:hidden}
+.fbtn:hover{background:var(--c-surface-2)}
+.fbtn.on{outline:2px solid var(--c-now);outline-offset:-2px}
+.fill{position:absolute;top:3px;bottom:3px;border-radius:5px;opacity:.55}
+.lrow{display:flex;flex-direction:column;gap:5px;width:100%;padding:10px 14px;border:0;border-top:1px solid var(--c-line-soft);background:transparent;cursor:pointer;text-align:left}
+.lrow:hover{background:var(--c-surface-2)}
+.lrow.on{background:var(--c-now-soft);box-shadow:inset 3px 0 0 var(--c-now)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:32px;padding:0 13px;border-radius:8px;font-size:13px;font-weight:500;border:1px solid var(--c-line-2);background:var(--c-surface);color:var(--c-ink);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--c-surface-2)}
+.btn.primary{background:var(--c-now);border-color:var(--c-now);color:var(--c-surface)}
+.sub{font-size:12px;color:var(--c-ink-3)}
+.k{font-size:11px;font-weight:650;color:var(--c-ink-3);text-transform:uppercase;letter-spacing:.07em}
+.rt{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+.rt th{text-align:left;font-size:11px;font-weight:650;color:var(--c-ink-3);text-transform:uppercase;letter-spacing:.06em;padding:6px 10px;background:var(--c-surface-2);border-bottom:1px solid var(--c-line-soft)}
+.rt td{padding:9px 10px;border-bottom:1px solid var(--c-line-soft);vertical-align:top;line-height:1.45}
+.rt tr.me td{background:var(--c-now-soft)}
+.rt tr.other td{color:var(--c-ink-3)}
+.conn{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--c-line);border-radius:8px;font-size:12.5px;background:var(--c-surface)}
+</style>
+</helmet>
+<div class="theme-root {{themeCls}}" style="display: flex; height: 900px; overflow: hidden">
+
+<nav class="rail" aria-label="Comeni">
+  <a class="place" href="Home.dc.html" title="Home" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"></path><path d="M10 20v-5h4v5"></path></svg><span class="mt">Home</span></a>
+  <a class="place" href="ForgeHome.dc.html" title="Forge" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 4l6 6-8 8-6-6zM4 20l4-4"></path></svg><span class="mt">Forge</span></a>
+  <a class="place" href="Registry.dc.html" title="Registry" aria-current="page" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; background: var(--c-now-soft); color: var(--c-now-ink)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"></path><path d="M9 10h6M9 14h6"></path></svg><span class="mt">Registry</span></a>
+  <button class="subp on" type="button"><span>Tools</span><span class="cnt">2,150</span></button>
+  <button class="subp" type="button"><span>Vocabulary</span><span class="cnt">41</span></button>
+  <button class="subp" type="button"><span>Releases</span><span class="cnt">1 waiting</span></button>
+  <div style="height: 1px; background: var(--c-line-soft); margin: 10px 4px"></div>
+  
+  <div class="group"><span>Topic</span><sc-if value="{{hasTopic}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{clearTopic}}" style="border: 0; background: transparent; color: var(--c-now); font-size: 11px; cursor: pointer; padding: 0; text-transform: none; letter-spacing: 0; font-weight: 600">Clear</button></sc-if></div>
+  <sc-for list="{{topics}}" as="t" hint-placeholder-count="11">
+    <button class="{{t.cls}}" type="button" onClick="{{t.go}}"><span class="tbar" style="{{t.bar}}"></span><span style="position: relative">{{t.name}}</span><span class="cnt" style="position: relative">{{t.count}}</span></button>
+  </sc-for>
+
+  <div class="foot" style="margin-top: auto; padding-top: 10px; border-top: 1px solid var(--c-line-soft); display: flex; align-items: center; gap: 2px">
+    <a class="iconbtn" href="Settings.dc.html" aria-label="Settings" title="Settings" style="color: var(--c-ink-2); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"></path></svg></a>
+    <button class="iconbtn" type="button" onClick="{{toggleTheme}}" aria-label="Switch between light and dark" title="Light / dark" style="color: var(--c-ink-2); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></button>
+    <span class="local" style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--c-ink-3); padding-right: 6px"><span style="width: 7px; height: 7px; border-radius: 4px; background: var(--c-done)"></span>Local</span>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; height: 900px; overflow-y: auto; padding: 22px 28px 40px; box-sizing: border-box">
+  <div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px">
+
+    <div style="display: flex; align-items: center; gap: 10px; background: var(--c-surface); border: 1px solid var(--c-line-2); border-radius: 12px; padding: 0 14px; height: 46px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--c-ink-3)" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+      <label style="flex: 1 1 auto"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Search tools</span><input type="text" placeholder="Search tools, or try “bam to vcf”, “fastq”, “samtools”" style="width: 100%; border: 0; outline: 0; font-size: 14.5px; background: transparent"></label>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+      <sc-for list="{{statusChips}}" as="c" hint-placeholder-count="5"><button class="{{c.cls}}" type="button" onClick="{{c.go}}"><span style="width: 8px; height: 8px; border-radius: 4px; {{c.dot}}"></span>{{c.label}}<span class="cnt">{{c.count}}</span></button></sc-for>
+    </div>
+
+    <section class="card" aria-label="how file formats connect" style="padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 650">How file formats connect</h2>
+        <span class="sub">Each band is the tools that take the left format and make the right one. Click a format to see its tools.</span>
+        <sc-if value="{{hasFmt}}" hint-placeholder-val="{{ false }}"><button class="chipf on" type="button" onClick="{{clearFmt}}" style="margin-left: auto; height: 26px">{{fmtLabel}} ×</button></sc-if>
+      </div>
+      <div style="display: grid; grid-template-columns: 190px minmax(0,1fr) 190px; align-items: start; gap: 0">
+        <div style="display: flex; flex-direction: column"><span class="k" style="padding: 0 8px 4px">Takes</span>
+          <sc-for list="{{leftF}}" as="f" hint-placeholder-count="7"><button class="{{f.cls}}" type="button" onClick="{{f.go}}"><span class="fill" style="{{f.fill}}"></span><span style="position: relative; display: flex; align-items: center; gap: 6px"><span class="mono" style="font-weight: 600">{{f.name}}</span><span class="sub">{{f.family}}</span></span><span class="mono cnt" style="position: relative">{{f.count}}</span></button></sc-for>
+        </div>
+        <svg viewBox="0 0 600 216" preserveAspectRatio="none" aria-hidden="true" style="width: 100%; height: 216px; margin-top: 18px">
+          <sc-for list="{{bands}}" as="b" hint-placeholder-count="18"><path d="{{b.d}}" fill="none" stroke="{{b.color}}" stroke-width="{{b.w}}" stroke-opacity="{{b.op}}" vector-effect="non-scaling-stroke"><title>{{b.tip}}</title></path></sc-for>
+        </svg>
+        <div style="display: flex; flex-direction: column"><span class="k" style="padding: 0 8px 4px; text-align: right">Makes</span>
+          <sc-for list="{{rightF}}" as="f" hint-placeholder-count="7"><button class="{{f.cls}}" type="button" onClick="{{f.go}}"><span class="fill" style="{{f.fill}}"></span><span style="position: relative; display: flex; align-items: center; gap: 6px"><span class="mono" style="font-weight: 600">{{f.name}}</span><span class="sub">{{f.family}}</span></span><span class="mono cnt" style="position: relative">{{f.count}}</span></button></sc-for>
+        </div>
+      </div>
+    </section>
+
+    <div style="display: flex; gap: 14px; align-items: flex-start">
+      <section class="card" aria-label="tools" style="flex: 0 0 360px; overflow: hidden">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 12px 14px">
+          <span style="font-size: 13.5px; font-weight: 650">{{listTitle}}</span><span class="cnt">{{listCount}}</span>
+          <select class="chipf" style="margin-left: auto; height: 28px" aria-label="Sort"><option>Fits your registry</option><option>Name</option><option>Newest upstream</option></select>
+        </div>
+        <div style="max-height: 470px; overflow-y: auto">
+          <sc-for list="{{list}}" as="m" hint-placeholder-count="8">
+            <button class="{{m.cls}}" type="button" onClick="{{m.go}}">
+              <span style="display: flex; align-items: center; gap: 8px; width: 100%"><span style="width: 8px; height: 8px; border-radius: 4px; flex: 0 0 8px; {{m.dot}}"></span><span class="mono" style="font-size: 13px; font-weight: 600">{{m.path}}</span><span class="mono cnt" style="margin-left: auto">{{m.up}}</span></span>
+              <span class="sub" style="padding-left: 16px">{{m.does}}</span>
+              <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding-left: 16px"><sc-for list="{{m.takes}}" as="x" hint-placeholder-count="1"><span class="fmt" style="{{x.style}}">{{x.n}}</span></sc-for><span style="color: var(--c-ink-3); font-size: 12px">→</span><sc-for list="{{m.makes}}" as="x" hint-placeholder-count="1"><span class="fmt" style="{{x.style}}">{{x.n}}</span></sc-for></span>
+            </button>
+          </sc-for>
+          <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}"><div style="padding: 24px 14px; font-size: 13px; color: var(--c-ink-3)">No tools match. Clear a filter.</div></sc-if>
+        </div>
+      </section>
+
+      <section class="card" aria-label="selected tool" style="flex: 1 1 auto; min-width: 0; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap">
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+            <span style="display: flex; align-items: center; gap: 10px"><h2 class="mono" style="margin: 0; font-size: 20px; font-weight: 650">{{d.path}}</h2><span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; {{d.pill}}">{{d.state}}</span></span>
+            <span style="font-size: 14px; color: var(--c-ink-2)">{{d.does}}</span>
+          </div>
+          <span style="margin-left: auto; display: flex; gap: 8px"><a class="btn" href="#">nf-core page</a><a class="{{d.btnCls}}" href="{{d.href}}">{{d.action}}</a></span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(0,1fr) 170px minmax(0,1fr); align-items: center; gap: 14px; padding: 16px; border-radius: 12px; background: var(--c-surface-2); border: 1px solid var(--c-line-soft)">
+          <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end"><span class="k">Takes</span><sc-for list="{{d.takes}}" as="x" hint-placeholder-count="2"><span class="fmt" style="{{x.style}}; height: 26px; font-size: 12.5px">{{x.n}}</span></sc-for></div>
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 92px; border: 1.5px solid var(--c-mark); border-radius: 12px; background: var(--c-surface); position: relative">
+            <span style="font-size: 15px; font-weight: 700">{{d.short}}</span><span class="mono sub">{{d.verLine}}</span>
+            <span aria-hidden="true" style="position: absolute; left: -14px; top: 50%; width: 14px; border-top: 1.5px solid var(--c-mark)"></span>
+            <span aria-hidden="true" style="position: absolute; right: -14px; top: 50%; width: 14px; border-top: 1.5px solid var(--c-mark)"></span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-start"><span class="k">Makes</span><sc-for list="{{d.makes}}" as="x" hint-placeholder-count="2"><span class="fmt" style="{{x.style}}; height: 26px; font-size: 12.5px">{{x.n}}</span></sc-for></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+          <div style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--c-line-soft); border-radius: 10px"><span class="k">In your registry</span><span class="mono" style="font-size: 14px; font-weight: 600">{{d.here}}</span></div>
+          <div style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--c-line-soft); border-radius: 10px"><span class="k">Upstream</span><span class="mono" style="font-size: 14px; font-weight: 600">{{d.up}}</span></div>
+          <div style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--c-line-soft); border-radius: 10px"><span class="k">Topic</span><span style="font-size: 14px; font-weight: 600">{{d.topic}}</span></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="display: flex; align-items: baseline; gap: 8px"><span class="k">Fits with your registry</span><span class="sub">by file format</span></span>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <div style="display: flex; flex-direction: column; gap: 6px"><span class="sub" style="font-weight: 600">Can take from</span><sc-for list="{{d.from}}" as="c" hint-placeholder-count="2"><span class="conn"><span style="width: 7px; height: 7px; border-radius: 4px; background: var(--c-done)"></span><span class="mono">{{c.tool}}</span><span class="sub" style="margin-left: auto">{{c.via}}</span></span></sc-for><sc-if value="{{d.noFrom}}" hint-placeholder-val="{{ false }}"><span class="sub">Nothing in your registry makes its input yet.</span></sc-if></div>
+            <div style="display: flex; flex-direction: column; gap: 6px"><span class="sub" style="font-weight: 600">Can feed</span><sc-for list="{{d.to}}" as="c" hint-placeholder-count="2"><span class="conn"><span style="width: 7px; height: 7px; border-radius: 4px; background: var(--c-done)"></span><span class="mono">{{c.tool}}</span><span class="sub" style="margin-left: auto">{{c.via}}</span></span></sc-for><sc-if value="{{d.noTo}}" hint-placeholder-val="{{ false }}"><span class="sub">Nothing in your registry takes its output yet.</span></sc-if></div>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span style="display: flex; align-items: baseline; gap: 8px"><span class="k">Rules</span><span class="sub">how the builder decides about this tool</span></span>
+          <sc-if value="{{d.noRules}}" hint-placeholder-val="{{ false }}"><span class="sub" style="padding: 10px 12px; border: 1px dashed var(--c-line-2); border-radius: 9px">{{d.noRulesText}}</span></sc-if>
+          <sc-for list="{{d.rules}}" as="r" hint-placeholder-count="1">
+            <div style="border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden">
+              <div style="display: flex; align-items: baseline; gap: 8px; padding: 10px 12px; flex-wrap: wrap"><span style="font-size: 13.5px; font-weight: 650">{{r.title}}</span><span class="sub">{{r.about}}</span><span class="mono sub" style="margin-left: auto">{{r.file}}</span></div>
+              <table class="rt">
+                <thead><tr><th style="width: 26%">When</th><th style="width: 24%">{{r.col}}</th><th>Because</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{r.rows}}" as="w" hint-placeholder-count="2">
+                    <tr class="{{w.cls}}"><td><span class="mono" style="font-size: 12px">{{w.when}}</span></td><td><span style="font-weight: 600">{{w.then}}</span><sc-if value="{{w.me}}" hint-placeholder-val="{{ false }}"><span style="margin-left: 6px; font-size: 10px; font-weight: 700; color: var(--c-now-ink); background: var(--c-now-soft); border-radius: 4px; padding: 1px 5px">THIS TOOL</span></sc-if></td><td>{{w.because}}<span style="display: block; font-size: 11.5px; color: var(--c-ink-3); font-style: italic; margin-top: 2px">{{w.cite}}</span></td></tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{d.hasNote}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12.5px; color: var(--c-ink-2); padding: 8px 10px; border-radius: 8px; background: var(--c-measured-soft); border: 1px solid var(--c-measured-line)">{{d.note}}</span></sc-if>
+      </section>
+    </div>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false,"tsType":"boolean"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { status: 'all', topic: null, fmt: null, sel: 'fastqc' };
+}
+renderValsBase() {
+var s = this.state;
+var self = this;
+var FAM = {
+  fastq: ['reads', 'var(--c-done)', 'var(--c-done-soft)', 'var(--c-done-ink)'], fasta: ['sequence', 'var(--c-measured)', 'var(--c-measured-soft)', 'var(--c-measured-ink)'], fai: ['sequence', 'var(--c-measured)', 'var(--c-measured-soft)', 'var(--c-measured-ink)'], gzi: ['sequence', 'var(--c-measured)', 'var(--c-measured-soft)', 'var(--c-measured-ink)'], ht2: ['index', 'var(--c-measured)', 'var(--c-measured-soft)', 'var(--c-measured-ink)'],
+  bam: ['alignments', 'var(--c-now)', 'var(--c-now-soft)', 'var(--c-now-ink)'], cram: ['alignments', 'var(--c-now)', 'var(--c-now-soft)', 'var(--c-now-ink)'], bai: ['alignments', 'var(--c-now)', 'var(--c-now-soft)', 'var(--c-now-ink)'],
+  vcf: ['variants', 'var(--c-ai)', 'var(--c-ai-soft)', 'var(--c-ai)'], bed: ['regions', 'var(--c-regions)', 'var(--c-regions-soft)', 'var(--c-regions)'], gff: ['regions', 'var(--c-regions)', 'var(--c-regions-soft)', 'var(--c-regions)'], gtf: ['regions', 'var(--c-regions)', 'var(--c-regions-soft)', 'var(--c-regions)'],
+  table: ['tsv, csv', 'var(--c-ink-3)', 'var(--c-line-soft)', 'var(--c-ink-2)'], txt: ['text', 'var(--c-ink-3)', 'var(--c-line-soft)', 'var(--c-ink-2)'], json: ['data', 'var(--c-ink-3)', 'var(--c-line-soft)', 'var(--c-ink-2)'], log: ['text', 'var(--c-ink-3)', 'var(--c-line-soft)', 'var(--c-ink-2)'],
+  report: ['html, pdf', 'var(--c-report)', 'var(--c-report-soft)', 'var(--c-report)']
+};
+var fm = function (n) { var f = FAM[n] || ['', 'var(--c-ink-3)', 'var(--c-line-soft)', 'var(--c-ink-2)']; return { n: n, style: 'background:' + f[2] + ';color:' + f[3] }; };
+var L = [['fasta', 722], ['bam', 448], ['vcf', 222], ['cram', 209], ['table', 194], ['fastq', 190], ['bed', 175]];
+var R = [['table', 448], ['txt', 353], ['vcf', 249], ['bam', 219], ['fasta', 189], ['report', 140], ['json', 137]];
+var FLOWS = [['fasta', 'table', 120], ['fasta', 'fasta', 90], ['fasta', 'txt', 60], ['fasta', 'json', 30], ['bam', 'bam', 110], ['bam', 'table', 80], ['bam', 'vcf', 60], ['bam', 'txt', 40], ['vcf', 'vcf', 110], ['vcf', 'table', 50], ['cram', 'bam', 50], ['cram', 'vcf', 40], ['table', 'table', 80], ['table', 'report', 40], ['fastq', 'bam', 60], ['fastq', 'report', 50], ['fastq', 'fasta', 40], ['bed', 'table', 50], ['bed', 'txt', 40]];
+var li = {}, ri = {}; L.forEach(function (x, i) { li[x[0]] = i; }); R.forEach(function (x, i) { ri[x[0]] = i; });
+var y = function (i) { return 14 + i * 28; };
+var f = s.fmt;
+var bands = FLOWS.map(function (fl) {
+  var y0 = y(li[fl[0]]), y1 = y(ri[fl[1]]);
+  var hit = !f || (f.side === 'in' ? fl[0] === f.name : fl[1] === f.name);
+  return { d: 'M0 ' + y0 + ' C300 ' + y0 + ' 300 ' + y1 + ' 600 ' + y1, w: String(Math.max(2, fl[2] / 9)), color: FAM[fl[0]][1], op: hit ? (f ? '0.75' : '0.32') : '0.07', tip: fl[0] + ' → ' + fl[1] + ': ' + fl[2] + ' tools' };
+});
+var maxL = 722, maxR = 448;
+var fbtn = function (side, x, max) {
+  var on = f && f.side === side && f.name === x[0];
+  return { name: x[0], family: FAM[x[0]][0], count: x[1].toLocaleString('en'), cls: 'fbtn' + (on ? ' on' : ''),
+    fill: (side === 'in' ? 'left:0;' : 'right:0;') + 'width:' + Math.round(100 * x[1] / max) + '%;background:' + FAM[x[0]][2],
+    go: function () { self.setState({ fmt: on ? null : { side: side, name: x[0] } }); } };
+};
+var M = [
+  { path: 'fastqc', short: 'FastQC', does: 'Checks read quality per sample', topic: 'Quality control', takes: ['fastq'], makes: ['report'], here: '0.12.1', up: '0.13.0', st: 'update', from: [['trimgalore', 'fastq'], ['cat/fastq', 'fastq']], to: [['multiqc', 'report']], note: 'nf-core describes a zip output too, but does not declare its format.' },
+  { path: 'star/genomegenerate', short: 'STAR index', does: 'Builds the index STAR aligns against', topic: 'Alignment', takes: ['fasta', 'gtf'], makes: ['index'], here: '2.7.11b', up: '2.7.11b', st: 'in', from: [['samtools/faidx', 'fasta']], to: [['star/align', 'index']], rules: ['starIndex'] },
+  { path: 'hisat2/align', short: 'HISAT2 align', does: 'Aligns RNA-seq reads to a reference', topic: 'Alignment', takes: ['fastq', 'ht2', 'gff'], makes: ['bam', 'log'], here: '2.2.2', up: '2.2.3', st: 'update', rules: ['aligner'], from: [['trimgalore', 'fastq'], ['hisat2/build', 'ht2']], to: [['samtools/sort', 'bam']] },
+  { path: 'samtools/faidx', short: 'samtools faidx', does: 'Indexes a FASTA file', topic: 'Genomics', takes: ['fasta'], makes: ['fai', 'gzi'], here: '1.24', up: '1.25', st: 'update', from: [], to: [['star/genomegenerate', 'fai']] },
+  { path: 'quast', short: 'QUAST', does: 'Assembly quality, with or without a reference', topic: 'Assembly', takes: ['fasta', 'gff'], makes: ['table', 'report'], here: '5.3.0 · merged', up: '5.3.0', st: 'merged', rules: ['assembly'], from: [], to: [['multiqc', 'report']] },
+  { path: 'star/align', short: 'STAR align', does: 'Aligns RNA-seq reads, spliced', topic: 'Alignment', takes: ['fastq'], makes: ['bam', 'log'], here: '2.7.11b', up: '2.7.11b', st: 'in', rules: ['aligner'], from: [['trimgalore', 'fastq'], ['star/genomegenerate', 'index']], to: [['samtools/sort', 'bam']] },
+  { path: 'bwamem2/mem', short: 'BWA-MEM2', does: 'Aligns DNA reads to a reference', topic: 'Alignment', takes: ['fastq', 'fasta'], makes: ['bam'], here: '—', up: '2.2.1', st: 'not', from: [['trimgalore', 'fastq'], ['samtools/faidx', 'fasta']], to: [['samtools/sort', 'bam']] },
+  { path: 'gatk4/haplotypecaller', short: 'HaplotypeCaller', does: 'Calls germline variants', topic: 'Variant calling', takes: ['bam', 'fasta'], makes: ['vcf'], here: '—', up: '4.6.1.0', st: 'not', from: [['samtools/sort', 'bam']], to: [] },
+  { path: 'bcftools/stats', short: 'bcftools stats', does: 'Summarises a VCF', topic: 'Variant calling', takes: ['vcf'], makes: ['txt'], here: '—', up: '1.21', st: 'not', from: [], to: [['multiqc', 'txt']] },
+  { path: 'bedtools/intersect', short: 'bedtools intersect', does: 'Finds overlapping regions', topic: 'Genomics', takes: ['bed'], makes: ['bed'], here: '—', up: '2.31.1', st: 'not', from: [], to: [] },
+  { path: 'spades', short: 'SPAdes', does: 'Assembles genomes from reads', topic: 'Assembly', takes: ['fastq'], makes: ['fasta'], here: '—', up: '4.1.0', st: 'not', from: [['trimgalore', 'fastq']], to: [['quast', 'fasta']] },
+  { path: 'kraken2/kraken2', short: 'Kraken 2', does: 'Classifies reads by species', topic: 'Metagenomics', takes: ['fastq'], makes: ['report', 'txt'], here: '—', up: '2.1.3', st: 'not', from: [['trimgalore', 'fastq']], to: [['multiqc', 'report']] }
+];
+var RULES = {
+  aligner: { title: 'Which aligner', about: 'chooses the alignment tool from the read length', file: 'rules/alignment.yml', rows: [
+    { when: 'read length ≥ 70 bp', then: 'STAR 2.7.11b', tool: 'star/align', because: 'Its seed-and-extend search is built for long reads; nf-core/rnaseq’s default aligner.', cite: 'Dobin et al. 2013, doi:10.1093/bioinformatics/bts635' },
+    { when: 'read length < 70 bp', then: 'HISAT2 2.2.2', tool: 'hisat2/align', because: 'A far smaller index and memory footprint, which suits short reads.', cite: 'Kim et al. 2019, doi:10.1038/s41587-019-0201-4' } ] },
+  starIndex: { setting: true, title: 'Index size (sa_index_nbases)', about: 'a setting this rule works out', file: 'rules/star_index.yml', rows: [
+    { when: 'any genome', then: 'min(14, log₂(genome length) / 2 − 1)', tool: 'star/genomegenerate', because: 'The index scales with the genome; a small genome needs a smaller one. The length is measured from the .fai when you don’t give it.', cite: 'STAR manual 2.7.11b, section 2.2.5' } ] },
+  assembly: { title: 'Assembly quality', about: 'arrives with the QUAST forging, in the next release', file: 'rules/qc.yml', rows: [
+    { when: 'data is an assembly (fasta)', then: 'QUAST 5.3.0', tool: 'quast', because: 'The standard report for assembly contiguity and, with a reference, correctness.', cite: 'Gurevich et al. 2013, doi:10.1093/bioinformatics/btt086' } ] }
+};
+var ST = {
+  in: ['In your registry', 'background:var(--c-done)', 'background:var(--c-done-soft);color:var(--c-done-ink)', 'Use in a build', 'btn'],
+  update: ['Newer version upstream', 'background:var(--c-measured)', 'background:var(--c-measured-soft);color:var(--c-measured-ink)', 'Update', 'btn primary'],
+  merged: ['Merged, waiting for a release', 'background:var(--c-now-mid)', 'background:var(--c-now-soft);color:var(--c-now-ink)', 'Open forging', 'btn'],
+  not: ['Not in your registry', 'background:var(--c-mark)', 'background:var(--c-line-soft);color:var(--c-ink-2)', 'Forge this', 'btn primary']
+};
+var match = function (m) {
+  if (s.status !== 'all' && m.st !== s.status) return false;
+  if (s.topic && m.topic !== s.topic) return false;
+  if (f && (f.side === 'in' ? m.takes.indexOf(f.name) < 0 : m.makes.indexOf(f.name) < 0)) return false;
+  return true;
+};
+var shown = M.filter(match);
+var cur = shown.filter(function (m) { return m.path === s.sel; })[0] || shown[0] || M[0];
+var selPath = cur.path;
+var list = shown.map(function (m) {
+  return { path: m.path, does: m.does, up: m.up, dot: ST[m.st][1], takes: m.takes.map(fm), makes: m.makes.map(fm),
+    cls: 'lrow' + (m.path === selPath ? ' on' : ''), go: function () { self.setState({ sel: m.path }); } };
+});
+var TP = [['Genomics', 380], ['Variant calling', 265], ['Alignment', 183], ['Metagenomics', 166], ['Quality control', 114], ['Assembly', 96], ['Transcriptomics', 87], ['Epigenomics', 59], ['Proteomics', 38], ['Imaging', 33], ['Phylogenetics', 24]];
+var SC = [['all', 'All', '2,150', 'background:var(--c-ink)'], ['in', 'In your registry', '6', ST.in[1]], ['update', 'Newer version upstream', '6', ST.update[1]], ['merged', 'Waiting for a release', '1', ST.merged[1]], ['not', 'Not in your registry', '2,137', ST.not[1]]];
+var conn = function (a) { return a.map(function (c) { return { tool: c[0], via: c[1] }; }); };
+return {
+  statusChips: SC.map(function (c) { return { label: c[1], count: c[2], dot: c[3], cls: 'chipf' + (s.status === c[0] ? ' on' : ''), go: function () { self.setState({ status: c[0] }); } }; }),
+  topics: TP.map(function (t) { var on = s.topic === t[0]; return { name: t[0], count: String(t[1]), cls: 'topic' + (on ? ' on' : ''), bar: 'width:' + Math.round(100 * t[1] / 380) + '%', go: function () { self.setState({ topic: on ? null : t[0] }); } }; }),
+  hasTopic: !!s.topic, clearTopic: function () { self.setState({ topic: null }); },
+  leftF: L.map(function (x) { return fbtn('in', x, maxL); }), rightF: R.map(function (x) { return fbtn('out', x, maxR); }), bands: bands,
+  hasFmt: !!f, fmtLabel: f ? (f.side === 'in' ? 'takes ' : 'makes ') + f.name : '', clearFmt: function () { self.setState({ fmt: null }); },
+  list: list, empty: list.length === 0,
+  listTitle: f ? 'Tools that ' + (f.side === 'in' ? 'take ' : 'make ') + f.name : (s.topic ? s.topic : 'Best matches'),
+  listCount: shown.length + ' shown',
+  d: {
+    path: cur.path, short: cur.short, does: cur.does, topic: cur.topic, here: cur.here, up: cur.up,
+    verLine: cur.st === 'not' ? 'nf-core · ' + cur.up : 'here ' + cur.here.split(' ')[0],
+    state: ST[cur.st][0], pill: ST[cur.st][2], action: ST[cur.st][3] + (cur.st === 'update' ? ' to ' + cur.up : ''), btnCls: ST[cur.st][4], href: cur.st === 'in' ? 'Build.dc.html' : 'Forging.dc.html',
+    takes: cur.takes.map(fm), makes: cur.makes.map(fm),
+    from: conn(cur.from), to: conn(cur.to), noFrom: cur.from.length === 0, noTo: cur.to.length === 0,
+    hasNote: !!cur.note, note: cur.note || '',
+    rules: (cur.rules || []).map(function (k) { var r = RULES[k]; return { title: r.title, about: r.about, file: r.file, col: r.setting ? 'Value' : 'Choose', rows: r.rows.map(function (w) { var me = !r.setting && w.tool === cur.path; return { when: w.when, then: w.then, because: w.because, cite: w.cite, me: me, cls: me ? 'me' : (r.rows.length > 1 ? 'other' : '') }; }) }; }),
+    noRules: !(cur.rules || []).length,
+    noRulesText: cur.st === 'not' ? 'No rules yet. Forging this tool drafts the rules that choose it and its settings.' : 'No rule needed: nothing else in your registry does this job, so the builder always uses it.'
+  }
+};
+}
+renderVals() {
+var v = this.renderValsBase();
+var self = this;
+var dark = (this.state && this.state.dark !== undefined && this.state.dark !== null) ? this.state.dark : !!this.props.dark;
+v.themeCls = dark ? 'theme-dark' : '';
+v.toggleTheme = function () { self.setState({ dark: !dark }); };
+return v;
+}
+}
+</script>
+</body>
+</html>

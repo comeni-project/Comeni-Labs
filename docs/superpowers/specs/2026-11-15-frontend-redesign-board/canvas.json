@@ -1,0 +1,210 @@
+{
+  "attachments": {},
+  "boards": {
+    "Build.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "2 · Build — the pipeline",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 960,
+      "is_interactive": true,
+      "title": "1 · Data — what you have",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Run.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "3 · Run — watch it, read what it made",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "Home.dc.html": {
+      "x": -1520,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "0b · Home — everyday",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Welcome.dc.html": {
+      "x": -3040,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "0a · Welcome — first launch",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Settings.dc.html": {
+      "x": -1520,
+      "y": 1300,
+      "w": 1440,
+      "h": 900,
+      "title": "4 · Settings",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "ForgeHome.dc.html": {
+      "x": 0,
+      "y": 1300,
+      "w": 1440,
+      "h": 900,
+      "title": "5 · Forge — find a tool, pick up a forging",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Forging.dc.html": {
+      "x": 1520,
+      "y": 1300,
+      "w": 1440,
+      "h": 900,
+      "title": "6 · Forging — Tool · Tests · Publish",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Registry.dc.html": {
+      "x": 3040,
+      "y": 1300,
+      "w": 1440,
+      "h": 900,
+      "title": "7 · Registry — tools, catalogue, rules, vocabulary, releases",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Tokens.dc.html": {
+      "x": -3040,
+      "y": 1300,
+      "w": 1440,
+      "h": 1400,
+      "title": "8 · Theme tokens — light and dark",
+      "expand": "fill"
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-15T20:05:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "noteOrder": [
+    "flow",
+    "jobData",
+    "jobBuild",
+    "jobRun",
+    "jobHome",
+    "jobWelcome",
+    "jobSettings",
+    "jobForge",
+    "jobForging",
+    "jobRegistry",
+    "jobTokens"
+  ],
+  "notes": {
+    "flow": {
+      "kind": "title1",
+      "maxW": 7600,
+      "text": "Welcome → Home → Data → Build → Run",
+      "w": 240,
+      "x": -3040,
+      "y": -300
+    },
+    "jobBuild": {
+      "fill": "blue",
+      "text": "Build: your goal plus your data, turned into a pipeline you understand and approve.",
+      "w": 420,
+      "x": 1520,
+      "y": 1000
+    },
+    "jobData": {
+      "fill": "blue",
+      "text": "Data: what you have, recognised and measured. Not what the pipeline needs; no pipeline exists yet. If Build later needs more, it asks, and Data shows it.",
+      "w": 420,
+      "x": 0,
+      "y": 1000
+    },
+    "jobRun": {
+      "fill": "blue",
+      "text": "Run: run it, show what happened and what it made.",
+      "w": 420,
+      "x": 3040,
+      "y": 1000
+    },
+    "jobHome": {
+      "x": -1520,
+      "y": 1000,
+      "w": 420,
+      "text": "Home: one rail on every page. Here: what is running, what needs you, every analysis, and a box to start something new.",
+      "fill": "blue"
+    },
+    "jobWelcome": {
+      "x": -3040,
+      "y": 1000,
+      "w": 420,
+      "text": "Welcome: first launch, or no analyses yet. One question box; no rail.",
+      "fill": "blue"
+    },
+    "jobSettings": {
+      "x": -1520,
+      "y": 2300,
+      "w": 420,
+      "text": "Settings: the same rail, section links in its middle. One scrolling page; a (?) on every option; system facts live in About.",
+      "fill": "blue"
+    },
+    "jobForge": {
+      "x": 0,
+      "y": 2300,
+      "w": 420,
+      "text": "Forge: find a tool (the registry's gaps are the starters), one Needs you list, your forgings.",
+      "fill": "blue"
+    },
+    "jobForging": {
+      "x": 1520,
+      "y": 2300,
+      "w": 420,
+      "text": "Forging: a tool is a tiny pipeline. Tool: see and shape every part, AI choices in Review. Tests: prove it runs as declared. Publish: pull request → merge → release, every blocker with its fix.",
+      "fill": "blue"
+    },
+    "jobRegistry": {
+      "x": 3040,
+      "y": 2300,
+      "w": 420,
+      "text": "Registry: what exists, in plain words. The format flow, a slim list, a detail panel with takes → makes, how a tool fits, and its rules as decision tables.",
+      "fill": "blue"
+    },
+    "jobTokens": {
+      "x": -3040,
+      "y": 2800,
+      "w": 420,
+      "text": "Every colour on the board is a named token mapped to tokens.css. Each screen has a Dark tweak, and its moon button switches theme.",
+      "fill": "blue"
+    }
+  },
+  "order": [
+    "Welcome.dc.html",
+    "Home.dc.html",
+    "Main.dc.html",
+    "Build.dc.html",
+    "Run.dc.html",
+    "Settings.dc.html",
+    "ForgeHome.dc.html",
+    "Forging.dc.html",
+    "Registry.dc.html",
+    "Tokens.dc.html"
+  ],
+  "pages": [],
+  "title": "Comeni redesign board",
+  "v": 3
+}

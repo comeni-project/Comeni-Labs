@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Run — Comeni</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{--c-paper:#F5F6F8;--c-surface:#FFFFFF;--c-surface-2:#F8F9FB;--c-line-soft:#EEF0F3;--c-line:#E2E5EA;--c-line-2:#D2D7DE;--c-mark:#A9B2BF;--c-ink:#15181D;--c-ink-2:#3B424D;--c-ink-3:#5F6773;--c-now:#1D5FC2;--c-now-mid:#6FA0E6;--c-now-ink:#174C9B;--c-now-soft:#EDF3FC;--c-now-line:#B8CDEE;--c-done:#2E9A5A;--c-done-ink:#1C6B3E;--c-done-soft:#E3F3E9;--c-done-line:#B9DCC6;--c-measured:#C48A1A;--c-measured-ink:#8A4B0B;--c-measured-soft:#FFF3DC;--c-measured-line:#F3DFB6;--c-needs-you:#C2410C;--c-needs-you-ink:#A0400B;--c-needs-you-soft:#FDEEE4;--c-needs-you-line:#F5CDB3;--c-ai:#5A3EAF;--c-ai-soft:#EEE9FB;--c-ai-line:#E3DBF6;--c-report:#9A2F5C;--c-report-soft:#FBE8F0;--c-regions:#156F6F;--c-regions-soft:#E2F5F4}
+.theme-root{background:var(--c-paper);color:var(--c-ink);min-height:900px;transition:background .2s}
+.theme-root.theme-dark{--c-paper:#12141B;--c-surface:#1A1D27;--c-surface-2:#161820;--c-line-soft:#232736;--c-line:#282C3A;--c-line-2:#3A3F52;--c-mark:#4A5068;--c-ink:#E8EAF2;--c-ink-2:#B0B5C8;--c-ink-3:#8C92A8;--c-now:#6EA2FF;--c-now-mid:#3D6FC0;--c-now-ink:#8FB6FF;--c-now-soft:#172642;--c-now-line:#2A4170;--c-done:#2FC79B;--c-done-ink:#5FD9B0;--c-done-soft:#113529;--c-done-line:#1E5A45;--c-measured:#F0B840;--c-measured-ink:#F0B840;--c-measured-soft:#35290F;--c-measured-line:#5A4618;--c-needs-you:#FF6E73;--c-needs-you-ink:#FF8A8E;--c-needs-you-soft:#3A1B20;--c-needs-you-line:#5A2A2F;--c-ai:#B39DFF;--c-ai-soft:#241D3A;--c-ai-line:#3A2F5C;--c-report:#F08DB8;--c-report-soft:#3A1A2A;--c-regions:#5FD9D9;--c-regions-soft:#0F3333}
+.theme-dark input,.theme-dark select,.theme-dark textarea{background:var(--c-surface);color:var(--c-ink)}
+
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--c-ink);-webkit-font-smoothing:antialiased}
+a{color:var(--c-now);text-decoration:none}
+button,input{font-family:inherit}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.rail{flex:0 0 244px;background:var(--c-surface);border-right:1px solid var(--c-line);display:flex;flex-direction:column;padding:12px 10px;box-sizing:border-box;min-height:900px}
+.mode{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;color:var(--c-ink-2)}
+.mode:hover{background:var(--c-surface-2)}
+.mode.on{background:var(--c-now-soft);color:var(--c-now-ink)}
+.mt{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mn{font-size:14px;font-weight:600}
+.ms{font-size:12px;color:var(--c-ink-3)}
+.sub{display:flex;align-items:center;justify-content:space-between;width:100%;padding:6px 10px 6px 39px;border:0;border-radius:8px;background:transparent;font-size:13px;color:var(--c-ink-2);cursor:pointer;text-align:left}
+.sub:hover{background:var(--c-surface-2)}
+.sub.on{color:var(--c-now-ink);font-weight:600;background:var(--c-now-soft)}
+.group{font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--c-ink-3);padding:12px 10px 4px}
+.runrow{display:flex;align-items:center;gap:9px;width:100%;padding:7px 10px;border:0;border-radius:7px;background:transparent;cursor:pointer;font-size:13px;color:var(--c-ink-2);text-align:left}
+.runrow:hover{background:var(--c-surface-2)}
+.runrow.on{background:var(--c-now-soft)}
+.dot{width:8px;height:8px;border-radius:4px;flex:0 0 8px}
+.iconbtn{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--c-ink-2);border:0;background:transparent;cursor:pointer}
+.iconbtn:hover{background:var(--c-surface-2)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:32px;padding:0 12px;border-radius:8px;font-size:13px;font-weight:500;border:1px solid var(--c-line-2);background:var(--c-surface);color:var(--c-ink);cursor:pointer}
+.btn:hover{background:var(--c-surface-2)}
+.btn.danger{color:var(--c-needs-you-ink)}
+.btn.small{height:26px;padding:0 9px;font-size:12px}
+.card{background:var(--c-surface);border:1px solid var(--c-line);border-radius:12px}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 10px}
+.ct{margin:0;font-size:14px;font-weight:600}
+.cs{font-size:12px;color:var(--c-ink-3)}
+.bar{height:6px;border-radius:3px;background:var(--c-line);overflow:hidden;display:flex}
+.seg{height:100%}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+.row{display:grid;align-items:center;gap:10px;padding:9px 16px;border-top:1px solid var(--c-line-soft);font-size:13px}
+.logl{display:grid;grid-template-columns:70px 170px minmax(0,1fr);gap:10px;padding:3px 16px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;line-height:18px}
+.chipf{height:28px;padding:0 10px;border-radius:7px;border:1px solid var(--c-line-2);background:var(--c-surface);font-size:12.5px;cursor:pointer;color:var(--c-ink-2)}
+.chipf.on{background:var(--c-now-soft);border-color:var(--c-now-line);color:var(--c-now-ink)}
+/* the pipeline, as on Build, with live status */
+.node{position:absolute;box-sizing:border-box;background:var(--c-surface);border:1px solid var(--c-line-2);border-radius:10px;padding:0;cursor:pointer;text-align:left}
+.node:hover{border-color:var(--c-mark)}
+.node.many{box-shadow:4px 4px 0 -1px var(--c-surface),4px 4px 0 0 var(--c-line-2),8px 8px 0 -1px var(--c-surface),8px 8px 0 0 var(--c-line-2)}
+.node.sel{border-color:var(--c-now);outline:3px solid rgba(29,95,194,.2)}
+.node.measure{background:var(--c-measured-soft);border-color:var(--c-measured);border-radius:20px}
+.node.wait{background:var(--c-surface-2)}
+.nh{position:absolute;left:11px;right:11px;top:8px;display:flex;flex-direction:column;gap:2px}
+.nn{font-size:13px;font-weight:600;color:var(--c-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nst{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--c-ink-2);white-space:nowrap}
+.nbar{position:absolute;left:11px;right:11px;bottom:9px;height:4px;border-radius:2px;background:var(--c-line);overflow:hidden;display:flex}
+.pin{position:absolute;width:8px;height:8px;border-radius:4px;background:var(--c-surface);border:1.6px solid var(--c-mark);box-sizing:border-box}
+.times{position:absolute;right:12px;bottom:-9px;z-index:1;background:var(--c-now-soft);border:1px solid var(--c-now-line);border-radius:4px;padding:1px 5px;line-height:14px;font-size:10px;font-weight:700;color:var(--c-now-ink)}
+.chip{position:absolute;box-sizing:border-box;border:1px dashed var(--c-now-line);background:var(--c-now-soft);border-radius:9px;padding:6px 10px;display:flex;flex-direction:column;gap:1px}
+.cn{font-size:12.5px;font-weight:600;color:var(--c-now-ink)}
+.cx{font-size:10.5px;color:var(--c-now-ink);font-family:'JetBrains Mono',ui-monospace,monospace}
+.out{position:absolute;box-sizing:border-box;border-radius:9px;background:var(--c-done-soft);border:1px solid var(--c-done-line);padding:6px 10px;display:flex;flex-direction:column;gap:1px}
+.out.wait{background:var(--c-surface-2);border-color:var(--c-line-2)}
+.on1{font-size:12px;font-weight:600;color:var(--c-done-ink)}
+.ot{font-size:10.5px;color:var(--c-done-ink);font-family:'JetBrains Mono',ui-monospace,monospace}
+.trow{display:grid;grid-template-columns:110px 130px 80px 100px 120px minmax(0,1fr) 70px;gap:10px;align-items:center;padding:8px 16px;border-top:1px solid var(--c-line-soft);font-size:13px}
+.trow:hover{background:var(--c-surface-2)}
+</style>
+</helmet>
+<div class="theme-root {{themeCls}}" style="display: flex; flex-wrap: wrap; min-height: 900px">
+
+<nav class="rail" aria-label="Comeni">
+  <a class="place" href="Home.dc.html" title="Home" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-now-ink)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"></path><path d="M10 20v-5h4v5"></path></svg><span class="mt">Home</span></a>
+  <a class="place" href="ForgeHome.dc.html" title="Forge" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 4l6 6-8 8-6-6zM4 20l4-4"></path></svg><span class="mt">Forge</span></a>
+  <a class="place" href="Registry.dc.html" title="Registry" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"></path><path d="M9 10h6M9 14h6"></path></svg><span class="mt">Registry</span></a>
+  <div style="height: 1px; background: var(--c-line-soft); margin: 10px 4px"></div>
+  <div style="display: flex; align-items: center; gap: 6px; margin: 0 0 12px">
+    <button type="button" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 1px solid var(--c-line); border-radius: 9px; background: var(--c-surface); cursor: pointer; text-align: left">
+      <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0">
+        <span style="font-size: 11.5px; color: var(--c-ink-3)">Analysis</span>
+        <span style="font-size: 14px; font-weight: 600; color: var(--c-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Liver RNA-seq counts</span>
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--c-ink-3)" stroke-width="2" aria-hidden="true"><path d="M7 10l5-5 5 5M7 14l5 5 5-5"></path></svg>
+    </button>
+    <button class="iconbtn" type="button" aria-label="Collapse sidebar" title="Collapse sidebar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path></svg></button>
+  </div>
+
+  <a class="mode" href="Main.dc.html" title="Data">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+    <span class="mt"><span class="mn">Data</span><span class="ms">24 samples · 2 refs</span></span>
+  </a>
+  <a class="mode" href="Build.dc.html" title="Build">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="6" height="5" rx="1"></rect><rect x="15" y="4" width="6" height="5" rx="1"></rect><rect x="9" y="15" width="6" height="5" rx="1"></rect><path d="M6 9v2h12V9M12 11v4"></path></svg>
+    <span class="mt"><span class="mn">Build</span><span class="ms">9 steps</span></span>
+  </a>
+  <a class="mode on" href="Run.dc.html" title="Run" aria-current="page">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 5l12 7-12 7z"></path></svg>
+    <span class="mt"><span class="mn">Run</span><span class="ms" style="color: var(--c-now-ink)">Running · 14 of 24</span></span>
+  </a>
+  <sc-for list="{{subs}}" as="t" hint-placeholder-count="4">
+    <button class="{{t.cls}}" type="button" onClick="{{t.go}}"><span>{{t.label}}</span><span style="font-size: 11.5px; color: var(--c-ink-3); font-weight: 500">{{t.count}}</span></button>
+  </sc-for>
+
+  <div style="height: 1px; background: var(--c-line-soft); margin: 12px 4px 4px"></div>
+  <div class="group">Runs of this analysis</div>
+  <button class="runrow on" type="button"><span class="dot" style="background: var(--c-now)"></span><span style="font-weight: 600">Run 3</span><span style="margin-left: auto; font-size: 12px; color: var(--c-ink-3)">now</span></button>
+  <button class="runrow" type="button"><span class="dot" style="background: var(--c-needs-you)"></span><span>Run 2</span><span style="margin-left: auto; font-size: 12px; color: var(--c-ink-3)">failed · 12:40</span></button>
+  <button class="runrow" type="button"><span class="dot" style="background: var(--c-done)"></span><span>Run 1</span><span style="margin-left: auto; font-size: 12px; color: var(--c-ink-3)">done · yesterday</span></button>
+
+  <div class="foot" style="margin-top: auto; padding-top: 10px; border-top: 1px solid var(--c-line-soft); display: flex; align-items: center; gap: 2px">
+    <a class="iconbtn" href="Settings.dc.html" aria-label="Settings" title="Settings" style="color: var(--c-ink-2); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"></path></svg></a>
+    <button class="iconbtn" type="button" onClick="{{toggleTheme}}" aria-label="Switch between light and dark" title="Light / dark" style="color: var(--c-ink-2); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></button>
+    <span class="local" style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--c-ink-3); padding-right: 6px"><span style="width: 7px; height: 7px; border-radius: 4px; background: var(--c-done)"></span>Local</span>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 28px; box-sizing: border-box">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+    <h1 style="margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.01em">Run 3</h1>
+    <span class="pill" style="background: var(--c-now-soft); color: var(--c-now-ink)"><span class="dot" style="background: var(--c-now)"></span>Running</span>
+    <span style="font-size: 13px; color: var(--c-ink-2)">started 14:02 · 6 min 40 s · this machine</span>
+  </header>
+
+  <sc-if value="{{onOverview}}" hint-placeholder-val="{{ true }}">
+    <section class="card" aria-label="progress" style="padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 30px; font-weight: 650; letter-spacing: -0.02em; line-height: 1">14 <span style="font-size: 16px; font-weight: 500; color: var(--c-ink-3)">of 24 samples finished</span></span>
+          <span style="font-size: 13px; color: var(--c-ink-2)">10 to go · no failures · 1 retry</span>
+        </div>
+        <span style="margin-left: auto; display: flex; gap: 8px"><button class="btn" type="button">Open output folder</button><button class="btn danger" type="button">Stop run</button></span>
+      </div>
+      <div class="bar" style="height: 10px; border-radius: 5px"><span class="seg" style="width: 58.3%; background: var(--c-done)"></span><span class="seg" style="width: 16.7%; background: var(--c-now-mid)"></span></div>
+      <div style="display: flex; gap: 16px; font-size: 12px; color: var(--c-ink-2)">
+        <span style="display: flex; align-items: center; gap: 6px"><span class="dot" style="background: var(--c-done)"></span>finished 14</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span class="dot" style="background: var(--c-now-mid)"></span>in progress 4</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span class="dot" style="background: var(--c-line-2)"></span>waiting 6</span>
+      </div>
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch">
+      <section class="card" aria-label="pipeline" style="flex: 3 1 560px; min-width: 0">
+        <div class="ch"><h2 class="ct">Pipeline</h2><button class="btn small" type="button" onClick="{{goPipeline}}">Open</button></div>
+        <div style="padding: 0 16px 16px; overflow: hidden">
+          <div style="position: relative; width: 742px; height: 378px; overflow: hidden; margin: 0 auto">
+            <div style="position: absolute; left: 0; top: 0; transform: scale(0.7); transform-origin: 0 0">
+              <div style="position: relative; width: 1060px; height: 540px">
+  <svg width="1060" height="540" viewBox="0 0 1060 540" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible">
+    <g fill="none" stroke="var(--c-mark)" stroke-width="5" stroke-linecap="round">
+      <path d="M112 372 L156 372"></path><path d="M301 364 C328 364 328 352 356 352"></path><path d="M301 364 C326 364 326 468 356 468"></path>
+      <path d="M301 380 L312 380 L312 516 L536 516 C548 516 548 468 556 468"></path><path d="M501 468 L556 468"></path>
+      <path d="M501 336 L556 336"></path><path d="M701 336 C728 336 728 348 756 348"></path><path d="M901 336 L946 336"></path>
+    </g>
+    <g fill="none" stroke="var(--c-surface)" stroke-width="2" stroke-linecap="round">
+      <path d="M112 372 L156 372"></path><path d="M301 364 C328 364 328 352 356 352"></path><path d="M301 364 C326 364 326 468 356 468"></path>
+      <path d="M301 380 L312 380 L312 516 L536 516 C548 516 548 468 556 468"></path><path d="M501 468 L556 468"></path>
+      <path d="M501 336 L556 336"></path><path d="M701 336 C728 336 728 348 756 348"></path><path d="M901 336 L946 336"></path>
+    </g>
+    <g fill="none" stroke="var(--c-mark)" stroke-width="1.6">
+      <path d="M112 52 L156 52"></path><path d="M112 52 C130 52 130 184 146 184 L156 184"></path>
+      <path d="M301 192 L340 192 L340 328 L356 328"></path><path d="M701 468 L946 468"></path>
+    </g>
+    <g fill="none" stroke="var(--c-now-line)" stroke-width="1.6">
+      <path d="M112 200 L156 200"></path><path d="M136 200 L136 276 L740 276"></path>
+      <path d="M328 276 L328 340 L356 340"></path><path d="M740 276 L740 328 L756 328"></path>
+    </g>
+    <g fill="var(--c-now-line)"><circle cx="136" cy="200" r="3"></circle><circle cx="328" cy="276" r="3"></circle></g>
+    <path d="M228 88 L228 100" fill="none" stroke="var(--c-measured)" stroke-width="1.6"></path>
+    <path d="M228 140 L228 160" fill="none" stroke="var(--c-measured)" stroke-width="1.6" stroke-dasharray="4 3"></path>
+  </svg>
+  <div class="chip" style="left: 12px; top: 32px; width: 100px"><span class="cn">Genome</span><span class="cx">genome.fasta</span></div>
+  <div class="chip" style="left: 12px; top: 180px; width: 100px"><span class="cn">Annotation</span><span class="cx">genes.gtf</span></div>
+  <div class="chip" style="left: 12px; top: 352px; width: 100px; box-shadow: 4px 4px 0 -1px var(--c-surface), 4px 4px 0 0 var(--c-now-line)"><span class="cn">Reads</span><span class="cx">24 samples</span></div>
+  <sc-for list="{{nodes}}" as="n" hint-placeholder-count="9">
+    <button type="button" class="{{n.cls}}" style="{{n.pos}}" onClick="{{n.pick}}" aria-label="{{n.name}}">
+      <span class="nh"><span class="nn">{{n.name}}</span><span class="nst"><span class="dot" style="background: {{n.stateColor}}; width: 7px; height: 7px; flex: 0 0 7px"></span>{{n.label}}</span></span>
+      <sc-for list="{{n.pins}}" as="p" hint-placeholder-count="2"><span class="pin" style="{{p}}"></span></sc-for>
+      <sc-if value="{{n.hasBar}}" hint-placeholder-val="{{ false }}"><span class="nbar"><span class="seg" style="{{n.doneW}}"></span><span class="seg" style="{{n.runW}}"></span></span></sc-if>
+      <sc-if value="{{n.many}}" hint-placeholder-val="{{ false }}"><span class="times">×24</span></sc-if>
+    </button>
+  </sc-for>
+  <div class="out" style="left: 946px; top: 316px; width: 104px; box-shadow: 4px 4px 0 -1px var(--c-surface), 4px 4px 0 0 var(--c-done-line)"><span class="on1">Gene counts</span><span class="ot">14 of 24</span></div>
+  <div class="out wait" style="left: 946px; top: 448px; width: 104px"><span class="on1" style="color: var(--c-ink-2)">QC report</span><span class="ot" style="color: var(--c-ink-3)">waiting</span></div>
+</div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div style="flex: 2 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+        <section class="card" aria-label="worth a look">
+          <div class="ch"><h2 class="ct">Worth a look</h2><span class="cs">2</span></div>
+          <div class="row" style="grid-template-columns: 74px minmax(0,1fr) auto">
+            <span class="pill" style="background: var(--c-measured-soft); color: var(--c-measured-ink); justify-self: start">RETRIED</span>
+            <span><b style="font-weight: 600">Align reads · L17</b> ran out of memory at 8 GB, finished with 16 GB.</span>
+            <button class="btn small" type="button" onClick="{{goAlign}}">See</button>
+          </div>
+          <div class="row" style="grid-template-columns: 74px minmax(0,1fr) auto">
+            <span class="pill" style="background: var(--c-line-soft); color: var(--c-ink-2); justify-self: start">MEMORY</span>
+            <span><b style="font-weight: 600">Build STAR index</b> asked 46 GB, used 1.4 GB.</span>
+            <button class="btn small" type="button">Use 4 GB</button>
+          </div>
+        </section>
+        <section class="card" aria-label="results so far">
+          <div class="ch"><h2 class="ct">Results so far</h2><button class="btn small" type="button" onClick="{{goOutputs}}">Outputs</button></div>
+          <div class="row" style="grid-template-columns: minmax(0,1fr) auto"><span>Gene counts</span><span class="mono" style="font-size: 12px">14 of 24 tables</span></div>
+          <div class="row" style="grid-template-columns: minmax(0,1fr) auto"><span>QC report</span><span style="font-size: 12px; color: var(--c-ink-3)">after all 24</span></div>
+          <div class="row" style="grid-template-columns: minmax(0,1fr) auto"><span>Uniquely mapped, median</span><span class="mono" style="font-size: 12px">87.2%</span></div>
+        </section>
+        <section class="card" aria-label="this machine">
+          <div class="ch"><h2 class="ct">This machine</h2><span class="cs">now</span></div>
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 16px 14px">
+            <div style="display: grid; grid-template-columns: 70px minmax(0,1fr) 110px; align-items: center; gap: 10px; font-size: 12.5px"><span>CPU</span><div class="bar"><span class="seg" style="width: 83%; background: var(--c-now)"></span></div><span class="mono" style="text-align: right">10 of 12 cores</span></div>
+            <div style="display: grid; grid-template-columns: 70px minmax(0,1fr) 110px; align-items: center; gap: 10px; font-size: 12.5px"><span>Memory</span><div class="bar"><span class="seg" style="width: 48%; background: var(--c-now)"></span></div><span class="mono" style="text-align: right">31 of 64 GB</span></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{onPipeline}}" hint-placeholder-val="{{ false }}">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="display: inline-flex; border: 1px solid var(--c-line-2); border-radius: 8px; overflow: hidden"><sc-for list="{{views}}" as="v" hint-placeholder-count="2"><button type="button" onClick="{{v.go}}" style="{{v.style}}">{{v.label}}</button></sc-for></span>
+      <span style="font-size: 12.5px; color: var(--c-ink-3)">Pick a step in either view to see its tasks below</span>
+    </div>
+    <sc-if value="{{onGraph}}" hint-placeholder-val="{{ true }}">
+    <section class="card" aria-label="pipeline" style="overflow: hidden">
+      <div style="overflow: auto; background-image: radial-gradient(var(--c-line) 1px, transparent 1px); background-size: 18px 18px; padding: 8px; display: flex; justify-content: center">
+        <div style="position: relative; width: 1060px; height: 540px">
+  <svg width="1060" height="540" viewBox="0 0 1060 540" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible">
+    <g fill="none" stroke="var(--c-mark)" stroke-width="5" stroke-linecap="round">
+      <path d="M112 372 L156 372"></path><path d="M301 364 C328 364 328 352 356 352"></path><path d="M301 364 C326 364 326 468 356 468"></path>
+      <path d="M301 380 L312 380 L312 516 L536 516 C548 516 548 468 556 468"></path><path d="M501 468 L556 468"></path>
+      <path d="M501 336 L556 336"></path><path d="M701 336 C728 336 728 348 756 348"></path><path d="M901 336 L946 336"></path>
+    </g>
+    <g fill="none" stroke="var(--c-surface)" stroke-width="2" stroke-linecap="round">
+      <path d="M112 372 L156 372"></path><path d="M301 364 C328 364 328 352 356 352"></path><path d="M301 364 C326 364 326 468 356 468"></path>
+      <path d="M301 380 L312 380 L312 516 L536 516 C548 516 548 468 556 468"></path><path d="M501 468 L556 468"></path>
+      <path d="M501 336 L556 336"></path><path d="M701 336 C728 336 728 348 756 348"></path><path d="M901 336 L946 336"></path>
+    </g>
+    <g fill="none" stroke="var(--c-mark)" stroke-width="1.6">
+      <path d="M112 52 L156 52"></path><path d="M112 52 C130 52 130 184 146 184 L156 184"></path>
+      <path d="M301 192 L340 192 L340 328 L356 328"></path><path d="M701 468 L946 468"></path>
+    </g>
+    <g fill="none" stroke="var(--c-now-line)" stroke-width="1.6">
+      <path d="M112 200 L156 200"></path><path d="M136 200 L136 276 L740 276"></path>
+      <path d="M328 276 L328 340 L356 340"></path><path d="M740 276 L740 328 L756 328"></path>
+    </g>
+    <g fill="var(--c-now-line)"><circle cx="136" cy="200" r="3"></circle><circle cx="328" cy="276" r="3"></circle></g>
+    <path d="M228 88 L228 100" fill="none" stroke="var(--c-measured)" stroke-width="1.6"></path>
+    <path d="M228 140 L228 160" fill="none" stroke="var(--c-measured)" stroke-width="1.6" stroke-dasharray="4 3"></path>
+  </svg>
+  <div class="chip" style="left: 12px; top: 32px; width: 100px"><span class="cn">Genome</span><span class="cx">genome.fasta</span></div>
+  <div class="chip" style="left: 12px; top: 180px; width: 100px"><span class="cn">Annotation</span><span class="cx">genes.gtf</span></div>
+  <div class="chip" style="left: 12px; top: 352px; width: 100px; box-shadow: 4px 4px 0 -1px var(--c-surface), 4px 4px 0 0 var(--c-now-line)"><span class="cn">Reads</span><span class="cx">24 samples</span></div>
+  <sc-for list="{{nodes}}" as="n" hint-placeholder-count="9">
+    <button type="button" class="{{n.cls}}" style="{{n.pos}}" onClick="{{n.pick}}" aria-label="{{n.name}}">
+      <span class="nh"><span class="nn">{{n.name}}</span><span class="nst"><span class="dot" style="background: {{n.stateColor}}; width: 7px; height: 7px; flex: 0 0 7px"></span>{{n.label}}</span></span>
+      <sc-for list="{{n.pins}}" as="p" hint-placeholder-count="2"><span class="pin" style="{{p}}"></span></sc-for>
+      <sc-if value="{{n.hasBar}}" hint-placeholder-val="{{ false }}"><span class="nbar"><span class="seg" style="{{n.doneW}}"></span><span class="seg" style="{{n.runW}}"></span></span></sc-if>
+      <sc-if value="{{n.many}}" hint-placeholder-val="{{ false }}"><span class="times">×24</span></sc-if>
+    </button>
+  </sc-for>
+  <div class="out" style="left: 946px; top: 316px; width: 104px; box-shadow: 4px 4px 0 -1px var(--c-surface), 4px 4px 0 0 var(--c-done-line)"><span class="on1">Gene counts</span><span class="ot">14 of 24</span></div>
+  <div class="out wait" style="left: 946px; top: 448px; width: 104px"><span class="on1" style="color: var(--c-ink-2)">QC report</span><span class="ot" style="color: var(--c-ink-3)">waiting</span></div>
+</div>
+
+      </div>
+    </section>
+    </sc-if>
+    <sc-if value="{{onGantt}}" hint-placeholder-val="{{ false }}">
+    <section class="card" aria-label="timeline">
+      <div class="ch"><h2 class="ct">When each step ran</h2><span class="cs">first sample starting → last sample finishing</span></div>
+      <div class="row" style="grid-template-columns: 170px minmax(0,1fr) 120px; font-size: 11.5px; color: var(--c-ink-3); border-top: 0"><span>Step</span><span style="display: flex; justify-content: space-between"><span>14:02</span><span>14:04</span><span>14:06</span><span>now</span></span><span style="text-align: right">Slowest sample</span></div>
+      <sc-for list="{{gantt}}" as="g" hint-placeholder-count="9">
+        <button type="button" class="row" onClick="{{g.go}}" style="{{g.rowStyle}}; grid-template-columns: 170px minmax(0,1fr) 120px; width: 100%; border-left: 0; border-right: 0; border-bottom: 0; cursor: pointer; text-align: left; font-family: inherit">
+          <span style="font-weight: 500">{{g.name}}</span>
+          <span style="position: relative; height: 14px; background: var(--c-surface-2); border-radius: 3px"><span style="{{g.bar}}"></span><span style="{{g.nowLine}}"></span></span>
+          <span class="mono" style="font-size: 12px; text-align: right; color: var(--c-ink-2)">{{g.longest}}</span>
+        </button>
+      </sc-for>
+      <div style="display: flex; gap: 16px; padding: 10px 16px 14px; font-size: 12px; color: var(--c-ink-2); border-top: 1px solid var(--c-line-soft)">
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 8px; border-radius: 2px; background: var(--c-done)"></span>finished</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 8px; border-radius: 2px; background: var(--c-now-mid)"></span>not finished</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 1.5px; height: 12px; background: var(--c-now)"></span>now</span>
+      </div>
+    </section>
+    </sc-if>
+
+    <section class="card" aria-label="tasks of the selected step">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 16px">
+        <h2 class="ct" style="font-size: 15px">{{s.name}}</h2>
+        <span class="mono" style="font-size: 12px; color: var(--c-ink-3)">{{s.tool}}</span>
+        <span style="font-size: 12.5px; color: var(--c-ink-2)">· {{s.summary}}</span>
+        <span style="margin-left: auto; display: flex; gap: 4px">
+          <sc-for list="{{taskFilters}}" as="f" hint-placeholder-count="4"><button class="{{f.cls}}" type="button" onClick="{{f.go}}">{{f.label}}</button></sc-for>
+        </span>
+        <label style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid var(--c-line-2); border-radius: 8px; width: 180px; box-sizing: border-box">
+          <span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Find a sample</span>
+          <input type="text" placeholder="Find a sample" style="flex: 1 1 auto; min-width: 0; border: 0; outline: 0; font-size: 12.5px">
+        </label>
+      </div>
+      <div class="trow" style="font-size: 12px; color: var(--c-ink-3); background: var(--c-surface-2)"><span>Sample</span><span>Status</span><span>Attempt</span><span>Time</span><span>Peak memory</span><span>Note</span><span></span></div>
+      <sc-for list="{{tasks}}" as="t" hint-placeholder-count="10">
+        <div class="trow">
+          <span class="mono" style="font-size: 12.5px">{{t.sample}}</span>
+          <span style="display: flex; align-items: center; gap: 7px"><span class="dot" style="{{t.dot}}"></span>{{t.status}}</span>
+          <span class="mono" style="font-size: 12.5px">{{t.attempt}}</span>
+          <span class="mono" style="font-size: 12.5px">{{t.time}}</span>
+          <span class="mono" style="font-size: 12.5px">{{t.mem}}</span>
+          <span style="font-size: 12.5px; color: var(--c-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.note}}</span>
+          <button class="btn small" type="button" onClick="{{goConsole}}">Log</button>
+        </div>
+      </sc-for>
+    </section>
+  </sc-if>
+
+
+
+  <sc-if value="{{onOutputs}}" hint-placeholder-val="{{ false }}">
+    <section class="card" aria-label="outputs">
+      <div class="ch"><h2 class="ct">Outputs</h2><span class="mono cs">~/comeni/runs/liver-rnaseq/run-3/</span></div>
+      <sc-for list="{{outputs}}" as="o" hint-placeholder-count="5">
+        <div class="row" style="grid-template-columns: minmax(0,1.2fr) minmax(0,1fr) 120px auto">
+          <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">{{o.name}}</span><span class="mono" style="font-size: 11.5px; color: var(--c-ink-3)">{{o.path}}</span></span>
+          <span style="font-size: 12.5px; color: var(--c-ink-2)">{{o.from}}</span>
+          <span class="mono" style="font-size: 12px">{{o.state}}</span>
+          <button class="btn small" type="button">Open</button>
+        </div>
+      </sc-for>
+    </section>
+  </sc-if>
+
+  <sc-if value="{{onConsole}}" hint-placeholder-val="{{ false }}">
+    <section class="card" aria-label="console">
+      <div class="ch"><h2 class="ct">Console</h2>
+        <span style="display: flex; gap: 4px"><button class="chipf on" type="button">Everything</button><button class="chipf" type="button">Warnings 1</button><button class="chipf" type="button">Align reads</button></span>
+      </div>
+      <div style="padding: 6px 0 12px; background: var(--c-surface-2); border-top: 1px solid var(--c-line-soft)">
+        <sc-for list="{{logs}}" as="l" hint-placeholder-count="10">
+          <div class="logl" style="{{l.style}}"><span style="color: var(--c-ink-3)">{{l.t}}</span><span style="color: var(--c-now-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{l.who}}</span><span>{{l.msg}}</span></div>
+        </sc-for>
+      </div>
+    </section>
+  </sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false,"tsType":"boolean"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { page: 'overview', sel: 'align', tf: 'all', view: 'graph' };
+}
+renderValsBase() {
+var st = this.state;
+var self = this;
+var go = function (p) { return function () { self.setState({ page: p }); }; };
+var pages = [
+  { id: 'overview', label: 'Overview', count: '' },
+  { id: 'pipeline', label: 'Steps', count: '9' },
+  { id: 'outputs', label: 'Outputs', count: '' },
+  { id: 'console', label: 'Console', count: '' }
+];
+var subs = pages.map(function (p) { return { label: p.label, count: p.count, cls: 'sub' + (st.page === p.id ? ' on' : ''), go: go(p.id) }; });
+var N = [
+  { id: 'faidx', name: 'Index genome', tool: 'samtools faidx 1.24', x: 156, y: 24, w: 145, h: 64, done: 1, of: 1, run: 0, ins: [28], outs: [28] },
+  { id: 'measure', kind: 'measure', name: 'Genome length', tool: 'measurer', x: 163, y: 100, w: 130, h: 40, done: 1, of: 1, run: 0, ins: [], outs: [], text: '230,218 bp' },
+  { id: 'staridx', name: 'Build STAR index', tool: 'STAR 2.7.11b', x: 156, y: 160, w: 145, h: 64, done: 1, of: 1, run: 0, ins: [24, 40], outs: [32] },
+  { id: 'trim', name: 'Trim reads', tool: 'Trim Galore 2.3.0', x: 156, y: 340, w: 145, h: 64, many: true, done: 24, of: 24, run: 0, ins: [32], outs: [24, 40] },
+  { id: 'align', name: 'Align reads', tool: 'STAR 2.7.11b', x: 356, y: 304, w: 145, h: 64, many: true, done: 17, of: 24, run: 2, ins: [24, 36, 48], outs: [32] },
+  { id: 'fastqc', name: 'Check read quality', tool: 'FastQC 0.12.1', x: 356, y: 436, w: 145, h: 64, many: true, done: 24, of: 24, run: 0, ins: [32], outs: [32] },
+  { id: 'sort', name: 'Sort alignments', tool: 'samtools sort 1.24', x: 556, y: 304, w: 145, h: 64, many: true, done: 14, of: 24, run: 2, ins: [32], outs: [32] },
+  { id: 'multiqc', name: 'QC report', tool: 'MultiQC 1.35', x: 556, y: 436, w: 145, h: 64, done: 0, of: 1, run: 0, ins: [32], outs: [32], waitText: 'after all 24' },
+  { id: 'count', name: 'Count genes', tool: 'featureCounts 2.1.1', x: 756, y: 304, w: 145, h: 64, many: true, done: 14, of: 24, run: 0, ins: [24, 44], outs: [32] }
+];
+var pick = function (id) { return function () { self.setState({ sel: id, page: 'pipeline', tf: 'all' }); }; };
+var nodes = N.map(function (n) {
+  var state = n.done === n.of ? 'done' : (n.run || n.done ? 'running' : 'waiting');
+  var label = n.text ? n.text : (state === 'done' ? (n.of > 1 ? n.of + ' of ' + n.of : 'done') : (state === 'waiting' ? (n.waitText || 'waiting') : n.done + ' of ' + n.of + (n.run ? ' · ' + n.run + ' running' : '')));
+  return {
+    name: n.name, label: label, many: !!n.many, measure: n.kind === 'measure',
+    stateColor: state === 'done' ? 'var(--c-done)' : (state === 'running' ? 'var(--c-now)' : 'var(--c-mark)'),
+    cls: 'node' + (n.kind === 'measure' ? ' measure' : '') + (n.many ? ' many' : '') + (state === 'waiting' ? ' wait' : '') + (st.sel === n.id && st.page === 'pipeline' ? ' sel' : ''),
+    pos: 'left:' + n.x + 'px;top:' + n.y + 'px;width:' + n.w + 'px;height:' + n.h + 'px',
+    hasBar: n.kind !== 'measure' && n.of > 1,
+    doneW: 'width:' + (100 * n.done / n.of) + '%;background:var(--c-done)',
+    runW: 'width:' + (100 * n.run / n.of) + '%;background:var(--c-now-mid)',
+    pins: n.ins.map(function (y) { return 'left:-5px;top:' + (y - 4) + 'px'; }).concat(n.outs.map(function (y) { return 'right:-5px;top:' + (y - 4) + 'px'; })),
+    pick: pick(n.id)
+  };
+});
+var cur = N.filter(function (n) { return n.id === st.sel; })[0];
+var tasks = [];
+var samples = cur.of === 1 ? [cur.id === 'multiqc' ? 'all samples' : 'reference'] : [];
+if (cur.of > 1) { for (var i = 1; i <= 24; i++) samples.push('L' + (i < 10 ? '0' + i : i)); }
+samples.forEach(function (sm, i) {
+  var k = i + 1, status, attempt = '1', time = '—', mem = '—', note = '';
+  if (k <= cur.done) { status = 'done'; time = cur.id === 'align' ? (1 + (k * 7) % 3) + ' min ' + (10 + (k * 13) % 49) + ' s' : (5 + (k * 11) % 40) + ' s'; mem = cur.id === 'align' ? (6 + (k % 3)) + '.' + (k % 9) + ' GB' : (120 + (k * 37) % 400) + ' MB'; }
+  else if (k <= cur.done + cur.run) { status = 'running'; time = (1 + k % 3) + ' min so far'; mem = cur.id === 'align' ? '7.1 GB' : '210 MB'; }
+  else { status = 'waiting'; note = cur.id === 'multiqc' ? 'starts when every sample is checked' : 'queued'; }
+  if (cur.id === 'align' && k === 17) { attempt = '2'; note = 'attempt 1 ran out of memory at 8 GB'; mem = '11.4 GB'; }
+  tasks.push({ sample: sm, status: status, kind: status, attempt: attempt, time: time, mem: mem, note: note, dot: 'background:' + (status === 'done' ? 'var(--c-done)' : status === 'running' ? 'var(--c-now)' : 'var(--c-mark)') });
+});
+var retried = tasks.filter(function (t) { return t.attempt !== '1'; }).length;
+var F = [
+  { id: 'all', label: 'All ' + tasks.length },
+  { id: 'running', label: 'Running ' + tasks.filter(function (t) { return t.kind === 'running'; }).length },
+  { id: 'waiting', label: 'Waiting ' + tasks.filter(function (t) { return t.kind === 'waiting'; }).length },
+  { id: 'retried', label: 'Retried ' + retried }
+];
+var taskFilters = F.map(function (f) { return { label: f.label, cls: 'chipf' + (st.tf === f.id ? ' on' : ''), go: function () { self.setState({ tf: f.id }); } }; });
+var shown = tasks.filter(function (t) { return st.tf === 'all' || (st.tf === 'retried' ? t.attempt !== '1' : t.kind === st.tf); });
+var curNode = nodes[N.indexOf(cur)];
+var G = [
+  { id: 'faidx', name: 'Index genome', a: 0, b: 2, longest: '6 s' },
+  { id: 'measure', name: 'Genome length', a: 2, b: 3, longest: '1 s' },
+  { id: 'staridx', name: 'Build STAR index', a: 3, b: 14, longest: '40 s' },
+  { id: 'trim', name: 'Trim reads', a: 0, b: 38, longest: '58 s' },
+  { id: 'fastqc', name: 'Check read quality', a: 6, b: 44, longest: '31 s' },
+  { id: 'align', name: 'Align reads', a: 15, b: 100, live: true, longest: '3 min 36 s' },
+  { id: 'sort', name: 'Sort alignments', a: 24, b: 100, live: true, longest: '12 s' },
+  { id: 'count', name: 'Count genes', a: 26, b: 100, live: true, longest: '9 s' },
+  { id: 'multiqc', name: 'QC report', a: 0, b: 0, longest: 'not started' }
+];
+var gantt = G.map(function (g) {
+  return { name: g.name, longest: g.longest, go: pick(g.id), rowStyle: g.id === st.sel ? 'background:var(--c-now-soft);box-shadow:inset 3px 0 0 var(--c-now)' : 'background:transparent',
+    bar: g.b > g.a ? 'position:absolute;top:0;bottom:0;left:' + g.a + '%;width:' + (g.b - g.a) + '%;border-radius:3px;background:' + (g.live ? 'var(--c-now-mid)' : 'var(--c-done)') : 'display:none',
+    nowLine: 'position:absolute;top:-3px;bottom:-3px;right:0;width:1.5px;background:var(--c-now)' };
+});
+var outputs = [
+  { name: 'Gene counts', path: 'counts/*.featureCounts.tsv', from: 'Count genes', state: '14 of 24' },
+  { name: 'QC report', path: 'qc/multiqc_report.html', from: 'QC report', state: 'waiting' },
+  { name: 'Sorted alignments', path: 'bam/*.sorted.bam', from: 'Sort alignments', state: '14 of 24' },
+  { name: 'Alignment logs', path: 'star/*.Log.final.out', from: 'Align reads', state: '17 of 24' },
+  { name: 'Decided values', path: 'decided/*.tsv', from: 'Genome length', state: 'ready' }
+];
+var logs = [
+  { t: '14:02:01', who: 'run', msg: 'Started on this machine with 12 cores, 64 GB.' },
+  { t: '14:02:07', who: 'Index genome', msg: 'Done in 6 s.' },
+  { t: '14:02:09', who: 'Genome length', msg: '230,218 bp → sa_index_nbases 8.' },
+  { t: '14:02:49', who: 'Build STAR index', msg: 'Done in 40 s. Peak memory 1.4 GB of 46 GB asked.' },
+  { t: '14:04:12', who: 'Align reads · L17', msg: 'Out of memory at 8 GB (exit 137). Retrying with 16 GB.', warn: true },
+  { t: '14:06:58', who: 'Align reads · L17', msg: 'Done on attempt 2.' },
+  { t: '14:08:31', who: 'Count genes · L14', msg: 'Done. 71,402 reads assigned.' },
+  { t: '14:08:40', who: 'Align reads · L19', msg: 'Running, 3 min.' }
+].map(function (l) { return Object.assign({}, l, { style: l.warn ? 'background:var(--c-measured-soft)' : '' }); });
+return {
+  subs: subs, nodes: nodes, tasks: shown, taskFilters: taskFilters,
+  s: { name: cur.name, tool: cur.tool, summary: curNode.label },
+  outputs: outputs, logs: logs,
+  onOverview: st.page === 'overview', onPipeline: st.page === 'pipeline', onOutputs: st.page === 'outputs', onConsole: st.page === 'console', gantt: gantt,
+  onGraph: st.view === 'graph', onGantt: st.view === 'timeline',
+  views: [['graph', 'Graph'], ['timeline', 'Timeline']].map(function (v) { return { label: v[1], style: 'height:30px;padding:0 14px;border:0;font-size:12.5px;cursor:pointer;' + (st.view === v[0] ? 'background:var(--c-now);color:var(--c-surface);font-weight:600' : 'background:var(--c-surface);color:var(--c-ink-2)'), go: function () { self.setState({ view: v[0] }); } }; }),
+  goPipeline: go('pipeline'), goOutputs: go('outputs'), goConsole: go('console'), goAlign: pick('align')
+};
+}
+renderVals() {
+var v = this.renderValsBase();
+var self = this;
+var dark = (this.state && this.state.dark !== undefined && this.state.dark !== null) ? this.state.dark : !!this.props.dark;
+v.themeCls = dark ? 'theme-dark' : '';
+v.toggleTheme = function () { self.setState({ dark: !dark }); };
+return v;
+}
+}
+</script>
+</body>
+</html>

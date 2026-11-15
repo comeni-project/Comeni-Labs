@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings — Comeni</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{--c-paper:#F5F6F8;--c-surface:#FFFFFF;--c-surface-2:#F8F9FB;--c-line-soft:#EEF0F3;--c-line:#E2E5EA;--c-line-2:#D2D7DE;--c-mark:#A9B2BF;--c-ink:#15181D;--c-ink-2:#3B424D;--c-ink-3:#5F6773;--c-now:#1D5FC2;--c-now-mid:#6FA0E6;--c-now-ink:#174C9B;--c-now-soft:#EDF3FC;--c-now-line:#B8CDEE;--c-done:#2E9A5A;--c-done-ink:#1C6B3E;--c-done-soft:#E3F3E9;--c-done-line:#B9DCC6;--c-measured:#C48A1A;--c-measured-ink:#8A4B0B;--c-measured-soft:#FFF3DC;--c-measured-line:#F3DFB6;--c-needs-you:#C2410C;--c-needs-you-ink:#A0400B;--c-needs-you-soft:#FDEEE4;--c-needs-you-line:#F5CDB3;--c-ai:#5A3EAF;--c-ai-soft:#EEE9FB;--c-ai-line:#E3DBF6;--c-report:#9A2F5C;--c-report-soft:#FBE8F0;--c-regions:#156F6F;--c-regions-soft:#E2F5F4}
+.theme-root{background:var(--c-paper);color:var(--c-ink);min-height:900px;transition:background .2s}
+.theme-root.theme-dark{--c-paper:#12141B;--c-surface:#1A1D27;--c-surface-2:#161820;--c-line-soft:#232736;--c-line:#282C3A;--c-line-2:#3A3F52;--c-mark:#4A5068;--c-ink:#E8EAF2;--c-ink-2:#B0B5C8;--c-ink-3:#8C92A8;--c-now:#6EA2FF;--c-now-mid:#3D6FC0;--c-now-ink:#8FB6FF;--c-now-soft:#172642;--c-now-line:#2A4170;--c-done:#2FC79B;--c-done-ink:#5FD9B0;--c-done-soft:#113529;--c-done-line:#1E5A45;--c-measured:#F0B840;--c-measured-ink:#F0B840;--c-measured-soft:#35290F;--c-measured-line:#5A4618;--c-needs-you:#FF6E73;--c-needs-you-ink:#FF8A8E;--c-needs-you-soft:#3A1B20;--c-needs-you-line:#5A2A2F;--c-ai:#B39DFF;--c-ai-soft:#241D3A;--c-ai-line:#3A2F5C;--c-report:#F08DB8;--c-report-soft:#3A1A2A;--c-regions:#5FD9D9;--c-regions-soft:#0F3333}
+.theme-dark input,.theme-dark select,.theme-dark textarea{background:var(--c-surface);color:var(--c-ink)}
+
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--c-ink);-webkit-font-smoothing:antialiased}
+a{color:var(--c-now);text-decoration:none}
+button,input,select{font-family:inherit}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.rail{flex:0 0 244px;background:var(--c-surface);border-right:1px solid var(--c-line);display:flex;flex-direction:column;padding:12px 10px;box-sizing:border-box;min-height:900px}
+.mode{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;color:var(--c-ink-2)}
+.mode:hover{background:var(--c-surface-2)}
+.mn{font-size:14px;font-weight:600}
+.group{font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--c-ink-3);padding:14px 10px 4px}
+.sec{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;font-size:13.5px;color:var(--c-ink-2);cursor:pointer;text-align:left}
+.sec:hover{background:var(--c-surface-2)}
+.sec.on{background:var(--c-now-soft);color:var(--c-now-ink);font-weight:600}
+.iconbtn{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--c-ink-2);border:0;background:transparent;cursor:pointer}
+.iconbtn:hover{background:var(--c-surface-2)}
+.iconbtn.on{background:var(--c-now-soft);color:var(--c-now-ink)}
+.card{background:var(--c-surface);border:1px solid var(--c-line);border-radius:12px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,300px);gap:24px;align-items:center;padding:11px 18px;border-top:1px solid var(--c-line-soft)}
+.row:first-child{border-top:0}
+.rl{display:flex;flex-direction:column;gap:3px;min-width:0}
+.rn{font-size:13.5px;font-weight:600}
+.rh{font-size:12.5px;line-height:1.45;color:var(--c-ink-3)}
+.ctl{height:32px;width:100%;box-sizing:border-box;border:1px solid var(--c-line-2);border-radius:8px;padding:0 10px;font-size:13px;background:var(--c-surface);color:var(--c-ink)}
+.seg{display:flex;border:1px solid var(--c-line-2);border-radius:8px;overflow:hidden;justify-self:end}
+.sg{height:30px;padding:0 12px;border:0;background:var(--c-surface);font-size:12.5px;color:var(--c-ink-2);cursor:pointer}
+.sg.on{background:var(--c-now);color:var(--c-surface)}
+.ro{justify-self:end;font-size:13px;color:var(--c-ink-2);text-align:right}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:30px;padding:0 12px;border-radius:8px;font-size:12.5px;font-weight:500;border:1px solid var(--c-line-2);background:var(--c-surface);color:var(--c-ink);cursor:pointer}
+.btn:hover{background:var(--c-surface-2)}
+.src{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;letter-spacing:.04em;border-radius:4px;padding:1px 6px;color:var(--c-ink-2);background:var(--c-line-soft)}
+.lvl{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1px solid var(--c-line);border-radius:10px;background:var(--c-surface);cursor:pointer;text-align:left}
+.lvl.on{border-color:var(--c-now);box-shadow:0 0 0 2px rgba(29,95,194,.15)}
+.dot{width:8px;height:8px;border-radius:4px;flex:0 0 8px}
+.q{width:18px;height:18px;border-radius:9px;border:1px solid var(--c-line-2);background:var(--c-surface);color:var(--c-ink-3);font-size:11px;font-weight:700;line-height:16px;padding:0;cursor:help;flex:0 0 18px}
+.q:hover{border-color:var(--c-now);color:var(--c-now)}
+.tip{font-size:12.5px;line-height:1.45;color:var(--c-ink-2);background:var(--c-surface-2);border:1px solid var(--c-line-2);border-radius:8px;padding:8px 10px;margin-top:6px}
+.switch{justify-self:end;width:38px;height:22px;border-radius:11px;border:0;cursor:pointer;position:relative;padding:0}
+.knob{position:absolute;top:3px;width:16px;height:16px;border-radius:8px;background:var(--c-surface)}
+</style>
+</helmet>
+<div class="theme-root {{themeCls}}" style="display: flex; height: 900px; overflow: hidden">
+
+<nav class="rail" aria-label="Comeni">
+  <a class="place" href="Home.dc.html" title="Home" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"></path><path d="M10 20v-5h4v5"></path></svg><span class="mt">Home</span></a>
+  <a class="place" href="ForgeHome.dc.html" title="Forge" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 4l6 6-8 8-6-6zM4 20l4-4"></path></svg><span class="mt">Forge</span></a>
+  <a class="place" href="Registry.dc.html" title="Registry" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"></path><path d="M9 10h6M9 14h6"></path></svg><span class="mt">Registry</span></a>
+  <div style="height: 1px; background: var(--c-line-soft); margin: 10px 4px"></div>
+  <div class="group" style="padding-top: 4px">Settings sections</div>
+  <sc-for list="{{sections}}" as="x" hint-placeholder-count="7">
+    <a class="{{x.cls}}" href="{{x.href}}" onClick="{{x.go}}">{{x.label}}</a>
+  </sc-for>
+
+  <div class="foot" style="margin-top: auto; padding-top: 10px; border-top: 1px solid var(--c-line-soft); display: flex; align-items: center; gap: 2px">
+    <a class="iconbtn" href="Settings.dc.html" aria-label="Settings" title="Settings" style="background: var(--c-now-soft); color: var(--c-now-ink); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"></path></svg></a>
+    <button class="iconbtn" type="button" onClick="{{toggleTheme}}" aria-label="Switch between light and dark" title="Light / dark" style="color: var(--c-ink-2); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></button>
+    <span class="local" style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--c-ink-3); padding-right: 6px"><span style="width: 7px; height: 7px; border-radius: 4px; background: var(--c-done)"></span>Local</span>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; height: 900px; overflow-y: auto; padding: 28px 40px 64px; box-sizing: border-box">
+  <div style="max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 34px">
+    <h1 style="margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -0.015em">Settings</h1>
+    <sc-for list="{{all}}" as="sec" hint-placeholder-count="7">
+      <section id="{{sec.id}}" aria-label="{{sec.label}}" style="display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 20px">
+        <div style="display: flex; align-items: baseline; gap: 10px"><h2 style="margin: 0; font-size: 16px; font-weight: 650">{{sec.label}}</h2><span style="font-size: 12.5px; color: var(--c-ink-3)">{{sec.intro}}</span></div>
+
+        <sc-if value="{{sec.isModels}}" hint-placeholder-val="{{ false }}">
+          <div class="card">
+            <div class="row" style="grid-template-columns: minmax(0,1fr) auto">
+              <span class="rl"><span class="rn" style="display: flex; align-items: center; gap: 8px"><span class="dot" style="background: var(--c-done)"></span>ChatGPT subscription</span><span class="rh">Signed in · renews in 10 days</span></span>
+              <span style="display: flex; gap: 6px"><button class="btn" type="button">Sign in again</button><button class="btn" type="button">Remove</button></span>
+            </div>
+            <div class="row" style="grid-template-columns: minmax(0,1fr) auto">
+              <span class="rl"><span class="rn" style="display: flex; align-items: center; gap: 8px"><span class="dot" style="background: var(--c-mark)"></span>Local model (Ollama)</span><span class="rh mono" style="font-size: 12px">http://localhost:11434 · not reachable</span></span>
+              <span style="display: flex; gap: 6px"><button class="btn" type="button">Test</button><button class="btn" type="button">Edit</button></span>
+            </div>
+            <div class="row" style="grid-template-columns: minmax(0,1fr) auto"><span class="rh">An API key, a local endpoint or a subscription sign-in.</span><button class="btn" type="button">+ Add connection</button></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{sec.isPrivacy}}" hint-placeholder-val="{{ false }}">
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+            <sc-for list="{{levels}}" as="l" hint-placeholder-count="4">
+              <button class="{{l.cls}}" type="button" onClick="{{l.go}}">
+                <span style="display: flex; align-items: center; gap: 6px"><span style="font-size: 13px; font-weight: 600">{{l.name}}</span><sc-if value="{{l.on}}" hint-placeholder-val="{{ false }}"><span class="src" style="color: var(--c-now-ink); background: var(--c-now-soft)">IN USE</span></sc-if></span>
+                <span class="rh" style="font-size: 12px">{{l.text}}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-for list="{{sec.groups}}" as="g" hint-placeholder-count="1">
+          <sc-if value="{{g.hasTitle}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--c-ink-3); margin-top: 4px">{{g.title}}</span></sc-if>
+          <div class="card">
+            <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+              <div class="row">
+                <span class="rl">
+                  <span style="display: flex; align-items: center; gap: 7px"><span class="rn">{{r.label}}</span><button class="q" type="button" title="{{r.help}}" aria-label="What is {{r.label}}?" onClick="{{r.toggle}}">?</button></span>
+                  <sc-if value="{{r.open}}" hint-placeholder-val="{{ false }}"><span class="tip">{{r.help}}</span></sc-if>
+                </span>
+                <sc-if value="{{r.isSeg}}" hint-placeholder-val="{{ false }}"><span class="seg"><sc-for list="{{r.options}}" as="o" hint-placeholder-count="3"><button type="button" class="{{o.cls}}">{{o.v}}</button></sc-for></span></sc-if>
+                <sc-if value="{{r.isSelect}}" hint-placeholder-val="{{ true }}"><select class="ctl" aria-label="{{r.label}}"><sc-for list="{{r.options}}" as="o" hint-placeholder-count="3"><option selected="{{o.sel}}">{{o.v}}</option></sc-for></select></sc-if>
+                <sc-if value="{{r.isText}}" hint-placeholder-val="{{ false }}"><input class="ctl" type="text" value="{{r.value}}" placeholder="{{r.placeholder}}" aria-label="{{r.label}}"></sc-if>
+                <sc-if value="{{r.isToggle}}" hint-placeholder-val="{{ false }}"><button class="switch" type="button" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" style="{{r.trackStyle}}"><span class="knob" style="{{r.knobStyle}}"></span></button></sc-if>
+                <sc-if value="{{r.isRead}}" hint-placeholder-val="{{ false }}"><span class="ro"><span class="mono" style="font-size: 12.5px">{{r.value}}</span><sc-if value="{{r.hasSrc}}" hint-placeholder-val="{{ false }}"><span class="src" style="margin-left: 8px">{{r.src}}</span></sc-if></span></sc-if>
+                <sc-if value="{{r.isList}}" hint-placeholder-val="{{ false }}"><span style="justify-self: end; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px"><sc-for list="{{r.items}}" as="it" hint-placeholder-count="2"><span class="mono" style="font-size: 12px; padding: 3px 8px; border: 1px solid var(--c-line-2); border-radius: 6px">{{it}}</span></sc-for><button class="btn" type="button" style="height: 26px">{{r.add}}</button></span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </section>
+    </sc-for>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false,"tsType":"boolean"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { sec: 'general', level: 'level_0', tip: null };
+}
+renderValsBase() {
+var s = this.state;
+var self = this;
+var S = [
+  { id: 'general', label: 'General', intro: 'You, and how Comeni looks.' },
+  { id: 'building', label: 'Building', intro: 'How the assistant works with you while it builds.' },
+  { id: 'models', label: 'Models', intro: 'Which models Comeni talks to, and for what.' },
+  { id: 'running', label: 'Running', intro: 'Where runs execute and what they can read.' },
+  { id: 'privacy', label: 'Data & privacy', intro: 'What leaves this machine, and how long things are kept.' },
+  { id: 'registry', label: 'Registry', intro: 'The tools and rules pipelines are built from.' },
+  { id: 'about', label: 'About', intro: 'This installation.' }
+];
+var cur = S.filter(function (x) { return x.id === s.sec; })[0];
+var R = function (o) { return o; };
+var G = {
+  general: [{ rows: [
+    R({ label: 'Your name', help: 'Written beside every choice you make, in the pipeline file.', t: 'text', v: '', ph: 'Your name' }),
+    R({ label: 'Theme', help: 'System follows your computer’s light or dark setting.', t: 'seg', v: 'System', o: ['System', 'Light', 'Dark'] }) ] }],
+  building: [{ rows: [
+    R({ label: 'Pacing', help: 'When the assistant stops to ask you.', t: 'select', v: 'Stop only where I am needed', o: ['Build it all, then show me', 'Stop only where I am needed', 'Ask before each step'] }),
+    R({ label: 'Explanations', help: 'Why each choice was made, under every answer.', t: 'seg', v: 'Folded', o: ['Open', 'Folded'] }),
+    R({ label: 'When no rule decides', help: 'A choice the registry cannot settle.', t: 'select', v: 'Stop and ask me', o: ['Stop and ask me', 'Let the AI choose, marked for review'] }) ] }],
+  models: [{ title: 'Which model does what', rows: [
+    R({ label: 'Default', help: 'Used for everything below unless you change it.', t: 'select', v: 'gpt-6.1-sol · ChatGPT subscription', o: ['gpt-6.1-sol · ChatGPT subscription', 'llama · Local model'] }),
+    R({ label: 'Understanding what you want', help: 'Reads your question and your data, and works out the goal.', t: 'select', v: 'Same as default', o: ['Same as default', 'gpt-6.1-sol', 'llama'] }),
+    R({ label: 'Talking with you', help: 'Writes the replies in the Assistant tab.', t: 'select', v: 'Same as default', o: ['Same as default', 'gpt-6.1-sol', 'llama'] }),
+    R({ label: 'Choosing where rules cannot', help: 'Picks when no registry rule decides. Every pick is marked for your review.', t: 'select', v: 'Same as default', o: ['Same as default', 'gpt-6.1-sol', 'llama'] }),
+    R({ label: 'Reading the plan back', help: 'Checks the built pipeline against what you asked for.', t: 'select', v: 'Same as default', o: ['Same as default', 'gpt-6.1-sol', 'llama'] }),
+    R({ label: 'Adapting and reviewing tools', help: 'Used by the Forge.', t: 'select', v: 'Same as default', o: ['Same as default', 'gpt-6.1-sol', 'llama'] }) ] }],
+  running: [{ rows: [
+    R({ label: 'Where runs execute', help: 'This machine uses Docker here. The others send each step to a cluster.', t: 'seg', v: 'This machine', o: ['This machine', 'Kubernetes', 'AWS Batch'] }),
+    R({ label: 'Folders runs can read', help: 'Data is read where it is. Nothing is copied.', t: 'list', items: ['~ (home)', '/mnt/seq'], add: '+ Add folder' }),
+    R({ label: 'Container runtime', help: 'Runs each step’s tool in its own container.', t: 'read', v: 'Docker', src: '' }),
+    R({ label: 'Who may submit runs', help: 'Only requests carrying this token can start a run.', t: 'read', v: 'token set', src: 'FROM .ENV' }) ] }],
+  privacy: [
+    { title: 'How long things are kept', rows: [
+      R({ label: 'Model replies', help: 'Stored replies from models, kept for review and replay.', t: 'select', v: '30 days', o: ['Keep', '1 day', '7 days', '30 days', '90 days', '1 year'] }),
+      R({ label: 'Drafts and conversations', help: 'Unfinished analyses and their chats.', t: 'select', v: 'Keep', o: ['Keep', '1 day', '7 days', '30 days', '90 days', '1 year'] }),
+      R({ label: 'Working files of a finished run', help: 'Intermediate files. Results are kept separately.', t: 'select', v: '7 days', o: ['Keep', 'Delete at once', '1 day', '7 days', '30 days', '90 days'] }),
+      R({ label: 'Working files of a failed run', help: 'Kept longer so you can see what went wrong.', t: 'select', v: '30 days', o: ['Keep', 'Delete at once', '1 day', '7 days', '30 days', '90 days'] }),
+      R({ label: 'Runs and results', help: 'The run record and everything it produced.', t: 'select', v: 'Keep', o: ['Keep', '1 day', '7 days', '30 days', '90 days', '1 year'] }) ] },
+    { title: 'Telemetry', rows: [ R({ label: 'Send usage data', help: 'Off unless you turn it on.', t: 'toggle', on: false }) ] } ],
+  registry: [{ rows: [
+    R({ label: 'Release', help: 'The registry version new pipelines are built from.', t: 'text', v: '', ph: 'latest' }),
+    R({ label: 'Layers', help: 'Stacked in this order; a later layer overrides an earlier one.', t: 'list', items: ['registry · base', 'dev · local, no git source'], add: '+ Add layer' }),
+    R({ label: 'GitHub token', help: 'Only needed to fetch tool source from GitHub.', t: 'read', v: 'not set', src: '' }) ] }],
+  about: [{ rows: [
+    R({ label: 'Versions', help: 'Versions of each part of this installation.', t: 'read', v: 'Mendel · Wiener · registry' }),
+    R({ label: 'Database', help: 'Where analyses, decisions and runs are stored.', t: 'read', v: 'PostgreSQL · connected' }),
+    R({ label: 'Job queue', help: 'Carries model calls and builds to the workers.', t: 'read', v: 'Redis · connected' }),
+    R({ label: 'Developer mode', help: 'Shows ids, raw files and debug views.', t: 'toggle', on: false }) ] }]
+};
+var shapeGroups = function (secId) { return (G[secId] || []).map(function (g) {
+  return { title: g.title || '', hasTitle: !!g.title, rows: g.rows.map(function (r) {
+    return {
+      label: r.label, help: r.help || '', hasHelp: !!r.help, value: r.v || '', placeholder: r.ph || '',
+      isSeg: r.t === 'seg', isSelect: r.t === 'select', isText: r.t === 'text', isToggle: r.t === 'toggle', isRead: r.t === 'read', isList: r.t === 'list',
+      options: (r.o || []).map(function (o) { return { v: o, sel: o === r.v, cls: 'sg' + (o === r.v ? ' on' : '') }; }),
+      on: !!r.on, trackStyle: 'background:' + (r.on ? 'var(--c-now)' : 'var(--c-line-2)'), knobStyle: r.on ? 'left:19px' : 'left:3px',
+      src: r.src || '', hasSrc: !!r.src, items: r.items || [], add: r.add || '',
+      open: s.tip === secId + r.label, toggle: function () { self.setState({ tip: s.tip === secId + r.label ? null : secId + r.label }); }
+    };
+  }) };
+}); };
+var L = [
+  { id: 'level_0', name: 'Level 0 · this machine', text: 'The assistant reads your files directly. Samples of file text can reach the model, and its replies are stored.' },
+  { id: 'open', name: 'Open', text: 'Measured facts and short samples of your files can reach the model.' },
+  { id: 'guarded', name: 'Guarded', text: 'Only measured facts reach the model. No file text.' },
+  { id: 'sealed', name: 'Sealed', text: 'Nothing about your data reaches a model. You answer every choice.' }
+];
+return {
+  sections: S.map(function (x) { return { label: x.label, href: '#' + x.id, cls: 'sec' + (s.sec === x.id ? ' on' : ''), go: function () { self.setState({ sec: x.id }); } }; }),
+  all: S.map(function (x) { return { id: x.id, label: x.label, intro: x.intro, isModels: x.id === 'models', isPrivacy: x.id === 'privacy', groups: shapeGroups(x.id) }; }),
+  levels: L.map(function (l) { return { name: l.name, text: l.text, on: s.level === l.id, cls: 'lvl' + (s.level === l.id ? ' on' : ''), go: function () { self.setState({ level: l.id }); } }; })
+};
+}
+renderVals() {
+var v = this.renderValsBase();
+var self = this;
+var dark = (this.state && this.state.dark !== undefined && this.state.dark !== null) ? this.state.dark : !!this.props.dark;
+v.themeCls = dark ? 'theme-dark' : '';
+v.toggleTheme = function () { self.setState({ dark: !dark }); };
+return v;
+}
+}
+</script>
+</body>
+</html>
