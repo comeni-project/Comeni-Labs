@@ -47,7 +47,21 @@ TAGS = [
 
 
 def create_app() -> FastAPI:
+    from contextlib import asynccontextmanager
+
+    from mendel_api.agent import mcp as served
+
+    # **The engine's tools over MCP** (#463), behind `MENDEL_MCP_TOKEN`. Its session manager
+    # runs for the app's lifetime: a mounted app's own lifespan never runs.
+    mcp_app = served.app()
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        async with served.server.session_manager.run():
+            yield
+
     app = FastAPI(
+        lifespan=lifespan,
         title="mendel-api",
         version="0.1.0",
         summary="The forge and Mendel, over one schema.",
@@ -92,6 +106,7 @@ def create_app() -> FastAPI:
     # The forge's catalogue (forge part 1, #362).
     app.include_router(forge_routes.router, prefix="/api")
     app.include_router(proposal_routes.router, prefix="/api")
+    app.mount("/api/mcp", mcp_app)
     return app
 
 

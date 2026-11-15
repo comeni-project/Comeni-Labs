@@ -112,7 +112,10 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
-    environment: *mendel-environment
+    environment:
+      <<: *mendel-environment
+      # The engine's tools over MCP for other agents (#463). Unset, MCP is off.
+      MENDEL_MCP_TOKEN: ${MENDEL_MCP_TOKEN:-}
     ports: ["127.0.0.1:${API_HOST_PORT:-8000}:8000"]
     volumes:
       # Mount local code for development.

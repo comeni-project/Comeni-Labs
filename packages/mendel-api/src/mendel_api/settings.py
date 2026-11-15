@@ -95,6 +95,8 @@ class Settings(BaseSettings):
     a limit they know, not a default worth tuning — and work waiting in a queue is visible,
     where work failing on a rate limit is a retry storm.
     """
+    mcp_token: str = ""
+    """The bearer token an MCP client presents (`MENDEL_MCP_TOKEN`, #463). Unset, MCP is off."""
     agent_max_steps: int = 24
     """The most model calls one builder-agent turn makes before it stops and says so (#463)."""
     agent_max_tokens: int = 200_000

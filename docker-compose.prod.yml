@@ -13,6 +13,9 @@ services:
 
   api:
     ports: !reset []
+    # The API is public here and Mendel has no accounts, so MCP needs its token (#463).
+    environment:
+      MENDEL_MCP_TOKEN: ${MENDEL_MCP_TOKEN:?Set MENDEL_MCP_TOKEN to serve MCP in production}
     volumes: !override
       - ./.run/registry:/app/registry
       - ./.run/registries:/app/registries:ro

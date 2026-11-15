@@ -58,8 +58,9 @@ def resolve(ctx: ToolContext, _: Nothing) -> ResolvedView:
     if ctx.session_id is not None:
         # **Kept on the session**: what the page draws and marks as the AI's comes from it,
         # without resolving again on every poll.
-        from mendel_api.models import PipelineAuthoringSession
         from mendel_authoring.blueprint import Blueprint
+
+        from mendel_api.models import PipelineAuthoringSession
 
         with session_scope() as db:
             row = db.get(PipelineAuthoringSession, ctx.session_id)
