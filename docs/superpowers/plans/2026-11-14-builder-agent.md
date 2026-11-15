@@ -317,6 +317,6 @@
 
 ### Task 14: Checks, the walk, and the issues
 
-- [ ] **Step 1:** `make check`, `make guards`, `make verify` (resolution and the saved schema changed), `cd frontend && npx vitest run && npx tsc -b` — all PASS, alone on the test DB.
+- [x] **Step 1:** `make check`, `make guards`, `make verify` (resolution and the saved schema changed), `cd frontend && npx vitest run && npx tsc -b` — all PASS, alone on the test DB.
 - [ ] **Step 2 (deferred by the operator, 2026-11-15: walked after plan 2, #499, with everything):** Restart `api`, `mendel-worker`, `ai-worker`; walk the RNA-seq goal and the QUAST goal in the browser at 1440×900 and 390 wide, light and dark; the operator rates the chat live. File every defect as a sub-issue of #463.
 - [ ] **Step 3 (deferred with the walk):** Close #497 and #493 with what replaced them; tick #494 and #496's chat items; leave #499 (plan 2) open.
