@@ -166,6 +166,8 @@ class AiChoiceView(BaseModel):
 
     node: str
     what: str
+    because: str = ""
+    """The reason the AI gave for the choice."""
 
 
 class AuthoringSessionView(BaseModel):

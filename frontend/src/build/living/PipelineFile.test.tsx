@@ -114,6 +114,13 @@ describe("the file first, every value marked (one builder plan 5, issue 394)", (
     expect(p.onAsk).toHaveBeenCalledWith("About STAR_ALIGN sjdbOverhang: ");
   });
 
+  it("tints only an open value's own line, never every null (walk 2026-11-15)", () => {
+    file({ preview: { ...READY, text: READY.text.replace("gate: null", "gate: null\nemitted: null") } });
+    const tinted = within(screen.getByTestId("artifact-text")).getAllByTestId("file-line")
+      .filter((l) => l.dataset.open).map((l) => l.textContent);
+    expect(tinted).toEqual(["    value: null"]);
+  });
+
   it("has no column waiting for a click (issue 495)", () => {
     file();
     expect(screen.queryByText(/Click a value/)).toBeNull();

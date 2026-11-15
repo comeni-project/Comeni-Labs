@@ -11,6 +11,7 @@ from comeni_core.egress.agent import (
     FactLine,
     FactsView,
     GoalView,
+    MeasureLine,
     NeedLine,
     NeedsView,
     PipelineView,
@@ -22,6 +23,7 @@ from comeni_core.egress.agent import (
     ToolRef,
     ToolsView,
     TypeLine,
+    VocabularyView,
 )
 from mendel_authoring.brief import tool_of
 from pydantic import BaseModel, Field
@@ -55,6 +57,21 @@ def _type_line(stack, type_id: str, states=()) -> TypeLine:
 def _tool_name(stack, contract_id: str) -> str:
     tool = stack.tools.tools.get(tool_of(contract_id))
     return tool.name if tool else tool_of(contract_id)
+
+
+def list_vocabulary(ctx: ToolContext, _: Nothing) -> VocabularyView:
+    """Every type and measurement the registry declares, sorted by id."""
+    stack = registry.stack()
+    types = [_type_line(stack, t, stack.vocabulary.types[t])
+             for t in sorted(stack.vocabulary.types)]
+    measures = []
+    for mid in sorted(stack.measurements.ids()):
+        m = stack.measurements.get(mid)
+        measures.append(MeasureLine(
+            measurement=mid, name=(m.description or mid)[:200], kind=str(m.kind),
+            values=[str(v) for v in (m.values or [])], unit=str(m.unit or ""),
+            describes=m.describes or None))
+    return VocabularyView(types=types, measurements=measures)
 
 
 def built(ctx: ToolContext):
@@ -220,6 +237,8 @@ def what_is_needed(ctx: ToolContext, _: Nothing) -> NeedsView:
 
 
 for _tool in (
+    Tool("list_vocabulary", "Every type and measurement the registry declares, by exact id: read "
+         "this before naming a type (want, have) or a fact (set_fact).", Nothing, list_vocabulary),
     Tool("read_goal", "What is wanted, what the person has, the facts about their data, and the "
          "tools and values chosen so far, with who chose them.", Nothing, read_goal),
     Tool("read_pipeline", "The pipeline the engine builds from the decisions now: each step, "

@@ -29,8 +29,8 @@ export function StepCard({ node, kind, onKind, step, graph, onSetParam, onEdit, 
   onKind: (kind: CardKind) => void;
   step: AnsweredStep | undefined;
   graph: DraftGraph;
-  /** What the AI chose at this step that nobody has reviewed yet (#463): `chose …`, `set … to …`. */
-  aiChoices?: string[];
+  /** What the AI chose at this step that nobody has reviewed yet (#463), and the reason it gave. */
+  aiChoices?: { what: string; because?: string }[];
   /** The person has looked at what the AI chose here. */
   onReviewed?: (node: string) => void;
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
@@ -102,10 +102,14 @@ export function StepCard({ node, kind, onKind, step, graph, onSetParam, onEdit, 
         <section aria-label="What the AI chose" className="flex flex-col gap-2 px-[12px] py-[10px] rounded-panel"
                  style={{ background: "var(--now-soft)" }}>
           <h3 className="m-0 text-[13px] font-semibold text-now-ink">Chosen by the AI</h3>
-          <ul className="m-0 pl-[18px] text-[12.5px] text-ink flex flex-col gap-[2px]">
-            {aiChoices.map((what) => <li key={what}>{what}</li>)}
+          <ul className="m-0 pl-[18px] text-[12.5px] text-ink flex flex-col gap-[4px]">
+            {aiChoices.map(({ what, because }) => (
+              <li key={what}>
+                {what}
+                {because && <span className="block text-[12px] text-ink-2">{because}</span>}
+              </li>
+            ))}
           </ul>
-          <p className="m-0 text-[12px] text-ink-2">Ask in the chat why, or change it below.</p>
           {onReviewed && (
             <span className="self-start"><Secondary onClick={() => onReviewed(node)}>Looks right</Secondary></span>
           )}

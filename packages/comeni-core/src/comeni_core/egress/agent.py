@@ -43,6 +43,7 @@ class ViewKind(StrEnum):
     RESOLVED = "resolved"
     COMPILED = "compiled"
     ASKED = "asked"
+    VOCABULARY = "vocabulary"
 
 
 class TypeLine(EgressPayload):
@@ -244,9 +245,29 @@ class AskedView(EgressPayload):
     type_id: TypeId | None = None
 
 
+class MeasureLine(EgressPayload):
+    """A fact the registry can measure or take from the person, by its exact id."""
+
+    measurement: MeasurementId
+    name: Line
+    kind: Line
+    values: list[Line] = Field(default_factory=list)
+    unit: Line = ""
+    describes: TypeId | None = None
+
+
+class VocabularyView(EgressPayload):
+    """Every type and measurement the registry declares (walk 2026-11-15): registry data, so the
+    agent names them exactly rather than guessing."""
+
+    kind: Literal[ViewKind.VOCABULARY] = ViewKind.VOCABULARY
+    types: list[TypeLine] = Field(default_factory=list)
+    measurements: list[MeasureLine] = Field(default_factory=list)
+
+
 AgentView = Annotated[
     TextView | SamplesView | GoalView | PipelineView | StepView | ToolsView | RulesView
-    | FactsView | NeedsView | ResolvedView | CompiledView | AskedView,
+    | FactsView | NeedsView | ResolvedView | CompiledView | AskedView | VocabularyView,
     Field(discriminator="kind"),
 ]
 """Every view a tool may return. Each tool's own view joins this union."""

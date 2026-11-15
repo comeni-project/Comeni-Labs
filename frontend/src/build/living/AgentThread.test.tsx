@@ -134,7 +134,7 @@ describe("the agent's thread", () => {
     const onReviewed = vi.fn();
     render(<StepCard node="star_align" kind="settings" onKind={vi.fn()} step={FAKE_STEPS.star_align} graph={FAKE_SESSION.graph}
                       onSetParam={vi.fn()} onEdit={vi.fn()} onClose={vi.fn()}
-                      aiChoices={["chose star_align"]} onReviewed={onReviewed} />);
+                      aiChoices={[{ what: "chose star_align" }]} onReviewed={onReviewed} />);
     fireEvent.click(screen.getByRole("button", { name: "Looks right" }));
     expect(onReviewed).toHaveBeenCalledWith("star_align");
   });

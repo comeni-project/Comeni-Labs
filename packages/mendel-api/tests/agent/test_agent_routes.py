@@ -102,6 +102,9 @@ def test_reviewing_clears_the_ai_marks(clean, queued, monkeypatch):
     ], session["id"], 1)
     marked = client.get(f"{BASE}/{session['id']}").json()["ai_unreviewed"]
     assert any(m["node"] == "hisat2_align" for m in marked), marked
+    # The card says why, in the AI's words (walk 2026-11-15).
+    [hisat] = [m for m in marked if m["node"] == "hisat2_align"]
+    assert "less memory" in hisat["because"], hisat
     assert client.post(f"{BASE}/{session['id']}/reviewed", json={"nodes": "all"}).status_code == 200
     assert client.get(f"{BASE}/{session['id']}").json()["ai_unreviewed"] == []
 

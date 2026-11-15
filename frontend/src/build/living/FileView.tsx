@@ -6,6 +6,8 @@ import { folds as foldsOf, type Fold } from "./folds";
  *  whether it is the selected value, and what clicking it does. */
 export type LineDecoration = {
   hidden?: boolean; mark?: ReactNode; selected?: boolean; onSelect?: () => void;
+  /** The line of a value that still needs the person: tinted as one. */
+  open?: boolean;
 } | null;
 
 /** **`pipeline.yml`, as text a person reads** (#499, direction A): line numbers, folds that open
@@ -58,11 +60,11 @@ export function FileView({ text, decorate, below, onAbout, scrollTo }: {
     const closed = fold ? folded(fold) : false;
     drawn.push(
       <span key={index} data-testid="file-line" data-n={index + 1} onClick={deco?.onSelect}
-            data-selected={deco?.selected || undefined}
+            data-selected={deco?.selected || undefined} data-open={deco?.open || undefined}
             className="grid grid-cols-[44px_18px_minmax(0,1fr)] relative"
             style={{ ...(deco?.selected ? { background: "var(--now-soft)", boxShadow: "inset 3px 0 0 var(--now)" } : {}),
                      ...(deco?.onSelect ? { cursor: "pointer" } : {}),
-                     ...(/:\s*null\b/.test(line) && !deco?.selected ? { background: "var(--needs-you-soft)" } : {}) }}>
+                     ...(deco?.open && !deco.selected ? { background: "var(--needs-you-soft)" } : {}) }}>
         {/* The number and the fold arrow are drawn by CSS, so a line's text is only its text —
             for a reader, a test, and whatever is copied. */}
         <span aria-hidden className="text-right pr-[10px] text-ink-3 select-none before:content-[attr(data-n)]"

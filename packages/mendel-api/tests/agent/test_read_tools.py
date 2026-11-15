@@ -69,3 +69,17 @@ def test_what_is_needed_lists_the_open_questions(clean):
     result = call(_rnaseq(), "what_is_needed", {})
     assert result.ok, result.refusal
     assert isinstance(result.view.needs, list)
+
+
+def test_the_registry_vocabulary_names_every_type_and_measurement(clean):
+    """Walk 2026-11-15: the agent guessed `reads.fastq` and `paired_end`, and was refused four
+    times. It can read every type and measurement the registry declares, by its exact id."""
+    from mendel_api.services import registry
+
+    seen = call(_rnaseq(), "list_vocabulary", {})
+    assert seen.ok, seen.refusal
+    stack = registry.stack()
+    assert {t.type_id for t in seen.view.types} == set(stack.vocabulary.types)
+    assert {m.measurement for m in seen.view.measurements} == set(stack.measurements.ids())
+    length = next(m for m in seen.view.measurements if m.measurement == "read_length")
+    assert length.kind == "integer" and length.name and length.describes == "fastq.reads"

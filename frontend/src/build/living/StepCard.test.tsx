@@ -56,6 +56,14 @@ describe("a step's Settings card (issue 499)", () => {
     expect(p.onClose).toHaveBeenCalledTimes(2);
   });
 
+  it("says what the AI chose and why, in its words (walk 2026-11-15)", () => {
+    sheet({ aiChoices: [{ what: "chose nf-core/multiqc@1.35", because: "one report for every QC output" }],
+            onReviewed: vi.fn() });
+    const chose = screen.getByRole("region", { name: "What the AI chose" });
+    expect(chose).toHaveTextContent("chose nf-core/multiqc@1.35");
+    expect(chose).toHaveTextContent("one report for every QC output");
+  });
+
   it("offers the step's other tools, Inputs only where it has any", () => {
     const p = sheet();
     expect(screen.queryByRole("button", { name: "Inputs…" })).toBeNull();

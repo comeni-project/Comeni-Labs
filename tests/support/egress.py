@@ -169,6 +169,12 @@ FREE_TEXT_FIELDS = {
     ("RuleLine", "rows"),
     ("RuleLine", "because"),
     ("RuleLine", "cite"),
+    # The registry's vocabulary (walk 2026-11-15): each measurement's declared description, kind,
+    # allowed values and unit. Registry data, as `TypeLine.name` is.
+    ("MeasureLine", "name"),
+    ("MeasureLine", "kind"),
+    ("MeasureLine", "values"),
+    ("MeasureLine", "unit"),
     ("NeedLine", "kind"),
     ("NeedLine", "subject"),
     ("NeedLine", "name"),

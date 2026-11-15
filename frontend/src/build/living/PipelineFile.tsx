@@ -103,6 +103,9 @@ export function PipelineFile({
     if (!ref) return null;
     const mark = ref.head && value ? markOf(value, tiers) : null;
     return {
+      // **Only an open value's own line is tinted** (walk 2026-11-15): every `null` in the file
+      // was red, `for_value: null` and `displaced_layer: null` included.
+      open: Boolean(value && kindOf(value) === "open" && /^\s*value:\s*null\b/.test(line)),
       selected: picked?.step === ref.step && picked.setting === ref.setting,
       onSelect: () => setPicked(picked?.step === ref.step && picked.setting === ref.setting
         ? null : { step: ref.step, setting: ref.setting }),

@@ -116,9 +116,11 @@ def _blueprint(session_id: str) -> tuple[str, Blueprint | None]:
 def _ai_steps(blueprint: Blueprint) -> list[dict]:
     out = []
     for step in blueprint.pipeline.steps:
+        # Each with the reason the AI gave (walk 2026-11-15): the card says why, not only what.
         if step.why.source.value == "model":
-            out.append({"node": step.id, "what": f"chose {step.module.contract_id}"})
-        out += [{"node": step.id, "what": f"set {s.name} to {s.value}"}
+            out.append({"node": step.id, "what": f"chose {step.module.contract_id}",
+                        "because": step.why.reason})
+        out += [{"node": step.id, "what": f"set {s.name} to {s.value}", "because": s.why.reason}
                 for s in step.settings if s.why.source.value == "model"]
     return out
 
@@ -136,7 +138,7 @@ def choices(session_id: str) -> list[dict]:
 
 def unreviewed(session_id: str) -> list[dict]:
     """What the AI chose, in the pipeline last built, that nobody has reviewed as it now is."""
-    return [{"node": m["node"], "what": m["what"]}
+    return [{"node": m["node"], "what": m["what"], "because": m["because"]}
             for m in choices(session_id) if not m["reviewed"]]
 
 

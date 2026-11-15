@@ -89,7 +89,8 @@ export const FAKE_SESSION = {
         tool(5, 0, "read_step", "Reading the step samtools_sort", "", true, true)] },
   ],
   working: true,
-  ai_unreviewed: [{ node: "star_align", what: "chose nf-core/star/align@2.7.11b" }],
+  ai_unreviewed: [{ node: "star_align", what: "chose nf-core/star/align@2.7.11b",
+                   because: "150 bp paired reads: STAR's splice-aware alignment is the usual choice" }],
 } as unknown as AuthoringSession;
 
 const port = (name: string, type_id: string, side: "in" | "out", states: string[] = [], gathers = false) =>

@@ -136,6 +136,7 @@ def _history(session_id: str, before: int) -> list[dict]:
 
 
 _LABELS = {
+    "list_vocabulary": "Read the registry's types and facts",
     "read_goal": "Read the goal", "read_pipeline": "Read the pipeline",
     "read_step": "Read the step {node}", "find_tools": "Looked for tools around {type_id}",
     "read_rules": "Read the rules for {role}", "read_facts": "Read the facts about your data",
@@ -150,6 +151,7 @@ _LABELS = {
 
 
 _DOING = {
+    "list_vocabulary": "Reading the registry's types and facts",
     "read_goal": "Reading the goal", "read_pipeline": "Reading the pipeline",
     "read_step": "Reading the step {node}", "find_tools": "Looking for tools around {type_id}",
     "read_rules": "Reading the rules for {role}", "read_facts": "Reading the facts about your data",

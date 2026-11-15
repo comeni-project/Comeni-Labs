@@ -1541,6 +1541,11 @@ export interface components {
             node: string;
             /** What */
             what: string;
+            /**
+             * Because
+             * @default
+             */
+            because: string;
         };
         /** AiConfigured */
         AiConfigured: {

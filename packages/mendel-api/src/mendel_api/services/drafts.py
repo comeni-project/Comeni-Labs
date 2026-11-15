@@ -633,5 +633,6 @@ def _materialised(draft_id: str, stored: "Stored", stack, *, by: str,
     from mendel_api.services import session as authoring_session
 
     chosen = authoring_session.ai_choices_for_draft(draft_id)
-    return pipeline.model_copy(update={"ai_choices": [AiChoice(**c) for c in chosen]}) \
+    return pipeline.model_copy(update={"ai_choices": [
+        AiChoice(node=c["node"], what=c["what"], reviewed=c["reviewed"]) for c in chosen]}) \
         if chosen else pipeline

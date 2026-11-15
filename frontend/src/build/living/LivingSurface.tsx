@@ -107,7 +107,8 @@ export function LivingSurface({
     setMenuFor(null); setCardFor(node); setKind(next); onSelect(node);
   };
   const closeCard = () => { const at = carded; pick(null); if (at) backTo(at); };
-  const aiAt = (node: string) => session.ai_unreviewed.filter((c) => c.node === node).map((c) => c.what);
+  const aiAt = (node: string) => session.ai_unreviewed.filter((c) => c.node === node)
+    .map((c) => ({ what: c.what, because: c.because }));
   const menuItems = (node: string): MenuItem[] => [
     { id: "ask", label: "Ask about this step" },
     { id: "settings", label: "Settings…" },

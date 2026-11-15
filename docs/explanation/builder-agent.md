@@ -32,10 +32,12 @@ the person as an error.
 
 The tools live in `mendel_api.agent` and are the agent's whole reach:
 
-- **Read**: the goal, the pipeline, one step, the tools around a type, the rules for a role, the
-  facts about the person's data, and what is still needed.
+- **Read**: the registry's types and measurements by their exact ids, the goal, the pipeline,
+  one step, the tools around a type, the rules for a role, the facts about the person's data, and
+  what is still needed.
 - **Change**: want or have a type, set a fact, choose or exclude a tool, switch a role or an
-  input, set a value, keep a tool whole, and undo a decision.
+  input, set a value, keep a tool whole, and undo a decision. It also gives the analysis a working
+  name, which is not a decision and which the person can change.
 - **Build**: resolve the decisions into a pipeline, and compile it to Nextflow.
 - **Ask**: put a question to the person, with the shape of answer it takes. The turn ends there,
   and the person's answer starts the next one.
