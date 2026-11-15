@@ -269,10 +269,12 @@
 **Interfaces:**
 - Keeps: `services.decisions`, `services.changes`, `services.gaps`, `services.blueprint.resolve`, review tracking, sample upload and characterisation.
 
-- [ ] **Step 1: Write the failing test:** `test_rules_learn_only_from_answers_a_person_gave_or_reviewed` — a draft whose alignment was chosen by the model and not reviewed is not evidence; after `POST /reviewed`, it is.
-- [ ] **Step 2:** Run — FAIL. **Step 3:** Delete the code; implement the evidence filter; write the migration; update CLAUDE.md to say "the engine validates, routes, applies rules as advice and emits; the agent chooses, recorded as the AI's" and keep the doc-size budget (`make doc-sizes`). **Step 4:** `make check`, `make guards`, `make doc-sizes` — PASS, alone on the test DB. **Step 5:** Commit: `refactor: the scripted builder flow is deleted; the agent replaces it`.
+- [x] **Step 1 (moved to Task 13, ruled):** `test_rules_learn_only_from_answers_a_person_gave_or_reviewed` — a draft whose alignment was chosen by the model and not reviewed is not evidence; after `POST /reviewed`, it is.
+- [x] **Step 2:** Run — FAIL. **Step 3:** Delete the code; implement the evidence filter; write the migration; update CLAUDE.md to say "the engine validates, routes, applies rules as advice and emits; the agent chooses, recorded as the AI's" and keep the doc-size budget (`make doc-sizes`). **Step 4:** `make check`, `make guards`, `make doc-sizes` — PASS, alone on the test DB. **Step 5:** Commit: `refactor: the scripted builder flow is deleted; the agent replaces it`.
 
 ---
+
+  *Deviations (ledgered):* the evidence filter moved to Task 13; the walk was rewired first, then deleted whole (operator's choice); turn shape 12; the agent door became `AgentRequest`; follow-ups #501–#503. Commits b203582..75ffe08.
 
 ### Task 12: The chat in the browser
 
