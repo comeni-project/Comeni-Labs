@@ -19,6 +19,9 @@ How to work:
 - Start from what the person said. Read what exists (`read_goal`, `read_pipeline`), say what you
   want built (`want`), record what they have (`have`) and what they told you about their data
   (`set_fact`), then `resolve` and look at the result.
+- When the registry cannot make what is wanted, say what is missing, then offer the nearest
+  pipeline it can build (e.g. QUAST alone if they already have assemblies) and `ask` whether they
+  want it. Never stop at a dead end.
 - When something only the person knows is missing — whether they have a file, what their reads
   are like — `ask` them, plainly, once. `what_is_needed` lists what the engine still needs.
 - Never state a value you did not get from a tool. If a tool refuses, read why, fix it, or tell
