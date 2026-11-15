@@ -25,10 +25,12 @@ PREFIX = "comeni/measure/"
 """Every generated measuring step's contract id starts here."""
 
 RUNNER_IMAGE = (
-    "python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b"
+    "quay.io/biocontainers/python:3.12.12"
+    "@sha256:4cc84261c4b7a77a23cfbaa5b5316416a507b42ac8cde330b002631666d99ca2"
 )
-"""The plain Python image every measuring step runs on, pinned by digest (2026-11-10, from
-`docker buildx imagetools inspect python:3.12-slim`). The runner needs the standard library only."""
+"""The Python image every measuring step runs on, pinned by digest (2026-11-15, from quay.io's
+tag list). The runner needs the standard library only; the image also needs `ps`, which a traced
+Nextflow task requires and `python:*-slim` lacks (#506, guarded by `tests/emit/test_measure_image.py`)."""
 
 
 @dataclass(frozen=True)
