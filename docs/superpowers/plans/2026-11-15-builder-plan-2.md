@@ -36,15 +36,15 @@
 
 **Interfaces:** Produces `node_height(ports: int) -> int` and `nodeHeight(ports: number): number`, identical values.
 
-- [ ] **Step 1: Failing tests:** `test_a_tall_step_grows_and_its_siblings_make_room` (a node with 6 inputs is `89 + 22*5 = 199` high; the next sibling's `y` ≥ its `y + 199 + 58`); `test_the_canvas_and_the_layout_agree_on_geometry` extended with `node_height(1..8)`; vitest `draws every port of a many-port step inside it, each on its own row` (6 inputs, 3 outputs: node height 199, each `data-port-mark` top within the node, row *i* holds input *i* left and output *i* right).
-- [ ] **Step 2:** Run — FAIL. **Step 3:** Implement; rows show the port name with the type and states as the title. **Step 4:** `uv run pytest packages/dag-core` and `npx vitest run src/build` — PASS. **Step 5:** Commit `feat: a step with many ports grows to fit them, each wire on its own row (#494)`.
+- [x] **Step 1: Failing tests:** `test_a_tall_step_grows_and_its_siblings_make_room` (a node with 6 inputs is `89 + 22*5 = 199` high; the next sibling's `y` ≥ its `y + 199 + 58`); `test_the_canvas_and_the_layout_agree_on_geometry` extended with `node_height(1..8)`; vitest `draws every port of a many-port step inside it, each on its own row` (6 inputs, 3 outputs: node height 199, each `data-port-mark` top within the node, row *i* holds input *i* left and output *i* right).
+- [x] **Step 2:** Run — FAIL. **Step 3:** Implement; rows show the port name with the type and states as the title. **Step 4:** `uv run pytest packages/dag-core` and `npx vitest run src/build` — PASS. **Step 5:** Commit `feat: a step with many ports grows to fit them, each wire on its own row (#494)`.
 
 ### Task 2: The canvas never re-zooms by itself; a new message fades in
 
 **Files:** Modify `LivingCanvas.tsx`, `LivingSurface.tsx`, `AgentThread.tsx`, `frontend/src/main.css`. Test: `follow.test.tsx`, `AgentThread.test.tsx`.
 
-- [ ] **Step 1: Failing tests:** `pans to a step that arrives off screen, and never changes the zoom` (the view's `k` is unchanged after a new node arrives); `fades a new thread item in, and nothing under reduced motion` (the newest item carries `agent-arrive`; `sources.test.ts` finds `.agent-arrive` under the reduced-motion block).
-- [ ] **Step 2–4:** FAIL, implement, PASS. **Step 5:** Commit `fix: the canvas fits only when asked, and a reply fades in without moving the thread (#494, #496)`.
+- [x] **Step 1: Failing tests:** `pans to a step that arrives off screen, and never changes the zoom` (the view's `k` is unchanged after a new node arrives); `fades a new thread item in, and nothing under reduced motion` (the newest item carries `agent-arrive`; `sources.test.ts` finds `.agent-arrive` under the reduced-motion block).
+- [x] **Step 2–4:** FAIL, implement, PASS. **Step 5:** Commit `fix: the canvas fits only when asked, and a reply fades in without moving the thread (#494, #496)`.
 
 ### Task 3: The step menu and its cards
 
@@ -56,8 +56,8 @@
 
 **Interfaces:** `StepMenu({ node, at, items, onChoose, onClose })`; `StepCard({ node, kind: "settings" | "inputs" | "swap", anchor, onClose })`; the surface holds `card: { node, kind } | null`.
 
-- [ ] **Step 1: Failing tests:** `right-click on a step opens its menu with the items it allows` (no *Why is it here?*; *Keep whole* only where `parts` exist; *Looks right* only on an AI-chosen unreviewed step); `the menu works from the keyboard` (Shift+F10, arrows, Enter, Esc returns focus); `a click opens the step's Settings card beside it, and the chat stays` (the thread is still in the document); `Ask about this step names the step in the composer`; `a card closes when its step is removed`; `Swap lists the other tools and choosing one is an edit`; `Remove asks, then edits`; `Looks right reviews the step`.
-- [ ] **Step 2–4:** FAIL, implement, PASS (`npx vitest run && npx tsc -b`). **Step 5:** Commit `feat: a step's tools open from the step: a menu and a card beside it (#499)`.
+- [x] **Step 1: Failing tests:** `right-click on a step opens its menu with the items it allows` (no *Why is it here?*; *Keep whole* only where `parts` exist; *Looks right* only on an AI-chosen unreviewed step); `the menu works from the keyboard` (Shift+F10, arrows, Enter, Esc returns focus); `a click opens the step's Settings card beside it, and the chat stays` (the thread is still in the document); `Ask about this step names the step in the composer`; `a card closes when its step is removed`; `Swap lists the other tools and choosing one is an edit`; `Remove asks, then edits`; `Looks right reviews the step`.
+- [x] **Step 2–4:** FAIL, implement, PASS (`npx vitest run && npx tsc -b`). **Step 5:** Commit `feat: a step's tools open from the step: a menu and a card beside it (#499)`.
 
 ### Task 4: The pipeline file page, direction A with the AI panel
 
@@ -69,12 +69,14 @@
 
 **Interfaces:** `folds(text) -> Fold[]` with `{ start, end, summary }` (0-based lines; `module`, `why`, `inputs` of each step and each top-level section); `stepsUsed(turn) -> string[]` from the turn's tool lines whose name is `read_step | choose_tool | set_value | keep_whole | switch_input` (their node from the label is not reliable: the tool line gains the node it touched, server side, as `ToolLine.node`).
 
-- [ ] **Step 1: Failing tests:** `folds a step's module, why and inputs to one summary line` (`{ nf-core/star/align@2.7.11b · 4 lines }`); `the outline lists the steps with their state and jumps to each`; `clicking a value opens its reason beneath the line, with Ask the AI and Change`; `selecting lines offers Explain this, which asks in the conversation with the real line numbers`; `the AI panel is the builder's thread and its answers link the steps they read`; `main.nf and nextflow.config compile on first open`; `the empty "click a value" column is gone`; backend `test_a_tool_line_names_the_step_it_touched` (`ToolLine.node`).
-- [ ] **Step 2–4:** FAIL, implement, PASS (`make client` after `ToolLine.node`; the v12 turn golden is rewritten, as #504 did). **Step 5:** Commit `feat: the pipeline file page: an outline, folds, reasons in place and the AI beside it (#495, #499)`.
+- [x] **Step 1: Failing tests:** `folds a step's module, why and inputs to one summary line` (`{ nf-core/star/align@2.7.11b · 4 lines }`); `the outline lists the steps with their state and jumps to each`; `clicking a value opens its reason beneath the line, with Ask the AI and Change`; `selecting lines offers Explain this, which asks in the conversation with the real line numbers`; `the AI panel is the builder's thread and its answers link the steps they read`; `main.nf and nextflow.config compile on first open`; `the empty "click a value" column is gone`; backend `test_a_tool_line_names_the_step_it_touched` (`ToolLine.node`).
+- [x] **Step 2–4:** FAIL, implement, PASS (`make client` after `ToolLine.node`; the v12 turn golden is rewritten, as #504 did). **Step 5:** Commit `feat: the pipeline file page: an outline, folds, reasons in place and the AI beside it (#495, #499)`.
 
 ### Task 5: Docs, checks and the browser check
 
-- [ ] **Step 1:** Update `docs/how-to/pipelines/build.md` and `docs/reference/pipelines/builder-interface.md` for the menu, the cards and the file page.
-- [ ] **Step 2:** `make check`, `make guards`, `cd frontend && npx vitest run && npx tsc -b`, `npm run lint` — PASS.
-- [ ] **Step 3:** Browser check on `?fake=1` and `?fake=collect`, plus a many-port fake (QUAST), at 1440 and 390, light and dark. Record findings.
+- [x] **Step 1:** Update `docs/how-to/pipelines/build.md` and `docs/reference/pipelines/builder-interface.md` for the menu, the cards and the file page.
+- [x] **Step 2:** `make check`, `make guards`, `cd frontend && npx vitest run && npx tsc -b`, `npm run lint` — PASS.
+- [x] **Step 3:** Browser check on `?fake=1` and `?fake=collect`, plus a many-port fake (QUAST), at 1440 and 390, light and dark. Record findings.
 - [ ] **Step 4:** Tick #499's items; the live walk follows (operator).
+
+**Deviations:** Task 3 deferred the input box's menu and the empty canvas's menu (noted on #499). Task 4 folds every step key but `settings`, and drops the old changed-line highlight from the file view. See `.superpowers/sdd/2026-11-15-builder-plan-2/progress.md`.
