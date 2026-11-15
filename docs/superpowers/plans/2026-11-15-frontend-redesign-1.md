@@ -151,7 +151,7 @@ Board: all screens (the rail) and `Tokens.dc.html`.
     - `/runs/:id` goes to `/a/:draft/run/:id` when a draft's `digest` equals the run's `pipeline_digest`.
       Otherwise the run renders inside the frame, with an empty slot.
 
-- [ ] **Step 1:** Write the failing tests in `Rail.test.tsx`:
+- [x] **Step 1:** Write the failing tests in `Rail.test.tsx`:
   - `places are always Home, Forge, Registry`
   - `the slot shows "Open an analysis…" when no analysis is open`
   - `inside an analysis the active page's sub-pages are indented under it`: Data shows Overview, Samples,
@@ -159,13 +159,13 @@ Board: all screens (the rail) and `Tokens.dc.html`.
   - `controls render under a divider with their label`
   - `the bottom row is Settings, theme, Local`
   - `collapsed rail hides labels and sub-pages`
-- [ ] **Step 2:** Run `cd frontend && npx vitest run src/app/rail`. Expected: FAIL, module not found.
-- [ ] **Step 3:** Implement `Rail`, `AnalysisSlot` and `AnalysisFrame`, then the router and the redirects. Keep the
+- [x] **Step 2:** Run `cd frontend && npx vitest run src/app/rail`. Expected: FAIL, module not found.
+- [x] **Step 3:** Implement `Rail`, `AnalysisSlot` and `AnalysisFrame`, then the router and the redirects. Keep the
   collapsed state in `localStorage` under the key `rail.mini`, wrapped in try/catch.
-- [ ] **Step 4:** Run the rail tests, then `npx vitest run src/app && npx tsc -b`. Expected: PASS. Existing tests
+- [x] **Step 4:** Run the rail tests, then `npx vitest run src/app && npx tsc -b`. Expected: PASS. Existing tests
   that test the old header itself are deleted, not adapted.
-- [ ] **Step 5:** Walk it in the browser and compare it with the board's rail, expanded and collapsed.
-- [ ] **Step 6:** Commit: `feat(frontend): the rail and the analysis frame (#511)`.
+- [x] **Step 5:** Walk it in the browser and compare it with the board's rail, expanded and collapsed.
+- [x] **Step 6:** Commit: `feat(frontend): the rail and the analysis frame (#511)`.
 
 ### Task 2: UI primitives
 
@@ -190,18 +190,18 @@ Board: every screen. Compare how each piece repeats across `Main`, `Build`, `Run
   - `DataTable<T>({ rows, columns: {id, header, cell(row), width?}[], rowKey, highlight?(row), height })`. It is
     virtualised with `@tanstack/react-virtual`.
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `source tag renders each source with its label`
   - `tabs move with arrow keys`
   - `segmented marks the pressed option`
   - `drawer closes on Escape and returns focus`
   - `data table with 500 rows mounts far fewer than 500 row elements`
   - `data table highlights rows the predicate marks`
-- [ ] **Step 2:** Run `npx vitest run src/ui`. Expected: FAIL.
-- [ ] **Step 3:** Implement against the board's look. Replace the duplicates the search found, and ledger each
+- [x] **Step 2:** Run `npx vitest run src/ui`. Expected: FAIL.
+- [x] **Step 3:** Implement against the board's look. Replace the duplicates the search found, and ledger each
   merge.
-- [ ] **Step 4:** Run `npx vitest run src/ui src/home && npx tsc -b`. Expected: PASS.
-- [ ] **Step 5:** Commit: `feat(frontend): the shared pieces of the redesign (#511)`.
+- [x] **Step 4:** Run `npx vitest run src/ui src/home && npx tsc -b`. Expected: PASS.
+- [x] **Step 5:** Commit: `feat(frontend): the shared pieces of the redesign (#511)`.
 
 ### Task 3: Data roots and the folder tree (backend)
 

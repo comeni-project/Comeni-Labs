@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { get } from "../api/client";
 import type { components } from "../api/schema";
 import { useTitle } from "../app/useTitle";
+import { Segmented } from "../ui/Segmented";
 import { Failed, Loading } from "../ui/States";
 import { get as fromWiener } from "../wiener/api/client";
 import type { components as wiener } from "../wiener/api/schema";
@@ -121,23 +122,8 @@ export function Home() {
           <section aria-label="Your pipelines" className="min-w-0 flex flex-col gap-3">
             <div className="flex items-center gap-4 flex-wrap">
               <h2 className="m-0 text-heading font-semibold text-ink">Your pipelines</h2>
-              <div role="group" aria-label="list by" className="flex gap-1 p-1 rounded-button"
-                   style={{ background: "var(--paper)", border: "1px solid var(--line)" }}>
-                {(["pipeline", "run"] as const).map((which) => (
-                  <button
-                    key={which}
-                    type="button"
-                    onClick={() => setView(which)}
-                    aria-pressed={view === which}
-                    className={`px-[12px] py-[4px] rounded-control text-[13px] border cursor-pointer
-                                focus-visible:shadow-[var(--ring)] ${view === which
-                                  ? "bg-surface text-ink font-semibold border-line"
-                                  : "bg-transparent text-ink-2 border-transparent hover:text-ink"}`}
-                  >
-                    By {which}
-                  </button>
-                ))}
-              </div>
+              <Segmented<"pipeline" | "run"> label="list by" value={view} onChange={setView}
+                         options={[{ id: "pipeline", label: "By pipeline" }, { id: "run", label: "By run" }]} />
             </div>
             <div className="rounded-panel border border-line bg-surface overflow-x-auto px-4">
               {view === "pipeline"
