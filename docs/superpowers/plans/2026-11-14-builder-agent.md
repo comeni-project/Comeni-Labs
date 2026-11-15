@@ -287,8 +287,12 @@
 - Consumes: the session view (Task 9).
 - Produces: `AgentThread({ turns, working, onAnswer, onRetry })`; `ToolTrail({ tools, live })` — live lines while `working`, folded into one "How I got here · N steps" line once the turn has a `message`; `AgentQuestion({ question, onAnswer })` rendering `options` as buttons, `number` as a field with its unit, `yes_no`, `upload` (the existing `SampleUpload`), `text`; a node chosen by the AI shows "chosen by the AI · review" and the step sheet has "Looks right".
 
-- [ ] **Step 1: Write the failing tests:** `shows each tool call while the turn runs, then folds them under How I got here`; `draws an agent question's options as buttons and sends the choice`; `offers Retry on a failed turn`; `marks a step the AI chose until it is reviewed`; `keeps the chat height fixed: a new message does not resize the rail` (asserts the rail's style has a fixed height and `overflow-y: auto`).
-- [ ] **Step 2:** `cd frontend && npx vitest run src/build/living/AgentThread.test.tsx` — FAIL. **Step 3:** Implement; remove the deleted cards' imports. **Step 4:** `npx vitest run && npx tsc -b` — PASS. **Step 5:** Commit: `feat: the builder's chat is the agent's thread, with its working trail and questions`.
+- [x] **Step 1: Write the failing tests:** `shows each tool call while the turn runs, then folds them under How I got here`; `draws an agent question's options as buttons and sends the choice`; `offers Retry on a failed turn`; `marks a step the AI chose until it is reviewed`; `keeps the chat height fixed: a new message does not resize the rail` (asserts the rail's style has a fixed height and `overflow-y: auto`).
+- [x] **Step 2:** `cd frontend && npx vitest run src/build/living/AgentThread.test.tsx` — FAIL. **Step 3:** Implement; remove the deleted cards' imports. **Step 4:** `npx vitest run && npx tsc -b` — PASS. **Step 5:** Commit: `feat: the builder's chat is the agent's thread, with its working trail and questions`.
+
+---
+
+**Deviations (task 12):** the upload question has its own lean picker (the old card was built on the removed reading protocol); the step strip, step line, reveal, motion events, proposal ghost and alternative preview went with the walk; the canvas hook-order crash on first fill was fixed; the build, interface and sample pages were updated here. See the ledger.
 
 ---
 
