@@ -136,6 +136,9 @@ FREE_TEXT_FIELDS = {
     ("ParamOverride", "because"),
     ("Overrode", "rule"),
     ("Overrode", "cite"),
+    # What the agent chose at a step, as the engine words it (`chose <contract>`, `set <name>
+    # to <value>`): registry identifiers and a resolved value, nothing a person typed.
+    ("AiChoice", "what"),
     # The builder agent's door (#463): a tool's name, the engine's sentence about what it did,
     # and the coded refusal it gave. Engine-written; the agent's own words never cross back.
     ("AgentToolResult", "tool"),

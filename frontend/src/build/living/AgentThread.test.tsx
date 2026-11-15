@@ -62,9 +62,10 @@ describe("the agent's thread", () => {
     const node = (aiChoice: boolean) => (
       <LivingNode id="star_align" at={{ x: 0, y: 0 }} author="model" ports={[]} aiChoice={aiChoice} />);
     const { rerender } = render(node(true));
-    expect(screen.getByText("chosen by the AI · review")).toBeVisible();
+    expect(screen.getByTestId("node-ai-star_align")).toHaveTextContent(/^AI$/);
+    expect(screen.getByTestId("node-ai-star_align")).toHaveAttribute("title", expect.stringMatching(/not reviewed/));
     rerender(node(false));
-    expect(screen.queryByText("chosen by the AI · review")).toBeNull();
+    expect(screen.queryByTestId("node-ai-star_align")).toBeNull();
 
     const onReviewed = vi.fn();
     render(<StepSheet node="star_align" step={FAKE_STEPS.star_align} graph={FAKE_SESSION.graph}

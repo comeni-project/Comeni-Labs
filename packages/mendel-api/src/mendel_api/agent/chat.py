@@ -89,14 +89,21 @@ def _ai_steps(blueprint: Blueprint) -> list[dict]:
     return out
 
 
-def unreviewed(session_id: str) -> list[dict]:
-    """What the AI chose, in the pipeline last built, that nobody has reviewed as it now is."""
+def choices(session_id: str) -> list[dict]:
+    """What the AI chose in the pipeline last built, each with whether a person has reviewed it
+    as it now is; sorted by step and words."""
     draft_id, blueprint = _blueprint(session_id)
     if blueprint is None:
         return []
     seen = {(r.node, r.fingerprint) for r in decisions.reviews(draft_id)}
-    return [m for m in _ai_steps(blueprint)
-            if (m["node"], fingerprint(blueprint, m["node"])) not in seen]
+    return sorted(({**m, "reviewed": (m["node"], fingerprint(blueprint, m["node"])) in seen}
+                   for m in _ai_steps(blueprint)), key=lambda m: (m["node"], m["what"]))
+
+
+def unreviewed(session_id: str) -> list[dict]:
+    """What the AI chose, in the pipeline last built, that nobody has reviewed as it now is."""
+    return [{"node": m["node"], "what": m["what"]}
+            for m in choices(session_id) if not m["reviewed"]]
 
 
 def review(session_id: str, nodes: list[str] | str, who: str) -> None:

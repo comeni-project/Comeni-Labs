@@ -17,7 +17,8 @@ export type Counts = { settled: number; measured: number; open: number; optional
  *
  * **Outlined, never striped** (the *Build* and *Question* boards). How each value was decided is
  * the footer's — *1 measured · 13 settled*, each in its meaning's ink. A step with a value that
- * needs the person carries a red dot; one the AI chose and nobody reviewed says so above it.
+ * needs the person carries a red dot; one the AI chose and nobody reviewed carries a small *AI*
+ * tag beside its name.
  */
 export function LivingNode({
   id,
@@ -100,13 +101,6 @@ export function LivingNode({
         animationDelay: delay === undefined ? undefined : `${delay}ms`,
       }}
     >
-      {aiChoice && (
-        <span data-testid={`node-ai-${id}`}
-              className="absolute left-0 -top-[19px] px-[6px] py-[1px] rounded-control text-[10.5px] font-semibold whitespace-nowrap"
-              style={{ background: "var(--now-soft)", color: "var(--now-ink)" }}>
-          chosen by the AI · review
-        </span>
-      )}
       {/* **Ports, as the collection grammar draws them**: a square for a single value, a tall
           mark where a ribbon lands, and a wide one where a ribbon converges. Positions from
           `portOffset`, the one derivation. */}
@@ -141,6 +135,13 @@ export function LivingNode({
         <span className="font-data text-[11px] font-semibold text-ink truncate" data-testid={`node-name-${id}`}>
           {processName(id)}
         </span>
+        {aiChoice && (
+          <span data-testid={`node-ai-${id}`} title="Chosen by the AI and not reviewed yet: open the step to review it"
+                className="shrink-0 px-[4px] rounded-control text-[9.5px] font-semibold leading-[15px]"
+                style={{ background: "var(--now-soft)", color: "var(--now-ink)" }}>
+            AI
+          </span>
+        )}
         {takes && (
           <span data-testid={`node-branch-${id}`} title={`takes only ${takes}`}
                 className="ml-auto text-[10.5px] text-measured-ink whitespace-nowrap">some samples</span>

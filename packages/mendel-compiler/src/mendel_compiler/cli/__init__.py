@@ -45,6 +45,7 @@ _PIPELINE_MODELS = frozenset(
         "Pipeline",
         "Step",
         "Overrode",
+        "AiChoice",
         "AtRun",
         "Confirm",
         "AtRunCondition",

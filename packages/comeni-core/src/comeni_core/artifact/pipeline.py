@@ -619,6 +619,20 @@ class AiProvenance(BaseModel):
     """AI points reported as consulted; None if unrecorded, [] if none."""
 
 
+class AiChoice(BaseModel):
+    """One thing the builder agent chose at a step (#463), and whether a person has reviewed it
+    as it now stands. Review never blocks keeping; it is what rule learning counts as a person's
+    answer (`mendel_resolver.proposals`)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    node: NodeId
+    """The step's id."""
+    what: Line
+    """What was chosen, in words: `chose <contract>`, `set <setting> to <value>`."""
+    reviewed: bool
+
+
 # ---------------- PIPELINE ----------------
 
 
@@ -673,6 +687,9 @@ class Pipeline(EgressPayload):
     """Facts each sample's samplesheet row states (#466), sorted by column."""
     channels: list[Channel] = Field(default_factory=list)
     decisions: list[DecisionRecord] = Field(default_factory=list)
+    ai_choices: list[AiChoice] = Field(default_factory=list, exclude_if=lambda c: not c)
+    """What the builder agent chose, by step, sorted by step and words; absent when it chose
+    nothing."""
     emitted: Emitted | None = None
     """Generated-file digests and their source artifact digest; None when unrecorded."""
     gate: Gate | None = None

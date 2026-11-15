@@ -61,7 +61,10 @@ text pasted into the chat.
 ## Who made each decision
 
 Every decision carries its author: the person, the resolver, or the builder agent. A choice the
-agent made carries `because`, its reason. The person's direct actions — a change, a corrected
+agent made carries `because`, its reason. A kept `pipeline.yml` lists the agent's choices under
+`ai_choices`, each marked reviewed or not; keeping never waits on a review. A reviewed choice
+counts as the person's answer when rules are learned from kept pipelines; an unreviewed one
+does not. The person's direct actions — a change, a corrected
 fact, a released tool, a canvas edit, an upload — are the person's, and the pipeline is built
 again so the canvas follows at once.
 

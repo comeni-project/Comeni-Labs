@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import NamedTuple
 
-from comeni_core.artifact.pipeline import AiProvenance, Pipeline, Why
+from comeni_core.artifact.pipeline import AiChoice, AiProvenance, Pipeline, Why
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal
 from comeni_core.plan.draft import (
@@ -497,7 +497,7 @@ def keep(draft_id: str, *, by: str = "", ai: AiProvenance | None = None) -> Path
     stack = registry.stack()
     out = _output_root() / draft_id
     out.mkdir(parents=True, exist_ok=True)
-    pipeline = _materialised(stored, stack, by=by, ai=ai)
+    pipeline = _materialised(draft_id, stored, stack, by=by, ai=ai)
     # The compiler's writer, not a second one: `mendel build` writes through this and a
     # kept draft must produce the same file, or `mendel emit` is only true of pipelines
     # the resolver wrote.
@@ -568,7 +568,7 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
             revision, "illegal", "", [f"{f.code}: {f.message}" for f in verdict.illegal[:5]]
         )
     try:
-        pipeline = _materialised(stored, registry.stack(), by="", ai=ai)
+        pipeline = _materialised(draft_id, stored, registry.stack(), by="", ai=ai)
     except ValueError as refused:
         return Preview(revision, "unavailable", "", [str(refused).splitlines()[0]])
     # What the file cannot do on its own is said beside it (review #3 of Plan B).
@@ -596,17 +596,18 @@ def emitted(draft_id: str, *, ai: AiProvenance | None = None) -> Emitted:
     if shown.state != "ready":
         why = shown.findings[0] if shown.findings else shown.state
         raise ValueError(coded("MI0219", f"there is no pipeline to compile yet: {why}"))
-    pipeline = _materialised(_load(draft_id), registry.stack(), by="", ai=ai)
+    pipeline = _materialised(draft_id, _load(draft_id), registry.stack(), by="", ai=ai)
     return Emitted(shown.revision, emit(pipeline), emit_config(pipeline))
 
 
-def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) -> Pipeline:
+def _materialised(draft_id: str, stored: "Stored", stack, *, by: str,
+                  ai: AiProvenance | None) -> Pipeline:
     """A stored draft as a `Pipeline`, for `keep` and `preview` alike."""
     if not stored.projection_current:
         raise ValueError(coded("MI0201",
             "the selected facts changed; resolve the corrected pipeline before keeping it"))
     graph = stored.graph
-    return Pipeline.of(
+    pipeline = Pipeline.of(
         ir_of(graph, stack, by=by, provenance=stored.provenance, goal=stored.goal),
         # **Stated by the caller, never derived from the sidecar.** `MD0225` refuses a setting
         # that claims a model settled it in a build recording that no AI point was available —
@@ -627,3 +628,10 @@ def _materialised(stored: "Stored", stack, *, by: str, ai: AiProvenance | None) 
         # Where each layer is fetched from (Plan B, spec §8.2): kept and previewed files say it.
         locators=locate.locators(stack.paths),
     )
+    # **What the builder agent chose, and whether anyone reviewed it** (#463): recorded, never a
+    # reason to refuse. Read here so the preview and the kept file say the same.
+    from mendel_api.services import session as authoring_session
+
+    chosen = authoring_session.ai_choices_for_draft(draft_id)
+    return pipeline.model_copy(update={"ai_choices": [AiChoice(**c) for c in chosen]}) \
+        if chosen else pipeline

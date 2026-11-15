@@ -86,7 +86,7 @@ describe("the two surfaces", () => {
 
   it("marks on the canvas the step the AI chose and nobody reviewed", () => {
     surface();
-    expect(screen.getByTestId("node-ai-star_align")).toHaveTextContent("chosen by the AI · review");
+    expect(screen.getByTestId("node-ai-star_align")).toHaveTextContent(/^AI$/);
     expect(screen.queryByTestId("node-ai-trimgalore")).toBeNull();
   });
 

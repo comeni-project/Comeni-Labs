@@ -44,6 +44,8 @@ class Case(BaseModel):
     """The decision's key in that pipeline's `decisions`."""
     by_person: bool
     tier: int
+    reviewed: bool = False
+    """The builder agent answered and a person reviewed that answer as it stands (#463)."""
 
     @property
     def target_key(self) -> str:
@@ -51,9 +53,10 @@ class Case(BaseModel):
 
     @property
     def evidence(self) -> bool:
-        """A person's answer to a question the rules could not settle. A model's answer, or a
-        rule's, is a case the replay compares against, never evidence."""
-        return self.by_person and self.tier == 4
+        """A person's answer to a question the rules could not settle, or the AI's answer a
+        person reviewed and kept. A model's unreviewed answer, or a rule's, is a case the replay
+        compares against, never evidence."""
+        return (self.by_person or self.reviewed) and self.tier == 4
 
 
 def _single_role(contracts: list[str], registry: Registry) -> str | None:
@@ -89,6 +92,17 @@ def _answer(record) -> ParamValue:
     return record.chosen
 
 
+def _reviewed(record, pipeline: Pipeline) -> bool:
+    """Whether the AI gave this answer and a person reviewed the step it lands on: a setting's
+    step by its key, a tool choice's by the step running the chosen tool."""
+    if getattr(record, "model_override", None) is None:
+        return False
+    seen = {c.node for c in pipeline.ai_choices if c.reviewed}
+    if record.kind == DecisionKind.PRODUCER:
+        return any(s.id in seen for s in pipeline.steps if s.module.contract_id == _answer(record))
+    return record.key.partition(".")[0] in seen
+
+
 def cases_of(pipeline: Pipeline, registry: Registry, pipeline_id: str) -> list[Case]:
     """Every tool choice and setting this pipeline decided among two or more candidates, as
     cases, sorted by target, pipeline and decision. Model answers and rule answers are kept:
@@ -109,7 +123,7 @@ def cases_of(pipeline: Pipeline, registry: Registry, pipeline_id: str) -> list[C
             target=target, facts=facts, answer=_answer(record),
             reason=getattr(record, "override_reason", "") or "", pipeline=pipeline_id,
             decision=record.key, by_person=getattr(record, "human_override", None) is not None,
-            tier=int(record.tier)))
+            tier=int(record.tier), reviewed=_reviewed(record, pipeline)))
     return sorted(found, key=lambda c: (c.target_key, c.pipeline, c.decision))
 
 

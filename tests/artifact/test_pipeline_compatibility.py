@@ -38,6 +38,7 @@ def test_a_schema_change_bumps_the_version():
     from comeni_core.artifact.emitted import Emitted
     from comeni_core.artifact.pipeline import (
         SCHEMA_VERSION,
+        AiChoice,
         CallArg,
         ExtArgs,
         MetaEntry,
@@ -49,6 +50,7 @@ def test_a_schema_change_bumps_the_version():
 
     actual = {
         "Pipeline": list(Pipeline.model_fields),
+        "AiChoice": list(AiChoice.model_fields),
         "Step": list(Step.model_fields),
         "ExtArgs": list(ExtArgs.model_fields),
         "Setting": list(Setting.model_fields),

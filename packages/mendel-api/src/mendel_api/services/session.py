@@ -44,6 +44,17 @@ def ai_for(provenance: DraftProvenance):
                         used=[AiPoint.PROMPT] + ([AiPoint.TIER_4] if modelled else []))
 
 
+def ai_choices_for_draft(draft_id: str) -> list[dict]:
+    """What the builder agent chose in a draft a session owns, and whether each was reviewed
+    (#463); nothing for a hand-drawn draft."""
+    from mendel_api.agent import chat
+
+    with session_scope() as db:
+        owned = db.scalar(select(PipelineAuthoringSession.id)
+                          .where(PipelineAuthoringSession.draft_id == draft_id))
+    return chat.choices(owned) if owned else []
+
+
 def ai_for_draft(draft_id: str):
     """`ai_for` for a draft a builder session owns, or `None` for a hand-drawn one."""
     with session_scope() as db:

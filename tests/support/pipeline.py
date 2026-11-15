@@ -144,10 +144,12 @@ SERIALISED_SHAPE = {
         "sheet_facts",
         "channels",
         "decisions",
+        "ai_choices",
         "emitted",
         "gate",
         "input_form",
     ],
+    "AiChoice": ["node", "what", "reviewed"],
     "Step": [
         "id",
         "module",
