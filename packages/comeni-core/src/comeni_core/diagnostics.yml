@@ -3591,35 +3591,33 @@ MW0002:
 MI0201:
   emitted_by: api
   concern: workflow
-  says: "this draft moved while you were looking at it — re-read it before accepting"
+  says: "the pipeline changed since you last saw it — read it again before changing it"
   fires_on: [authoring]
   refuses: true
   fix: |
-    Re-read the draft and the pending proposal, then act on what they say now. The refusal
-    reports the revision the server holds, so a client knows exactly what it missed.
+    Read the pipeline again and act on what it says now. A person sees the canvas as it now is;
+    the builder agent gets this refusal as a tool result and reads again.
   explanation: |
-    Every mutating authoring request carries `expected_revision`, and this is what happens when
-    it does not match. Two tabs on one draft is the ordinary case — somebody accepts a step in
-    one and then accepts a setting in the other, against a picture that is one revision old.
+    Every change to a pipeline states the decision revision it was made against, and this is
+    what happens when it does not match. The person and the agent (or an MCP client) work on one
+    pipeline at once: a change made against a picture that is out of date would overwrite the
+    other's without either seeing it. The refused side reads again; the other's change stands.
 
-    Read-then-write would leave a window between the check and the write. The comparison is
-    against a number the client was *shown*, not against a timestamp: two writes inside one
-    clock tick are indistinguishable by time, which is precisely when this matters.
+    The comparison is against a number the writer was *shown*, not a timestamp: two writes in
+    one clock tick are indistinguishable by time, which is precisely when this matters.
 
 MI0203:
   emitted_by: api
   concern: workflow
-  says: "this proposal has already been settled"
+  says: "only a turn that failed is asked again"
   fires_on: [authoring]
   refuses: true
   fix: |
-    Re-read the session. The proposal already carries an outcome and an actor, and applying it
-    twice would record a second decision nobody made.
+    Re-read the conversation. The turn is still working, or it already answered; Retry is
+    offered only on a turn that failed.
   explanation: |
-    The ordinary cause is a duplicate delivery — a retried request, or a double click — and the
-    correct answer to a duplicate is the same answer, not a second effect. This is what makes
-    accepting a proposal idempotent in the way that matters: the first call decides and every
-    later one is refused rather than silently re-applied.
+    A duplicate retry (a double click, a retried request) must not run the agent's turn twice:
+    the first call starts it again and every later one is refused rather than re-applied.
 
 MI0204:
   emitted_by: api
@@ -3698,6 +3696,22 @@ MI0219:
     Compiling emits the Nextflow from the same pipeline the file previews. A draft that is
     empty, outdated, illegal or cannot be materialised has no pipeline to emit, and an empty
     or partial main.nf would read as one that compiled.
+MI0220:
+  emitted_by: api
+  concern: workflow
+  says: "the builder's turn did not run to the end"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Press Retry on the turn. If it keeps failing, check that the AI worker and its queue
+    (Redis) are running, and read the worker's log for the error.
+  explanation: |
+    Something other than the model or an engine refusal stopped the agent's turn: its job could
+    not be queued, or a tool failed in a way the engine does not refuse with a code (a lost
+    database connection, a bug). The turn is marked failed rather than left waiting, so the page
+    stops saying it is working and offers Retry. The error itself goes to the worker's log, not
+    to the chat or the model.
+
 MI0300:
   emitted_by: api
   concern: settings

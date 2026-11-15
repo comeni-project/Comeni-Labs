@@ -19,6 +19,7 @@ from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.plan.tiers import Tier, ValueSource
 from mendel_api.services import blueprint as bp
 from mendel_api.services import registry
+from mendel_authoring.decisions import ActorKind
 from mendel_resolver.goal import Goal
 from mendel_resolver.materialise import ir_of
 from support.example import example_goal
@@ -170,16 +171,19 @@ def _with_why(blueprint, node, **why):
     )
 
 
-def test_a_person_accepting_a_tier_four_default_is_its_author(spine, contracts):
-    """Build mode's flag picked the first candidate and said nobody judged it. A person pressing
-    accept *is* the judgement, and the sidecar has to say so rather than keep the flag's
-    `resolver` label on a choice a human made."""
-    flagged = _with_why(spine, "star_align", tier=Tier.AMBIGUOUS, source=ValueSource.RESOLVER)
-    _, provenance = _accept(flagged, DraftGraph(), DraftProvenance(), "star_align", contracts)
-    selection = provenance.node("star_align").selection
-
-    assert selection.source is ValueSource.HUMAN
-    assert selection.tier is Tier.AMBIGUOUS
+def test_a_tie_nobody_answered_stays_the_resolvers_and_flagged(spine, contracts):
+    """#463 review: the agent's projection commits every step, and nobody pressed accept. A tie
+    the flag broke without judgement stays the resolver's, at tier 4, for review — never a
+    person's acceptance nobody gave, whoever's projection put it in the draft."""
+    flagged = _with_why(spine, "star_align", tier=Tier.AMBIGUOUS, source=ValueSource.RESOLVER,
+                        reason="the first of 2 candidates without judgement — please review")
+    for actor in (ActorKind.MODEL, ActorKind.PERSON):
+        _, provenance = bp.committed(flagged, DraftGraph(), DraftProvenance(), "star_align",
+                                     by="ana", actor_kind=actor)
+        selection = provenance.node("star_align").selection
+        assert selection.source is ValueSource.RESOLVER, actor
+        assert selection.tier is Tier.AMBIGUOUS
+        assert "please review" in selection.reason
 
 
 def test_a_models_tier_four_choice_stays_the_models(spine, contracts):

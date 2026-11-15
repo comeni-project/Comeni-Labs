@@ -27,6 +27,10 @@ def queued(monkeypatch):
     return seen
 
 
+async def _queued() -> bool:
+    return True
+
+
 def _answer(monkeypatch, replies, session_id, seq):
     monkeypatch.setattr(loop, "model_access", lambda: object())
     loop.run_turn(session_id, seq, transport=ScriptedAgentTransport(replies))
@@ -100,6 +104,54 @@ def test_reviewing_clears_the_ai_marks(clean, queued, monkeypatch):
     assert any(m["node"] == "hisat2_align" for m in marked), marked
     assert client.post(f"{BASE}/{session['id']}/reviewed", json={"nodes": "all"}).status_code == 200
     assert client.get(f"{BASE}/{session['id']}").json()["ai_unreviewed"] == []
+
+
+def test_a_turn_that_cannot_be_queued_fails_and_can_be_retried(clean, queued, monkeypatch):
+    """#463 review: with the queue down, the agent's turn must not wait for a job that never
+    comes; it fails at once, coded, and Retry is offered."""
+    async def down(*args, **kwargs):
+        raise ConnectionError("redis is down")
+
+    monkeypatch.setattr(jobs, "enqueue", down)
+    client = TestClient(create_app())
+    started = client.post(BASE, json={"prompt": "counts"})
+    assert started.status_code == 201, started.text
+    session = started.json()["session"]
+    read = client.get(f"{BASE}/{session['id']}").json()
+    last = read["turns"][-1]
+    assert last["state"] == "failed" and read["working"] is False
+    assert [b["code"] for b in last["blocks"] if b["kind"] == "notice"] == ["MI0220"]
+    monkeypatch.setattr(jobs, "enqueue", lambda *a, **k: _queued())
+    retried = client.post(f"{BASE}/{session['id']}/turns/{last['seq']}/retry")
+    assert retried.status_code == 202, retried.text
+
+
+def test_a_turn_whose_worker_died_is_failed_when_the_page_reads_it(clean, queued, monkeypatch):
+    """#463 review: a worker killed mid-turn writes nothing, so the turn would stay pending and
+    the page would poll for good. Read after a grace period with no job queued or running, it
+    is failed, coded, and Retry is offered."""
+    from datetime import timedelta
+
+    from mendel_api.db import session_scope
+    from mendel_api.models import PipelineAuthoringTurn
+    from sqlalchemy import select
+
+    client = TestClient(create_app())
+    session = client.post(BASE, json={"prompt": "counts"}).json()["session"]
+
+    async def gone(job_id, queue=jobs.DEFAULT_QUEUE):
+        return False
+
+    monkeypatch.setattr(jobs, "running", gone)
+    assert client.get(f"{BASE}/{session['id']}").json()["working"] is True, \
+        "a turn just started is given time for its job to begin"
+    with session_scope() as db:
+        turn = db.scalar(select(PipelineAuthoringTurn).where(
+            PipelineAuthoringTurn.session_id == session["id"], PipelineAuthoringTurn.seq == 1))
+        turn.at = turn.at - timedelta(minutes=5)
+    read = client.get(f"{BASE}/{session['id']}").json()
+    assert read["working"] is False and read["turns"][-1]["state"] == "failed"
+    assert [b["code"] for b in read["turns"][-1]["blocks"]] == ["MI0220"]
 
 
 def test_the_scripted_flow_routes_are_gone(clean, queued):

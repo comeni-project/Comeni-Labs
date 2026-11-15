@@ -371,8 +371,9 @@ def vocabulary() -> AuthoringVocabulary:
     summary="The whole session, as the page restores it",
     responses=REFUSES,
 )
-def read(session_id: str) -> AuthoringSessionView:
-    return _view(session_id)
+async def read(session_id: str) -> AuthoringSessionView:
+    await chat.sweep(session_id)
+    return await run_in_threadpool(_view, session_id)
 
 
 @router.get(

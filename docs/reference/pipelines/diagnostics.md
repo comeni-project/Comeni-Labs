@@ -215,13 +215,14 @@ decline to curate one.
 | Code | Says |
 |---|---|
 | `MI0106` | no model is configured, so nothing can be generated |
-| `MI0201` | this draft moved while you were looking at it — re-read it before accepting |
-| `MI0203` | this proposal has already been settled |
+| `MI0201` | the pipeline changed since you last saw it — read it again before changing it |
+| `MI0203` | only a turn that failed is asked again |
 | `MI0204` | the goal a model wrote names something this registry does not declare |
 | `MI0208` | that value does not fit what this measurement can be |
 | `MI0213` | the protection level does not allow this crossing |
 | `MI0214` | an upload was refused: one file or a pair, nothing else |
 | `MI0219` | there is no pipeline to compile yet |
+| `MI0220` | the builder's turn did not run to the end |
 | `MI0500` | a rule proposal cannot be approved as it stands |
 | `MI0501` | no model is set to propose rules |
 

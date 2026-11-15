@@ -1,6 +1,8 @@
 """The agent chat as the routes use it (#463): start, say, answer a question, retry a failed
 turn, and what the AI chose that nobody has reviewed yet."""
 
+import logging
+
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph
 from mendel_authoring.blueprint import Blueprint
@@ -16,10 +18,20 @@ from mendel_api.services import decisions, drafts
 
 UNTITLED = "Untitled analysis"
 
+log = logging.getLogger(__name__)
+
 
 async def _queue(session_id: str, seq: int) -> bool:
-    return await jobs.enqueue("run_builder_turn", session_id, seq,
-                              job_id=f"builder:agent:{session_id}:{seq}", queue=jobs.AI_QUEUE)
+    """The agent's turn, queued for the AI worker. **A turn that cannot be queued fails at
+    once** (#463 review): left pending, it would wait for a job that never comes, the page would
+    say it is working, and Retry would not be offered."""
+    try:
+        return await jobs.enqueue("run_builder_turn", session_id, seq,
+                                  job_id=f"builder:agent:{session_id}:{seq}", queue=jobs.AI_QUEUE)
+    except Exception:  # noqa: BLE001 — any queue failure ends the turn, coded
+        log.exception("builder turn %s:%s could not be queued", session_id, seq)
+        loop.fail(session_id, seq, "The builder could not start working on this. Try again.")
+        return False
 
 
 async def start(prompt: str, who: str) -> tuple[str, bool]:
@@ -66,6 +78,28 @@ async def retry(session_id: str, seq: int) -> bool:
         turn.state, turn.blocks = TurnState.PENDING.value, []
         db.get(PipelineAuthoringSession, session_id).row_version += 1
     return await _queue(session_id, seq)
+
+
+GRACE_SECONDS = 60
+"""How long a pending turn waits for its job before a missing job means the worker died."""
+
+
+async def sweep(session_id: str) -> None:
+    """**A turn whose worker died is failed, not left pending** (#463 review): past the grace
+    period, a pending turn with no job queued or running ends coded `MI0220`, so the page
+    stops polling and offers Retry."""
+    from datetime import UTC, datetime, timedelta
+
+    with session_scope() as db:
+        pending = db.scalars(select(PipelineAuthoringTurn).where(
+            PipelineAuthoringTurn.session_id == session_id,
+            PipelineAuthoringTurn.role == TurnRole.ASSISTANT.value,
+            PipelineAuthoringTurn.state == TurnState.PENDING.value)).all()
+        stale = [t.seq for t in pending
+                 if datetime.now(UTC) - t.at > timedelta(seconds=GRACE_SECONDS)]
+    for seq in stale:
+        if not await jobs.running(f"builder:agent:{session_id}:{seq}", jobs.AI_QUEUE):
+            loop.fail(session_id, seq, "The builder stopped before it finished. Try again.")
 
 
 def working(turns: list[dict]) -> bool:

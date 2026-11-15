@@ -10,6 +10,7 @@ turn never stays pending.
 import asyncio
 import hashlib
 import json
+import logging
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,7 +22,7 @@ from comeni_core.egress.agent import AgentRequest, AgentTurn, Speaker
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from mendel_api.agent.tools import TOOLS, ToolContext, call, spec_of
+from mendel_api.agent.tools import TOOLS, ToolContext, call, printable, spec_of
 from mendel_api.authoring.types import (
     AgentAsk,
     AgentMessage,
@@ -35,6 +36,8 @@ from mendel_api.db import session_scope
 from mendel_api.models import AiInvocation, PipelineAuthoringSession, PipelineAuthoringTurn
 from mendel_api.services import decisions, protection
 from mendel_api.settings import settings
+
+log = logging.getLogger(__name__)
 
 PROMPT = Path(__file__).with_name("prompt.md")
 PROMPT_ID = "builder.agent.v1"
@@ -168,6 +171,18 @@ def _label(name: str, arguments: dict, labels: dict[str, str] = _LABELS) -> str:
         return re.sub(r"\{[a-z_]+\}", "", labels.get(name, name)).strip()[:300]
 
 
+def fail(session_id: str, seq: int, text: str) -> None:
+    """End the turn `seq` as failed, coded `MI0220`, keeping what it already wrote: the page
+    stops saying it is working and offers Retry."""
+    with session_scope() as db:
+        turn = db.scalar(select(PipelineAuthoringTurn).where(
+            PipelineAuthoringTurn.session_id == session_id, PipelineAuthoringTurn.seq == seq))
+        kept = [b for b in (turn.blocks or []) if not b.get("running")]
+    _write(session_id, seq, [*kept, Notice(id=f"failed-{seq}", notice=NoticeKind.REFUSAL,
+                                           text=text, code="MI0220").model_dump(mode="json")],
+           TurnState.FAILED)
+
+
 def _write(session_id: str, seq: int, blocks: list[dict], state: TurnState | None = None,
            invocation: str | None = None) -> None:
     with session_scope() as db:
@@ -258,14 +273,28 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
             for c in reply.calls]})
         for made in reply.calls:
             # **Said before it runs** (#504): the page shows what is happening, not "working".
-            line = f"tool-{seq}-{len(blocks)}"
-            blocks.append(ToolLine(id=line, name=made.name[:64], ok=True, running=True,
-                                   label=_label(made.name, made.arguments, _DOING))
+            line, name = f"tool-{seq}-{len(blocks)}", printable(made.name)
+            blocks.append(ToolLine(id=line, name=name, ok=True, running=True,
+                                   label=_label(name, made.arguments, _DOING))
                           .model_dump(mode="json"))
             _write(session_id, seq, blocks)
-            result = call(ctx, made.name, made.arguments)
-            blocks[-1] = ToolLine(id=line, name=made.name[:64],
-                                  label=_label(made.name, made.arguments), ok=result.ok,
+            try:
+                result = call(ctx, made.name, made.arguments)
+            except Exception:  # noqa: BLE001 — a turn never stays pending on an engine error
+                # **Failed, not left waiting** (#463 review): an error the engine does not refuse
+                # with a code (a lost connection, a bug) ends the turn so the page offers Retry.
+                # The error goes to the log, not to the chat or the model.
+                log.exception("builder turn %s:%s stopped in tool %s", session_id, seq, name)
+                blocks[-1] = ToolLine(id=line, name=name, ok=False,
+                                      label=_label(name, made.arguments)).model_dump(mode="json")
+                blocks.append(Notice(id=f"failed-{seq}", notice=NoticeKind.REFUSAL,
+                                     text="Something went wrong inside the builder while it "
+                                          "worked. Try again.", code="MI0220")
+                              .model_dump(mode="json"))
+                _write(session_id, seq, blocks, TurnState.FAILED, invocation)
+                return TurnState.FAILED.value
+            blocks[-1] = ToolLine(id=line, name=name,
+                                  label=_label(name, made.arguments), ok=result.ok,
                                   summary=(result.refusal or "")[:2000]).model_dump(mode="json")
             messages.append({"role": "tool", "tool_call_id": made.id,
                              "content": result.model_dump_json(exclude_none=True)})

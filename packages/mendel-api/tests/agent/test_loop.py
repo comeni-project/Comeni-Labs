@@ -82,6 +82,29 @@ def test_the_agent_narrates_and_the_running_tool_shows_while_it_runs(clean, monk
     assert blocks[1]["label"] == "Read the goal"
 
 
+def test_a_tool_that_crashes_fails_the_turn_and_nothing_stays_running(clean, monkeypatch):
+    """#463 review: an error that is no engine refusal must not leave the turn pending forever,
+    with its tool line still saying it is running and the page polling for an answer."""
+    def broken(ctx, name, arguments):
+        raise RuntimeError("the database went away")
+
+    monkeypatch.setattr(loop, "call", broken)
+    session_id, seq, _ = _started(monkeypatch, [_call("read_goal"), _say("never")])
+    turn = _turn(session_id, seq)
+    assert turn.state == "failed"
+    assert not any(b.get("running") for b in turn.blocks), "nothing says it is still running"
+    [notice] = [b for b in turn.blocks if b["kind"] == "notice"]
+    assert notice["code"] == "MI0220" and "database" not in notice["text"]
+
+
+def test_a_tool_name_the_engine_cannot_print_is_a_refusal(clean):
+    from mendel_api.agent.tools import ToolContext, call
+
+    result = call(ToolContext(draft_id="d", session_id=None, who="ana", expected_revision=0),
+                  "read_goal\n" + "x" * 300, {})
+    assert result.ok is False and "no tool" in result.refusal
+
+
 def test_a_tool_refusal_goes_back_to_the_model(clean, monkeypatch):
     session_id, seq, script = _started(
         monkeypatch, [_call("want", type_id="no.such.type", because="test"), _say("Sorry")])

@@ -5,6 +5,7 @@ takes a typed input and returns a typed view. `call` turns a refused argument, o
 refusal from the engine, into a result the model reads, never an exception that ends its turn.
 """
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -57,13 +58,19 @@ def _said(failure: ValidationError) -> str:
                      for e in failure.errors()[:3])
 
 
+def printable(name: str) -> str:
+    """A tool name the model sent, safe to write back: letters, digits, `_`, `.` and `-` only.
+    A model can send anything, and a name that is not a tool is still said back to it."""
+    return re.sub(r"[^\w.-]", "?", name)[:64] or "?"
+
+
 def call(ctx: ToolContext, name: str, arguments: dict) -> AgentToolResult:
     """Run one tool. A tool that does not exist, arguments that do not fit, or a refusal the
     engine gives (a coded `ValueError` or `KeyError`) come back as `ok=False` with the reason."""
     tool = TOOLS.get(name)
     if tool is None:
-        return AgentToolResult(tool=name[:200], ok=False,
-                               refusal=f"there is no tool called {name[:100]}")
+        return AgentToolResult(tool=printable(name), ok=False,
+                               refusal=f"there is no tool called {printable(name)}")
     try:
         given = tool.input.model_validate(arguments)
     except ValidationError as failure:
