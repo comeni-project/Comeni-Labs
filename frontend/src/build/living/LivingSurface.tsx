@@ -101,6 +101,7 @@ export function LivingSurface({
   // **One thing beside a step at a time** (#499): its menu, or one of its cards. A click opens
   // the step's Settings card; the menu chooses another. Neither covers the conversation.
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [fileStep, setFileStep] = useState<string | null>(null);
   const [kind, setKind] = useState<CardKind>("settings");
   const present = (node: string | null) => node !== null && graph.nodes.some((n) => n.id === node);
   const [cardFor, setCardFor] = useState<string | null>(selected);
@@ -133,7 +134,7 @@ export function LivingSurface({
     }
     closeMenu(node);
     if (item === "ask") { setPane("chat"); onCompose(`About ${processName(node)}: `); }
-    else if (item === "file") setView("artifact");
+    else if (item === "file") { setFileStep(node); setView("artifact"); }
     else if (item === "reviewed") onReviewed(node);
     else if (item === "whole" && steps[node]?.parts) onWhole?.(steps[node].contract_id, steps[node].parts!.on);
   };
@@ -185,6 +186,7 @@ export function LivingSurface({
     </>
   );
 
+  const talk = { session, sending, composer, onCompose, onSay, onAnswer, onRetry, onUpload, notices: null };
   const runnable = run !== null && !session.retired;
   const factsDisabled = correcting || session.retired || session.working;
 
@@ -218,8 +220,10 @@ export function LivingSurface({
       {view === "artifact" && !run?.sheet && (
         <div className="min-h-0" style={{ borderTop: "1px solid var(--line)" }}>
           <PipelineFile steps={answered} preview={preview} draftId={session.draft_id} kept={run?.kept ?? false}
-                        onChange={(node) => { setView("canvas"); setPane("chat"); onSelect(node); }}
-                        onAsk={(text) => { setView("canvas"); setPane("chat"); onCompose(text); }} />
+                        focusStep={fileStep}
+                        onChange={(node) => { setView("canvas"); setPane("canvas"); pick(node); }}
+                        onAsk={onCompose} onSay={onSay}
+                        aside={<ChatPanel {...talk} embedded onStep={setFileStep} />} />
         </div>
       )}
       {/* **Kept mounted while the pipeline file or the run sheet shows**, so the canvas's view is as
@@ -283,10 +287,8 @@ export function LivingSurface({
           )}
         </section>
 
-        <ChatPanel
-          session={session} sending={sending} composer={composer} onCompose={onCompose} onSay={onSay}
-          onAnswer={onAnswer} onRetry={onRetry} onUpload={onUpload} notices={notices}
-        />
+        <ChatPanel {...talk} notices={notices}
+                   onStep={(node) => { setLeft("canvas"); setPane("canvas"); pick(node); }} />
       </div>
     </div>
   );

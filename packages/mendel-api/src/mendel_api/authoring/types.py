@@ -251,6 +251,8 @@ class ToolLine(_Block):
     ok: bool
     summary: Prose = ""
     running: bool = False
+    node: str | None = Field(default=None, max_length=64)
+    """The step the call read or changed, where it names one (#499): what an answer links to."""
 
 
 class AgentAsk(_Block):

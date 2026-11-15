@@ -79,6 +79,21 @@ describe("the agent's thread", () => {
     expect(items().map((li) => li.classList.contains("agent-arrive"))).toEqual([false, false, false, true]);
   });
 
+  it("marks an answer as the AI's words and links the steps its tools touched (issue 499)", () => {
+    const onStep = vi.fn();
+    render(<AgentThread working={false} onAnswer={vi.fn()} onRetry={vi.fn()} onStep={onStep} turns={[
+      person(1, "why STAR?"),
+      agent(2, "answered", [{ ...tool("t1", "Read the step star_align"), node: "star_align" },
+        { ...tool("t2", "Read the goal"), node: undefined }, { ...tool("t3", "Read the step star_align"), node: "star_align" },
+        said("m", "STAR suits long reads.")])]} />);
+    const links = screen.getByRole("group", { name: "what this answer used" });
+    expect(links).toHaveTextContent("the AI's words");
+    const steps = within(links).getAllByRole("button");
+    expect(steps.map((b) => b.textContent)).toEqual(["STAR_ALIGN"]);
+    fireEvent.click(steps[0]);
+    expect(onStep).toHaveBeenCalledWith("star_align");
+  });
+
   it("draws an agent question's options as buttons and sends the choice", () => {
     const onAnswer = vi.fn();
     render(<AgentThread working={false} onRetry={vi.fn()} onAnswer={onAnswer} turns={[person(1, "counts"),

@@ -164,6 +164,25 @@ _DOING = {
 """What each tool is doing while it runs (#504), beside what it did (`_LABELS`)."""
 
 
+def _node_of(session_id: str, arguments: dict) -> str | None:
+    """The step a tool call touched (#499): named by its `node`, or found in the pipeline last
+    built by the tool's contract or the setting's name. Derived by the engine, so the link an
+    answer carries cannot be invented."""
+    named = arguments.get("node")
+    if isinstance(named, str):
+        return printable(named)
+    with session_scope() as db:
+        stored = db.get(PipelineAuthoringSession, session_id).blueprint
+    steps = (stored or {}).get("pipeline", {}).get("steps", [])
+    contract, setting = arguments.get("contract"), arguments.get("name")
+    for step in steps:
+        if contract and step.get("module", {}).get("contract_id") == contract:
+            return step["id"]
+        if setting and any(s.get("name") == setting for s in step.get("settings", [])):
+            return step["id"]
+    return None
+
+
 def _label(name: str, arguments: dict, labels: dict[str, str] = _LABELS) -> str:
     try:
         return labels.get(name, name).format(**arguments)[:300]
@@ -295,7 +314,9 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
                 return TurnState.FAILED.value
             blocks[-1] = ToolLine(id=line, name=name,
                                   label=_label(name, made.arguments), ok=result.ok,
-                                  summary=(result.refusal or "")[:2000]).model_dump(mode="json")
+                                  summary=(result.refusal or "")[:2000],
+                                  node=_node_of(session_id, made.arguments))\
+                .model_dump(mode="json", exclude_none=True)
             messages.append({"role": "tool", "tool_call_id": made.id,
                              "content": result.model_dump_json(exclude_none=True)})
             if made.name == "ask" and result.ok:

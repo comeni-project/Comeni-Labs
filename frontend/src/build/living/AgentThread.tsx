@@ -8,7 +8,7 @@ import { ToolTrail, type TrailStep } from "./ToolTrail";
 /** **The conversation with the builder agent** (#463): the person's words, and each of the
  *  agent's turns as what it did (its working trail), what it said, and what it asks. Nothing here
  *  is a stage or a form the person must get through; the canvas beside it is the pipeline. */
-export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, onUpload }: {
+export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, onUpload, onStep }: {
   turns: AuthoringTurn[];
   /** Whether the agent is working on a turn now. */
   working: boolean;
@@ -17,6 +17,8 @@ export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, o
   onAnswer: (questionId: string, value: AnswerValue) => void;
   onRetry: (seq: number) => void;
   onUpload?: (questionId: string, files: File[]) => Promise<unknown>;
+  /** Show a step an answer used: on the canvas, or in the pipeline file. */
+  onStep?: (node: string) => void;
 }) {
   // **Only the newest question is answerable**: once the person has said anything after it, the
   // conversation has moved on and the agent will ask again if it still needs to know.
@@ -34,7 +36,7 @@ export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, o
           {turn.role === "person"
             ? <Said text={turn.text} />
             : <AgentTurn turn={turn} answerable={turn.seq > lastPerson && !working}
-                         onAnswer={onAnswer} onRetry={onRetry} onUpload={onUpload} />}
+                         onAnswer={onAnswer} onRetry={onRetry} onUpload={onUpload} onStep={onStep} />}
         </li>
       ))}
       {sending.map((text, i) => (
@@ -55,12 +57,13 @@ function Said({ text, pending = false }: { text: string; pending?: boolean }) {
   );
 }
 
-function AgentTurn({ turn, answerable, onAnswer, onRetry, onUpload }: {
+function AgentTurn({ turn, answerable, onAnswer, onRetry, onUpload, onStep }: {
   turn: AuthoringTurn;
   answerable: boolean;
   onAnswer: (questionId: string, value: AnswerValue) => void;
   onRetry: (seq: number) => void;
   onUpload?: (questionId: string, files: File[]) => Promise<unknown>;
+  onStep?: (node: string) => void;
 }) {
   // **The trail is the working; the rest is the answer** (#504): tools and what the agent said
   // beside them, in order, then its words, notices and question.
@@ -90,9 +93,32 @@ function AgentTurn({ turn, answerable, onAnswer, onRetry, onUpload }: {
             return null;
         }
       })}
+      {turn.state === "answered" && rest.some((b) => b.kind === "message") && (
+        <Used steps={[...new Set(trail.flatMap((b) => (b.kind === "tool" && b.node ? [b.node] : [])))]} onStep={onStep} />
+      )}
       {turn.state === "failed" && (
         <span className="self-start"><Secondary onClick={() => onRetry(turn.seq)}>Retry</Secondary></span>
       )}
+    </div>
+  );
+}
+
+/** **Whose words, and what they rest on** (#499): the answer is the AI's, and each step its tools
+ *  read or changed is a link — derived by the engine from the tools, never written by the model. */
+function Used({ steps, onStep }: { steps: string[]; onStep?: (node: string) => void }) {
+  return (
+    <div role="group" aria-label="what this answer used" className="flex flex-wrap items-center gap-[6px] text-[11.5px]">
+      <span className="px-[8px] py-[1px] rounded-full border text-ink-3" style={{ borderColor: "var(--line)" }}>
+        the AI's words
+      </span>
+      {onStep && steps.map((node) => (
+        <button key={node} type="button" onClick={() => onStep(node)}
+                className="px-[8px] py-[1px] rounded-full border bg-transparent font-data text-now-ink cursor-pointer
+                           hover:bg-[var(--hover)] focus-visible:shadow-[var(--ring)]"
+                style={{ borderColor: "var(--now-line)" }}>
+          {node.toUpperCase()}
+        </button>
+      ))}
     </div>
   );
 }

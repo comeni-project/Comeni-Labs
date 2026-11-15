@@ -105,6 +105,16 @@ def test_a_tool_name_the_engine_cannot_print_is_a_refusal(clean):
     assert result.ok is False and "no tool" in result.refusal
 
 
+def test_a_tool_line_names_the_step_it_touched(clean, monkeypatch):
+    """#499: the pipeline file links an answer to the steps the agent read or changed, from the
+    tools it called — a link the engine derives, never one the model writes."""
+    session_id, seq, _ = _started(monkeypatch, [
+        _call("read_step", node="star_align"), _call("read_goal"), _say("Read it.")])
+    tools = [b for b in _turn(session_id, seq).blocks if b["kind"] == "tool"]
+    assert [(t["name"], t.get("node")) for t in tools] == [("read_step", "star_align"),
+                                                           ("read_goal", None)]
+
+
 def test_a_tool_refusal_goes_back_to_the_model(clean, monkeypatch):
     session_id, seq, script = _started(
         monkeypatch, [_call("want", type_id="no.such.type", because="test"), _say("Sorry")])

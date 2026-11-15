@@ -329,15 +329,17 @@ body {
    on a phone a fixed share of the screen. Never its content's, so a reply does not move the page. */
 .living { --rail-h: auto; }
 .living > .living-canvas { min-height: 0; }
-/* The pipeline file (#379): the values and their reasons, beside the file. Values first when stacked. */
-/* The pipeline file, file first (one builder plan 5): the file, and the reason beside it. On a
-   phone the reason is a sheet from the bottom. */
-.pipeline-file { display: grid; grid-template-columns: minmax(0, 1fr) 340px; height: 100%; }
-.pipeline-file > .file-column { position: sticky; top: 0; max-height: 100%; }
-@media (max-width: 999px) { .pipeline-file { grid-template-columns: minmax(0, 1fr) 300px; } }
-@media (max-width: 640px) { .pipeline-file { grid-template-columns: minmax(0, 1fr); }
-  .pipeline-file > .file-column { position: fixed; left: 0; right: 0; bottom: 0; top: auto; max-height: 45dvh;
-    border-left: 0 !important; border-top: 1px solid var(--line); z-index: 20; } }
+/* The pipeline file (#499, direction A with the AI): an outline, the file, and the AI panel. The
+   panel folds below 1180px (it can be shown again); a phone has the file alone, and Chat is a tab. */
+.pipeline-file { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100%; }
+.pipeline-file[data-aside="open"] { grid-template-columns: 240px minmax(0, 1fr) 400px; }
+@media (max-width: 1180px) {
+  .pipeline-file[data-aside="open"] { grid-template-columns: 200px minmax(0, 1fr) 340px; }
+}
+@media (max-width: 900px) {
+  .pipeline-file, .pipeline-file[data-aside="open"] { grid-template-columns: minmax(0, 1fr); }
+  .pipeline-file > .file-outline, .pipeline-file > .file-aside { display: none; }
+}
 @media (max-width: 1180px) { .living { grid-template-columns: minmax(0, 1fr) 360px; } }
 @media (max-width: 1000px) {
   .living { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(260px, 1fr);

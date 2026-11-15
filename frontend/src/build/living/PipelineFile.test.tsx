@@ -55,7 +55,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 function file(overrides: Partial<Parameters<typeof PipelineFile>[0]> = {}) {
   const props = { steps: STEPS, preview: READY, draftId: "d1", kept: false, onChange: vi.fn(), onAsk: vi.fn(),
-    ...overrides };
+    onSay: vi.fn(), ...overrides };
   render(
     <QueryClientProvider client={new QueryClient()}>
       <PipelineFile {...props} />
@@ -68,9 +68,10 @@ const line = (text: string) =>
   within(screen.getByTestId("artifact-text")).getAllByTestId("file-line").find((l) => l.textContent?.startsWith(text))!;
 
 describe("the file first, every value marked (one builder plan 5, issue 394)", () => {
-  it("counts how the values were decided, each count a filter", () => {
+  it("counts how the values were decided, each count a filter, in the outline", () => {
     file();
-    const strip = screen.getByRole("group", { name: "how the values were decided" });
+    const outline = screen.getByRole("navigation", { name: "outline of the file" });
+    const strip = within(outline).getByRole("group", { name: "how the values were decided" });
     expect(within(strip).getAllByRole("button").map((b) => b.textContent)).toEqual(
       ["1 settled", "1 measured", "1 needs you"]);
   });
@@ -95,52 +96,39 @@ describe("the file first, every value marked (one builder plan 5, issue 394)", (
     expect(line("  - name: strandedness")).toBeTruthy();
   });
 
-  it("opens a value's reason beside the file from any of its lines", async () => {
+  it("opens a value's reason beneath its lines, with Ask the AI and Change (issue 499)", async () => {
     const p = file();
     fireEvent.click(line("      tier: 3"));
-    const reason = screen.getByRole("complementary", { name: "the reason" });
-    expect(reason).toHaveTextContent("STAR_ALIGN");
-    expect(reason).toHaveTextContent("sjdbOverhang");
+    const reason = screen.getByRole("region", { name: "the reason" });
     expect(reason).toHaveTextContent("150");
     expect(reason).toHaveTextContent("Read length minus one.");
     expect(reason).toHaveTextContent("read_length = 151");
     expect(await within(reason).findByText("measured")).toBeInTheDocument();
-    fireEvent.click(within(reason).getByRole("button", { name: "Change it" }));
+    // Beneath the value's last line, before the next setting's first.
+    const lines = within(screen.getByTestId("artifact-text")).getAllByTestId("file-line");
+    const twopass = lines.find((l) => l.textContent?.startsWith("  - name: twopassMode"))!;
+    expect(reason.compareDocumentPosition(twopass) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(within(reason).getByRole("button", { name: "Change" }));
     expect(p.onChange).toHaveBeenCalledWith("star_align");
-    fireEvent.click(within(reason).getByRole("button", { name: "Ask about it in the chat" }));
+    fireEvent.click(within(reason).getByRole("button", { name: "Ask the AI" }));
     expect(p.onAsk).toHaveBeenCalledWith("About STAR_ALIGN sjdbOverhang: ");
   });
 
-  it("says to pick a line until one is picked", () => {
+  it("has no column waiting for a click (issue 495)", () => {
     file();
-    expect(screen.getByRole("complementary", { name: "the reason" })).toHaveTextContent(
-      "Click a value in the file to see why it is what it is.");
+    expect(screen.queryByText(/Click a value/)).toBeNull();
+    expect(screen.queryByRole("complementary", { name: "the reason" })).toBeNull();
   });
 });
 
 describe("the Nextflow it compiles to", () => {
-  it("compiles on request, and shows main.nf and nextflow.config", async () => {
+  it("compiles main.nf and nextflow.config on first open", async () => {
     file();
-    expect(screen.queryByRole("tab", { name: "main.nf" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Compile it" }));
-    fireEvent.click(await screen.findByRole("tab", { name: "main.nf" }));
+    fireEvent.click(screen.getByRole("tab", { name: "main.nf" }));
     expect(await screen.findByText(/STAR_ALIGN\(\)/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "nextflow.config" }));
     expect(await screen.findByText(/docker.enabled = true/)).toBeInTheDocument();
-  });
-
-  it("opens main.nf once compiled and offers to compile again (issue 496)", async () => {
-    file();
-    fireEvent.click(screen.getByRole("button", { name: "Compile it" }));
-    expect(await screen.findByText(/STAR_ALIGN\(\)/)).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "main.nf" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: "Compile again" })).toBeInTheDocument();
-  });
-
-  it("asks once on the first press (issue 404)", async () => {
-    file();
-    fireEvent.click(screen.getByRole("button", { name: "Compile it" }));
-    await screen.findByRole("tab", { name: "main.nf" });
     const asked = (fetch as unknown as { mock: { calls: [string][] } }).mock.calls
       .filter(([url]) => url.includes("/emitted"));
     expect(asked).toHaveLength(1);
@@ -149,7 +137,7 @@ describe("the Nextflow it compiles to", () => {
   it("says why when there is nothing to compile yet", async () => {
     emitted = { ok: false, status: 422, body: { detail: "MI0219: there is no pipeline to compile yet: empty" } };
     file();
-    fireEvent.click(screen.getByRole("button", { name: "Compile it" }));
+    fireEvent.click(screen.getByRole("tab", { name: "main.nf" }));
     expect(await screen.findByText(/there is no pipeline to compile yet/)).toBeInTheDocument();
     emitted = { ok: true, status: 200,
       body: { revision: 4, main_nf: "workflow {\n  STAR_ALIGN()\n}\n", nextflow_config: "docker.enabled = true\n" } };
@@ -185,14 +173,72 @@ describe("the file itself", () => {
   });
 });
 
-describe("the file's sections", () => {
-  it("offers a chip for each section the file has, and takes the file to it", () => {
+describe("the outline (issue 499)", () => {
+  it("lists the file's sections and its steps with their state, and takes the file to each", () => {
     file();
-    const chips = within(screen.getByRole("navigation", { name: "sections of the file" })).getAllByRole("button");
-    expect(chips.map((c) => c.textContent)).toEqual(["Steps 3", "Checks"]);
+    const outline = screen.getByRole("navigation", { name: "outline of the file" });
+    expect(within(outline).getByRole("button", { name: /^Steps/ })).toHaveTextContent("3");
+    const steps = within(outline).getAllByRole("button", { name: /^step / });
+    expect(steps.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "step star_align, measured", "step featurecounts, needs you", "step multiqc, settled"]);
     const gate = line("gate: null");
     gate.scrollIntoView = vi.fn();
-    fireEvent.click(screen.getByRole("button", { name: "Checks" }));
+    fireEvent.click(within(outline).getByRole("button", { name: "Checks" }));
     expect(gate.scrollIntoView).toHaveBeenCalled();
+    const counts = line("- id: featurecounts");
+    counts.scrollIntoView = vi.fn();
+    fireEvent.click(steps[1]);
+    expect(counts.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("opens on the step it was asked to show", () => {
+    const counts = vi.fn();
+    Element.prototype.scrollIntoView = counts;
+    file({ focusStep: "featurecounts" });
+    expect(counts).toHaveBeenCalled();
+  });
+});
+
+const FOLDED: AuthoringPreview = { revision: 4, state: "ready", findings: [], text: [
+  "steps:", "- id: star_align", "  module:", "    contract_id: nf-core/star/align@2.7.11a",
+  "    digest: sha256:abc", "  settings:", "  - name: sjdbOverhang", "    value: '150'", ""].join("\n") };
+
+describe("folding (issue 499)", () => {
+  it("folds a step's module to one summary line, and opens it", () => {
+    file({ preview: FOLDED });
+    expect(screen.queryByText(/digest: sha256:abc/)).toBeNull();
+    const fold = screen.getByRole("button", { name: /\{ nf-core\/star\/align@2.7.11a · 3 lines \}/ });
+    fireEvent.click(fold);
+    expect(screen.getByText(/digest: sha256:abc/)).toBeInTheDocument();
+  });
+});
+
+describe("asking about what is selected (issue 499)", () => {
+  it("offers Explain this for selected lines, and asks with their real line numbers", () => {
+    const p = file();
+    const from = line("  - name: sjdbOverhang");
+    const to = line("    value: '150'");
+    const range = document.createRange();
+    // Within each line's own text (its number and fold arrow are drawn by CSS).
+    range.setStart(from.children[2].firstChild!, 0);
+    range.setEnd(to.children[2].firstChild!, 4);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    fireEvent.mouseUp(screen.getByTestId("artifact-text"));
+    const bar = screen.getByRole("toolbar", { name: "about the selection" });
+    fireEvent.click(within(bar).getByRole("button", { name: "Explain this" }));
+    expect(p.onSay).toHaveBeenCalledWith(expect.stringMatching(/^About lines 5–6 of pipeline\.yml:\n> {3}- name: sjdbOverhang\n> {5}value: '150'\nExplain this\.$/));
+  });
+});
+
+describe("the AI beside the file (issue 499)", () => {
+  it("is the builder's conversation, and folds away", () => {
+    file({ aside: <div>the thread</div> });
+    const panel = screen.getByRole("region", { name: "Ask about this pipeline" });
+    expect(panel).toHaveTextContent("the thread");
+    fireEvent.click(screen.getByRole("button", { name: "Hide the AI panel" }));
+    expect(screen.queryByRole("region", { name: "Ask about this pipeline" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show the AI panel" }));
+    expect(screen.getByRole("region", { name: "Ask about this pipeline" })).toBeInTheDocument();
   });
 });

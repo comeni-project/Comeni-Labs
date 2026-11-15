@@ -11,7 +11,7 @@ import { Composer } from "./Composer";
  *  **The rail's height is the layout's, never its content's** (`--rail-h` in `main.css`): the
  *  thread scrolls inside it, so a reply landing does not push the page or the canvas around. */
 export function ChatPanel({
-  session, sending, composer, onCompose, onSay, onAnswer, onRetry, onUpload, notices,
+  session, sending, composer, onCompose, onSay, onAnswer, onRetry, onUpload, notices, onStep, embedded = false,
 }: {
   session: AuthoringSession;
   sending: string[];
@@ -22,6 +22,10 @@ export function ChatPanel({
   onRetry: (seq: number) => void;
   onUpload?: (questionId: string, files: File[]) => Promise<unknown>;
   notices: React.ReactNode;
+  /** Show a step an answer used. */
+  onStep?: (node: string) => void;
+  /** Drawn inside another page (the pipeline file's AI panel): no frame of its own. */
+  embedded?: boolean;
 }) {
   // **Follow the newest line, unless the person scrolled up to read.**
   const scroller = useRef<HTMLDivElement>(null);
@@ -34,9 +38,10 @@ export function ChatPanel({
   }, [size]);
 
   return (
-    <section aria-label="build panel"
-             className="living-rail flex flex-col min-h-0 ml-[8px] mr-[28px] mt-[4px] mb-[24px] rounded-panel border border-line overflow-hidden"
-             style={{ background: "var(--surface)", height: "var(--rail-h)" }}>
+    <section aria-label={embedded ? "the conversation" : "build panel"}
+             className={embedded ? "flex flex-col min-h-0 h-full overflow-hidden"
+               : "living-rail flex flex-col min-h-0 ml-[8px] mr-[28px] mt-[4px] mb-[24px] rounded-panel border border-line overflow-hidden"}
+             style={{ background: "var(--surface)", height: embedded ? undefined : "var(--rail-h)" }}>
       {notices}
       <div ref={scroller} data-testid="thread-scroll" className="flex-1 min-h-0 px-4 pt-4 pb-4"
            style={{ overflowY: "auto", overflowAnchor: "none" }}
@@ -51,7 +56,7 @@ export function ChatPanel({
           </p>
         ) : (
           <AgentThread turns={session.turns} working={session.working} sending={sending}
-                       onAnswer={onAnswer} onRetry={onRetry} onUpload={onUpload} />
+                       onAnswer={onAnswer} onRetry={onRetry} onUpload={onUpload} onStep={onStep} />
         )}
       </div>
       <div className="px-[16px] pt-[8px] pb-[16px] border-t" style={{ borderColor: "var(--line)" }}>

@@ -223,3 +223,64 @@ export const PORTS_STEPS = {
   fastqc: { id: "fastqc", process: "FASTQC", contract_id: "nf-core/fastqc@0.12.1", tier: 1, runs: "per_item",
     reason: "", settings: [], ports: [assemblyPort("reads", "fastq.reads", "in"), assemblyPort("zip", "qc.report", "out")] },
 } as unknown as Record<string, Step>;
+
+/** A `pipeline.yml` in the server's layout for the fake pages: two steps with their provenance,
+ *  settings and inputs, so the outline, folds and reasons have something real to show. */
+export const FAKE_FILE = `version: 9
+intent:
+  want:
+  - counts.matrix
+facts:
+  measurements:
+  - measurement: read_length
+    value: 151
+    source: measured
+steps:
+- id: trimgalore
+  module:
+    contract_id: ${TRIM}
+    digest: sha256:9a1f
+  why:
+    tier: 2
+    source: resolver
+    reason: STAR asks for trimmed reads
+  settings: []
+- id: star_align
+  module:
+    contract_id: ${ALIGN}
+    digest: sha256:f02b
+  process: STAR_ALIGN
+  why:
+    tier: 3
+    source: resolver
+    reason: 'rule implementation:alignment where read_length is 150: STAR''s seed search suits long
+      reads; Dobin et al. 2013'
+  settings:
+  - name: sjdbOverhang
+    value: '150'
+    via: ext
+    why:
+      tier: 3
+      reason: Read length is 151 bp, measured from your files, minus one.
+  - name: outSAMtype
+    value: BAM Unsorted
+    via: ext
+    why:
+      tier: 1
+      reason: The next step sorts.
+  - name: twopassMode
+    value: None
+    via: ext
+    why:
+      tier: 2
+      reason: nf-core's default for this module.
+  inputs:
+  - port: reads
+    source: trimgalore.reads
+  - port: index
+    source: star_genomegenerate.index
+decisions:
+- key: producer:alignment.bam
+  chosen: ${ALIGN}
+gate: null
+`;

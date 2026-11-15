@@ -4631,6 +4631,8 @@ export interface components {
              * @default false
              */
             running: boolean;
+            /** Node */
+            node?: string | null;
         };
         /**
          * TurnState
