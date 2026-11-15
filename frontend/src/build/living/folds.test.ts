@@ -50,3 +50,9 @@ it("reads a quoted reason that runs over lines, and folds a step's other keys pl
   expect(folds(text).filter((f) => f.step === "a").map((f) => f.summary)).toEqual([
     "{ tier 3 · STAR's seed search · 4 lines }", "{ 3 lines }"]);
 });
+
+it("says an input a channel feeds is fed by that channel, never `null` (plan 2 review)", () => {
+  const text = ["steps:", "- id: a", "  inputs:", "  - port: gtf", "    source: null", "    channel: gtf",
+    "  - port: reads", "    source: trim.reads", "    channel: null"].join("\n");
+  expect(folds(text).find((f) => f.key === "inputs")!.summary).toBe("{ gtf ← channel gtf · reads ← trim · 7 lines }");
+});

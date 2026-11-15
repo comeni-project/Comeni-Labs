@@ -62,3 +62,23 @@ describe("reduced motion", () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.agent-pulse, \.agent-arrive\s*\{\s*animation:\s*none/);
   });
 });
+
+describe("a step's card stays inside the canvas (plan 2 review)", () => {
+  it("clamps its left, its top and its height in the stylesheet, from where the step is", () => {
+    const css = readFileSync(join(HERE, "../../main.css"), "utf8");
+    const rule = /\.step-beside \{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(rule).toMatch(/left: max\(8px, min\(var\(--card-x\)/);
+    expect(rule).toMatch(/top: max\(12px, min\(var\(--card-y\)/);
+    expect(rule).toMatch(/max-height: calc\(100% - max\(12px, min\(var\(--card-y\)/);
+  });
+});
+
+describe("the pipeline file's AI on a narrow screen (plan 2 review)", () => {
+  it("stacks the AI panel under the file rather than hiding where its answers land", () => {
+    const css = readFileSync(join(HERE, "../../main.css"), "utf8");
+    const narrow = /@media \(max-width: 900px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+    expect(narrow).toContain(".pipeline-file");
+    expect(narrow).not.toMatch(/file-aside[^}]*display: none/);
+    expect(narrow).toMatch(/\.file-aside \{[^}]*height/);
+  });
+});

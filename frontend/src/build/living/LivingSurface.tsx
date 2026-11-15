@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { processName } from "./format";
 import { StepCard, hasInputs, type CardKind } from "./StepCard";
@@ -108,7 +108,7 @@ export function LivingSurface({
   const [was, setWas] = useState(selected);
   if (selected !== was) { setWas(selected); setCardFor(selected); }
   const carded = present(cardFor) ? cardFor : null;
-  const pick = (node: string | null) => { setCardFor(node); setKind("settings"); onSelect(node); };
+  const pick = (node: string | null) => { setMenuFor(null); setCardFor(node); setKind("settings"); onSelect(node); };
   // Focus goes back to the step the menu or card belonged to; it is still drawn when they close.
   const backTo = (node: string) => document.querySelector<HTMLElement>(`[data-node="${node}"]`)?.focus();
   const closeMenu = (node: string) => { setMenuFor(null); backTo(node); };
@@ -138,9 +138,6 @@ export function LivingSurface({
     else if (item === "reviewed") onReviewed(node);
     else if (item === "whole" && steps[node]?.parts) onWhole?.(steps[node].contract_id, steps[node].parts!.on);
   };
-  useEffect(() => {
-    if (menuFor && !present(menuFor)) setMenuFor(null);
-  });
   const beside = menuFor && present(menuFor) ? {
     node: menuFor,
     content: <StepMenu label={`${processName(menuFor)} menu`} items={menuItems(menuFor)}

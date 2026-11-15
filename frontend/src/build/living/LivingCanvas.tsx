@@ -200,7 +200,8 @@ export function LivingCanvas({
     const anchor = at[feeds[0][0]];
     const index = perNode.get(feeds[0][0]) ?? 0;
     perNode.set(feeds[0][0], index + 1);
-    const geometry = place("Input", anchor, index, gutterClear(anchor, index), { w: SOURCE_W, h: SOURCE_H });
+    const geometry = place("Input", anchor, index, gutterClear(anchor, index), { w: SOURCE_W, h: SOURCE_H },
+                           tall(feeds[0][0]));
     return [{ channel, box: geometry.box, edge: geometry.edge, feeds }];
   });
 
@@ -277,7 +278,11 @@ export function LivingCanvas({
   return (
     <Canvas
       view={view.view}
-      onWheel={(e) => { touched.current = true; view.onWheel(e); }}
+      onWheel={(e) => {
+        // A wheel over a step's menu or card scrolls it; it never zooms the canvas under it.
+        if ((e.target as HTMLElement).closest(".step-beside")) return;
+        touched.current = true; view.onWheel(e);
+      }}
       onPointerDown={(e) => {
         // A pointer inside the step's menu or card is not a pan of the canvas.
         if ((e.target as HTMLElement).closest(".step-beside")) return;
@@ -294,10 +299,12 @@ export function LivingCanvas({
           <span ref={probe} hidden />
           {beside && at[beside.node] && (
             // Beside the step on screen, kept inside the frame by CSS alone (no measuring).
-            <div className="step-beside absolute z-10 max-h-[calc(100%-24px)] overflow-auto"
+            <div className="step-beside absolute z-10 overflow-auto select-text cursor-auto"
+                 // Where the step is on screen; `.step-beside` (main.css) keeps the card inside
+                 // the frame on every side, and no taller than the room below its top.
                  style={{
-                   left: `min(${Math.round(view.view.x + (at[beside.node].x + NODE_W + 36) * view.view.k)}px, calc(100% - 372px))`,
-                   top: `max(12px, min(${Math.round(view.view.y + at[beside.node].y * view.view.k)}px, calc(100% - 160px)))`,
+                   ["--card-x" as string]: `${Math.round(view.view.x + (at[beside.node].x + NODE_W + 36) * view.view.k)}px`,
+                   ["--card-y" as string]: `${Math.round(view.view.y + at[beside.node].y * view.view.k)}px`,
                  }}>
               {beside.content}
             </div>

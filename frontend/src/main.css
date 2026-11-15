@@ -329,16 +329,19 @@ body {
    on a phone a fixed share of the screen. Never its content's, so a reply does not move the page. */
 .living { --rail-h: auto; }
 .living > .living-canvas { min-height: 0; }
-/* The pipeline file (#499, direction A with the AI): an outline, the file, and the AI panel. The
-   panel folds below 1180px (it can be shown again); a phone has the file alone, and Chat is a tab. */
+/* The pipeline file (#499, direction A with the AI): an outline, the file, and the AI panel. Below
+   900px the outline goes and the AI panel stacks under the file, so its answers stay in view. */
 .pipeline-file { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100%; }
 .pipeline-file[data-aside="open"] { grid-template-columns: 240px minmax(0, 1fr) 400px; }
 @media (max-width: 1180px) {
   .pipeline-file[data-aside="open"] { grid-template-columns: 200px minmax(0, 1fr) 340px; }
 }
 @media (max-width: 900px) {
-  .pipeline-file, .pipeline-file[data-aside="open"] { grid-template-columns: minmax(0, 1fr); }
-  .pipeline-file > .file-outline, .pipeline-file > .file-aside { display: none; }
+  .pipeline-file, .pipeline-file[data-aside="open"] { grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto; }
+  .pipeline-file > .file-outline { display: none; }
+  /* The AI stays where its answers land: under the file, a fixed share of the screen. */
+  .pipeline-file > .file-aside { height: 45dvh; border-left: 0 !important; border-top: 1px solid var(--line); }
 }
 @media (max-width: 1180px) { .living { grid-template-columns: minmax(0, 1fr) 360px; } }
 @media (max-width: 1000px) {
@@ -367,10 +370,17 @@ body {
   .beside-switch { display: none !important; }
 }
 /* A step's menu and card beside it (#499); on a phone, a sheet along the bottom of the canvas. */
-.step-beside { width: 360px; }
+.step-beside {
+  /* Where the step is on screen, set inline by the canvas; these are only defaults. */
+  --card-x: 8px;
+  --card-y: 12px;
+  width: 360px;
+  left: max(8px, min(var(--card-x), calc(100% - 372px)));
+  top: max(12px, min(var(--card-y), calc(100% - 160px)));
+  max-height: calc(100% - max(12px, min(var(--card-y), calc(100% - 160px))) - 12px);
+}
 @media (max-width: 640px) {
-  .step-beside { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto;
-                 max-height: 70%; }
+  .step-beside { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 70%; }
 }
 /* The agent's working dot (#463). Still under reduced motion: the words say it is working. */
 @keyframes agent-pulse { 50% { opacity: .35; } }

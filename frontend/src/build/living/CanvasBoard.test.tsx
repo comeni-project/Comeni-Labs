@@ -190,3 +190,11 @@ describe("Tidy", () => {
     fit.mockRestore();
   });
 });
+
+describe("an input beside a tall step (plan 2 review)", () => {
+  it("is placed below the step's full height, not over its rows", async () => {
+    const { place } = await import("../Sources");
+    const below = place("Input", { x: 0, y: 0 }, 0, false, { w: 120, h: 80 }, 199);
+    expect(below.box.y).toBeGreaterThanOrEqual(199 + 20);
+  });
+});

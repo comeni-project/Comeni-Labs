@@ -72,8 +72,13 @@ export function folds(text: string): Fold[] {
         const wired = [];
         for (let j = i; j <= end; j += 1) {
           const port = /^\s*- port:\s*(\S+)/.exec(lines[j]);
-          const source = port ? valueOf(lines, j + 1, Math.min(end, j + 3), "source") : null;
-          if (port) wired.push(source ? `${port[1]} ← ${source.split(".")[0]}` : port[1]);
+          if (!port) continue;
+          // Fed by a step (`source: step.port`) or by one of the run's inputs (`channel: name`).
+          const around = Math.min(end, j + 4);
+          const source = valueOf(lines, j + 1, around, "source");
+          const channel = valueOf(lines, j + 1, around, "channel");
+          wired.push(source && source !== "null" ? `${port[1]} ← ${source.split(".")[0]}`
+            : channel && channel !== "null" ? `${port[1]} ← channel ${channel}` : port[1]);
         }
         words = wired.slice(0, 3).join(" · ");
       }

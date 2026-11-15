@@ -89,6 +89,46 @@ describe("the step menu", () => {
   });
 });
 
+describe("the menu and the card together (plan 2 review)", () => {
+  it("closes the menu when another step is clicked, and opens that step's card", () => {
+    surface();
+    fireEvent.contextMenu(node("star_align"));
+    fireEvent.click(node("trimgalore"));
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByRole("region", { name: "step card TRIMGALORE" })).toBeInTheDocument();
+  });
+
+  it("closes the menu on a click on the empty canvas", () => {
+    surface();
+    fireEvent.contextMenu(node("star_align"));
+    fireEvent.click(screen.getByTestId("canvas"));
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("puts focus in the card it opens, so Esc closes it from the keyboard", () => {
+    surface();
+    node("star_align").focus();
+    fireEvent.keyDown(node("star_align"), { key: "F10", shiftKey: true });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Settings…" }));
+    const card = screen.getByRole("region", { name: "step card STAR_ALIGN" });
+    expect(card.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(screen.queryByRole("region", { name: "step card STAR_ALIGN" })).toBeNull();
+    expect(document.activeElement).toBe(node("star_align"));
+  });
+
+  it("keeps the card inside the canvas, and a wheel over it does not zoom the canvas", () => {
+    surface(idle, "star_align");
+    const beside = screen.getByRole("region", { name: "step card STAR_ALIGN" }).closest<HTMLElement>(".step-beside")!;
+    expect(beside.style.getPropertyValue("--card-x")).toMatch(/px$/);
+    expect(beside.style.getPropertyValue("--card-y")).toMatch(/px$/);
+    const layer = () => screen.getByTestId("canvas").querySelector<HTMLElement>("[style*='translate']")!.style.transform;
+    const before = layer();
+    fireEvent.wheel(beside, { deltaY: 200 });
+    expect(layer()).toBe(before);
+  });
+});
+
 describe("a step's card", () => {
   it("opens beside the step on a click, and the conversation stays", () => {
     surface(idle, "star_align");

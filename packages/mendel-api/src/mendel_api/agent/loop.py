@@ -165,21 +165,26 @@ _DOING = {
 
 
 def _node_of(session_id: str, arguments: dict) -> str | None:
-    """The step a tool call touched (#499): named by its `node`, or found in the pipeline last
-    built by the tool's contract or the setting's name. Derived by the engine, so the link an
-    answer carries cannot be invented."""
-    named = arguments.get("node")
-    if isinstance(named, str):
-        return printable(named)
+    """The step a tool call touched (#499): named by its `node`, or found by the tool's contract
+    or the setting's name — **and only a step the pipeline last built has** (plan 2 review), so
+    the link an answer carries is the engine's, never an id the model made up."""
     with session_scope() as db:
         stored = db.get(PipelineAuthoringSession, session_id).blueprint
-    steps = (stored or {}).get("pipeline", {}).get("steps", [])
+    pipeline = (stored or {}).get("pipeline") or {}
+    steps = [s for s in pipeline.get("steps") or [] if isinstance(s, dict)]
+    ids = {s.get("id") for s in steps}
+    named = arguments.get("node")
+    if isinstance(named, str):
+        return named if named in ids else None
     contract, setting = arguments.get("contract"), arguments.get("name")
-    for step in steps:
-        if contract and step.get("module", {}).get("contract_id") == contract:
-            return step["id"]
-        if setting and any(s.get("name") == setting for s in step.get("settings", [])):
-            return step["id"]
+    if contract:
+        return next((s["id"] for s in steps
+                     if (s.get("module") or {}).get("contract_id") == contract), None)
+    if setting:
+        # A setting's name alone may be any step's: linked only when exactly one step has it.
+        having = [s["id"] for s in steps
+                  if any(x.get("name") == setting for x in s.get("settings") or [])]
+        return having[0] if len(having) == 1 else None
     return None
 
 
@@ -299,6 +304,7 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
             _write(session_id, seq, blocks)
             try:
                 result = call(ctx, made.name, made.arguments)
+                node = _node_of(session_id, made.arguments) if result.ok else None
             except Exception:  # noqa: BLE001 — a turn never stays pending on an engine error
                 # **Failed, not left waiting** (#463 review): an error the engine does not refuse
                 # with a code (a lost connection, a bug) ends the turn so the page offers Retry.
@@ -314,8 +320,7 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
                 return TurnState.FAILED.value
             blocks[-1] = ToolLine(id=line, name=name,
                                   label=_label(name, made.arguments), ok=result.ok,
-                                  summary=(result.refusal or "")[:2000],
-                                  node=_node_of(session_id, made.arguments))\
+                                  summary=(result.refusal or "")[:2000], node=node)\
                 .model_dump(mode="json", exclude_none=True)
             messages.append({"role": "tool", "tool_call_id": made.id,
                              "content": result.model_dump_json(exclude_none=True)})

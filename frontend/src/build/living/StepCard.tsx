@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { DraftGraph } from "../../api/types";
 import { open, optionalOpen, type AnsweredStep } from "../useBuilder";
@@ -42,6 +42,10 @@ export function StepCard({ node, kind, onKind, step, graph, onSetParam, onEdit, 
   onWhole?: (contract: string, whole: boolean) => void;
 }) {
   const [showSettled, setShowSettled] = useState(false);
+  // **Focus comes into the card it opens** (plan 2 review), so the keyboard reaches it and Esc
+  // closes it; the card is not modal, so Tab may leave it.
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus(); }, [node, kind]);
   const settings = step?.settings ?? [];
   // **Needs you, then optional, apart** (issues 384, 494): counted together, an optional prefix read
   // "Needs you · 1" beside "none need you".
@@ -57,7 +61,7 @@ export function StepCard({ node, kind, onKind, step, graph, onSetParam, onEdit, 
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           <p className="m-0 text-label text-ink-3">{KIND_WORDS[kind]}</p>
-          <h2 className="m-0 mt-[2px] font-data text-[15px] font-semibold text-ink truncate" title={processName(node)}>
+          <h2 ref={heading} tabIndex={-1} className="m-0 mt-[2px] outline-none font-data text-[15px] font-semibold text-ink truncate" title={processName(node)}>
             {processName(node)}
           </h2>
           {step && <p className="m-0 mt-[2px] font-data text-[11.5px] text-ink-3 break-all">{step.contract_id}</p>}

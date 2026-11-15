@@ -108,11 +108,41 @@ def test_a_tool_name_the_engine_cannot_print_is_a_refusal(clean):
 def test_a_tool_line_names_the_step_it_touched(clean, monkeypatch):
     """#499: the pipeline file links an answer to the steps the agent read or changed, from the
     tools it called — a link the engine derives, never one the model writes."""
-    session_id, seq, _ = _started(monkeypatch, [
-        _call("read_step", node="star_align"), _call("read_goal"), _say("Read it.")])
+    from mendel_api.services import decisions
+    from mendel_resolver.goal import Goal
+    from support.example import example_mapping
+
+    monkeypatch.setattr(loop, "model_access", lambda: object())
+    session_id = loop.start_session(drafts.create(DraftGraph(), "agent", "ana"), who="ana")
+    with session_scope() as db:
+        from mendel_api.models import PipelineAuthoringSession
+        draft = db.get(PipelineAuthoringSession, session_id).draft_id
+    decisions.import_goal(draft, Goal.model_validate(example_mapping()), who="ana")
+    seq = loop.add_person_turn(session_id, "build it, then look at the aligner")
+    from comeni_ai.agent import ScriptedAgentTransport
+    loop.run_turn(session_id, seq, transport=ScriptedAgentTransport([
+        _call("resolve"), _call("read_step", node="star_align"), _call("read_goal"),
+        _say("Read it.")]))
     tools = [b for b in _turn(session_id, seq).blocks if b["kind"] == "tool"]
-    assert [(t["name"], t.get("node")) for t in tools] == [("read_step", "star_align"),
-                                                           ("read_goal", None)]
+    assert [(t["name"], t.get("node")) for t in tools] == [
+        ("resolve", None), ("read_step", "star_align"), ("read_goal", None)]
+
+
+def test_a_step_link_is_only_a_step_the_pipeline_has(clean, monkeypatch):
+    """Plan 2 review I6: a refused call, or a node the pipeline does not have, links nothing; and
+    a lookup that fails ends the turn failed, never stuck working."""
+    session_id, seq, _ = _started(monkeypatch, [
+        _call("read_step", node="star_alignn"), _say("Read it.")])
+    [line] = [b for b in _turn(session_id, seq).blocks if b["kind"] == "tool"]
+    assert line.get("node") is None
+
+    def broken(*args):
+        raise RuntimeError("bad blueprint")
+
+    monkeypatch.setattr(loop, "_node_of", broken)
+    session_id, seq, _ = _started(monkeypatch, [_call("read_goal"), _say("never")])
+    turn = _turn(session_id, seq)
+    assert turn.state == "failed" and not any(b.get("running") for b in turn.blocks)
 
 
 def test_a_tool_refusal_goes_back_to_the_model(clean, monkeypatch):

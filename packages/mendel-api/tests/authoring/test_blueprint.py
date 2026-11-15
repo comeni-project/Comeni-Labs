@@ -62,17 +62,40 @@ def contracts():
 # ── the shapes Task 6 names ───────────────────────────────────────────────────────────────
 
 
+def test_the_blueprint_is_laid_out_with_each_steps_declared_ports(monkeypatch):
+    """Plan 2 review I1: a step grows with its declared ports (#494), so the server's placement
+    must count them too; counting only wired ones put a tall step's sibling under it."""
+    from mendel_compiler import layout
+
+    seen = {}
+    real = layout.of
+
+    def spy(ir, ports=None):
+        seen["ports"] = ports
+        return real(ir, ports=ports)
+
+    monkeypatch.setattr(bp.layout, "of", spy)
+    blueprint, _ = bp.resolve(_rnaseq())
+    assert seen["ports"], "the layout is given the declared ports"
+    stack = registry.stack()
+    for step in blueprint.pipeline.steps:
+        contract = stack.routing.get(step.module.contract_id)
+        assert seen["ports"][step.id][0] == [p.name for p in contract.consumes], step.id
+
+
 def test_the_rnaseq_spine_is_revealed_in_layout_order(spine):
     """A branched blueprint: the index and the trimmer share rank 0, and the order between them
     comes from the layout rather than from dictionary order or which one the router met first."""
     # samtools faidx and its measuring step measure the genome's length for STAR's index in
     # the run (#217); nothing feeds STAR from them on the graph, the fact travels on `meta`.
     # The measurement comes before the index whose setting it decides (issue 496).
+    # Laid out with each step's declared ports (plan 2 review), the trimmer sits with the
+    # genome's own steps in rank 0; the measurement still precedes the index it decides.
     assert spine.order == [
         "samtools_faidx",
+        "trimgalore",
         "measure_genome_length_fai",
         "star_genomegenerate",
-        "trimgalore",
         "star_align",
         "samtools_sort",
         "subread_featurecounts",
