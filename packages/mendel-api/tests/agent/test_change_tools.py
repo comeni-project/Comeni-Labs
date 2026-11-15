@@ -144,6 +144,19 @@ def test_resolve_says_what_is_still_needed(clean):
     assert resolved.view.needs == alone
 
 
+def test_a_value_named_as_resolve_lists_it_is_set(clean):
+    """Walk 2026-11-15: resolve lists open values as `quast.prefix`, and set_value refused that
+    name (`MI0204: no step declares a setting called quast.prefix`). It takes the name as the
+    engine printed it, step first, as well as the bare setting name."""
+    ctx = _rnaseq()
+    assert call(ctx, "resolve", {}).ok
+    named = call(ctx, "set_value", {"name": "subread_featurecounts.min_mqs", "value": 10,
+                                    "because": "stricter mapping quality"})
+    assert named.ok, named.refusal
+    [value] = [p for p in decisions.read(ctx.draft_id).parameters if p.name == "min_mqs"]
+    assert value.value == 10
+
+
 def test_resolve_reports_the_rules_that_fired(clean):
     resolved = call(_rnaseq(), "resolve", {})
     assert resolved.ok, resolved.refusal

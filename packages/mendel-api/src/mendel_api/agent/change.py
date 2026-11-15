@@ -120,7 +120,10 @@ def switch_input(ctx: ToolContext, a: InputArgs) -> TextView:
 
 
 def set_value(ctx: ToolContext, a: ValueArgs) -> TextView:
-    return _apply(ctx, _change("parameter", a.name, value=a.value, because=a.because))
+    # **The name as the engine prints it** (walk 2026-11-15): resolve lists open values as
+    # `step.setting`, and a value is decided by its setting's name across the pipeline.
+    name = a.name.rsplit(".", 1)[1] if "." in a.name else a.name
+    return _apply(ctx, _change("parameter", name, value=a.value, because=a.because))
 
 
 def keep_whole(ctx: ToolContext, a: WholeArgs) -> TextView:
