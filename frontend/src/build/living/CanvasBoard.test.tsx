@@ -198,3 +198,27 @@ describe("an input beside a tall step (plan 2 review)", () => {
     expect(below.box.y).toBeGreaterThanOrEqual(199 + 20);
   });
 });
+
+describe("a step that measures a fact for another (walk 2026-11-15)", () => {
+  it("draws a dotted line from the measuring step to the step it decides, with the whole label", () => {
+    const measure = { id: "measure_len", process: "MEASURE", contract_id: "comeni/measure/genome_length_fai@1.0.0",
+      tier: 1, runs: "once", reason: "", settings: [], ports: [] };
+    const index = { id: "star_index", process: "STAR_INDEX", contract_id: "nf-core/star/genomegenerate@2.7.11b",
+      tier: 2, runs: "once", reason: "", ports: [], settings: [{ name: "sa_index_nbases", value: null, via: "ext",
+        tier: 3, reason: "", because: "", axis_reason: "", optional: false, premise: [],
+        at_run: { facts: [{ fact: "genome_length", source: "measured", said: "", measured_by: measure.contract_id }],
+                  rule: "r", rows: [], fallback: null, fallback_is: "stop", fallback_reason: "" } }] };
+    mount(<LivingCanvas graph={{ nodes: [{ id: "measure_len", contract_id: measure.contract_id, params: [] },
+                                         { id: "star_index", contract_id: index.contract_id, params: [] }], edges: [] }}
+                        positions={{ measure_len: { x: 224, y: 0 }, star_index: { x: 0, y: 200 } }}
+                        steps={{ measure_len: measure, star_index: index } as unknown as Record<string, Step>}
+                        authors={{}} selected={null} onSelect={vi.fn()} />);
+    const link = screen.getByTestId("fact-link-measure_len-star_index");
+    expect(link.querySelector("path")!.getAttribute("stroke-dasharray")).toBeTruthy();
+    expect(within(link).getByText("genome_length → sa_index_nbases")).toBeInTheDocument();
+    // Out of the measuring step's side, into the decided step's top: never through a step.
+    const d = link.querySelector("path")!.getAttribute("d")!;
+    expect(d).toMatch(/^M 224 /);
+    expect(d).toMatch(/V 200$/);
+  });
+});

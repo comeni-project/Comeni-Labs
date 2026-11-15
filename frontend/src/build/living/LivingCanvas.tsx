@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import type { components } from "../../api/schema";
 import type { DraftEdge, DraftGraph, PortView, Step } from "../../api/types";
 import { Canvas } from "../Canvas";
-import { elbow, heightOf, NODE_W, path, portOffset, SPINE, type Point, type Positions } from "../geometry";
+import { elbow, heightOf, NODE_W, path, portOffset, RANK_PITCH, SPINE, type Point, type Positions } from "../geometry";
 import { idFor, withEdge, withNode, withoutEdge, withoutNode } from "../graphOps";
 import { Minimap } from "../Minimap";
 import { Picker } from "../Picker";
@@ -149,6 +149,15 @@ export function LivingCanvas({
   const ids = [...new Set(graph.nodes.map((n) => n.id))];
   const visible = new Set(ids);
   const solid = graph.edges;
+  /** **A fact one step measures for another** (walk 2026-11-15): genome length, measured in the
+   *  run, sets STAR's index size. It travels on the samples' metadata, not a port, so no wire
+   *  shows it; a dotted line does, labelled with the fact and the setting it decides. */
+  const byContract = new Map(ids.map((id) => [steps[id]?.contract_id, id] as const));
+  const factLinks = ids.flatMap((to) => (steps[to]?.settings ?? []).flatMap((setting) =>
+    (setting.at_run?.facts ?? []).flatMap((fact) => {
+      const from = fact.measured_by ? byContract.get(fact.measured_by) : undefined;
+      return from && from !== to ? [{ from, to, label: `${fact.fact} → ${setting.name}` }] : [];
+    })));
 
   const count = channels.find((c) => c.grain === "sample")?.count ?? null;
   const portsOf = (node: string, side: "in" | "out") =>
@@ -386,6 +395,30 @@ export function LivingCanvas({
         })}
         {/* **A wide invisible path under each wire** to detach it: a 1.5px stroke is not a thing
             a hand can hit. */}
+        {/* The fact links: out of the measuring step's side, down the gap between columns, along
+            the gap above the decided step's row, and into its top — so the line runs between
+            steps, never through them, and its label sits on the run along the row gap. */}
+        {factLinks.map(({ from, to, label }) => {
+          const a = at[from], b = at[to];
+          if (!a || !b) return null;
+          const leftward = b.x + NODE_W / 2 < a.x + NODE_W / 2;
+          const sx = leftward ? a.x : a.x + NODE_W;
+          const sy = a.y + tall(from) - 11;
+          const gx = leftward ? a.x - (RANK_PITCH - NODE_W) / 2 : a.x + NODE_W + (RANK_PITCH - NODE_W) / 2;
+          const tx = b.x + NODE_W / 2;
+          const ly = b.y - 16;
+          const d = `M ${sx} ${sy} H ${gx} V ${ly} H ${tx} V ${b.y}`;
+          return (
+            <g key={`fact-${from}-${to}-${label}`} data-testid={`fact-link-${from}-${to}`}>
+              <path d={d} fill="none" stroke="var(--measured)" strokeWidth={1.25} strokeDasharray="4 4" />
+              <text x={leftward ? gx - 6 : gx + 6} y={ly - 5} textAnchor={leftward ? "end" : "start"}
+                    className="font-data"
+                    style={{ fontSize: 10.5, fill: "var(--measured-ink)" }}>
+                {label}
+              </text>
+            </g>
+          );
+        })}
         {editable && solid.map((edge) => {
           const from = tipOut(edge.from_node, edge.from_port);
           const to = tipIn(edge.to_node, edge.to_port);
