@@ -83,3 +83,10 @@ def test_the_registry_vocabulary_names_every_type_and_measurement(clean):
     assert {m.measurement for m in seen.view.measurements} == set(stack.measurements.ids())
     length = next(m for m in seen.view.measurements if m.measurement == "read_length")
     assert length.kind == "integer" and length.name and length.describes == "fastq.reads"
+
+
+def test_the_goal_says_the_analysis_name_so_the_agent_can_name_it(clean):
+    """Walk 2026-11-15: the agent could not tell the analysis was still untitled."""
+    ctx = _rnaseq()
+    goal = call(ctx, "read_goal", {})
+    assert goal.ok and goal.view.name == "rnaseq"

@@ -93,7 +93,13 @@ def read_goal(ctx: ToolContext, _: Nothing) -> GoalView:
     choices += [ChoiceLine(subject=f"the setting {p.name}", value=p.value, by=p.by,
                            because=p.because)
                 for p in current.parameters if p.value is not None]
+    from mendel_api.db import session_scope
+    from mendel_api.models import PipelineDraft
+
+    with session_scope() as db:
+        name = db.get(PipelineDraft, ctx.draft_id).name or ""
     return GoalView(
+        name=name[:200],
         wants=[_type_line(stack, w.type_id, w.states) for w in current.wants if w.present],
         have=[_type_line(stack, i.type_id, i.states) for i in current.inputs if i.present],
         facts=[FactLine(measurement=f.subject, value=f.value, source=f.origin.value)

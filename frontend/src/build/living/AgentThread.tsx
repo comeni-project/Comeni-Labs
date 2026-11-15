@@ -140,15 +140,22 @@ function paragraphsOf(text: string, at: number): ReactNode[] {
   const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   return paragraphs.map((p, n) => {
     const i = `${at}-${n}`;
-    const lines = p.split("\n");
-    if (lines.every((l) => /^[-*] /.test(l))) {
-      return (
-        <ul key={i} className="m-0 pl-[18px] flex flex-col gap-1">
-          {lines.map((l, j) => <li key={j}>{inline(l.slice(2))}</li>)}
-        </ul>
-      );
+    // Runs of `- ` lines are a list, whatever lines lead into them (walk 2026-11-15).
+    const runs: { list: boolean; lines: string[] }[] = [];
+    for (const line of p.split("\n")) {
+      const list = /^\s*[-*] /.test(line);
+      if (runs.at(-1)?.list === list) runs.at(-1)!.lines.push(line);
+      else runs.push({ list, lines: [line] });
     }
-    return <p key={i} className="m-0 whitespace-pre-wrap">{inline(p)}</p>;
+    return (
+      <div key={i} className="flex flex-col gap-1">
+        {runs.map((run, r) => run.list ? (
+          <ul key={r} className="m-0 pl-[18px] flex flex-col gap-1">
+            {run.lines.map((l, j) => <li key={j}>{inline(l.replace(/^\s*[-*] /, ""))}</li>)}
+          </ul>
+        ) : <p key={r} className="m-0 whitespace-pre-wrap">{inline(run.lines.join("\n"))}</p>)}
+      </div>
+    );
   });
 }
 

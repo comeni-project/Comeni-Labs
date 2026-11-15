@@ -94,6 +94,15 @@ describe("the agent's thread", () => {
     expect(onStep).toHaveBeenCalledWith("star_align");
   });
 
+  it("draws bullet lines as a list even under a lead-in line (walk 2026-11-15)", () => {
+    render(<AgentThread working={false} onAnswer={vi.fn()} onRetry={vi.fn()} turns={[person(1, "why?"),
+      agent(2, "answered", [said("m", "The main trade-off is:\n- STAR: fast, more RAM\n- HISAT2: less RAM")])]} />);
+    expect(screen.getByText("The main trade-off is:")).toBeInTheDocument();
+    const items = screen.getAllByRole("listitem").map((li) => li.textContent);
+    expect(items).toEqual(expect.arrayContaining(["STAR: fast, more RAM", "HISAT2: less RAM"]));
+    expect(screen.queryByText(/^- STAR/)).toBeNull();
+  });
+
   it("draws a fenced code block as code, not as backticks (walk 2026-11-15)", () => {
     render(<AgentThread working={false} onAnswer={vi.fn()} onRetry={vi.fn()} turns={[person(1, "how?"),
       agent(2, "answered", [said("m", "Like this:\n\n```bash\nsome_tool sample.bam\n```\n\nThat is all.")])]} />);

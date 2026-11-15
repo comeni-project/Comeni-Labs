@@ -75,6 +75,8 @@ class GoalView(EgressPayload):
     """What is wanted, what the person has, the facts, and the choices made."""
 
     kind: Literal[ViewKind.GOAL] = ViewKind.GOAL
+    name: Line = ""
+    """The analysis's name, so the agent can tell it is still untitled (walk 2026-11-15)."""
     wants: list[TypeLine] = Field(default_factory=list)
     have: list[TypeLine] = Field(default_factory=list)
     facts: list[FactLine] = Field(default_factory=list)

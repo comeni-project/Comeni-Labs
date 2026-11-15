@@ -172,6 +172,9 @@ FREE_TEXT_FIELDS = {
     # The registry's vocabulary (walk 2026-11-15): each measurement's declared description, kind,
     # allowed values and unit. Registry data, as `TypeLine.name` is.
     ("MeasureLine", "name"),
+    # The analysis's name (walk 2026-11-15): the agent's working name, or one the person typed,
+    # as they typed a message — the same person's words the conversation already carries.
+    ("GoalView", "name"),
     ("MeasureLine", "kind"),
     ("MeasureLine", "values"),
     ("MeasureLine", "unit"),
