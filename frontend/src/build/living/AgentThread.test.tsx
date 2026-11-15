@@ -68,6 +68,17 @@ describe("the agent's thread", () => {
     expect(screen.getByText("Let me see which aligners fit paired reads.")).toBeVisible();
   });
 
+  it("fades a new thread item in, and leaves what was there when the page opened still", () => {
+    const props = { onAnswer: vi.fn(), onRetry: vi.fn(), working: false };
+    const first = [person(1, "counts"), agent(2, "answered", [said("m", "Built it.")])];
+    const { rerender } = render(<AgentThread {...props} turns={first} />);
+    const items = () => Array.from(screen.getByRole("log", { name: "conversation" }).children);
+    expect(items().some((li) => li.classList.contains("agent-arrive"))).toBe(false);
+    // The person's own words already faded in as they were sent; the agent's reply fades in.
+    rerender(<AgentThread {...props} turns={[...first, person(3, "and QC?"), agent(4, "pending", [])]} />);
+    expect(items().map((li) => li.classList.contains("agent-arrive"))).toEqual([false, false, false, true]);
+  });
+
   it("draws an agent question's options as buttons and sends the choice", () => {
     const onAnswer = vi.fn();
     render(<AgentThread working={false} onRetry={vi.fn()} onAnswer={onAnswer} turns={[person(1, "counts"),

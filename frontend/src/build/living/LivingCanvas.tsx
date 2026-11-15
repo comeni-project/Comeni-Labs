@@ -220,6 +220,13 @@ export function LivingCanvas({
     if (shown === firstShown.current || touched.current) return;
     fitLatest.current();
   }, [shown]);
+  // **Tidy fits the drawing** once the server's layout is back, the next frame.
+  const tidied = useRef(false);
+  useEffect(() => {
+    if (!tidied.current || Object.keys(moved).length > 0) return;
+    tidied.current = false;
+    fitLatest.current();
+  }, [moved]);
   const moving = (e: React.SyntheticEvent) => {
     if (!(e.target as HTMLElement).closest("[data-node]")) touched.current = true;
   };
@@ -306,7 +313,8 @@ export function LivingCanvas({
             <button type="button" aria-label="reset the view" onClick={() => { touched.current = true; view.reset(); }} className={CONTROL}>1:1</button>
             {footer}
             {Object.keys(moved).length > 0 && (
-              <button type="button" data-testid="tidy" onClick={() => setMoved({})} className={CONTROL}>
+              <button type="button" data-testid="tidy" onClick={() => { setMoved({}); touched.current = false; tidied.current = true; }}
+                      className={CONTROL}>
                 Tidy
               </button>
             )}

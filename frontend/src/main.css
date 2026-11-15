@@ -367,7 +367,10 @@ body {
 /* The agent's working dot (#463). Still under reduced motion: the words say it is working. */
 @keyframes agent-pulse { 50% { opacity: .35; } }
 .agent-pulse { animation: agent-pulse 1.2s var(--ease) infinite; }
-@media (prefers-reduced-motion: reduce) { .agent-pulse { animation: none; } }
+/* A new thread item fades in (#496): opacity only, so nothing above it moves. */
+@keyframes agent-arrive { from { opacity: 0; } }
+.agent-arrive { animation: agent-arrive 160ms var(--ease) both; }
+@media (prefers-reduced-motion: reduce) { .agent-pulse, .agent-arrive { animation: none; } }
 
 /* ═══ THE REGISTRY'S PARTS ═════════════════════════════════════════════════════════════════
    One frame, so a registry page's logo, tabs, tracker and panels share their edges, and one set

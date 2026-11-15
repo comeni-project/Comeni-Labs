@@ -59,6 +59,6 @@ describe("the layout does not assume JavaScript measured anything", () => {
 describe("reduced motion", () => {
   it("stills the agent's working dot, whose words already say it is working", () => {
     const css = readFileSync(join(HERE, "../../main.css"), "utf8");
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.agent-pulse\s*\{\s*animation:\s*none/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.agent-pulse, \.agent-arrive\s*\{\s*animation:\s*none/);
   });
 });

@@ -170,3 +170,23 @@ describe("a step only some samples take (issue 466)", () => {
     expect(screen.queryByTestId("node-branch-star_genomegenerate")).toBeNull();
   });
 });
+
+describe("Tidy", () => {
+  it("gives the server's layout back and fits the drawing", () => {
+    const fit = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
+      { x: 0, y: 0, top: 0, left: 0, right: 400, bottom: 300, width: 400, height: 300, toJSON: () => ({}) } as DOMRect);
+    mount(<LivingCanvas graph={COLLECT_SESSION.graph} positions={COLLECT_SESSION.placement}
+                        steps={COLLECT_STEPS} channels={COLLECT_CHANNELS} authors={{}} selected={null}
+                        onSelect={vi.fn()} />);
+    const node = screen.getByTestId("living-node-fastqc");
+    fireEvent.pointerDown(node, { clientX: 10, clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(node, { clientX: 70, clientY: 40, pointerId: 1 });
+    fireEvent.pointerUp(node, { pointerId: 1 });
+    const before = screen.getByTestId("canvas").querySelector<HTMLElement>("[style*='translate']")!.style.transform;
+    fireEvent.click(screen.getByTestId("tidy"));
+    const after = screen.getByTestId("canvas").querySelector<HTMLElement>("[style*='translate']")!.style.transform;
+    expect(after).not.toBe(before);
+    expect(after).not.toMatch(/scale\(1\)$/);
+    fit.mockRestore();
+  });
+});

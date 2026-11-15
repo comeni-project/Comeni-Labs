@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useRef, type ReactNode } from "react";
 
 import type { AuthoringTurn } from "../../api/types";
 import { AgentQuestion, type AnswerValue } from "./AgentQuestion";
@@ -21,10 +21,16 @@ export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, o
   // **Only the newest question is answerable**: once the person has said anything after it, the
   // conversation has moved on and the agent will ask again if it still needs to know.
   const lastPerson = turns.reduce((seq, t) => (t.role === "person" ? Math.max(seq, t.seq) : seq), -1);
+  // **What was there when the page opened stays still**; an item that arrives after fades in.
+  const opened = useRef<Set<number> | null>(null);
+  if (opened.current === null) opened.current = new Set(turns.map((t) => t.seq));
+  // A person's words faded in as they were sent; only the agent's turns fade in on arrival.
+  const arriving = (turn: AuthoringTurn) =>
+    turn.role === "assistant" && !opened.current!.has(turn.seq) ? " agent-arrive" : "";
   return (
     <ol role="log" aria-label="conversation" className="m-0 p-0 flex flex-col gap-4">
       {turns.map((turn) => (
-        <li key={turn.seq} className="list-none flex flex-col">
+        <li key={turn.seq} className={`list-none flex flex-col${arriving(turn)}`}>
           {turn.role === "person"
             ? <Said text={turn.text} />
             : <AgentTurn turn={turn} answerable={turn.seq > lastPerson && !working}
@@ -32,7 +38,7 @@ export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, o
         </li>
       ))}
       {sending.map((text, i) => (
-        <li key={`sending-${i}`} className="list-none flex flex-col">
+        <li key={`sending-${i}`} className="list-none flex flex-col agent-arrive">
           <Said text={text} pending />
         </li>
       ))}
