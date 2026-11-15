@@ -1,5 +1,5 @@
 import type { PortView } from "../../api/types";
-import { HEAD_H, NODE_H, NODE_W, PORT_ROW, portOffset } from "../geometry";
+import { HEAD_H, NODE_W, PORT_GAP, heightOf, portOffset } from "../geometry";
 import type { Author } from "./format";
 import { processName } from "./format";
 import { spelledStates } from "../../ui/spelled";
@@ -67,7 +67,12 @@ export function LivingNode({
   onPointerMove?: (e: React.PointerEvent) => void;
   onPointerUp?: (e: React.PointerEvent) => void;
 }) {
-  const rows = ports.slice(0, Math.floor((NODE_H - HEAD_H - 24) / PORT_ROW));
+  // **Every port, each on its own row at its anchor** (#494): input *i* on the left and output
+  // *i* on the right of row *i*, where both their marks sit; the node grows to hold them.
+  const ins = ports.filter((p) => p.side === "in");
+  const outs = ports.filter((p) => p.side === "out");
+  const height = heightOf(ports);
+  const rows = Array.from({ length: Math.max(ins.length, outs.length) }, (_, i) => [ins[i], outs[i]] as const);
   const edge = `1px solid ${selected ? "var(--now)" : "var(--node-line)"}`;
 
   return (
@@ -88,7 +93,7 @@ export function LivingNode({
         left: at.x,
         top: at.y,
         width: NODE_W,
-        height: NODE_H,
+        height,
         background: "var(--node)",
         borderRadius: "var(--radius-button)",
         // Four longhands, never `border`: React cannot redraw a shorthand next to its own longhand,
@@ -155,27 +160,22 @@ export function LivingNode({
                 style={{ background: "var(--needs-you)" }} />
         )}
       </span>
-      {/* **No top padding, measured rather than read**: the first row's centre is the header rule
-          plus half a row, which is where `portOffset` puts the port marks. */}
-      <span className="flex-1 min-h-0 pb-[5px] w-full overflow-hidden">
-        {rows.map((port) => (
-          <span
-            key={`${port.side}:${port.name}`}
-            className="flex items-center px-[10px] font-data text-[10px] whitespace-pre"
-            style={{ height: PORT_ROW }}
-          >
-            <span className="text-ink-3">{port.side === "in" ? "< " : "> "}</span>
-            <span className={port.side === "in" ? "text-ink truncate" : "text-ink-2 truncate"}>
-              {port.type_id}
-              {spelledStates(port.states)}
-            </span>
+      {rows.map(([input, output], i) => (
+        <span key={`row-${i}`} data-port-row
+              className="absolute left-0 right-0 flex items-center justify-between gap-2 px-[10px] font-data text-[10px] whitespace-pre"
+              style={{ top: portOffset(i) - PORT_GAP / 2, height: PORT_GAP }}>
+          <span className="min-w-0 truncate text-ink" title={input ? `${input.type_id}${spelledStates(input.states)}` : undefined}>
+            {input && <><span className="text-ink-3">{"< "}</span>{input.name}</>}
           </span>
-        ))}
-      </span>
+          <span className="min-w-0 truncate text-ink-2 text-right" title={output ? `${output.type_id}${spelledStates(output.states)}` : undefined}>
+            {output && <>{output.name}<span className="text-ink-3">{" >"}</span></>}
+          </span>
+        </span>
+      ))}
       {counts && (
         <span
           data-testid={`node-footer-${id}`}
-          className="h-[24px] flex items-center px-[10px] w-full shrink-0 text-[10.5px] whitespace-pre overflow-hidden"
+          className="absolute left-0 right-0 bottom-0 h-[22px] flex items-center px-[10px] text-[10.5px] whitespace-pre overflow-hidden"
           style={{ borderTop: "1px solid var(--node-rule)" }}
         >
           <CountWords counts={counts} />

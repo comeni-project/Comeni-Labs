@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import type { components } from "../../api/schema";
 import type { DraftEdge, DraftGraph, PortView, Step } from "../../api/types";
 import { Canvas } from "../Canvas";
-import { elbow, NODE_H, NODE_W, path, portOffset, SPINE, type Point, type Positions } from "../geometry";
+import { elbow, heightOf, NODE_W, path, portOffset, SPINE, type Point, type Positions } from "../geometry";
 import { idFor, withEdge, withNode, withoutEdge, withoutNode } from "../graphOps";
 import { Minimap } from "../Minimap";
 import { Picker } from "../Picker";
@@ -126,6 +126,8 @@ export function LivingCanvas({
   }, [wiring]);
 
   const at: Positions = { ...positions, ...moved };
+  /** A step's drawn height: taller for many ports (#494). */
+  const tall = (id: string) => heightOf(steps[id]?.ports ?? []);
 
   // **The canvas follows the engine**: when the step in focus changes, or the server places it,
   // it is brought on screen. Read from the server's placement, not a drag's, so moving a step by
@@ -136,7 +138,7 @@ export function LivingCanvas({
     const frame = probe.current?.closest<HTMLElement>("[data-testid='canvas']");
     if (!target || !frame) return;
     const rect = frame.getBoundingClientRect();
-    bringIntoView({ x: target.x, y: target.y, w: NODE_W, h: NODE_H }, { w: rect.width, h: rect.height });
+    bringIntoView({ x: target.x, y: target.y, w: NODE_W, h: tall(focus!) }, { w: rect.width, h: rect.height });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a step moves by its coordinates, not its object
   }, [focus, target?.x, target?.y, bringIntoView]);
   const ids = [...new Set(graph.nodes.map((n) => n.id))];
@@ -179,7 +181,7 @@ export function LivingCanvas({
       if (!other || other === anchor) return true;
       return (
         box.x + SOURCE_W <= other.x || other.x + NODE_W <= box.x ||
-        box.y + SOURCE_H <= other.y || other.y + NODE_H <= box.y
+        box.y + SOURCE_H <= other.y || other.y + tall(id) <= box.y
       );
     });
   };
@@ -203,7 +205,7 @@ export function LivingCanvas({
     const ys = [...ids.map((id) => at[id]?.y ?? 0), ...sources.map((s) => s.box.y)];
     const left = Math.min(...xs), top = Math.min(...ys);
     const right = Math.max(...ids.map((id) => (at[id]?.x ?? 0) + NODE_W));
-    const bottom = Math.max(...ids.map((id) => (at[id]?.y ?? 0) + NODE_H), ...sources.map((s) => s.box.y + SOURCE_H));
+    const bottom = Math.max(...ids.map((id) => (at[id]?.y ?? 0) + tall(id)), ...sources.map((s) => s.box.y + SOURCE_H));
     const rect = frame.getBoundingClientRect();
     view.fit(right - left, bottom - top, rect.width, rect.height - 96, { x: left, y: top - 40 });
   };
@@ -224,7 +226,7 @@ export function LivingCanvas({
   const width = Math.max(0, ...ids.map((id) => (at[id]?.x ?? 0) + NODE_W + 80));
   const height = Math.max(
     0,
-    ...ids.map((id) => (at[id]?.y ?? 0) + 200),
+    ...ids.map((id) => (at[id]?.y ?? 0) + tall(id) + 88),
     ...sources.map((s) => s.box.y + SOURCE_H + 20),
   );
 
@@ -417,7 +419,7 @@ export function LivingCanvas({
           />
           {editable && (
             <div data-testid={`ports-${id}`} className="absolute pointer-events-none"
-                 style={{ left: at[id].x, top: at[id].y, width: NODE_W, height: NODE_H }}>
+                 style={{ left: at[id].x, top: at[id].y, width: NODE_W, height: tall(id) }}>
               {(["in", "out"] as const).flatMap((side) =>
                 portsOf(id, side).map((port, i) => (
                   <span key={`${side}.${port.name}`} className="pointer-events-auto">

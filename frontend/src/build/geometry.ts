@@ -26,7 +26,7 @@
  * `impl-geom` on the redesign canvas: *variable heights put a jog between every pair and the
  * whole thing reads sloppy again.* The height used to be computed from the port count. */
 export const NODE_W = 172;
-/** `NODE_H`. Every process node, always. */
+/** `NODE_H` — a process node with one or two ports a side; a node with more grows (`nodeHeight`). */
 export const NODE_H = 112;
 /** `HEAD_H` — the node's title band, where the name and the `⋯` sit. */
 export const HEAD_H = 28;
@@ -62,6 +62,19 @@ export type Positions = Record<string, Point>;
  */
 export function portOffset(index: number): number {
   return SPINE + index * PORT_GAP;
+}
+
+/** **A node's height for its larger side's port count** (#494): every port's row, at its
+ *  anchor, inside the node above the footer. `node_height` in `dag_core.layout`, read off this
+ *  source by `test_the_canvas_and_the_layout_agree_on_a_steps_height`. */
+export function nodeHeight(ports: number): number {
+  return Math.max(NODE_H, 89 + PORT_GAP * (ports - 1));
+}
+
+/** A step's height from its ports, as the canvas draws it. */
+export function heightOf(ports: { side: string }[]): number {
+  const ins = ports.filter((p) => p.side === "in").length;
+  return nodeHeight(Math.max(1, ins, ports.length - ins));
 }
 
 /** One wire, as an orthogonal elbow between two points.

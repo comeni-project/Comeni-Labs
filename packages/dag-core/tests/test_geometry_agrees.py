@@ -64,3 +64,15 @@ def test_the_names_the_flip_retired_are_gone(gone: str):
     """Retired variable-height and axis-specific constants stay removed."""
     assert not hasattr(layout, gone), f"layout still exports {gone}"
     assert gone not in _declared(), f"geometry.ts still exports {gone}"
+
+
+def test_the_canvas_and_the_layout_agree_on_a_steps_height():
+    """`nodeHeight` in `geometry.ts` is the formula `node_height` is: read off the source and
+    compared for every port count a registry tool has."""
+    text = GEOMETRY.read_text()
+    found = re.search(r"export function nodeHeight\(ports: number\): number \{\s*return "
+                      r"Math\.max\(NODE_H, (\d+) \+ PORT_GAP \* \(ports - 1\)\);", text)
+    assert found, "geometry.ts declares no nodeHeight in the shared form"
+    for ports in range(1, 12):
+        assert max(layout.NODE_H, int(found.group(1)) + layout.PORT_GAP * (ports - 1)) \
+            == layout.node_height(ports)

@@ -15,7 +15,7 @@ from dag_core.graph import Graph
 
 NODE_W = 172
 NODE_H = 112
-"""Uniform node dimensions shared with the browser canvas."""
+"""Node width, and the height of a node with one or two ports a side, shared with the browser."""
 
 RANK_PITCH = 224
 """Distance between ranks along the left-to-right flow."""
@@ -37,6 +37,19 @@ SECOND = SPINE + 22
 
 CORNER = 7
 """Corner radius used by the browser when rendering routed wires."""
+
+ROW_FIRST = SPINE + 11 + 22
+"""A one-port node's content height: the spine row's lower half and the footer below it."""
+
+SIBLING_GAP = SIBLING_PITCH - NODE_H
+"""The space left between a tall node and the next one in its rank."""
+
+
+def node_height(ports: int) -> int:
+    """A node's height for its larger side's port count (#494): tall enough that every port's
+    row, anchored at `SPINE + index * PORT_GAP`, sits inside it above the footer. Anchors never
+    move with the height, so a wire already drawn stays where it is."""
+    return max(NODE_H, ROW_FIRST + PORT_GAP * (max(ports, 1) - 1))
 
 
 @dataclass(frozen=True)
@@ -178,6 +191,8 @@ def _across(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[s
     for edge in graph.edges:
         incoming[edge.to_node].append(edge.from_node)
 
+    tall = {node.id: node_height(max(len(node.inputs), len(node.outputs)))
+            for node in graph.nodes}
     by_rank: dict[int, list[str]] = defaultdict(list)
     for node in graph.nodes:
         by_rank[rank[node.id]].append(node.id)
@@ -188,8 +203,10 @@ def _across(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[s
     for depth in sorted(by_rank):
         ids = by_rank[depth]
         if depth == 0:
-            for i, nid in enumerate(ids):
-                x[nid] = i * SIBLING_PITCH
+            edge_x = 0
+            for nid in ids:
+                x[nid] = edge_x
+                edge_x += max(SIBLING_PITCH, tall[nid] + SIBLING_GAP)
             continue
         wanted = []
         for nid in ids:
@@ -205,11 +222,12 @@ def _across(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[s
                     else (centres[half - 1] + centres[half]) // 2
                 )
             wanted.append((middle - NODE_H // 2, nid))
-        # Preserve the chosen order while preventing sibling overlap.
+        # Preserve the chosen order while preventing sibling overlap: a tall node (#494) keeps
+        # the same gap below it as a short one.
         edge_x = None
         for want, nid in wanted:
             x[nid] = want if edge_x is None else max(want, edge_x)
-            edge_x = x[nid] + SIBLING_PITCH
+            edge_x = x[nid] + max(SIBLING_PITCH, tall[nid] + SIBLING_GAP)
 
     # Avoid leading empty space when centring a wider rank produces negative coordinates.
     shift = min(x.values(), default=0)
@@ -264,7 +282,7 @@ def of(graph: Graph = None) -> Layout:
             x=rank[node.id] * RANK_PITCH,
             y=across[node.id],
             width=NODE_W,
-            height=NODE_H,
+            height=node_height(max(len(node.inputs), len(node.outputs))),
             tier=node.tier,
         )
         # Keep tuple order stable as well as coordinates.

@@ -185,3 +185,41 @@ export const COLLECT_CHANNELS = [
   { name: "reads", param: "input", type_id: "fastq.reads", grain: "sample", count: 12,
     states: ["paired"], ports: ["trimgalore.reads"] },
 ] as unknown as import("../../api/schema").components["schemas"]["ChannelView"][];
+
+const QUAST = "nf-core/quast@5.2.0";
+const assemblyPort = (name: string, type_id: string, side: "in" | "out", optional = false) =>
+  ({ name, type_id, side, met: true, states: [], gathers: false, optional });
+
+/** `?fake=ports`: an assembly check with QUAST's many inputs and outputs (#494), next to a short
+ *  step in the same column, so a tall step and its neighbour can be looked at together. */
+export const PORTS_SESSION = {
+  ...FAKE_SESSION,
+  name: "assembly-qc",
+  working: false,
+  turns: [],
+  ai_unreviewed: [],
+  graph: {
+    nodes: [
+      { id: "spades", contract_id: "nf-core/spades@4.1.0", params: [] },
+      { id: "quast", contract_id: QUAST, params: [] },
+      { id: "fastqc", contract_id: "nf-core/fastqc@0.12.1", params: [] },
+    ],
+    edges: [{ from_node: "spades", from_port: "scaffolds", to_node: "quast", to_port: "consensus" }],
+  },
+  placement: { spades: { x: 40, y: 40 }, quast: { x: 264, y: 40 }, fastqc: { x: 264, y: 297 } },
+} as unknown as AuthoringSession;
+
+export const PORTS_STEPS = {
+  spades: { id: "spades", process: "SPADES", contract_id: "nf-core/spades@4.1.0", tier: 2, runs: "per_item",
+    reason: "", settings: [], ports: [assemblyPort("illumina", "fastq.reads", "in"),
+      assemblyPort("scaffolds", "assembly.fasta", "out"), assemblyPort("contigs", "assembly.fasta", "out"),
+      assemblyPort("gfa", "assembly.graph", "out"), assemblyPort("log", "log.text", "out")] },
+  quast: { id: "quast", process: "QUAST", contract_id: QUAST, tier: 2, runs: "once", reason: "", settings: [],
+    ports: [assemblyPort("consensus", "assembly.fasta", "in"), assemblyPort("fasta", "genome.fasta", "in", true),
+      assemblyPort("gff", "annotation.gff", "in", true), assemblyPort("bam", "alignment.bam", "in", true),
+      assemblyPort("bai", "alignment.bai", "in", true), assemblyPort("reads", "fastq.reads", "in", true),
+      assemblyPort("results", "qc.report", "out"), assemblyPort("tsv", "qc.table", "out"),
+      assemblyPort("report", "qc.report", "out")] },
+  fastqc: { id: "fastqc", process: "FASTQC", contract_id: "nf-core/fastqc@0.12.1", tier: 1, runs: "per_item",
+    reason: "", settings: [], ports: [assemblyPort("reads", "fastq.reads", "in"), assemblyPort("zip", "qc.report", "out")] },
+} as unknown as Record<string, Step>;

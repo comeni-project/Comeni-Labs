@@ -45,3 +45,17 @@ def test_wire_label_position_is_part_of_the_returned_layout():
     start, end = wire.points[0], wire.points[-1]
 
     assert wire.label_at == Point((start.x + end.x) // 2, (start.y + end.y) // 2 - 6)
+
+
+def test_a_tall_step_grows_and_its_siblings_make_room():
+    """#494: a step with six inputs is drawn whole, and the next step in its rank sits below
+    it rather than over it; ports keep their anchors, so wires do not move."""
+    from dag_core.layout import node_height
+
+    many = Node("quast", inputs=tuple(f"in{i}" for i in range(6)), outputs=("report",))
+    laid = of(Graph(nodes=(many, Node("other"))))
+    quast, other = (next(n for n in laid.nodes if n.id == i) for i in ("quast", "other"))
+    assert quast.height == node_height(6) == 89 + 22 * 5
+    assert other.height == NODE_H
+    top, below = sorted((quast, other), key=lambda n: n.y)
+    assert below.y >= top.y + top.height + 58

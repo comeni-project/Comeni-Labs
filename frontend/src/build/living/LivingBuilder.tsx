@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router";
 import { post } from "../../api/client";
 import type { AuthoringSession, Built, DraftGraph } from "../../api/types";
 import { idFor, withNode, withParam } from "../graphOps";
-import { COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS } from "./fake";
+import { COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, PORTS_SESSION, PORTS_STEPS } from "./fake";
 import { RunSheet } from "../RunSheet";
 import { entryChannels } from "../Sources";
 import { withTypedValues } from "../useBuilder";
@@ -30,6 +30,7 @@ export function LivingBuilder() {
   const session = params.get("session");
   const fake = params.get("fake");
   if (fake === "collect") return <FakeLiving session={COLLECT_SESSION} steps={COLLECT_STEPS} channels={COLLECT_CHANNELS} />;
+  if (fake === "ports") return <FakeLiving session={PORTS_SESSION} steps={PORTS_STEPS} channels={[]} />;
   if (fake === "sheet") return <FakeLiving sheet />;
   if (fake === "question") return <FakeLiving steps={QUESTION_STEPS} selected="star_align" />;
   if (fake) return <FakeLiving />;
