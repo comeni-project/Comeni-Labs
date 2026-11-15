@@ -135,7 +135,13 @@ export function PipelineFile({
   };
   const tabs: Tab[] = ["preview", ...(kept ? ["kept" as Tab] : []), "main", "config"];
   const about = (from: number, to: number, quoted: string, how: "explain" | "ask") => {
-    const words = `About ${from === to ? `line ${from}` : `lines ${from}–${to}`} of pipeline.yml:\n`
+    // **Where the lines sit** (walk 2026-11-15): the agent cannot see the file, so the step and
+    // setting the selection is in are named, read off the file's own layout.
+    const ref = refs[from - 1] ?? refs.slice(from - 1, to).find(Boolean) ?? null;
+    let step = ref?.step ?? null;
+    for (let i = from - 1; !step && i >= 0; i -= 1) step = /^- id: (\S+)/.exec(lines[i] ?? "")?.[1] ?? null;
+    const where = step ? ` (step ${step}${ref ? `, setting ${ref.setting}` : ""})` : "";
+    const words = `About ${from === to ? `line ${from}` : `lines ${from}–${to}`} of pipeline.yml${where}:\n`
       + quoted.split("\n").map((l) => `> ${l}`).join("\n");
     if (how === "explain") onSay?.(`${words}\nExplain this.`);
     else onAsk?.(`${words}\n`);

@@ -94,6 +94,15 @@ describe("the agent's thread", () => {
     expect(onStep).toHaveBeenCalledWith("star_align");
   });
 
+  it("draws a fenced code block as code, not as backticks (walk 2026-11-15)", () => {
+    render(<AgentThread working={false} onAnswer={vi.fn()} onRetry={vi.fn()} turns={[person(1, "how?"),
+      agent(2, "answered", [said("m", "Like this:\n\n```bash\nsome_tool sample.bam\n```\n\nThat is all.")])]} />);
+    const code = screen.getByText("some_tool sample.bam");
+    expect(code.closest("pre")).not.toBeNull();
+    expect(screen.queryByText(/```/)).toBeNull();
+    expect(screen.getByText("That is all.")).toBeInTheDocument();
+  });
+
   it("draws an agent question's options as buttons and sends the choice", () => {
     const onAnswer = vi.fn();
     render(<AgentThread working={false} onRetry={vi.fn()} onAnswer={onAnswer} turns={[person(1, "counts"),

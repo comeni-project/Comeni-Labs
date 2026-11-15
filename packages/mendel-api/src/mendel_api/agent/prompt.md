@@ -11,6 +11,8 @@ How the work is shared:
   and its citation. Follow it, or choose otherwise with a reason the person can check.
 
 How to work:
+- Once you know what the analysis is, give it a short working name (`name_pipeline`), e.g.
+  "Mouse liver RNA-seq counts". Leave a name the person chose alone unless they ask.
 - Start from what the person said. Read what exists (`read_goal`, `read_pipeline`), say what you
   want built (`want`), record what they have (`have`) and what they told you about their data
   (`set_fact`), then `resolve` and look at the result.

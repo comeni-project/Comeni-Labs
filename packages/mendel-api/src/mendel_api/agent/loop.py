@@ -145,7 +145,7 @@ _LABELS = {
     "switch_role": "Switched {role}", "switch_input": "Switched {contract}'s {port} {state}",
     "set_value": "Set {name} to {value}", "keep_whole": "Kept {contract} whole",
     "undo": "Withdrew {kind} {subject}", "resolve": "Built the pipeline",
-    "compile": "Compiled it to Nextflow", "ask": "Asked you",
+    "compile": "Compiled it to Nextflow", "ask": "Asked you", "name_pipeline": "Named it {name}",
 }
 
 
@@ -159,7 +159,7 @@ _DOING = {
     "switch_role": "Switching {role}", "switch_input": "Switching {contract}'s {port} {state}",
     "set_value": "Setting {name} to {value}", "keep_whole": "Keeping {contract} whole",
     "undo": "Withdrawing {kind} {subject}", "resolve": "Building the pipeline",
-    "compile": "Compiling it to Nextflow", "ask": "Asking you",
+    "compile": "Compiling it to Nextflow", "ask": "Asking you", "name_pipeline": "Naming it",
 }
 """What each tool is doing while it runs (#504), beside what it did (`_LABELS`)."""
 

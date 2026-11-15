@@ -126,6 +126,23 @@ def keep_whole(ctx: ToolContext, a: WholeArgs) -> TextView:
     return _apply(ctx, _change("whole", a.contract, retract=not a.whole, because=a.because))
 
 
+class NameArgs(BaseModel):
+    name: str = Field(min_length=1, max_length=80,
+                      description="A short working name, e.g. Mouse liver RNA-seq counts")
+
+
+def name_pipeline(ctx: ToolContext, a: NameArgs) -> TextView:
+    """**A working name** (walk 2026-11-15): the analysis stayed "Untitled analysis". A name is
+    not a decision: it moves no decision revision, and the person renames it as they like."""
+    from mendel_api.services import draft_mutations
+
+    name = " ".join(a.name.split())
+    if not name:
+        raise ValueError("MI0204: a name needs words")
+    draft_mutations.save(ctx.draft_id, expected_revision=None, name=name)
+    return TextView(text=f"named the pipeline {name}")
+
+
 def undo(ctx: ToolContext, a: UndoArgs) -> TextView:
     return _apply(ctx, _change(a.kind, a.subject, states=a.states, retract=True))
 
@@ -153,5 +170,7 @@ for _tool in (
          WholeArgs, keep_whole, writes=True),
     Tool("undo", "Withdraw a change: a want, an input, a fact, a tool choice, a setting.",
          UndoArgs, undo, writes=True),
+    Tool("name_pipeline", "Give the analysis a short working name once you know what it is; "
+         "the person can rename it.", NameArgs, name_pipeline),
 ):
     register(_tool)

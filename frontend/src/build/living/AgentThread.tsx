@@ -124,22 +124,32 @@ function Used({ steps, onStep }: { steps: string[]; onStep?: (node: string) => v
 /** The agent's words: paragraphs, `- ` lists, `**bold**` and `` `code` ``, and nothing else. A
  *  model writes a little markdown; drawing it raw reads as noise, and more than this is not needed. */
 function Prose({ text }: { text: string }) {
-  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  // Fenced code blocks first, kept whole; the rest splits into paragraphs.
+  const parts = text.split(/```[^\n]*\n([\s\S]*?)```/g);
   return (
     <div className="flex flex-col gap-2 text-[13.5px] leading-[1.6] text-ink">
-      {paragraphs.map((p, i) => {
-        const lines = p.split("\n");
-        if (lines.every((l) => /^[-*] /.test(l))) {
-          return (
-            <ul key={i} className="m-0 pl-[18px] flex flex-col gap-1">
-              {lines.map((l, j) => <li key={j}>{inline(l.slice(2))}</li>)}
-            </ul>
-          );
-        }
-        return <p key={i} className="m-0 whitespace-pre-wrap">{inline(p)}</p>;
-      })}
+      {parts.flatMap<ReactNode>((part, at) => at % 2 === 1
+        ? [<pre key={`code-${at}`} className="m-0 px-3 py-2 rounded-control font-data text-[12px] whitespace-pre overflow-x-auto"
+                style={{ background: "var(--paper)" }}>{part.replace(/\n$/, "")}</pre>]
+        : paragraphsOf(part, at))}
     </div>
   );
+}
+
+function paragraphsOf(text: string, at: number): ReactNode[] {
+  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  return paragraphs.map((p, n) => {
+    const i = `${at}-${n}`;
+    const lines = p.split("\n");
+    if (lines.every((l) => /^[-*] /.test(l))) {
+      return (
+        <ul key={i} className="m-0 pl-[18px] flex flex-col gap-1">
+          {lines.map((l, j) => <li key={j}>{inline(l.slice(2))}</li>)}
+        </ul>
+      );
+    }
+    return <p key={i} className="m-0 whitespace-pre-wrap">{inline(p)}</p>;
+  });
 }
 
 function inline(text: string): ReactNode {

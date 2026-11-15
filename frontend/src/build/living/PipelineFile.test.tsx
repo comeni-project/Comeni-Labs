@@ -227,7 +227,8 @@ describe("asking about what is selected (issue 499)", () => {
     fireEvent.mouseUp(screen.getByTestId("artifact-text"));
     const bar = screen.getByRole("toolbar", { name: "about the selection" });
     fireEvent.click(within(bar).getByRole("button", { name: "Explain this" }));
-    expect(p.onSay).toHaveBeenCalledWith(expect.stringMatching(/^About lines 5–6 of pipeline\.yml:\n> {3}- name: sjdbOverhang\n> {5}value: '150'\nExplain this\.$/));
+    // Which step and setting the lines are in (walk 2026-11-15): the agent cannot see the file.
+    expect(p.onSay).toHaveBeenCalledWith(expect.stringMatching(/^About lines 5–6 of pipeline\.yml \(step star_align, setting sjdbOverhang\):\n> {3}- name: sjdbOverhang\n> {5}value: '150'\nExplain this\.$/));
   });
 });
 

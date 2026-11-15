@@ -118,6 +118,22 @@ def test_a_tool_that_half_wrote_does_not_make_the_next_write_stale(clean):
     assert after.ok, after.refusal
 
 
+def test_the_agent_gives_the_analysis_a_working_name(clean):
+    """Walk 2026-11-15: the analysis stayed "Untitled analysis". The agent names it; the person
+    can rename it. A name is not a decision, so it moves no decision revision."""
+    from mendel_api.db import session_scope
+    from mendel_api.models import PipelineDraft
+
+    ctx = _rnaseq()
+    before = decisions.revision(ctx.draft_id)
+    named = call(ctx, "name_pipeline", {"name": "Mouse liver RNA-seq counts"})
+    assert named.ok, named.refusal
+    with session_scope() as db:
+        assert db.get(PipelineDraft, ctx.draft_id).name == "Mouse liver RNA-seq counts"
+    assert decisions.revision(ctx.draft_id) == before
+    assert not call(ctx, "name_pipeline", {"name": ""}).ok
+
+
 def test_resolve_reports_the_rules_that_fired(clean):
     resolved = call(_rnaseq(), "resolve", {})
     assert resolved.ok, resolved.refusal
