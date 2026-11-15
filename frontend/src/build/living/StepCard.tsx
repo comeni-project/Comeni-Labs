@@ -9,13 +9,24 @@ import { processName } from "./format";
 
 type Setting = AnsweredStep["settings"][number];
 
-/** **A step opened over the conversation** (one builder plan 3; the *Question* board). Its values
- *  grouped by how they were decided — what still needs the person first, as questions; then what
- *  was measured; then what a rule settled, folded — each opening its reason in place; then the
- *  step's tools. × and *Back to the conversation* return to the chat where it was. */
-export function StepSheet({ node, step, graph, onSetParam, onEdit, onClose, onSwitchInput, onWhole,
-  aiChoices = [], onReviewed }: {
+export type CardKind = "settings" | "values" | "inputs" | "swap" | "remove";
+
+/** Whether a step has anything for the *Inputs…* card: an optional input, or parts. */
+export const hasInputs = (step: AnsweredStep | undefined) =>
+  Boolean(step?.parts) || (step?.ports ?? []).some((p) => p.side === "in" && p.optional);
+
+/** **A step's card, beside the step on the canvas** (#499; the *Question* board's content). One
+ *  at a time, opened from a click (Settings) or the step's menu; the conversation stays where it
+ *  is. *Settings*: what the AI chose there, then what still needs the person, as questions; then
+ *  optional values, what was measured, and what a rule settled, folded — each opening its reason
+ *  in place. *Inputs*: each optional input off, optional or required, and parts. *Swap* and
+ *  *Remove* are the manual builder's tools, opened straight. × or Esc closes. */
+export function StepCard({ node, kind, onKind, step, graph, onSetParam, onEdit, onClose, onSwitchInput,
+  onWhole, aiChoices = [], onReviewed }: {
   node: string;
+  kind: CardKind;
+  /** Switch the card to another of the step's tools. */
+  onKind: (kind: CardKind) => void;
   step: AnsweredStep | undefined;
   graph: DraftGraph;
   /** What the AI chose at this step that nobody has reviewed yet (#463): `chose …`, `set … to …`. */
@@ -41,13 +52,11 @@ export function StepSheet({ node, step, graph, onSetParam, onEdit, onClose, onSw
   const optional = (step?.ports ?? []).filter((p) => p.side === "in" && p.optional);
 
   return (
-    <section aria-label={`step ${processName(node)}`} className="flex flex-col gap-4">
+    <section aria-label={`step card ${processName(node)}`} className="flex flex-col gap-4"
+             onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <button type="button" onClick={onClose}
-                  className="bg-transparent border-0 p-0 text-[12px] text-now-ink cursor-pointer">
-            ‹ Back to the conversation
-          </button>
+          <p className="m-0 text-label text-ink-3">{KIND_WORDS[kind]}</p>
           <h2 className="m-0 mt-[2px] font-data text-[15px] font-semibold text-ink truncate" title={processName(node)}>
             {processName(node)}
           </h2>
@@ -59,6 +68,32 @@ export function StepSheet({ node, step, graph, onSetParam, onEdit, onClose, onSw
           ×
         </button>
       </div>
+      {kind === "swap" || kind === "remove" || kind === "values" ? (
+        <StepTools key={`${node}-${kind}`} node={node} step={step} graph={graph} onEdit={onEdit}
+                   start={kind === "values" ? "settings" : kind} onDone={onClose} />
+      ) : kind === "inputs" ? (<>
+      {optional.length > 0 && step && (
+        <Group label="Optional inputs" count={optional.length}>
+          {optional.map((port) => (
+            <OptionalInput key={port.name} port={port}
+                           onSwitch={onSwitchInput && ((state) => onSwitchInput(step.contract_id, port.name, state))} />
+          ))}
+        </Group>
+      )}
+      {step?.parts && (
+        <section aria-label="Runs in parts" className="flex flex-col gap-2">
+          <h3 className="m-0 text-label text-ink-3">
+            {step.parts.on ? "Runs in parts" : "Can run in parts"}
+          </h3>
+          <p className="m-0 text-[12.5px] text-ink-2">{step.parts.because}</p>
+          <label className="flex items-center gap-2 text-[12.5px] text-ink">
+            <input type="checkbox" checked={!step.parts.on} disabled={!onWhole}
+                   onChange={(e) => onWhole?.(step.contract_id, e.target.checked)} />
+            Run each sample whole
+          </label>
+        </section>
+      )}
+      </>) : (<>
       {aiChoices.length > 0 && (
         <section aria-label="What the AI chose" className="flex flex-col gap-2 px-[12px] py-[10px] rounded-panel"
                  style={{ background: "var(--now-soft)" }}>
@@ -95,34 +130,19 @@ export function StepSheet({ node, step, graph, onSetParam, onEdit, onClose, onSw
           {showSettled && settled.map((s) => <Value key={s.name} setting={s} />)}
         </Group>
       )}
-      {optional.length > 0 && step && (
-        <Group label="Optional inputs" count={optional.length}>
-          {optional.map((port) => (
-            <OptionalInput key={port.name} port={port}
-                           onSwitch={onSwitchInput && ((state) => onSwitchInput(step.contract_id, port.name, state))} />
-          ))}
-        </Group>
-      )}
-      {step?.parts && (
-        <section aria-label="Runs in parts" className="flex flex-col gap-2">
-          <h3 className="m-0 text-label text-ink-3">
-            {step.parts.on ? "Runs in parts" : "Can run in parts"}
-          </h3>
-          <p className="m-0 text-[12.5px] text-ink-2">{step.parts.because}</p>
-          <label className="flex items-center gap-2 text-[12.5px] text-ink">
-            <input type="checkbox" checked={!step.parts.on} disabled={!onWhole}
-                   onChange={(e) => onWhole?.(step.contract_id, e.target.checked)} />
-            Run each sample whole
-          </label>
-        </section>
-      )}
-      <section aria-label="Change this step" className="flex flex-col gap-3">
-        <h3 className="m-0 text-[13px] font-semibold text-ink-2">Change this step</h3>
-        <StepTools key={node} node={node} step={step} graph={graph} onEdit={onEdit} />
-      </section>
+      <div className="flex flex-wrap gap-2">
+        <Secondary disabled={!step} onClick={() => onKind("values")}>Edit values</Secondary>
+        {hasInputs(step) && <Secondary onClick={() => onKind("inputs")}>Inputs…</Secondary>}
+        <Secondary disabled={!step} onClick={() => onKind("swap")}>Swap tool…</Secondary>
+      </div>
+      </>)}
     </section>
   );
 }
+
+const KIND_WORDS: Record<CardKind, string> = {
+  settings: "Settings", values: "Edit values", inputs: "Inputs", swap: "Swap tool", remove: "Remove step",
+};
 
 type InputState = "off" | "optional" | "required";
 const STATES: { value: InputState; label: string }[] = [

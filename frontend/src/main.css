@@ -364,6 +364,12 @@ body {
   /* The phone's own tabs already choose canvas or understood (issue 496). */
   .beside-switch { display: none !important; }
 }
+/* A step's menu and card beside it (#499); on a phone, a sheet along the bottom of the canvas. */
+.step-beside { width: 360px; }
+@media (max-width: 640px) {
+  .step-beside { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto;
+                 max-height: 70%; }
+}
 /* The agent's working dot (#463). Still under reduced motion: the words say it is working. */
 @keyframes agent-pulse { 50% { opacity: .35; } }
 .agent-pulse { animation: agent-pulse 1.2s var(--ease) infinite; }

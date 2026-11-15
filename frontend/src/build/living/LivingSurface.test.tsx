@@ -90,9 +90,9 @@ describe("the two surfaces", () => {
     expect(screen.queryByTestId("node-ai-trimgalore")).toBeNull();
   });
 
-  it("opens a step over the conversation, with what the AI chose there and Looks right", () => {
+  it("opens a step beside it on the canvas, with what the AI chose there and Looks right", () => {
     const props = surface(FAKE_SESSION, { selected: "star_align" });
-    const sheet = screen.getByRole("region", { name: "step STAR_ALIGN" });
+    const sheet = screen.getByRole("region", { name: "step card STAR_ALIGN" });
     expect(within(sheet).getByRole("region", { name: "What the AI chose" }))
       .toHaveTextContent("chose nf-core/star/align@2.7.11b");
     fireEvent.click(within(sheet).getByRole("button", { name: "Looks right" }));

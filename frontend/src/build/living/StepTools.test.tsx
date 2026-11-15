@@ -10,8 +10,8 @@ import { framed } from "./frame";
 
 /** Changing a step that is already on the canvas — Task 14's *preserve swapping and settings*.
  *
- * Selecting a step opens its tools under the panel's *Step* tab, below the step line that says
- * who decided it, and every change leaves through the session's one edit verb — so the
+ * A step's tools open in its card or from its menu, beside it on the canvas (#499), and every
+ * change leaves through the session's one edit verb — so the
  * server writes the receipt and restamps only the decision that moved. A tool that saved the
  * draft any other way would change the pipeline and leave the log saying nothing about it.
  */
@@ -70,7 +70,7 @@ function living(selected: string | null, graph: DraftGraph = RESTED.graph) {
   render(
     <QueryClientProvider client={makeClient()}>
       <LivingSurface
-        session={framed(RESTED, STEPS)}
+        session={framed({ ...RESTED, graph, placement: { ...RESTED.placement, fastqc_1: { x: 488, y: 300 } } } as AuthoringSession, STEPS)}
         graph={graph}
         selected={selected}
         preview={null}
@@ -92,21 +92,19 @@ function living(selected: string | null, graph: DraftGraph = RESTED.graph) {
   return onEdit;
 }
 
-/** The step opened over the conversation (one builder plan 3). */
-const stepTab = () => screen.getByRole("region", { name: /^step / });
+/** The step's card, beside it on the canvas (#499). */
+const stepTab = () => screen.getByRole("region", { name: /^step card / });
 
 describe("a selected step's tools", () => {
-  it("opens over the conversation, in place of the card waiting", () => {
+  it("opens beside the step, with its other tools a click away", () => {
     living("star_align");
-    const tools = within(stepTab()).getByRole("region", { name: "change STAR_ALIGN" });
-    expect(within(tools).getByRole("button", { name: "Swap for something else" })).toBeInTheDocument();
-    expect(within(tools).getByRole("button", { name: "Settings" })).toBeInTheDocument();
-    expect(within(tools).getByRole("button", { name: "Remove" })).toBeInTheDocument();
+    expect(within(stepTab()).getByRole("button", { name: "Swap tool…" })).toBeInTheDocument();
+    expect(within(stepTab()).getByRole("button", { name: "Edit values" })).toBeInTheDocument();
   });
 
   it("is offered for nothing when nothing is selected", () => {
     living(null);
-    expect(screen.queryByRole("region", { name: /^change / })).toBeNull();
+    expect(screen.queryByRole("region", { name: /^step card / })).toBeNull();
   });
 
   it("is offered for a step added by hand, which no decision in the log created", () => {
@@ -115,14 +113,15 @@ describe("a selected step's tools", () => {
       nodes: [...RESTED.graph.nodes, { id: "fastqc_1", contract_id: "nf-core/fastqc@0.12.1", params: [] }],
     };
     living("fastqc_1", graph);
-    expect(within(stepTab()).getByRole("region", { name: "change FASTQC_1" })).toBeInTheDocument();
+    expect(stepTab()).toHaveAccessibleName("step card FASTQC_1");
   });
 });
 
 describe("changing a step goes through the session's edit", () => {
   it("removes a step only after asking, and its wires go with it", () => {
-    const onEdit = living("star_align");
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    const onEdit = living(null);
+    fireEvent.contextMenu(screen.getByTestId("living-node-star_align"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove step…" }));
     expect(onEdit).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove STAR_ALIGN" }));
@@ -133,8 +132,9 @@ describe("changing a step goes through the session's edit", () => {
   });
 
   it("keeps the step when removing is taken back", () => {
-    const onEdit = living("star_align");
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    const onEdit = living(null);
+    fireEvent.contextMenu(screen.getByTestId("living-node-star_align"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove step…" }));
     fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
     expect(screen.queryByRole("button", { name: "Remove STAR_ALIGN" })).toBeNull();
     expect(onEdit).not.toHaveBeenCalled();
@@ -144,7 +144,7 @@ describe("changing a step goes through the session's edit", () => {
     // A receipt per character is `set STAR_ALIGN.seq_platform to I`, then `to IL`, … in the log
     // and a revision per key, each staling whatever step is on offer.
     const onEdit = living("star_align");
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit values" }));
     const field = await screen.findByTestId("setting-field");
     fireEvent.change(field, { target: { value: "ILL" } });
     fireEvent.change(field, { target: { value: "ILLUMINA" } });
@@ -160,7 +160,7 @@ describe("changing a step goes through the session's edit", () => {
 
   it("swaps a step's contract, keeping its id and so its wires", async () => {
     const onEdit = living("star_align");
-    fireEvent.click(screen.getByRole("button", { name: "Swap for something else" }));
+    fireEvent.click(screen.getByRole("button", { name: "Swap tool…" }));
     const [hisat] = await screen.findAllByTestId("swap-option");
     fireEvent.click(hisat);
     const apply = await screen.findByTestId("apply-swap");

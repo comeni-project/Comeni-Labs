@@ -59,6 +59,8 @@ export function LivingCanvas({
   focus = null,
   onEdit,
   shown,
+  onMenu,
+  beside = null,
 }: {
   graph: DraftGraph;
   positions: Positions;
@@ -86,11 +88,17 @@ export function LivingCanvas({
   onEdit?: (next: DraftGraph) => void;
   /** Changes when the page shows the canvas again (a phone's tab); the canvas fits itself then. */
   shown?: string;
+  /** Open a step's menu (#499): a right-click, a long press, `⋯`, or the keyboard. */
+  onMenu?: (node: string) => void;
+  /** What opens beside a step — its menu or its card (#499) — placed next to it on screen, so it
+   *  moves with pan and zoom without scaling; on a phone a sheet from the bottom (`.step-beside`). */
+  beside?: { node: string; content: React.ReactNode } | null;
 }) {
   const view = useView();
   const probe = useRef<HTMLSpanElement>(null);
   const [moved, setMoved] = useState<Positions>({});
   const drag = useRef<{ id: string; from: Point; origin: Point; travelled: boolean } | null>(null);
+  const press = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Which output a wire is being dragged from. */
   const [wiring, setWiring] = useState<{ node: string; port: string } | null>(null);
   /** The port whose candidates are open, and where on screen. */
@@ -270,14 +278,30 @@ export function LivingCanvas({
     <Canvas
       view={view.view}
       onWheel={(e) => { touched.current = true; view.onWheel(e); }}
-      onPointerDown={(e) => { moving(e); view.onPointerDown(e); }}
+      onPointerDown={(e) => {
+        // A pointer inside the step's menu or card is not a pan of the canvas.
+        if ((e.target as HTMLElement).closest(".step-beside")) return;
+        moving(e); view.onPointerDown(e);
+      }}
       dots
       onClick={(e) => {
-        if (!(e.target as HTMLElement).closest("[data-node]")) onSelect(null);
+        // A click on the empty canvas lets go of the step; one inside its menu or card does not.
+        const target = e.target as HTMLElement;
+        if (!target.closest("[data-node]") && !target.closest(".step-beside")) onSelect(null);
       }}
       footer={
         <>
           <span ref={probe} hidden />
+          {beside && at[beside.node] && (
+            // Beside the step on screen, kept inside the frame by CSS alone (no measuring).
+            <div className="step-beside absolute z-10 max-h-[calc(100%-24px)] overflow-auto"
+                 style={{
+                   left: `min(${Math.round(view.view.x + (at[beside.node].x + NODE_W + 36) * view.view.k)}px, calc(100% - 372px))`,
+                   top: `max(12px, min(${Math.round(view.view.y + at[beside.node].y * view.view.k)}px, calc(100% - 160px)))`,
+                 }}>
+              {beside.content}
+            </div>
+          )}
           {/* **The boards' frame**: what is drawn and over how many samples, along the top; the
               view's controls bottom-left, what the colours mean bottom-right. */}
           <div className="absolute left-4 right-4 top-3 flex items-baseline gap-3 pointer-events-none">
@@ -402,8 +426,13 @@ export function LivingCanvas({
             onSelect={() => {
               if (!readOnly && !drag.current?.travelled) onSelect(id);
             }}
+            onMenu={onMenu && !readOnly ? () => onMenu(id) : undefined}
             onPointerDown={(e) => {
               if (readOnly) return;
+              // **A long press is a right-click** on a touch screen (#499).
+              if (e.pointerType === "touch" && onMenu) {
+                press.current = setTimeout(() => { press.current = null; drag.current = null; onMenu(id); }, 550);
+              }
               drag.current = { id, from: { x: e.clientX, y: e.clientY }, origin: at[id], travelled: false };
               (e.target as Element).setPointerCapture?.(e.pointerId);
             }}
@@ -414,9 +443,11 @@ export function LivingCanvas({
               const dy = (e.clientY - d.from.y) / view.view.k;
               if (!d.travelled && Math.abs(dx) + Math.abs(dy) < 3) return;
               d.travelled = true;
+              if (press.current) { clearTimeout(press.current); press.current = null; }
               setMoved((m) => ({ ...m, [id]: { x: Math.round(d.origin.x + dx), y: Math.round(d.origin.y + dy) } }));
             }}
             onPointerUp={() => {
+              if (press.current) { clearTimeout(press.current); press.current = null; }
               // **A macrotask, not a microtask.** The click that ends a drag is dispatched after this
               // handler returns, and a microtask would clear the drag before it — so dragging a
               // node would also select it.
@@ -425,6 +456,17 @@ export function LivingCanvas({
               }, 0);
             }}
           />
+          {/* **`⋯` opens the menu** on the step that is selected — the way in on a phone, where
+              there is no right-click (#499). */}
+          {onMenu && !readOnly && selected === id && (
+            <button type="button" aria-label={`menu for ${id.toUpperCase()}`} onClick={() => onMenu(id)}
+                    className="absolute w-[24px] h-[24px] grid place-items-center p-0 rounded-control border
+                               border-line-2 bg-surface text-ink-2 text-[14px] leading-none cursor-pointer
+                               hover:text-ink focus-visible:shadow-[var(--ring)]"
+                    style={{ left: at[id].x + NODE_W + 6, top: at[id].y }}>
+              ⋯
+            </button>
+          )}
           {editable && (
             <div data-testid={`ports-${id}`} className="absolute pointer-events-none"
                  style={{ left: at[id].x, top: at[id].y, width: NODE_W, height: tall(id) }}>

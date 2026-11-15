@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 
+import { processName } from "./format";
+import { StepCard, hasInputs, type CardKind } from "./StepCard";
+import { StepMenu, type MenuItem } from "./StepMenu";
+
 import type { AuthoringSession, AuthoringVocabulary, DraftGraph } from "../../api/types";
 import type { components } from "../../api/schema";
 import { Browse } from "../Browse";
@@ -93,9 +97,64 @@ export function LivingSurface({
     setSeen(ids);
   }
   const focus = useFocus(newest, selected);
+
+  // **One thing beside a step at a time** (#499): its menu, or one of its cards. A click opens
+  // the step's Settings card; the menu chooses another. Neither covers the conversation.
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [kind, setKind] = useState<CardKind>("settings");
+  const present = (node: string | null) => node !== null && graph.nodes.some((n) => n.id === node);
+  const [cardFor, setCardFor] = useState<string | null>(selected);
+  const [was, setWas] = useState(selected);
+  if (selected !== was) { setWas(selected); setCardFor(selected); }
+  const carded = present(cardFor) ? cardFor : null;
+  const pick = (node: string | null) => { setCardFor(node); setKind("settings"); onSelect(node); };
+  // Focus goes back to the step the menu or card belonged to; it is still drawn when they close.
+  const backTo = (node: string) => document.querySelector<HTMLElement>(`[data-node="${node}"]`)?.focus();
+  const closeMenu = (node: string) => { setMenuFor(null); backTo(node); };
+  const openCard = (node: string, next: CardKind) => {
+    setMenuFor(null); setCardFor(node); setKind(next); onSelect(node);
+  };
+  const closeCard = () => { const at = carded; pick(null); if (at) backTo(at); };
+  const aiAt = (node: string) => session.ai_unreviewed.filter((c) => c.node === node).map((c) => c.what);
+  const menuItems = (node: string): MenuItem[] => [
+    { id: "ask", label: "Ask about this step" },
+    { id: "settings", label: "Settings…" },
+    ...(hasInputs(steps[node]) ? [{ id: "inputs", label: "Inputs…" }] : []),
+    { id: "swap", label: "Swap tool…" },
+    { id: "file", label: "Show in pipeline file" },
+    ...(steps[node]?.parts ? [{ id: "whole", label: steps[node].parts!.on ? "Keep whole" : "Run on parts" }] : []),
+    ...(aiAt(node).length > 0 ? [{ id: "reviewed", label: "Looks right" }] : []),
+    { id: "remove", label: "Remove step…", danger: true },
+  ];
+  const choose = (node: string, item: string) => {
+    if (item === "settings" || item === "inputs" || item === "swap" || item === "remove") {
+      openCard(node, item);
+      return;
+    }
+    closeMenu(node);
+    if (item === "ask") { setPane("chat"); onCompose(`About ${processName(node)}: `); }
+    else if (item === "file") setView("artifact");
+    else if (item === "reviewed") onReviewed(node);
+    else if (item === "whole" && steps[node]?.parts) onWhole?.(steps[node].contract_id, steps[node].parts!.on);
+  };
   useEffect(() => {
-    if (selected) setPane("chat");
-  }, [selected]);
+    if (menuFor && !present(menuFor)) setMenuFor(null);
+  });
+  const beside = menuFor && present(menuFor) ? {
+    node: menuFor,
+    content: <StepMenu label={`${processName(menuFor)} menu`} items={menuItems(menuFor)}
+                       onChoose={(item) => choose(menuFor, item)} onClose={() => closeMenu(menuFor)} />,
+  } : carded ? {
+    node: carded,
+    content: (
+      <div className="px-4 py-3 rounded-panel border shadow-raise"
+           style={{ background: "var(--surface)", borderColor: "var(--line-2)" }}>
+        <StepCard node={carded} kind={kind} onKind={setKind} step={steps[carded]} graph={graph}
+                  onSetParam={onSetParam} onEdit={onEdit} onClose={closeCard} onSwitchInput={onSwitchInput}
+                  onWhole={onWhole} aiChoices={aiAt(carded)} onReviewed={onReviewed} />
+      </div>
+    ),
+  } : null;
 
   const notices = (
     <>
@@ -202,10 +261,12 @@ export function LivingSurface({
               positions={{ ...session.placement, ...(frame?.placement as Positions | undefined) }}
               steps={steps}
               authors={{}}
-              selected={selected}
-              onSelect={onSelect}
+              selected={carded ?? (present(selected) ? selected : null)}
+              onSelect={pick}
               focus={focus}
               onEdit={session.retired ? undefined : onEdit}
+              onMenu={session.retired ? undefined : (node) => { setCardFor(null); setMenuFor(node); }}
+              beside={beside}
               footer={
                 <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}
                         className="px-[14px] py-[6px] rounded-button border border-line-2 bg-surface text-[13px]
@@ -224,10 +285,7 @@ export function LivingSurface({
 
         <ChatPanel
           session={session} sending={sending} composer={composer} onCompose={onCompose} onSay={onSay}
-          onAnswer={onAnswer} onRetry={onRetry} onUpload={onUpload}
-          selected={selected} onSelect={onSelect} graph={graph} steps={steps} onEdit={onEdit}
-          onSetParam={onSetParam} onSwitchInput={onSwitchInput} onWhole={onWhole} onReviewed={onReviewed}
-          notices={notices}
+          onAnswer={onAnswer} onRetry={onRetry} onUpload={onUpload} notices={notices}
         />
       </div>
     </div>

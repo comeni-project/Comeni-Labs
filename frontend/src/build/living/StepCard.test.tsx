@@ -4,18 +4,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AnsweredStep } from "../useBuilder";
 import { FAKE_SESSION, FAKE_STEPS } from "./fake";
-import { StepSheet } from "./StepSheet";
+import { StepCard, type CardKind } from "./StepCard";
 
 function sheet(overrides = {}) {
   const props = {
-    node: "star_align", step: FAKE_STEPS.star_align as AnsweredStep, graph: FAKE_SESSION.graph, requests: [],
+    node: "star_align", kind: "settings" as CardKind, onKind: vi.fn(),
+    step: FAKE_STEPS.star_align as AnsweredStep, graph: FAKE_SESSION.graph,
     onSetParam: vi.fn(), onEdit: vi.fn(), onClose: vi.fn(), onSwitchInput: vi.fn(), onWhole: vi.fn(), ...overrides,
   };
-  render(<QueryClientProvider client={new QueryClient()}><StepSheet {...props} /></QueryClientProvider>);
+  render(<QueryClientProvider client={new QueryClient()}><StepCard {...props} /></QueryClientProvider>);
   return props;
 }
 
-describe("a step opened over the conversation (one builder plan 3)", () => {
+describe("a step's Settings card (issue 499)", () => {
   it("groups its values by how they were decided, the rule's folded", () => {
     sheet();
     const measured = screen.getByRole("region", { name: "Measured" });
@@ -48,11 +49,18 @@ describe("a step opened over the conversation (one builder plan 3)", () => {
     expect(screen.getByRole("region", { name: "Optional to answer" })).toHaveTextContent("prefix");
   });
 
-  it("closes from × and from Back to the conversation", () => {
+  it("closes from × and from Esc", () => {
     const p = sheet();
     fireEvent.click(screen.getByRole("button", { name: "Close the step" }));
-    fireEvent.click(screen.getByRole("button", { name: "‹ Back to the conversation" }));
+    fireEvent.keyDown(screen.getByRole("region", { name: "step card STAR_ALIGN" }), { key: "Escape" });
     expect(p.onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers the step's other tools, Inputs only where it has any", () => {
+    const p = sheet();
+    expect(screen.queryByRole("button", { name: "Inputs…" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Swap tool…" }));
+    expect(p.onKind).toHaveBeenCalledWith("swap");
   });
 });
 
@@ -67,7 +75,7 @@ describe("a step's optional inputs (issue 460)", () => {
   } as unknown as AnsweredStep;
 
   it("lists each optional input with its state, why, and what it adds", () => {
-    sheet({ node: "quast", step: QUAST, onSwitchInput: vi.fn() });
+    sheet({ node: "quast", kind: "inputs", step: QUAST, onSwitchInput: vi.fn() });
     const region = screen.getByRole("region", { name: "Optional inputs" });
     expect(within(region).getByText("fasta")).toBeInTheDocument();
     expect(within(region).getByText(/adds transcriptome, misassemblies, unaligned/)).toBeInTheDocument();
@@ -77,7 +85,7 @@ describe("a step's optional inputs (issue 460)", () => {
   });
 
   it("switches one on as the person's change", () => {
-    const props = sheet({ node: "quast", step: QUAST, onSwitchInput: vi.fn() });
+    const props = sheet({ node: "quast", kind: "inputs", step: QUAST, onSwitchInput: vi.fn() });
     fireEvent.click(screen.getByRole("radio", { name: "Optional" }));
     expect(props.onSwitchInput).toHaveBeenCalledWith("nf-core/quast@5.3.0", "fasta", "optional");
   });
@@ -91,21 +99,21 @@ describe("a step that runs on parts of each sample (issue 466)", () => {
   } as unknown as AnsweredStep;
 
   it("says how it is split and merged, and why", () => {
-    sheet({ node: "search", step: SEARCH });
+    sheet({ node: "search", kind: "inputs", step: SEARCH });
     const region = screen.getByRole("region", { name: "Runs in parts" });
     expect(within(region).getByText(/can run on parts of fastq.reads/)).toBeInTheDocument();
     expect(within(region).getByRole("checkbox", { name: "Run each sample whole" })).not.toBeChecked();
   });
 
   it("keeps it whole as the person's change, and back", () => {
-    const props = sheet({ node: "search", step: SEARCH, onWhole: vi.fn() });
+    const props = sheet({ node: "search", kind: "inputs", step: SEARCH, onWhole: vi.fn() });
     fireEvent.click(screen.getByRole("checkbox", { name: "Run each sample whole" }));
     expect(props.onWhole).toHaveBeenCalledWith("lab/search@1.0.0", true);
   });
 
   it("offers it back when the step is kept whole", () => {
     const whole = { ...SEARCH, parts: { ...(SEARCH as { parts: object }).parts, on: false } } as unknown as AnsweredStep;
-    const props = sheet({ node: "search", step: whole, onWhole: vi.fn() });
+    const props = sheet({ node: "search", kind: "inputs", step: whole, onWhole: vi.fn() });
     const box = screen.getByRole("checkbox", { name: "Run each sample whole" });
     expect(box).toBeChecked();
     fireEvent.click(box);
@@ -113,7 +121,7 @@ describe("a step that runs on parts of each sample (issue 466)", () => {
   });
 
   it("says nothing for a step that cannot run on parts", () => {
-    sheet();
+    sheet({ kind: "inputs" });
     expect(screen.queryByRole("region", { name: "Runs in parts" })).toBeNull();
   });
 });

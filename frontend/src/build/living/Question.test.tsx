@@ -35,12 +35,12 @@ function opened(settings: object[], graph = FAKE_SESSION.graph, overrides = {}) 
   return props;
 }
 
-const panel = () => screen.getByRole("region", { name: "build panel" });
+const panel = () => screen.getByRole("region", { name: "pipeline canvas" });
 
-describe("an opened step", () => {
+describe("an opened step, its card beside it (issue 499)", () => {
   it("names the step and its tool under it", () => {
     opened([]);
-    const step = within(panel()).getByRole("region", { name: "step STAR_ALIGN" });
+    const step = within(panel()).getByRole("region", { name: "step card STAR_ALIGN" });
     expect(within(step).getByRole("heading", { level: 2 })).toHaveTextContent("STAR_ALIGN");
     expect(step).toHaveTextContent(FAKE_STEPS.star_align.contract_id);
   });
@@ -98,19 +98,24 @@ describe("an opened step", () => {
     expect(within(card).getByRole("button", { name: "Save answer" })).toBeDisabled();
   });
 
-  it("closes the step with Cancel, and with the ×", () => {
+  it("closes the step with Cancel", () => {
     const props = opened([OPEN]);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(props.onSelect).toHaveBeenLastCalledWith(null);
-    fireEvent.click(within(panel()).getByRole("button", { name: "Close the step" }));
-    expect(props.onSelect).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("region", { name: "step card STAR_ALIGN" })).toBeNull();
   });
 
-  it("asks nothing for a step with no open values, and keeps its tools under Change this step", () => {
+  it("closes the step with the ×", () => {
+    const props = opened([OPEN]);
+    fireEvent.click(within(panel()).getByRole("button", { name: "Close the step" }));
+    expect(props.onSelect).toHaveBeenLastCalledWith(null);
+  });
+
+  it("asks nothing for a step with no open values, and keeps its other tools a click away", () => {
     opened([]);
     expect(screen.queryByRole("region", { name: /^a value for/ })).toBeNull();
-    const tools = within(panel()).getByRole("region", { name: "Change this step" });
-    expect(tools).toBeInTheDocument();
+    expect(within(panel()).getByRole("button", { name: "Swap tool…" })).toBeInTheDocument();
+    expect(within(panel()).getByRole("button", { name: "Edit values" })).toBeInTheDocument();
   });
 
   it("asks nothing once the person has typed the value into the draft", () => {

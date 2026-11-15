@@ -5,7 +5,7 @@ import type { AuthoringTurn } from "../../api/types";
 import { AgentThread } from "./AgentThread";
 import { ChatPanel } from "./ChatPanel";
 import { LivingNode } from "./LivingNode";
-import { StepSheet } from "./StepSheet";
+import { StepCard } from "./StepCard";
 import { FAKE_SESSION, FAKE_STEPS } from "./fake";
 
 const AT = "2026-11-15T10:00:00Z";
@@ -108,7 +108,7 @@ describe("the agent's thread", () => {
     expect(screen.queryByTestId("node-ai-star_align")).toBeNull();
 
     const onReviewed = vi.fn();
-    render(<StepSheet node="star_align" step={FAKE_STEPS.star_align} graph={FAKE_SESSION.graph}
+    render(<StepCard node="star_align" kind="settings" onKind={vi.fn()} step={FAKE_STEPS.star_align} graph={FAKE_SESSION.graph}
                       onSetParam={vi.fn()} onEdit={vi.fn()} onClose={vi.fn()}
                       aiChoices={["chose star_align"]} onReviewed={onReviewed} />);
     fireEvent.click(screen.getByRole("button", { name: "Looks right" }));
@@ -117,9 +117,7 @@ describe("the agent's thread", () => {
 
   it("keeps the chat height fixed: a new message does not resize the rail", () => {
     render(<ChatPanel session={FAKE_SESSION} sending={[]} composer="" onCompose={vi.fn()} onSay={vi.fn()}
-                      onAnswer={vi.fn()} onRetry={vi.fn()} selected={null} onSelect={vi.fn()}
-                      graph={FAKE_SESSION.graph} steps={{}} onEdit={vi.fn()} onSetParam={vi.fn()}
-                      onReviewed={vi.fn()} notices={null} />);
+                      onAnswer={vi.fn()} onRetry={vi.fn()} notices={null} />);
     const rail = screen.getByRole("region", { name: "build panel" });
     expect(rail.style.height).toBe("var(--rail-h)");
     expect(screen.getByTestId("thread-scroll").style.overflowY).toBe("auto");

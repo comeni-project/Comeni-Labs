@@ -38,6 +38,7 @@ export function LivingNode({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onMenu,
 }: {
   id: string;
   at: { x: number; y: number };
@@ -66,6 +67,8 @@ export function LivingNode({
   onPointerDown?: (e: React.PointerEvent) => void;
   onPointerMove?: (e: React.PointerEvent) => void;
   onPointerUp?: (e: React.PointerEvent) => void;
+  /** Open the step's menu (#499): a right-click, or Shift+F10 and the menu key. */
+  onMenu?: () => void;
 }) {
   // **Every port, each on its own row at its anchor** (#494): input *i* on the left and output
   // *i* on the right of row *i*, where both their marks sit; the node grows to hold them.
@@ -84,6 +87,10 @@ export function LivingNode({
       aria-pressed={selected}
       aria-label={processName(id)}
       onClick={onSelect}
+      onContextMenu={onMenu && ((e) => { e.preventDefault(); onMenu(); })}
+      onKeyDown={onMenu && ((e) => {
+        if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) { e.preventDefault(); onMenu(); }
+      })}
       onAnimationEnd={onAnimationEnd}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

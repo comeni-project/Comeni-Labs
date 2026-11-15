@@ -44,7 +44,7 @@ describe("a canvas that starts empty", () => {
   });
 });
 
-describe("a step with many ports (#494)", () => {
+describe("a step with many ports (issue 494)", () => {
   it("draws every port of a many-port step inside it, each on its own row", () => {
     const port = (name: string, side: "in" | "out") =>
       ({ name, type_id: `t.${name}`, side, met: true, states: [], gathers: false });
@@ -85,7 +85,7 @@ describe("a step on the canvas", () => {
     fake();
     const node = screen.getByTestId("living-node-star_align");
     const [first, second] = Array.from(node.querySelectorAll<HTMLElement>("[data-port-row]"));
-    // A row is a port's name; its type and states are its title (#494).
+    // A row is a port's name; its type and states are its title (issue 494).
     expect(first).toHaveTextContent(/<\s*reads\s*bam\s*>/);
     expect(second).toHaveTextContent(/<\s*index/);
     expect(within(first).getByText("reads").closest("[title]")).toHaveAttribute("title", "fastq.reads::trimmed");
