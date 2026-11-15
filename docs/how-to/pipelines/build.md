@@ -22,15 +22,18 @@ A draft is the editable graph. An artifact is the saved pipeline record behind i
    you want.
 2. Read what the agent says it did. **How I got here** under each answer lists the tools it used.
 3. Answer the agent's questions in the card it draws, or in your own words.
-4. Open a step marked *chosen by the AI · review* to see what it chose there. Ask in the chat
-   why, change it, or press **Looks right**.
+4. Click a step marked **AI** to open its card beside it and see what the AI chose there. Ask
+   in the chat why, change it, or press **Looks right**. Right-click a step for everything else
+   you can do to it.
 5. Answer red decisions before relying on the pipeline.
 6. Use **Pipeline file** to see the materialized pipeline record.
 7. Press **Run** when nothing needs you.
 
 ## Change it by hand
 
-Add a step, remove one, swap its tool, or drag a wire between two ports. The engine reads what
+Add a step, remove one, swap its tool, or drag a wire between two ports. A step's own tools are
+on its menu (right-click it, long-press it on a touch screen, or press `⋯` beside it once it is
+selected). The engine reads what
 the change means (you never want trimming here, this input comes from that step) and records it
 as your decision at once: the pipeline is built again around it, and the agent plans around it on
 every later turn. When the engine cannot honour a change (you excluded the only tool that can
@@ -77,8 +80,10 @@ The canvas is for working. The artifact is for review.
 
 ![Artifact view in the alpha builder](../../assets/screenshots/artifact-view-alpha.png)
 
-When something looks surprising on the canvas, open **Artifact** and find the same step in
-`pipeline.yml`. The artifact should name the selected contract, settings, decision tiers, and
+When something looks surprising on the canvas, open **Pipeline file** (or *Show in pipeline
+file* on the step's menu) and find the same step in `pipeline.yml`. Click a value to read why it
+is what it is; select any lines and choose **Explain this** to have the AI explain them, in the
+panel beside the file. The artifact should name the selected contract, settings, decision tiers, and
 provenance. If the app and artifact disagree, treat the artifact as the durable record and the
 UI as suspect.
 

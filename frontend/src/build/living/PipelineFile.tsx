@@ -159,7 +159,7 @@ export function PipelineFile({
               </button>
             ))}
           </div>
-          <div className="ml-auto flex items-center gap-2 pb-[6px]">
+          <div className="ml-auto flex flex-wrap justify-end items-center gap-2 pb-[6px] whitespace-nowrap">
             {filter && (
               <span className="text-[12.5px] text-ink-3">
                 showing {counts.find(([k]) => k === filter)?.[2]} ·{" "}
@@ -172,9 +172,13 @@ export function PipelineFile({
                 {emitted.isFetching ? "Compiling…" : "Compile again"}
               </Secondary>
             )}
-            <Secondary onClick={download} disabled={text === null}>Download pipeline.yml</Secondary>
+            <Secondary onClick={download} disabled={text === null} aria-label="Download pipeline.yml"
+                       title="Download pipeline.yml">Download</Secondary>
             {aside && (
-              <Secondary onClick={() => setPanel(!panel)}>{panel ? "Hide the AI panel" : "Show the AI panel"}</Secondary>
+              <Secondary onClick={() => setPanel(!panel)} aria-label={panel ? "Hide the AI panel" : "Show the AI panel"}
+                         title={panel ? "Hide the AI panel" : "Show the AI panel"}>
+                {panel ? "Hide AI" : "Show AI"}
+              </Secondary>
             )}
           </div>
         </div>
