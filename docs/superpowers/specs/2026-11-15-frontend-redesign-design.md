@@ -117,6 +117,10 @@ Data adds no second builder:
   `set_reading_rule` and `apply_fix`.
 - **Paths** join only at run time, through the bindings. The engine never sees one.
 
+**Samples live in one place.** The `analysis_data` table is the only home of samples. The chat session's `samples`
+column, the upload route and the agent's "upload" question are removed. The agent asks the person to tick a folder
+in Data instead. Upload for a remote runner is #519.
+
 ## Decided by the operator
 
 - Plan 1 covers Welcome/Home, Data, Build and Run; plan 2 covers Settings, Forge and Registry.
@@ -124,6 +128,13 @@ Data adds no second builder:
 - The assistant is an overlay. Nothing assumes reads.
 - Run's Steps merges Graph and Timeline.
 - Cloud storage is not in the MVP, but leaves room in the rail.
+
+## Code layout
+
+The new pages live in `frontend/src/analysis/{data,build,run}`. Shared pieces live in `frontend/src/ui/`.
+Components from `build/`, `build/living/` and `runs/` move in where they are still good, and are rewritten where
+they are not. Anything left without an importer is deleted. Any existing code may change when the new design fits
+better and code quality stays high.
 
 ## Left to the builder
 
