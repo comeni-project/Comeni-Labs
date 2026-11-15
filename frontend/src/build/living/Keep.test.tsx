@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthoringPreview, AuthoringSession, DraftGraph } from "../../api/types";
 import { useKeep } from "../useKeep";
 import { ArtifactPreview } from "./ArtifactPreview";
-import { initialAuthoring } from "./authoringReducer";
 import { FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { LivingSurface } from "./LivingSurface";
 import { framed } from "./frame";
@@ -77,11 +76,10 @@ describe("the preview is asked for once the revision settles", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let revision = 0;
     const session = () => ({
-      id: "s1", draft_id: "d1", phase: "building", failed_from: null, goal: null,
+      id: "s1", draft_id: "d1", goal: null, working: revision < 5, ai_unreviewed: [],
       revision, graph: { nodes: [], edges: [] }, row_version: 1, model_configured: true,
       turns: [{ seq: 0, role: "assistant", state: revision < 5 ? "pending" : "answered", text: "",
                 blocks: [], base_revision: 0 }],
-      pending_proposal: null,
     });
     const fetch = vi.fn(async (url: string) => {
       if (url.endsWith("/preview")) return ok({ revision, state: "empty", text: "", findings: [] });
@@ -164,18 +162,16 @@ function surface(session: AuthoringSession, run: Parameters<typeof LivingSurface
     <QueryClientProvider client={fresh()}>
       <LivingSurface
         session={framed(session, FAKE_STEPS)} graph={session.graph}
-        state={{ ...initialAuthoring, snapshot: session }}
-        preview={ready(session.revision, "version: 6\n")}
-        busy={() => false} onAccept={vi.fn()} onReject={vi.fn()} onPreviewOption={vi.fn()}
-        onSelect={vi.fn()} onCompose={vi.fn()} onSay={vi.fn()} onRetry={vi.fn()} onAddStep={vi.fn()}
-        onDismiss={vi.fn()} onSetParam={vi.fn()} onApplyChange={vi.fn()} onEdit={vi.fn()}
+        preview={ready(session.revision, "version: 6\n")} selected={null}
+        onSelect={vi.fn()} composer="" onCompose={vi.fn()} sending={[]} onSay={vi.fn()} onAnswer={vi.fn()}
+        onRetry={vi.fn()} onReviewed={vi.fn()} onAddStep={vi.fn()} onDismiss={vi.fn()} onSetParam={vi.fn()} onEdit={vi.fn()}
         run={run}
       />
     </QueryClientProvider>,
   );
 }
 
-const complete = { ...FAKE_SESSION, phase: "complete", pending_proposal: null } as AuthoringSession;
+const complete = { ...FAKE_SESSION, working: false } as AuthoringSession;
 
 describe("Run on a living pipeline", () => {
   it("is disabled when nothing is connected to it, even on a complete pipeline", () => {
@@ -192,7 +188,7 @@ describe("Run on a living pipeline", () => {
     expect(screen.getByTestId("living-run-error")).toHaveTextContent("MD0502");
   });
 
-  it("stays disabled until the pipeline is complete", () => {
+  it("stays disabled while the agent is still building", () => {
     surface(FAKE_SESSION, { onRun: vi.fn(), busy: false, stage: null, error: null, kept: false, sheet: null });
     expect(screen.getByTestId("living-run")).toBeDisabled();
   });

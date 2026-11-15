@@ -16,10 +16,8 @@ export type Counts = { settled: number; measured: number; open: number; optional
  * one time a component kept its own.
  *
  * **Outlined, never striped** (the *Build* and *Question* boards). How each value was decided is
- * the footer's — *1 measured · 13 settled*, each in its meaning's ink — and who chose the step is
- * the step line's, so neither paints the border any more. The step on offer is the selected
- * colour, dashed, and says *Proposed · not added yet*; a step with a value that needs the person
- * carries a red dot.
+ * the footer's — *1 measured · 13 settled*, each in its meaning's ink. A step with a value that
+ * needs the person carries a red dot; one the AI chose and nobody reviewed says so above it.
  */
 export function LivingNode({
   id,
@@ -28,7 +26,7 @@ export function LivingNode({
   ports,
   counts,
   reviewState = "unknown",
-  ghost = false,
+  aiChoice = false,
   selected = false,
   onSelect,
   perItem = false,
@@ -45,12 +43,13 @@ export function LivingNode({
   /** Kept on the element for tests and tools; the node no longer draws it. */
   author: Author;
   ports: PortView[];
-  /** **Absent on a ghost and when the frame carries no metadata**: a number a step does not have
-   *  yet is the fastest way to make provisional read as committed. */
+  /** **Absent when the frame carries no metadata**: a number a step does not have yet is the
+   *  fastest way to make provisional read as committed. */
   counts?: Counts;
   /** Whether a review of this step holds, is asked for again, or is on offer now. */
   reviewState?: ReviewState;
-  ghost?: boolean;
+  /** The AI chose this step or one of its values, and nobody has reviewed it as it now is (#463). */
+  aiChoice?: boolean;
   selected?: boolean;
   onSelect?: () => void;
   /** Whether this step runs per item — its ports are drawn as the ribbon's tall marks. */
@@ -68,17 +67,16 @@ export function LivingNode({
   onPointerUp?: (e: React.PointerEvent) => void;
 }) {
   const rows = ports.slice(0, Math.floor((NODE_H - HEAD_H - 24) / PORT_ROW));
-  const edge = `1px ${ghost ? "dashed" : "solid"} ${selected || ghost ? "var(--now)" : "var(--node-line)"}`;
+  const edge = `1px solid ${selected ? "var(--now)" : "var(--node-line)"}`;
 
   return (
     <button
       type="button"
       data-node={id}
       data-testid={`living-node-${id}`}
-      data-ghost={ghost || undefined}
       data-author={author}
       aria-pressed={selected}
-      aria-label={`${processName(id)}${ghost ? ", proposed" : ""}`}
+      aria-label={processName(id)}
       onClick={onSelect}
       onAnimationEnd={onAnimationEnd}
       onPointerDown={onPointerDown}
@@ -93,7 +91,7 @@ export function LivingNode({
         background: "var(--node)",
         borderRadius: "var(--radius-button)",
         // Four longhands, never `border`: React cannot redraw a shorthand next to its own longhand,
-        // and a ghost becoming placed changes them (it warned on every accept).
+        // and selecting a step changes them.
         borderTop: edge,
         borderRight: edge,
         borderBottom: edge,
@@ -102,6 +100,13 @@ export function LivingNode({
         animationDelay: delay === undefined ? undefined : `${delay}ms`,
       }}
     >
+      {aiChoice && (
+        <span data-testid={`node-ai-${id}`}
+              className="absolute left-0 -top-[19px] px-[6px] py-[1px] rounded-control text-[10.5px] font-semibold whitespace-nowrap"
+              style={{ background: "var(--now-soft)", color: "var(--now-ink)" }}>
+          chosen by the AI · review
+        </span>
+      )}
       {/* **Ports, as the collection grammar draws them**: a square for a single value, a tall
           mark where a ribbon lands, and a wide one where a ribbon converges. Positions from
           `portOffset`, the one derivation. */}
@@ -166,17 +171,13 @@ export function LivingNode({
           </span>
         ))}
       </span>
-      {(ghost || counts) && (
+      {counts && (
         <span
           data-testid={`node-footer-${id}`}
           className="h-[24px] flex items-center px-[10px] w-full shrink-0 text-[10.5px] whitespace-pre overflow-hidden"
           style={{ borderTop: "1px solid var(--node-rule)" }}
         >
-          {ghost ? (
-            <span className="font-semibold text-now-ink">Proposed · not added yet</span>
-          ) : counts && (
-            <CountWords counts={counts} />
-          )}
+          <CountWords counts={counts} />
         </span>
       )}
     </button>

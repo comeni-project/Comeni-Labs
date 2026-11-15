@@ -45,7 +45,7 @@ describe("the living canvas follows its focus", () => {
         toJSON: () => ({}) } as DOMRect);
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <LivingCanvas graph={FAKE_SESSION.graph} ghost={null} positions={positions} steps={FAKE_STEPS}
+        <LivingCanvas graph={FAKE_SESSION.graph} positions={positions} steps={FAKE_STEPS}
                       channels={FAKE_CHANNELS} authors={{}} selected={null} onSelect={() => undefined}
                       focus={focus} />
       </QueryClientProvider>,

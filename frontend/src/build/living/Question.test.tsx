@@ -3,7 +3,6 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AuthoringSession, Step } from "../../api/types";
-import { initialAuthoring } from "./authoringReducer";
 import { FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { framed } from "./frame";
 import { LivingSurface } from "./LivingSurface";
@@ -21,12 +20,11 @@ function opened(settings: object[], graph = FAKE_SESSION.graph, overrides = {}) 
   const props = {
     session: framed(FAKE_SESSION, steps, FAKE_CHANNELS),
     graph: graph as AuthoringSession["graph"],
-    state: { ...initialAuthoring, snapshot: FAKE_SESSION, selected: "star_align" },
+    selected: "star_align",
     preview: { revision: FAKE_SESSION.revision, state: "ready" as const, text: "version: 6\n", findings: [] },
-    busy: () => false,
-    onAccept: vi.fn(), onReject: vi.fn(), onPreviewOption: vi.fn(), onSelect: vi.fn(), onCompose: vi.fn(),
-    onSay: vi.fn(), onRetry: vi.fn(), onAddStep: vi.fn(), onDismiss: vi.fn(), onSetParam: vi.fn(),
-    onApplyChange: vi.fn(), onEdit: vi.fn(),
+    onSelect: vi.fn(), composer: "", onCompose: vi.fn(), sending: [], onSay: vi.fn(), onAnswer: vi.fn(),
+    onRetry: vi.fn(), onReviewed: vi.fn(), onAddStep: vi.fn(), onDismiss: vi.fn(), onSetParam: vi.fn(),
+    onEdit: vi.fn(),
     ...overrides,
   };
   render(

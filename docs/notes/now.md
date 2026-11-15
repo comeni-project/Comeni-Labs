@@ -17,7 +17,7 @@ cites its entry; the long form is in [the archive](journal/archive/).
   After merge, bump the registry's `ENGINE_REF` (no MD0027 in its CI until then). (11-14)
 - **Walks run on GPT** through the ChatGPT subscription (#457), not local models. (11-10)
 - **All of it is on `main`** (PR #402, with a behaviour-preserving refactoring campaign). Left for
-  an authorised behaviour pass: `SampleUpload.tsx`'s hook warning, Node under Vite's floor. (10-26)
+  an authorised behaviour pass: Node under Vite's floor. (10-26)
 
 ## How work is done now
 

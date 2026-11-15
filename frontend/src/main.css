@@ -325,6 +325,9 @@ body {
    conversation first by `order`, not by DOM order — the canvas is still what the page is about,
    so it stays first for a screen reader — and the rail never overlays the graph it is about. */
 .living { display: grid; grid-template-columns: minmax(0, 1fr) 420px; }
+/* **The rail's height is the layout's** (#497): beside the canvas it is the grid row's; stacked and
+   on a phone a fixed share of the screen. Never its content's, so a reply does not move the page. */
+.living { --rail-h: auto; }
 .living > .living-canvas { min-height: 0; }
 /* The pipeline file (#379): the values and their reasons, beside the file. Values first when stacked. */
 /* The pipeline file, file first (one builder plan 5): the file, and the reason beside it. On a
@@ -341,30 +344,9 @@ body {
             overflow: auto; }
   .living > .living-canvas { order: 2; height: 430px; }
   .living > .living-rail { order: 1; }
+  .living { --rail-h: 64dvh; }
   /* Stacked, the two cards take the page's 16px gutter rather than the side-by-side insets. */
   .living > .living-canvas, .living > .living-rail { margin: 0 16px 16px; }
-}
-
-/* ── The living canvas's motion — one class per domain event, and nothing else moves ──────
-   §1.11: animate proposal_shown, proposal_accepted and edge_committed. Never fetch completion,
-   never model tokens. The curve is the product's one curve. Under `prefers-reduced-motion` every
-   state change still happens — the step is placed and highlighted where it lands — and nothing
-   travels: `animation: none`, so the end state is simply there. */
-@keyframes living-pop { from { opacity: 0; transform: translateY(-6px) scale(.985); } }
-@keyframes living-settle { from { opacity: .55; transform: translateY(4px); } }
-/* A wire is drawn over its OWN length: `pathLength="1"` on the path makes one dash exactly the whole
-   wire. It was a fixed 400 behind an undefined custom property, which the token guard refused —
-   and which would have left a gap in every wire longer than 400px once the animation ended. */
-@keyframes living-draw { from { stroke-dashoffset: 1; } }
-.living-pop { animation: living-pop 180ms var(--ease) backwards; }
-.living-settle { animation: living-settle 220ms var(--ease) backwards; }
-.living-draw { stroke-dasharray: 1; animation: living-draw 520ms var(--ease) backwards; }
-/* The first-arrival reveal (steps placed before this tab looked): invisible until its delay, then placed. `both`, so a step waiting
-   its turn is not drawn early. */
-@keyframes living-reveal { from { opacity: 0; transform: translateY(4px); } }
-.living-reveal { animation: living-reveal 260ms var(--ease) both; }
-@media (prefers-reduced-motion: reduce) {
-  .living-pop, .living-settle, .living-draw, .living-reveal { animation: none !important; stroke-dasharray: none; }
 }
 
 /* **On a phone, one pane at a time** (one builder plan 3): the conversation, the canvas, or what was
@@ -378,13 +360,14 @@ body {
   /* One pane, so one row that fills the screen (issue 496): stacked, the conversation took the
      `auto` row and shrank to a line once the canvas beside it was hidden. */
   .living { grid-template-rows: minmax(0, 1fr); }
-  .living > .living-rail { height: calc(100dvh - 240px); }
+  .living { --rail-h: calc(100dvh - 240px); }
   /* The phone's own tabs already choose canvas or understood (issue 496). */
   .beside-switch { display: none !important; }
 }
-/* The plan's step strip scrolls sideways without drawing a bar (issue 496). */
-.no-scrollbar { scrollbar-width: none; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
+/* The agent's working dot (#463). Still under reduced motion: the words say it is working. */
+@keyframes agent-pulse { 50% { opacity: .35; } }
+.agent-pulse { animation: agent-pulse 1.2s var(--ease) infinite; }
+@media (prefers-reduced-motion: reduce) { .agent-pulse { animation: none; } }
 
 /* ═══ THE REGISTRY'S PARTS ═════════════════════════════════════════════════════════════════
    One frame, so a registry page's logo, tabs, tracker and panels share their edges, and one set

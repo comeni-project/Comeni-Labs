@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AuthoringSession, DraftGraph, Step } from "../../api/types";
 import { makeClient } from "../../app/queryClient";
-import { initialAuthoring } from "./authoringReducer";
 import { FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { LivingSurface } from "./LivingSurface";
 import { framed } from "./frame";
@@ -56,6 +55,7 @@ const STEPS = {
 const RESTED = {
   ...FAKE_SESSION,
   turns: FAKE_SESSION.turns.filter((t) => t.state !== "pending"),
+  working: false,
 } as AuthoringSession;
 
 function living(selected: string | null, graph: DraftGraph = RESTED.graph) {
@@ -72,20 +72,19 @@ function living(selected: string | null, graph: DraftGraph = RESTED.graph) {
       <LivingSurface
         session={framed(RESTED, STEPS)}
         graph={graph}
-        state={{ ...initialAuthoring, snapshot: RESTED, selected }}
+        selected={selected}
         preview={null}
-        busy={() => false}
-        onAccept={vi.fn()}
-        onReject={vi.fn()}
-        onPreviewOption={vi.fn()}
         onSelect={vi.fn()}
+        composer=""
         onCompose={vi.fn()}
+        sending={[]}
         onSay={vi.fn()}
+        onAnswer={vi.fn()}
         onRetry={vi.fn()}
+        onReviewed={vi.fn()}
         onAddStep={vi.fn()}
         onDismiss={vi.fn()}
         onSetParam={vi.fn()}
-        onApplyChange={vi.fn()}
         onEdit={onEdit}
       />
     </QueryClientProvider>,
@@ -110,11 +109,6 @@ describe("a selected step's tools", () => {
     expect(screen.queryByRole("region", { name: /^change / })).toBeNull();
   });
 
-  it("is not offered for a step that is only proposed — that card has its own alternatives", () => {
-    living("samtools_sort");
-    expect(screen.queryByRole("region", { name: /^change / })).toBeNull();
-  });
-
   it("is offered for a step added by hand, which no decision in the log created", () => {
     const graph = {
       ...RESTED.graph,
@@ -134,7 +128,7 @@ describe("changing a step goes through the session's edit", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove STAR_ALIGN" }));
     expect(onEdit).toHaveBeenCalledOnce();
     const sent: DraftGraph = onEdit.mock.calls[0][0];
-    expect(sent.nodes.map((n) => n.id)).toEqual(["star_genomegenerate", "trimgalore"]);
+    expect(sent.nodes.map((n) => n.id)).toEqual(["star_genomegenerate", "trimgalore", "samtools_sort"]);
     expect(sent.edges).toEqual([]);
   });
 

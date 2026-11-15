@@ -13,20 +13,36 @@ const mount = (ui: React.ReactElement) =>
 
 function fake(extra: Partial<React.ComponentProps<typeof LivingCanvas>> = {}) {
   return mount(
-    <LivingCanvas graph={{ ...FAKE_SESSION.graph,
-                           nodes: [...FAKE_SESSION.graph.nodes, { id: "samtools_sort", contract_id: "c/sort", params: [] }] }}
-                  ghost="samtools_sort" positions={FAKE_SESSION.placement} steps={FAKE_STEPS}
+    <LivingCanvas graph={FAKE_SESSION.graph} positions={FAKE_SESSION.placement} steps={FAKE_STEPS}
                   channels={FAKE_CHANNELS} authors={{}} selected={null} onSelect={vi.fn()} {...extra} />,
   );
 }
 
 function collect(extra: Partial<React.ComponentProps<typeof LivingCanvas>> = {}) {
   return mount(
-    <LivingCanvas graph={COLLECT_SESSION.graph} ghost={null} positions={COLLECT_SESSION.placement}
+    <LivingCanvas graph={COLLECT_SESSION.graph} positions={COLLECT_SESSION.placement}
                   steps={COLLECT_STEPS} channels={COLLECT_CHANNELS} authors={{}} selected={null}
                   onSelect={vi.fn()} {...extra} />,
   );
 }
+
+describe("a canvas that starts empty", () => {
+  it("draws the first step built while it is open", () => {
+    // The agent builds while the canvas is on screen (#463); an early return above a hook made
+    // the first step a different number of hooks, and React refuses that.
+    const empty = { nodes: [], edges: [] };
+    const draw = (graph: typeof empty | typeof FAKE_SESSION.graph) => (
+      <QueryClientProvider client={client}>
+        <LivingCanvas graph={graph} positions={FAKE_SESSION.placement} steps={FAKE_STEPS}
+                      authors={{}} selected={null} onSelect={vi.fn()} />
+      </QueryClientProvider>);
+    const client = new QueryClient();
+    const { rerender } = render(draw(empty));
+    expect(screen.getByTestId("canvas-empty")).toBeInTheDocument();
+    rerender(draw(FAKE_SESSION.graph));
+    expect(screen.getByTestId("living-node-star_align")).toBeInTheDocument();
+  });
+});
 
 describe("a step on the canvas", () => {
   it("counts its values by how they were decided, measured first", () => {
@@ -39,11 +55,6 @@ describe("a step on the canvas", () => {
     const node = screen.getByTestId("living-node-star_align");
     expect(node).toHaveTextContent("< fastq.reads::trimmed");
     expect(node).toHaveTextContent("> alignment.bam");
-  });
-
-  it("says the step on offer is proposed and not added yet", () => {
-    fake();
-    expect(screen.getByTestId("node-footer-samtools_sort")).toHaveTextContent("Proposed · not added yet");
   });
 
   it("marks a step with a value that needs the person", () => {
@@ -92,11 +103,10 @@ describe("the canvas frame", () => {
 });
 
 describe("the minimap (issue 389)", () => {
-  it("draws one mark per step, the step on offer included, as the manual builder does", () => {
+  it("draws one mark per step, as the manual builder does", () => {
     fake();
     const map = screen.getByTestId("minimap");
-    expect(within(map).getAllByTestId("minimap-mark")).toHaveLength(
-      FAKE_SESSION.graph.nodes.length + 1);
+    expect(within(map).getAllByTestId("minimap-mark")).toHaveLength(FAKE_SESSION.graph.nodes.length);
   });
 
   it("marks a step with a value that needs the person in its colour", () => {

@@ -1,25 +1,27 @@
 import { useState } from "react";
 
-import type { AuthoringBlock, DraftGraph } from "../../api/types";
+import type { DraftGraph } from "../../api/types";
 import { open, optionalOpen, type AnsweredStep } from "../useBuilder";
 import { QuestionCard } from "./blocks/QuestionCard";
-import { SettingCard } from "./blocks/SettingCard";
+import { Secondary } from "./blocks/parts";
 import { StepTools } from "./blocks/StepTools";
 import { processName } from "./format";
 
-type SettingBlock = Extract<AuthoringBlock, { kind: "setting_request" }>;
 type Setting = AnsweredStep["settings"][number];
 
 /** **A step opened over the conversation** (one builder plan 3; the *Question* board). Its values
  *  grouped by how they were decided — what still needs the person first, as questions; then what
  *  was measured; then what a rule settled, folded — each opening its reason in place; then the
  *  step's tools. × and *Back to the conversation* return to the chat where it was. */
-export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onClose, onSwitchInput, onWhole }: {
+export function StepSheet({ node, step, graph, onSetParam, onEdit, onClose, onSwitchInput, onWhole,
+  aiChoices = [], onReviewed }: {
   node: string;
   step: AnsweredStep | undefined;
   graph: DraftGraph;
-  /** The latest reply's setting requests for this step. */
-  requests: SettingBlock[];
+  /** What the AI chose at this step that nobody has reviewed yet (#463): `chose …`, `set … to …`. */
+  aiChoices?: string[];
+  /** The person has looked at what the AI chose here. */
+  onReviewed?: (node: string) => void;
   onSetParam: (node: string, setting: string, value: string, why?: string) => void;
   onEdit: (graph: DraftGraph) => void;
   onClose: () => void;
@@ -57,6 +59,19 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
           ×
         </button>
       </div>
+      {aiChoices.length > 0 && (
+        <section aria-label="What the AI chose" className="flex flex-col gap-2 px-[12px] py-[10px] rounded-panel"
+                 style={{ background: "var(--now-soft)" }}>
+          <h3 className="m-0 text-[13px] font-semibold text-now-ink">Chosen by the AI</h3>
+          <ul className="m-0 pl-[18px] text-[12.5px] text-ink flex flex-col gap-[2px]">
+            {aiChoices.map((what) => <li key={what}>{what}</li>)}
+          </ul>
+          <p className="m-0 text-[12px] text-ink-2">Ask in the chat why, or change it below.</p>
+          {onReviewed && (
+            <span className="self-start"><Secondary onClick={() => onReviewed(node)}>Looks right</Secondary></span>
+          )}
+        </section>
+      )}
       {([["Needs you", asking], ["Optional to answer", optionalValues]] as const).map(([label, list]) =>
         list.length > 0 && (
           <Group key={label} label={label} count={list.length}>
@@ -104,7 +119,6 @@ export function StepSheet({ node, step, graph, requests, onSetParam, onEdit, onC
       <section aria-label="Change this step" className="flex flex-col gap-3">
         <h3 className="m-0 text-[13px] font-semibold text-ink-2">Change this step</h3>
         <StepTools key={node} node={node} step={step} graph={graph} onEdit={onEdit} />
-        {requests.map((r) => <SettingCard key={r.id} block={r} onApply={onSetParam} />)}
       </section>
     </section>
   );

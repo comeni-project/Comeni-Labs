@@ -22,7 +22,7 @@ const mount = (ui: React.ReactElement) =>
 function canvas(extra: Partial<React.ComponentProps<typeof LivingCanvas>> = {}) {
   const onEdit = vi.fn();
   mount(
-    <LivingCanvas graph={GRAPH} ghost={null} positions={{ ...FAKE_SESSION.placement,
+    <LivingCanvas graph={GRAPH} positions={{ ...FAKE_SESSION.placement,
                     samtools_sort: { x: 900, y: 40 } }}
                   steps={FAKE_STEPS} channels={FAKE_CHANNELS} authors={{}} selected={null}
                   onSelect={vi.fn()} onEdit={onEdit} {...extra} />,

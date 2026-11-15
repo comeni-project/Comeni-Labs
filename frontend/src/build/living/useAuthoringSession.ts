@@ -1,75 +1,80 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { components } from "../../api/schema";
 import type { FactValue } from "./FactEditor";
+import type { AnswerValue } from "./AgentQuestion";
 
 import { get, post, postForm, put, Refused } from "../../api/client";
 import type {
-  AuthoringDecided,
   AuthoringEdited,
   AuthoringPreview,
-  AuthoringProposal,
-  AuthoringRetried,
   AuthoringSaid,
   AuthoringSession,
   AuthoringVocabulary,
   DraftGraph,
-  GoalIn,
   SampleInspected,
 } from "../../api/types";
-import {
-  authoringReducer,
-  initialAuthoring,
-  isWaiting,
-  visibleGraph,
-  type MotionEvent,
-} from "./authoringReducer";
 
-/** How often a page with something on its way asks again. Seconds, not milliseconds: the answer
- *  is a model call, and a second's latency on seeing it costs nothing a person can perceive. */
+type Changed = components["schemas"]["AuthoringChanged"];
+type Change = Pick<components["schemas"]["DecisionChange"], "kind" | "subject">
+  & Partial<Pick<components["schemas"]["DecisionChange"], "value" | "retract">>;
+
+/** How often a page with the agent working asks again. */
 export const POLL_MS = 1500;
 
 /** How long the preview waits after the revision moves before asking for the new text. */
 export const PREVIEW_DEBOUNCE_MS = 300;
 
-const key = (sessionId: string) => ["authoring", sessionId] as const;
-
-/** One authoring session: the server's picture, what is happening on the page, and the verbs.
- *
- * **The server's picture is TanStack Query's, and nothing else holds it.** The reducer receives
- * each snapshot and keeps only what the server does not know. Polling runs only while a turn is
- * pending or a Spawn blueprint is resolving, and stops on its own on an answer, a refusal, a
- * failure — or when the page unmounts, because the query does.
- *
- * **Nothing here touches `localStorage`.** The transcript and the prompt are durable on the
- * server; a half-typed message is component state and is allowed to vanish on reload.
- */
 /** What the server reads of each uploaded file (`mendel_api.services.inspect.HEAD_BYTES`). */
 export const HEAD_BYTES = 4 * 2 ** 20;
 
+const key = (sessionId: string) => ["authoring", sessionId] as const;
+
+export type ServerNotice = { code: string | null; text: string };
+
+/** `MI0201: …` → `{ code: "MI0201", text: "…" }`. A detail with no code keeps its words. */
+export function noticeFrom(error: unknown): ServerNotice {
+  const detail = error instanceof Refused ? error.message : String(error);
+  const match = /^(M[A-Z]\d{4}):\s*(.*)$/s.exec(detail);
+  return match ? { code: match[1], text: match[2].split("\n")[0] } : { code: null, text: detail };
+}
+
+/** One builder session (#463): the server's picture, what is happening on the page, and the verbs.
+ *
+ * **The server's picture is TanStack Query's, and nothing else holds it.** Polling runs only while
+ * the agent is working, and stops on its own when its turn ends — or when the page unmounts.
+ * What is kept here is only what the server does not know: the open step, the half-typed message,
+ * the messages on their way, and the last refusal.
+ *
+ * **Nothing here touches `localStorage`.** The transcript is durable on the server; a half-typed
+ * message is component state and is allowed to vanish on reload.
+ */
 export function useAuthoringSession(sessionId: string, options: { pollMs?: number } = {}) {
   const pollMs = options.pollMs ?? POLL_MS;
   const client = useQueryClient();
-  const [state, dispatch] = useReducer(authoringReducer, initialAuthoring);
+  const [selected, select] = useState<string | null>(null);
+  const [composer, compose] = useState("");
+  const [sending, setSending] = useState<string[]>([]);
+  const [notice, setNotice] = useState<ServerNotice | null>(null);
 
   const session = useQuery({
     queryKey: key(sessionId),
     queryFn: () => get<AuthoringSession>(`/pipeline/authoring/${sessionId}`),
-    refetchInterval: (query) => (isWaiting(query.state.data) ? pollMs : false),
+    refetchInterval: (query) => (query.state.data?.working ? pollMs : false),
   });
-
-  useEffect(() => {
-    if (session.data) dispatch({ type: "snapshot", session: session.data });
-  }, [session.data]);
 
   const refresh = useCallback(
     () => client.invalidateQueries({ queryKey: key(sessionId) }),
     [client, sessionId],
   );
+  const refused = (error: unknown) => {
+    setNotice(noticeFrom(error));
+    void refresh();
+  };
+  const take = (changed: { session: AuthoringSession }) => client.setQueryData(key(sessionId), changed.session);
 
-  // **Debounced on the revision**, which only moves when something is committed — so a burst of
-  // accepted steps asks once, and nothing here reacts to a keystroke or an animation frame.
+  // **Debounced on the revision**, which only moves when something is committed.
   const revision = session.data?.revision ?? -1;
   const [settledRevision, setSettledRevision] = useState(revision);
   useEffect(() => {
@@ -90,263 +95,129 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     staleTime: Infinity,
   });
 
+  /** Drawn before the request returns, and gone once the transcript holds it. */
+  const unsend = (text: string) => setSending((list) => {
+    const at = list.indexOf(text);
+    return at < 0 ? list : [...list.slice(0, at), ...list.slice(at + 1)];
+  });
+
   const say = useMutation({
     mutationFn: (text: string) =>
       post<AuthoringSaid>(`/pipeline/authoring/${sessionId}/messages`, { text }),
-    // **Drawn before the request returns** — Task 10: *follow-up messages appear immediately*.
-    onMutate: (text) => dispatch({ type: "sent", text }),
+    onMutate: (text) => {
+      setSending((list) => [...list, text]);
+      compose("");
+    },
+    onSuccess: async (_said, text) => {
+      await refresh();
+      unsend(text);
+    },
+    onError: (error, text) => {
+      unsend(text);
+      compose(text);
+      setNotice(noticeFrom(error));
+    },
+  });
+
+  const answer = useMutation({
+    mutationFn: (input: { questionId: string; value: AnswerValue }) =>
+      post<AuthoringSaid>(`/pipeline/authoring/${sessionId}/questions/${input.questionId}`,
+        { value: input.value }),
     onSuccess: () => void refresh(),
-    onError: (_error, text) => dispatch({ type: "unsent", text }),
+    onError: refused,
+  });
+
+  const retry = useMutation({
+    mutationFn: (seq: number) => post<AuthoringSaid>(`/pipeline/authoring/${sessionId}/turns/${seq}/retry`, {}),
+    onSuccess: () => void refresh(),
+    onError: refused,
+  });
+
+  const reviewed = useMutation({
+    mutationFn: (nodes: string[] | "all") =>
+      post<components["schemas"]["AuthoringReviewed"]>(`/pipeline/authoring/${sessionId}/reviewed`, { nodes }),
+    onSuccess: () => void refresh(),
+    onError: refused,
   });
 
   const edit = useMutation({
     mutationFn: (graph: DraftGraph) =>
       post<AuthoringEdited>(`/pipeline/authoring/${sessionId}/edits`, { graph,
-        expected_revision: session.data?.revision }),
-    onSuccess: () => void refresh(),
-    onError: (error) =>
-      dispatch({
-        type: "refused",
-        proposalId: "",
-        detail: error instanceof Refused ? error.message : String(error),
-      }),
+        expected_revision: session.data?.revision ?? 0 }),
+    onSuccess: take,
+    onError: refused,
   });
 
-  const decide = useMutation({
-    mutationFn: (input: {
-      proposal: AuthoringProposal;
-      decision: "accepted" | "rejected";
-      option: string;
-      expectedRevision: number;
-      goal?: GoalIn;
-      value?: string | number | boolean;
-    }) =>
-      post<AuthoringDecided>(
-        `/pipeline/authoring/${sessionId}/proposals/${input.proposal.id}/decide`,
-        {
-          decision: input.decision,
-          expected_revision: input.expectedRevision,
-          option: input.proposal.kind === "goal" ? null : input.option,
-          goal: input.proposal.kind === "goal" ? (input.goal ?? null) : null,
-          // A gap's typed answer, or a fact told on a step's card (`fact_<measurement>`).
-          value: input.proposal.kind === "gap" || input.option.startsWith("fact_")
-            ? (input.value ?? null) : null,
-        },
-      ),
-    onMutate: (input) => {
-      dispatch(
-        input.decision === "accepted"
-          ? {
-              type: "accept",
-              proposal: input.proposal,
-              option: input.option,
-              expectedRevision: input.expectedRevision,
-            }
-          : { type: "reject", proposalId: input.proposal.id },
-      );
-    },
-    onSuccess: (answer, input) => {
-      dispatch({ type: "decided", proposalId: input.proposal.id, answer });
-      void refresh();
-    },
-    onError: (error, input) => {
-      // A stale revision or a moved registry has already changed the session on the server — a
-      // proposal marked stale, a fresh one offered — so the notice is shown and the page re-reads
-      // rather than retrying the same request against a picture that is known to be old.
-      dispatch({
-        type: "refused",
-        proposalId: input.proposal.id,
-        detail: error instanceof Refused ? error.message : String(error),
-      });
-      void refresh();
-    },
-  });
-
-  const upload = useMutation({
-    mutationFn: (input: { proposal: AuthoringProposal; files: File[] }) => {
-      const form = new FormData();
-      form.append("proposal_id", input.proposal.id);
-      // **Only the head leaves the browser** (review of issue 134): the server reads the first
-      // 4 MB and no more, so sending the rest would move a person's whole file for nothing,
-      // and the card says the rest never leaves their computer.
-      for (const file of input.files) {
-        form.append("files", new File([file.slice(0, HEAD_BYTES)], file.name, { type: file.type }));
-      }
-      // Each file's real size, so the server can tell a whole small file from a head (#465): a
-      // fact read from the whole file is measured on all of the data, not estimated.
-      form.append("sizes", JSON.stringify(input.files.map((file) => file.size)));
-      return postForm<SampleInspected>(`/pipeline/authoring/${sessionId}/samples`, form);
-    },
-    // **The answer carries the session as it now is** (issue 228): taken as it is, rather than
-    // read again. A failure re-reads it, since the server may have recorded the sample before
-    // the answer was lost.
-    onSuccess: (inspected) => client.setQueryData(key(sessionId), inspected.session),
-    onError: () => void refresh(),
-  });
-
-  const retry = useMutation({
-    mutationFn: () => post<AuthoringRetried>(`/pipeline/authoring/${sessionId}/retry`, {}),
-    onSuccess: () => void refresh(),
+  const change = useMutation({
+    mutationFn: (change: Change) => post<Changed>(`/pipeline/authoring/${sessionId}/changes`, {
+      change, expected_decision_revision: session.data?.decision_revision ?? null }),
+    onSuccess: take,
+    onError: refused,
   });
 
   const correction = useMutation({
-    mutationFn: (input: { subject?: string; kind?: "input" | "measurement";
-      proposal?: AuthoringProposal; option?: string; value: FactValue; release?: { type_id: string; states: string[] } }) => {
-      const current = session.data;
-      if (!current) throw new Error("Reload the session before correcting");
-      const context = { expected_decision_revision: current.decision_revision ?? 0,
-        expected_draft_revision: current.revision, expected_session_version: current.row_version };
-      const path = input.release ? "release-tool" : input.proposal ? `disagreements/${input.proposal.id}` :
-        `facts/${encodeURIComponent(input.subject!)}`;
-      return post<components["schemas"]["AuthoringCorrected"]>(
-        `/pipeline/authoring/${sessionId}/${path}`, { ...context, ...(input.release ?? { value: input.value,
-          ...(input.proposal ? { option: input.option } : { kind: input.kind }) }) });
+    mutationFn: (input: { subject: string; value: FactValue; kind: "input" | "measurement" } |
+      { release: { type_id: string; states: string[] } }) => {
+      const expected_decision_revision = session.data?.decision_revision ?? null;
+      return "release" in input
+        ? post<Changed>(`/pipeline/authoring/${sessionId}/release-tool`, { ...input.release, expected_decision_revision })
+        : post<Changed>(`/pipeline/authoring/${sessionId}/facts/${encodeURIComponent(input.subject)}`,
+          { value: input.value, kind: input.kind, expected_decision_revision });
     },
-    onSuccess: () => void refresh(),
-    onError: error => {
-      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
-      void refresh();
-    },
+    onSuccess: take,
+    onError: refused,
   });
 
-  // **A tool's optional input, switched** (issue 460): the person's change, written as a click,
-  // the chat and the model all write it — one DecisionChange, `optional_input`.
-  const switching = useMutation({
-    mutationFn: (input: { contract: string; port: string; state: "off" | "optional" | "required" }) => {
-      const current = session.data;
-      if (!current) throw new Error("Reload the session before changing an input");
-      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
-        change: { kind: "optional_input", subject: `${input.contract}|${input.port}`, value: input.state },
-        expected_decision_revision: current.decision_revision ?? 0,
-        expected_draft_revision: current.revision, expected_session_version: current.row_version,
-      });
+  const upload = useMutation({
+    mutationFn: (input: { questionId: string | null; files: File[] }) => {
+      const form = new FormData();
+      if (input.questionId) form.append("question_id", input.questionId);
+      // **Only the head leaves the browser**: the server reads the first 4 MB and no more.
+      for (const file of input.files) {
+        form.append("files", new File([file.slice(0, HEAD_BYTES)], file.name, { type: file.type }));
+      }
+      // Each file's real size, so the server can tell a whole small file from a head (#465).
+      form.append("sizes", JSON.stringify(input.files.map((file) => file.size)));
+      return postForm<SampleInspected>(`/pipeline/authoring/${sessionId}/samples`, form);
     },
-    onSuccess: () => void refresh(),
-    onError: error => {
-      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
-      void refresh();
-    },
+    onSettled: () => void refresh(),
   });
-
-  // **A tool kept whole, or run on parts of each sample again** (issue 466): one DecisionChange,
-  // `whole`, retracted to let the step split again.
-  const keeping = useMutation({
-    mutationFn: (input: { contract: string; whole: boolean }) => {
-      const current = session.data;
-      if (!current) throw new Error("Reload the session before changing a step");
-      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
-        change: { kind: "whole", subject: input.contract, retract: !input.whole },
-        expected_decision_revision: current.decision_revision ?? 0,
-        expected_draft_revision: current.revision, expected_session_version: current.row_version,
-      });
-    },
-    onSuccess: () => void refresh(),
-    onError: error => {
-      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
-      void refresh();
-    },
-  });
-
-  // **The model's suggestions wait for one click** (Part I.0): applied as the person's own change,
-  // or set aside.
-  const suggestion = useMutation({
-    mutationFn: (input: { id: string; decision: "apply" | "dismiss" }) =>
-      post<components["schemas"]["AuthoringCorrected"] | null>(
-        `/pipeline/authoring/${sessionId}/suggestions/${input.id}`, { decision: input.decision }),
-    onSuccess: () => void refresh(),
-    onError: error => {
-      dispatch({ type: "refused", proposalId: "", detail: error instanceof Refused ? error.message : String(error) });
-      void refresh();
-    },
-  });
-
-  const accept = useCallback(
-    (proposal: AuthoringProposal, option = "keep", goal?: GoalIn, value?: string | number | boolean) =>
-      decide.mutate({
-        proposal,
-        decision: "accepted",
-        option,
-        goal,
-        value,
-        expectedRevision: session.data?.revision ?? 0,
-      }),
-    [decide, session.data?.revision],
-  );
-
-  const reject = useCallback(
-    (proposal: AuthoringProposal) =>
-      decide.mutate({
-        proposal,
-        decision: "rejected",
-        option: "keep",
-        expectedRevision: session.data?.revision ?? 0,
-      }),
-    [decide, session.data?.revision],
-  );
 
   return {
     session: session.data ?? null,
     loading: session.isPending,
     error: session.error,
-    waiting: isWaiting(session.data),
-    graph: visibleGraph(state),
     preview: preview.data ?? null,
-    state,
-    /** Whether one proposal's request is in flight — the only control that is disabled. */
-    busy: (proposalId: string) => state.inFlight === proposalId,
-    accept,
-    reject,
-    say: (text: string) => say.mutate(text),
-    /** Answer a gap with a sample: one file, or a pair. Resolves with what it measured. */
-    upload: (proposal: AuthoringProposal, files: File[]) =>
-      upload.mutateAsync({ proposal, files }),
-    retry: () => retry.mutate(),
-    /** A hand edit: the server reads it as intent and offers the reading in the chat (#395). */
-    edit: (graph: DraftGraph) => edit.mutate(graph),
-    /** Rename the pipeline: a name is not a decision, so the draft is saved directly. */
-    rename: (name: string) => void put(`/pipeline/drafts/${session.data?.draft_id}`, {
-      name, expected_revision: session.data?.revision }).then(() => refresh(), (error) =>
-      dispatch({ type: "refused", proposalId: "",
-                 detail: error instanceof Refused ? error.message : String(error) })),
     vocabulary: vocabulary.data?.types ?? null,
     measurements: vocabulary.data?.measurements,
+    selected,
+    select,
+    composer,
+    compose,
+    sending,
+    notice,
+    dismiss: () => setNotice(null),
+    say: (text: string) => say.mutate(text),
+    answer: (questionId: string, value: AnswerValue) => answer.mutate({ questionId, value }),
+    retry: (seq: number) => retry.mutate(seq),
+    review: (node: string) => reviewed.mutate([node]),
+    /** Samples measured by this server, as an answer to the agent's question or on their own. */
+    upload: (questionId: string | null, files: File[]) => upload.mutateAsync({ questionId, files }),
+    /** A hand edit: the server reads it as the person's changes (#395). */
+    edit: (graph: DraftGraph) => edit.mutate(graph),
+    rename: (name: string) => void put(`/pipeline/drafts/${session.data?.draft_id}`, {
+      name, expected_revision: session.data?.revision }).then(() => refresh(), refused),
     correcting: correction.isPending,
-    switchInput: (contract: string, port: string, state: "off" | "optional" | "required") =>
-      switching.mutate({ contract, port, state }),
-    keepWhole: (contract: string, whole: boolean) => keeping.mutate({ contract, whole }),
-    // **A sample may span several rows** (issue 466): one change, `units`.
-    spanRows: (type_id: string, on: boolean) => {
-      const current = session.data;
-      if (!current) return Promise.reject(new Error("Reload the session before changing an input"));
-      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
-        change: { kind: "units", subject: type_id, value: on },
-        expected_decision_revision: current.decision_revision ?? 0,
-        expected_draft_revision: current.revision, expected_session_version: current.row_version,
-      }).then(() => refresh());
-    },
-    // **A study input given as several items** (issue 466): one change, `tables`.
-    severalItems: (type_id: string, on: boolean) => {
-      const current = session.data;
-      if (!current) return Promise.reject(new Error("Reload the session before changing an input"));
-      return post<components["schemas"]["AuthoringCorrected"]>(`/pipeline/authoring/${sessionId}/changes`, {
-        change: { kind: "tables", subject: type_id, value: on },
-        expected_decision_revision: current.decision_revision ?? 0,
-        expected_draft_revision: current.revision, expected_session_version: current.row_version,
-      }).then(() => refresh());
-    },
-    releaseTool: (type_id: string, states: string[]) => correction.mutateAsync({
-      release: { type_id, states }, value: null }),
     correct: (subject: string, value: FactValue, kind: "input" | "measurement") =>
       correction.mutateAsync({ subject, value, kind }),
-    applySuggestion: (id: string) => suggestion.mutate({ id, decision: "apply" }),
-    dismissSuggestion: (id: string) => suggestion.mutate({ id, decision: "dismiss" }),
-    suggesting: suggestion.isPending,
-    answerDisagreement: (proposal: AuthoringProposal, option: string, value: FactValue = null) =>
-      correction.mutateAsync({ proposal, option, value }),
-    previewOption: (option: string | null) => dispatch({ type: "preview", option }),
-    select: (node: string | null) => dispatch({ type: "select", node }),
-    compose: (text: string) => dispatch({ type: "compose", text }),
-    dismiss: () => dispatch({ type: "dismiss" }),
-    consumed: (event: MotionEvent) => dispatch({ type: "consumed", seq: event.seq }),
+    releaseTool: (type_id: string, states: string[]) => correction.mutateAsync({ release: { type_id, states } }),
+    switchInput: (contract: string, port: string, state: "off" | "optional" | "required") =>
+      change.mutate({ kind: "optional_input", subject: `${contract}|${port}`, value: state }),
+    keepWhole: (contract: string, whole: boolean) =>
+      change.mutate({ kind: "whole", subject: contract, retract: !whole }),
+    /** A sample may span several rows (issue 466). */
+    spanRows: (type_id: string, on: boolean) => change.mutateAsync({ kind: "units", subject: type_id, value: on }),
+    /** A study input given as several items (issue 466). */
+    severalItems: (type_id: string, on: boolean) => change.mutateAsync({ kind: "tables", subject: type_id, value: on }),
   };
 }

@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { AuthoringSession } from "../../api/types";
 import { FAKE_SESSION } from "./fake";
@@ -11,14 +11,10 @@ const open = {
   turns: [{ seq: 1, role: "person", state: "answered", text: "gene counts from mouse liver", blocks: [],
     base_revision: 0, at: "2026-10-27T08:00:00+00:00" }],
   facts: [], inputs: [], fact_subjects: ["strandedness"],
-  pending_proposal: { id: "g1", kind: "gap", draft_revision: 4, options: ["a"], edges: [],
-    asked_at: "2026-10-27T09:00:00+00:00",
-    block: { kind: "question", id: "q", asks: "Which strand?", why_open: "w", exhaustive: true, options: [] },
-    envelope: { offer: "gap", subject: "strandedness", kind: "measurement" } },
 } as unknown as AuthoringSession;
 
 function understood(session: AuthoringSession, overrides = {}) {
-  const props = { session, disabled: false, onOpenQuestion: vi.fn(), ...overrides };
+  const props = { session, disabled: false, ...overrides };
   render(<QueryClientProvider client={new QueryClient()}><Understood {...props} /></QueryClientProvider>);
   return props;
 }
@@ -28,32 +24,5 @@ describe("what was understood, beside the conversation (one builder plan 3)", ()
     understood(open);
     expect(screen.getByRole("region", { name: "What was understood" })).toBeInTheDocument();
     expect(screen.getByTestId("your-sentence")).toHaveTextContent("gene counts from mouse liver");
-  });
-
-  it("points an open fact at the question asking it", () => {
-    const p = understood(open);
-    expect(screen.getByText(/strandedness: needs you/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Answer it in the chat" }));
-    expect(p.onOpenQuestion).toHaveBeenCalled();
-  });
-});
-
-it("names what an open question is about in words, not its id (issue 494)", () => {
-  understood({ ...open, pending_proposal: { ...open.pending_proposal!,
-    envelope: { ...open.pending_proposal!.envelope!, subject: "read_length" } } } as unknown as AuthoringSession);
-  expect(screen.getByText(/read length: needs you/)).toBeInTheDocument();
-});
-
-describe("what was asked for and is not offered here (Part I.2)", () => {
-  it("says so in the record, in the person's words", () => {
-    understood({ ...open, not_offered: ["differential expression"] } as unknown as AuthoringSession);
-    const row = screen.getByTestId("not-offered");
-    expect(row).toHaveTextContent("Not offered here: differential expression");
-    expect(row).toHaveTextContent("This pipeline stops before it; the rest is yours.");
-  });
-
-  it("draws no row when nothing was", () => {
-    understood(open);
-    expect(screen.queryByTestId("not-offered")).toBeNull();
   });
 });

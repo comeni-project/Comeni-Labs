@@ -43,29 +43,20 @@ export type Kept = S["Kept"];
 export type GateView = S["GateView"];
 export type GateIn = S["GateIn"];
 
-/** The living pipeline — one authoring session, as the server restores it. */
+/** The builder — one session with the agent, as the server restores it (#463). */
 export type AuthoringSession = S["AuthoringSessionView"];
 export type AuthoringTurn = S["AuthoringTurnView"];
-export type AuthoringProposal = S["AuthoringProposalView"];
 export type AuthoringBlock = AuthoringTurn["blocks"][number];
 export type AuthoringStarted = S["AuthoringStarted"];
 export type AuthoringSaid = S["AuthoringSaid"];
-export type AuthoringDecided = S["AuthoringDecided"];
-export type AuthoringRetried = S["AuthoringRetried"];
 export type AuthoringPreview = S["AuthoringPreview"];
 export type BeginAuthoring = S["BeginAuthoring"];
-export type DecideProposal = S["DecideProposal"];
 export type AuthoringVocabulary = S["AuthoringVocabulary"];
 export type AuthoringCall = S["AuthoringCallView"];
 export type AuthoringEdited = S["AuthoringEdited"];
 /** What one uploaded sample measured, and what that settled (issue 134). */
 export type SampleInspected = S["SampleInspected"];
-export type SampleReading = S["SampleReading"];
-/** What a question is about and why it is asked (Part I.1). */
-export type Explanation = S["Explanation"];
 export type InspectedFact = S["InspectedFactView"];
-/** A change the model offered, waiting for one click (Part I.0). */
-export type AuthoringSuggestion = S["AuthoringSuggestionView"];
 /** Whether this installation can reach a model at all — the no-AI lane is `configured: false`. */
 export type AiHealth = S["AiHealth"];
 export type AiConfigured = S["AiConfigured"];
