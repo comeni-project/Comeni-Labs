@@ -15,7 +15,7 @@ from mendel_api.models import PipelineDraft
 from mendel_api.services import decisions, draft_mutations, drafts
 
 
-def _project(ctx: ToolContext, blueprint) -> None:
+def _project(ctx: ToolContext, blueprint, resolved_from: int) -> None:
     """Every step of the resolved pipeline into the draft, so the canvas and the compiler read
     it. The engine's steps are the AI's to have built: it holds them, and the person reviews."""
     from comeni_core.plan.draft import DraftGraph, DraftProvenance
@@ -25,8 +25,9 @@ def _project(ctx: ToolContext, blueprint) -> None:
         graph, provenance = committed(blueprint, graph, provenance, node, by=ctx.who,
                                       actor_kind=ActorKind.MODEL)
     with session_scope() as db:
-        draft = db.get(PipelineDraft, ctx.draft_id)
-        draft_mutations.project(db, draft, graph, provenance=provenance.model_dump(mode="json"))
+        draft = db.get(PipelineDraft, ctx.draft_id, with_for_update=True)
+        draft_mutations.project(db, draft, graph, provenance=provenance.model_dump(mode="json"),
+                                resolved_from=resolved_from)
 
 
 def _fired(blueprint) -> list[FiredLine]:
@@ -44,27 +45,23 @@ def _fired(blueprint) -> list[FiredLine]:
     return fired
 
 
-_LAST: dict[str, object] = {}
-"""The blueprint each draft last resolved to in this process, for *what changed*."""
-
-
 def resolve(ctx: ToolContext, _: Nothing) -> ResolvedView:
+    resolved_from = decisions.revision(ctx.draft_id)
     blueprint, unbuilt = built(ctx)
     if blueprint is None:
         return ResolvedView(unbuilt=unbuilt or "nothing is wanted yet")
-    before = _LAST.get(ctx.draft_id)
-    _LAST[ctx.draft_id] = blueprint
-    _project(ctx, blueprint)
+    _project(ctx, blueprint, resolved_from)
+    before = None
     if ctx.session_id is not None:
         # **Kept on the session**: what the page draws and marks as the AI's comes from it,
-        # without resolving again on every poll.
+        # without resolving again on every poll; the one it replaces is what changed.
         from mendel_authoring.blueprint import Blueprint
 
         from mendel_api.models import PipelineAuthoringSession
 
         with session_scope() as db:
             row = db.get(PipelineAuthoringSession, ctx.session_id)
-            if before is None and row.blueprint:
+            if row.blueprint:
                 before = Blueprint.model_validate(row.blueprint)
             row.blueprint = blueprint.model_dump(mode="json")
             row.registry_digest = blueprint.registry
@@ -79,10 +76,11 @@ def resolve(ctx: ToolContext, _: Nothing) -> ResolvedView:
 
 
 def compile_(ctx: ToolContext, _: Nothing) -> CompiledView:
+    resolved_from = decisions.revision(ctx.draft_id)
     blueprint, unbuilt = built(ctx)
     if blueprint is None:
         raise ValueError(coded("MI0219", f"there is no pipeline to compile yet: {unbuilt}"))
-    _project(ctx, blueprint)
+    _project(ctx, blueprint, resolved_from)
     done = drafts.emitted(ctx.draft_id)
     return CompiledView(main_nf=done.main_nf, nextflow_config=done.config)
 

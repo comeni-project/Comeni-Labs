@@ -240,7 +240,7 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
         if change.retract or kind == "producer":
             if pinned.get((subject, frozenset(change.states))) is None:
                 return False
-            decisions.release_producer(draft_id, site, who=who)
+            decisions.release_producer(draft_id, site, **said)
         else:
             _tool(stack, str(change.value))
             decisions.pin_producer(draft_id, site, str(change.value), **said, **heard,
@@ -251,7 +251,7 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             current = {p.name: p.value for p in decisions.read(draft_id).parameters}
             if current.get(subject) is None:
                 return False
-            decisions.release_parameter(draft_id, subject, who=who)
+            decisions.release_parameter(draft_id, subject, **said)
         else:
             decisions.set_parameter(draft_id, subject, change.value, **said, **heard,
                                     because=change.because)
@@ -268,7 +268,7 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
                       "optional_input": "optional_input", "whole": "whole"}[kind]
             key = (decisions.exclusion_key(_site(change), change.value) if kind == "exclude"
                    else subject)
-            decisions.release_intent(draft_id, family, key, who=who)
+            decisions.release_intent(draft_id, family, key, **said)
         elif kind == "role":
             decisions.switch_off_role(draft_id, subject, **said)
         elif kind == "exclude":

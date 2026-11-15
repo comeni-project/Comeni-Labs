@@ -49,6 +49,75 @@ def test_a_stale_write_is_refused_and_the_persons_edit_stands(clean):
     assert again.ok, again.refusal
 
 
+def test_a_build_overtaken_by_the_persons_change_is_not_drawn_as_current(clean, monkeypatch):
+    """#463 review: the person changes a decision while the agent's build is resolving. The
+    build from the older decisions must not land over it marked current: it is refused, and
+    the pipeline stays outdated until it is built from the person's change."""
+    from mendel_api.db import session_scope
+    from mendel_api.models import PipelineDraft
+    from mendel_api.services import blueprint as bp
+
+    ctx = _rnaseq()
+    real = bp.resolve
+
+    def overtaken(goal, *args, **kwargs):
+        built = real(goal, *args, **kwargs)
+        changes.apply(ctx.draft_id, DecisionChange(kind="parameter", subject="min_mqs", value=10),
+                      who="ana")
+        return built
+
+    monkeypatch.setattr(bp, "resolve", overtaken)
+    resolved = call(ctx, "resolve", {})
+    assert not resolved.ok and resolved.refusal.startswith("MI0201"), resolved
+    with session_scope() as db:
+        assert db.get(PipelineDraft, ctx.draft_id).projection_current is False
+    monkeypatch.setattr(bp, "resolve", real)
+    ctx.expected_revision = decisions.revision(ctx.draft_id)
+    assert call(ctx, "resolve", {}).ok
+
+
+def test_what_the_agent_withdraws_is_recorded_as_the_ais(clean):
+    """#463 review: a retract is a decision too. The agent switching a role back on must not
+    read in the history as the person's act."""
+    ctx = _rnaseq()
+    off = call(ctx, "switch_role", {"role": "trimming", "on": False, "because": "reads are clean"})
+    assert off.ok, off.refusal
+    on = call(ctx, "switch_role", {"role": "trimming", "on": True, "because": "keep it after all"})
+    assert on.ok, on.refusal
+    history = decisions.intent_history(ctx.draft_id, "role", "trimming")
+    assert [(h["action"], str(h["actor_kind"])) for h in history][-1] == ("retract", "model")
+
+
+def test_a_change_landing_between_the_check_and_the_write_is_refused(clean, monkeypatch):
+    """#463 review: the stale check and the write are one step. A person's change landing after
+    the check passed still refuses the agent's write, and the person's value stands."""
+    from mendel_api.agent import change as change_tools
+
+    ctx = _rnaseq()
+    real = changes.apply
+
+    def raced(draft_id, change, *, who):
+        with decisions.expecting(None):
+            real(draft_id, DecisionChange(kind="parameter", subject="min_mqs", value=10),
+                 who="ana")
+        return real(draft_id, change, who=who)
+
+    monkeypatch.setattr(change_tools.changes, "apply", raced)
+    refused = call(ctx, "set_value", {"name": "min_mqs", "value": 20, "because": "stricter"})
+    assert not refused.ok and refused.refusal.startswith("MI0201"), refused
+    [value] = [p for p in decisions.read(ctx.draft_id).parameters if p.name == "min_mqs"]
+    assert (value.value, value.by) == (10, "person")
+
+
+def test_a_tool_that_half_wrote_does_not_make_the_next_write_stale(clean):
+    ctx = _rnaseq()
+    half = call(ctx, "want", {"type_id": "qc.report", "states": ["no_such_state"],
+                              "because": "gene counts"})
+    assert not half.ok and "no_such_state" in half.refusal
+    after = call(ctx, "set_value", {"name": "min_mqs", "value": 20, "because": "stricter"})
+    assert after.ok, after.refusal
+
+
 def test_resolve_reports_the_rules_that_fired(clean):
     resolved = call(_rnaseq(), "resolve", {})
     assert resolved.ok, resolved.refusal

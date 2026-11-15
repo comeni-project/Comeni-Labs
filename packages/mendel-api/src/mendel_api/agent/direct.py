@@ -28,9 +28,17 @@ def _draft_of(session_id: str) -> str:
 
 
 def _rebuild(session_id: str, draft_id: str, who: str) -> None:
-    """The pipeline built again from the decisions, so the canvas shows the person's change."""
-    resolve(ToolContext(draft_id=draft_id, session_id=session_id, who=who,
-                        expected_revision=decisions.revision(draft_id)), Nothing())
+    """The pipeline built again from the decisions, so the canvas shows the person's change.
+    **Built again if the decisions moved while it was building** (#463 review): the agent may
+    change them meanwhile, and a build from before that is refused rather than drawn."""
+    for attempt in range(3):
+        try:
+            resolve(ToolContext(draft_id=draft_id, session_id=session_id, who=who,
+                                expected_revision=decisions.revision(draft_id)), Nothing())
+            return
+        except ValueError as moved:
+            if not str(moved).startswith("MI0201") or attempt == 2:
+                raise
 
 
 def apply(session_id: str, change: DecisionChange, *, who: str,

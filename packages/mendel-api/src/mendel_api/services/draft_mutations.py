@@ -41,7 +41,13 @@ def touch(db, draft):
     draft.updated_at = datetime.now(UTC)
 
 
-def project(db, draft, graph, *, provenance):
+def project(db, draft, graph, *, provenance, resolved_from: int | None = None):
+    """The pipeline built from the decisions, into the locked draft, marked current.
+    `resolved_from` is the decision revision it was built from: **a build the decisions moved
+    past is refused** (#463 review), never drawn as current over a newer change."""
+    if resolved_from is not None and draft.decision_revision != resolved_from:
+        raise ValueError(coded("MI0201", "the pipeline's decisions changed while it was being "
+                                         "built; build it again"))
     dumped = graph.model_dump(mode="json")
     if dumped != draft.graph or provenance != draft.provenance:
         draft.graph = dumped

@@ -85,10 +85,19 @@ def call(ctx: ToolContext, name: str, arguments: dict) -> AgentToolResult:
             "MI0201: the pipeline changed since you last read it; read it again before "
             "changing it"))
     try:
-        view = tool.run(ctx, given)
+        # The check above is a fast refusal; the one that holds is each write's own, under the
+        # draft's lock (`decisions.expecting`).
+        with decisions.expecting(ctx.expected_revision if tool.writes else None):
+            view = tool.run(ctx, given)
     except (ValueError, KeyError, LookupError) as refused:
         said = refused.args[0] if refused.args else type(refused).__name__
-        return AgentToolResult(tool=name, ok=False, refusal=" ".join(str(said).split())[:500])
+        text = " ".join(str(said).split())[:500]
+        # **A tool refused after writing part of its change** has moved the revision itself:
+        # the agent's next write is not stale for it. A stale refusal is not refreshed: the
+        # agent reads again.
+        if not text.startswith("MI0201"):
+            ctx.expected_revision = decisions.revision(ctx.draft_id)
+        return AgentToolResult(tool=name, ok=False, refusal=text)
     ctx.expected_revision = decisions.revision(ctx.draft_id)
     return AgentToolResult(tool=name, ok=True, view=view)
 

@@ -18,7 +18,7 @@ from pydantic import Field
 from starlette.responses import JSONResponse
 
 from mendel_api.agent.tools import TOOLS, Tool, ToolContext, call
-from mendel_api.services import decisions, drafts
+from mendel_api.services import decisions, drafts, protection
 from mendel_api.settings import settings
 
 server = MCPServer(
@@ -43,6 +43,10 @@ def _who(ctx: Context | None) -> str:
 def _served(tool: Tool):
     fields = tool.input.model_fields
     parameters = [inspect.Parameter("draft_id", inspect.Parameter.KEYWORD_ONLY, annotation=str)]
+    if tool.writes:
+        parameters.append(inspect.Parameter(
+            "revision", inspect.Parameter.KEYWORD_ONLY, annotation=int,
+            default=inspect.Parameter.empty))
     parameters += [
         inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY, annotation=field.annotation,
                           default=(inspect.Parameter.empty if field.is_required()
@@ -52,10 +56,21 @@ def _served(tool: Tool):
     parameters.append(inspect.Parameter("ctx", inspect.Parameter.KEYWORD_ONLY,
                                         annotation=Context, default=None))
 
-    def run(*, draft_id: str, ctx: Context | None = None, **arguments) -> dict:
+    def run(*, draft_id: str, ctx: Context | None = None, revision: int | None = None,
+            **arguments) -> dict:
+        # **The protection level holds over MCP too** (#463 review): a client is most likely a
+        # model, and the agent's crossing is what this level allows or refuses.
+        if not protection.allows(protection.Crossing.AGENT):
+            return {"tool": tool.name, "ok": False, "revision": decisions.revision(draft_id),
+                    "refusal": protection.refuse(protection.Crossing.AGENT)}
+        # **A write states the revision it was read from** (#463 review): the person or the
+        # in-app agent may have changed the pipeline since; that change stands, and this one is
+        # refused (`MI0201`) until the client reads again. Every result says the revision now.
         context = ToolContext(draft_id=draft_id, session_id=None, who=_who(ctx),
-                              expected_revision=decisions.revision(draft_id))
-        return call(context, tool.name, arguments).model_dump(mode="json", exclude_none=True)
+                              expected_revision=(revision if revision is not None
+                                                 else decisions.revision(draft_id)))
+        result = call(context, tool.name, arguments).model_dump(mode="json", exclude_none=True)
+        return result | {"revision": decisions.revision(draft_id)}
 
     run.__signature__ = inspect.Signature(parameters, return_annotation=dict)
     run.__annotations__ = {p.name: p.annotation for p in parameters} | {"return": dict}
@@ -73,7 +88,9 @@ def open_draft(name: str = "From another agent", draft_id: str | None = None,
 
 server.add_tool(open_draft, name="open_draft",
                 description="Create a draft to build a pipeline in, or open an existing one. "
-                            "Every other tool takes the draft_id it returns.")
+                            "Every other tool takes the draft_id it returns; a tool that "
+                            "changes the pipeline also takes the revision you last read, which "
+                            "every result returns.")
 for _tool in TOOLS.values():
     server.add_tool(_served(_tool), name=_tool.name, description=_tool.description)
 
@@ -107,12 +124,13 @@ def app():
     async def guarded(scope, receive, send):
         if scope["type"] == "http":
             token = settings.mcp_token
-            given = dict(scope.get("headers") or []).get(b"authorization", b"").decode()
+            given = dict(scope.get("headers") or []).get(b"authorization", b"")
             if not token:
                 await JSONResponse({"detail": "MCP is off: set MENDEL_MCP_TOKEN to serve it"},
                                    status_code=401)(scope, receive, send)
                 return
-            if not secrets.compare_digest(given, f"Bearer {token}"):
+            # Compared as bytes: a header that is not text is refused, never a 500.
+            if not secrets.compare_digest(given, f"Bearer {token}".encode()):
                 await JSONResponse({"detail": "a valid bearer token is required"},
                                    status_code=401)(scope, receive, send)
                 return

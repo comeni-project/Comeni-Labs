@@ -5,6 +5,9 @@ never select themselves: only an explicit selection changes the goal.
 """
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -86,10 +89,29 @@ def _heard(fields, heard, heard_seq):
     return {**fields, "heard": heard, "heard_seq": heard_seq} if heard is not None else fields
 
 
+_EXPECTED: ContextVar[int | None] = ContextVar("expected_decision_revision", default=None)
+"""The decision revision the writes in this context were read at (`expecting`)."""
+
+
+@contextmanager
+def expecting(revision: int | None) -> Iterator[None]:
+    """**Writes in this block are refused unless the decisions are still at `revision`**
+    (#463 review), checked under the draft's row lock in the write's own transaction, so a
+    change landing between a check and a write cannot slip through. Each write moves the
+    expectation on, so one caller's several writes do not refuse each other. `None` lifts it."""
+    token = _EXPECTED.set(revision)
+    try:
+        yield
+    finally:
+        _EXPECTED.reset(token)
+
+
 def _draft(db, draft_id, expected_revision=None):
     row = db.get(PipelineDraft, draft_id, with_for_update=True, populate_existing=True)
     if row is None:
         raise KeyError(draft_id)
+    if expected_revision is None:
+        expected_revision = _EXPECTED.get()
     if expected_revision is not None and row.decision_revision != expected_revision:
         raise ValueError(coded("MI0201", "the selected decisions changed; read them again"))
     return row
@@ -108,6 +130,8 @@ def _changed(db, draft):
     if stamps.get(key) != draft.decision_revision:
         draft.decision_revision += 1
         stamps[key] = draft.decision_revision
+    if _EXPECTED.get() is not None:
+        _EXPECTED.set(draft.decision_revision)
     draft.projection_current = False
 
 
@@ -681,7 +705,8 @@ _WITHDRAWN = {
 """The field a retraction sets, and to what, per family."""
 
 
-def _release(draft_id, family, key, *, who, expected_revision=None):
+def _release(draft_id, family, key, *, who, expected_revision=None,
+             actor_kind=ActorKind.PERSON):
     with session_scope() as db:
         draft = _draft(db, draft_id, expected_revision)
         for subject, revision in _current(db, draft_id, family):
@@ -689,7 +714,8 @@ def _release(draft_id, family, key, *, who, expected_revision=None):
                 fields = {name: getattr(revision, name) for name in _FIELDS[family]}
                 field, withdrawn = _WITHDRAWN[family]
                 fields[field] = withdrawn
-                return _write(db, draft, family, key, fields, who=who, action="retract").id
+                return _write(db, draft, family, key, fields, who=who, action="retract",
+                              actor_kind=actor_kind).id
         raise ValueError(f"there is no current {family} choice for {key}")
 
 
@@ -697,13 +723,17 @@ def withdraw_input(draft_id, key, *, who, expected_revision=None):
     return _release(draft_id, "input", key, who=who, expected_revision=expected_revision)
 
 
-def release_parameter(draft_id, name, *, who, expected_revision=None):
-    return _release(draft_id, "parameter", name, who=who, expected_revision=expected_revision)
+def release_parameter(draft_id, name, *, who, expected_revision=None,
+                      actor_kind=ActorKind.PERSON):
+    return _release(draft_id, "parameter", name, who=who, expected_revision=expected_revision,
+                    actor_kind=actor_kind)
 
 
-def release_producer(draft_id, site: Site, *, who, expected_revision=None):
+def release_producer(draft_id, site: Site, *, who, expected_revision=None,
+                     actor_kind=ActorKind.PERSON):
     return _release(
-        draft_id, "producer", _site_key(site), who=who, expected_revision=expected_revision
+        draft_id, "producer", _site_key(site), who=who, expected_revision=expected_revision,
+        actor_kind=actor_kind,
     )
 
 
@@ -882,11 +912,13 @@ def keep_whole(draft_id, contract, *, who, actor_kind=ActorKind.PERSON, proposal
 _INTENTS = ("role", "exclusion", "source", "optional_input", "whole")
 
 
-def release_intent(draft_id, family, key, *, who, expected_revision=None):
-    """Withdraw a person's structural intent (A1); its history stays."""
+def release_intent(draft_id, family, key, *, who, expected_revision=None,
+                   actor_kind=ActorKind.PERSON):
+    """Withdraw a structural intent (A1), as whoever withdrew it; its history stays."""
     if family not in _INTENTS:
         raise ValueError(f"{family!r} is not a structural intent")
-    return _release(draft_id, family, key, who=who, expected_revision=expected_revision)
+    return _release(draft_id, family, key, who=who, expected_revision=expected_revision,
+                    actor_kind=actor_kind)
 
 
 def intent_history(draft_id, family, key) -> list[dict]:

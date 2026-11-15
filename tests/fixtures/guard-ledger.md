@@ -5559,3 +5559,17 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   before it (`['tool', 'ok', 'view', 'refusal'] != ['turns', 'results']`); `AgentTurn.content`
   is declared free text. `test_the_conversation_crosses_as_the_declared_payload` failed before
   the loop built its history from the payload (no `conversation`). Pass.
+- 2026-11-15, #463 final review, provenance and turn failure:
+  `test_a_tie_nobody_answered_stays_the_resolvers_and_flagged` failed before the fix
+  (`ValueSource.HUMAN is not ValueSource.RESOLVER`: the agent's projection labelled an
+  unanswered tie "accepted by a person"); `test_what_the_agent_withdraws_is_recorded_as_the_ais`
+  failed (`'person' != 'model'` on the retract). `test_a_tool_that_crashes_fails_the_turn_and_nothing_stays_running`,
+  `test_a_turn_that_cannot_be_queued_fails_and_can_be_retried` and
+  `test_a_turn_whose_worker_died_is_failed_when_the_page_reads_it` failed with the error
+  escaping or the turn left pending; `test_a_tool_name_the_engine_cannot_print_is_a_refusal`
+  raised `ValidationError`. Concurrency: `test_a_build_overtaken_by_the_persons_change_is_not_drawn_as_current`
+  (the old build landed `ok=True`), `test_a_change_landing_between_the_check_and_the_write_is_refused`
+  (no `expecting`), `test_a_tool_that_half_wrote_does_not_make_the_next_write_stale` (false
+  MI0201), `test_an_mcp_write_after_the_persons_change_is_refused` and
+  `test_mcp_answers_only_where_the_protection_level_allows_the_agent` (both answered `ok`),
+  `test_a_malformed_authorization_header_is_a_clean_refusal`. All pass after.
