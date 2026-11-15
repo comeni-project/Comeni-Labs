@@ -11,6 +11,7 @@ from comeni_core.egress.agent import (
     FactLine,
     FactsView,
     GoalView,
+    InputLine,
     MeasureLine,
     NeedLine,
     NeedsView,
@@ -155,6 +156,8 @@ def read_step(ctx: ToolContext, args: StepArgs) -> StepView:
         why_here=step.presence.reason if step.presence else "",
         chosen=step.why.reason,
         chosen_tier=int(step.why.tier),
+        inputs=[InputLine(name=p.name, type_id=p.type_id, optional=not p.required)
+                for p in contract.consumes],
         settings=[SettingLine(name=s.name, value=s.value, tier=int(s.why.tier),
                               source=s.why.source.value, reason=s.why.reason,
                               cite=s.why.axis_reason)

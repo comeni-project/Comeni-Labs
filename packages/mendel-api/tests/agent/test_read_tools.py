@@ -90,3 +90,17 @@ def test_the_goal_says_the_analysis_name_so_the_agent_can_name_it(clean):
     ctx = _rnaseq()
     goal = call(ctx, "read_goal", {})
     assert goal.ok and goal.view.name == "rnaseq"
+
+
+def test_a_step_says_its_inputs_by_name(clean):
+    """Walk 2026-11-15: the agent guessed QUAST's `genome` input, refused twice; the step it read
+    did not name its ports. It now says each input, its type, and whether it is optional."""
+    from mendel_api.services import registry
+
+    ctx = _rnaseq()
+    assert call(ctx, "resolve", {}).ok
+    step = call(ctx, "read_step", {"node": "star_align"}).view
+    contract = registry.stack().routing.get(step.contract)
+    assert [(i.name, i.type_id, i.optional) for i in step.inputs] == [
+        (p.name, p.type_id, not p.required) for p in contract.consumes]
+    assert step.inputs, "STAR reads something"

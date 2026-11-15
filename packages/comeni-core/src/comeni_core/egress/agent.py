@@ -118,6 +118,15 @@ class SettingLine(EgressPayload):
     cite: Line = ""
 
 
+class InputLine(EgressPayload):
+    """One input a step's tool declares (walk 2026-11-15): its name, its type, and whether the
+    tool can run without it — what `switch_input` names."""
+
+    name: PortName
+    type_id: TypeId
+    optional: bool = False
+
+
 class StepView(EgressPayload):
     """One step in full."""
 
@@ -130,6 +139,7 @@ class StepView(EgressPayload):
     why_here: Line
     chosen: Line
     chosen_tier: int
+    inputs: list[InputLine] = Field(default_factory=list)
     settings: list[SettingLine] = Field(default_factory=list)
 
 
@@ -228,11 +238,14 @@ class ResolvedView(EgressPayload):
 
 
 class CompiledView(EgressPayload):
-    """The Nextflow the pipeline compiles to."""
+    """That the pipeline compiled: its processes and the files' sizes. **Not the code**
+    (walk 2026-11-15): the agent needs neither file, and every later round would send them again;
+    the person reads them in the pipeline file."""
 
     kind: Literal[ViewKind.COMPILED] = ViewKind.COMPILED
-    main_nf: Text
-    nextflow_config: Text
+    processes: list[Line] = Field(default_factory=list)
+    main_nf_lines: int = 0
+    config_lines: int = 0
 
 
 class AskedView(EgressPayload):

@@ -63,7 +63,9 @@ async def answer(session_id: str, question_id: str, value) -> tuple[int, bool]:
     asked = _asked(session_id, question_id)
     said = {True: "yes", False: "no"}.get(value, value) if isinstance(value, bool) else value
     unit = f" {asked['unit']}" if asked.get("unit") and not isinstance(value, bool) else ""
-    return await say(session_id, f"{asked['question']} {said}{unit}")
+    # **Only the answer is the person's words** (walk 2026-11-15): the bubble repeated the whole
+    # question. The agent has its question in the history already ("(I asked: …)").
+    return await say(session_id, f"{said}{unit}")
 
 
 async def retry(session_id: str, seq: int) -> bool:

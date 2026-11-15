@@ -141,12 +141,18 @@ def test_resolve_reports_the_rules_that_fired(clean):
     assert all(r.reason for r in resolved.view.rules)
 
 
-def test_compile_returns_the_nextflow(clean):
+def test_compile_says_it_compiled_without_sending_the_code(clean):
+    """Walk 2026-11-15: compile sent main.nf and nextflow.config to the model, which needs neither,
+    and every later round sent them again. It now says the pipeline compiled, its processes and
+    the files' sizes; the person reads the code in the pipeline file."""
     ctx = _rnaseq()
     assert call(ctx, "resolve", {}).ok
     compiled = call(ctx, "compile", {})
     assert compiled.ok, compiled.refusal
-    assert "workflow {" in compiled.view.main_nf
+    view = compiled.view.model_dump()
+    assert "STAR_ALIGN" in view["processes"]
+    assert view["main_nf_lines"] > 0 and view["config_lines"] > 0
+    assert "workflow {" not in compiled.model_dump_json()
 
 
 def test_an_undeclared_type_is_refused_with_its_code(clean):

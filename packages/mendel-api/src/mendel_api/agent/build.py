@@ -82,7 +82,9 @@ def compile_(ctx: ToolContext, _: Nothing) -> CompiledView:
         raise ValueError(coded("MI0219", f"there is no pipeline to compile yet: {unbuilt}"))
     _project(ctx, blueprint, resolved_from)
     done = drafts.emitted(ctx.draft_id)
-    return CompiledView(main_nf=done.main_nf, nextflow_config=done.config)
+    processes = sorted({step.process for step in blueprint.pipeline.steps})
+    return CompiledView(processes=processes, main_nf_lines=len(done.main_nf.splitlines()),
+                        config_lines=len(done.config.splitlines()))
 
 
 for _tool in (
@@ -90,7 +92,8 @@ for _tool in (
          "applies the registry's rules and wires the steps. Returns the steps, what changed, "
          "values still open, and every rule that decided something. The canvas shows it.",
          Nothing, resolve),
-    Tool("compile", "Compile the pipeline to Nextflow: main.nf and nextflow.config.", Nothing,
-         compile_),
+    Tool("compile", "Compile the pipeline to Nextflow (main.nf and nextflow.config) and say that "
+         "it compiled, with its processes. The person reads the files in the pipeline file.",
+         Nothing, compile_),
 ):
     register(_tool)
