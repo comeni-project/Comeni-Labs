@@ -228,21 +228,21 @@ Board: every screen. Compare how each piece repeats across `Main`, `Build`, `Run
     lists the roots.
   - The route `GET /api/data/tree?path=`, with operation_id `readDataTree`.
 
-- [ ] **Step 1:** Write the failing tests. Use `tmp_path` folders as the roots.
+- [x] **Step 1:** Write the failing tests. Use `tmp_path` folders as the roots.
   - `test_a_path_inside_a_root_resolves`
   - `test_dotdot_out_of_a_root_is_refused`
   - `test_a_symlink_pointing_outside_is_refused`
   - `test_no_roots_configured_is_refused_with_its_own_code`
   - `test_listing_counts_files_and_lists_subfolders_sorted`
   - `test_tree_route_without_path_lists_the_roots`
-- [ ] **Step 2:** Run `… uv run pytest packages/mendel-api/tests/data/test_roots.py -v`. Expected: FAIL, import
+- [x] **Step 2:** Run `… uv run pytest packages/mendel-api/tests/data/test_roots.py -v`. Expected: FAIL, import
   error.
-- [ ] **Step 3:** Implement:
+- [x] **Step 3:** Implement:
   - Sort folders by name.
   - Count files without reading them.
   - Leave out hidden entries, meaning names that start with `.`.
-- [ ] **Step 4:** Run the tests again. Expected: PASS.
-- [ ] **Step 5:** Commit: `feat(mendel-api): data roots and the folder tree (#511, #508)`.
+- [x] **Step 4:** Run the tests again. Expected: PASS.
+- [x] **Step 5:** Commit: `feat(mendel-api): data roots and the folder tree (#511, #508)`.
 
 ### Task 4: Analysis data, the scan, and one source of samples
 

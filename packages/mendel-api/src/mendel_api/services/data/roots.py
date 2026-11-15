@@ -1,0 +1,73 @@
+"""The folders Comeni may read (`MENDEL_DATA_ROOTS`), and the one check every path passes.
+
+**Resolve, then compare.** A path is resolved strictly (it must exist, and every `..` and
+symlink is followed) and must then sit under a resolved root. Comparing the path as written would
+let `root/../etc` or a symlink inside a root reach anywhere on the machine.
+"""
+
+import os
+from pathlib import Path
+
+from comeni_core.diagnostics import coded
+from pydantic import BaseModel
+
+
+class Folder(BaseModel):
+    name: str
+    path: str
+    files: int
+
+
+class FolderListing(BaseModel):
+    path: str | None
+    """The folder listed; `None` for the roots themselves."""
+    folders: list[Folder]
+    files: int
+
+
+def inside_roots(path: str | Path, roots: list[Path]) -> Path:
+    """`path`, resolved, when it is inside one of `roots`; otherwise a coded refusal."""
+    if not roots:
+        raise ValueError(coded("MI0222", "no data folders are configured on this installation"))
+    try:
+        resolved = Path(path).resolve(strict=True)
+    except (OSError, RuntimeError):
+        raise ValueError(coded("MI0221", f"{path} is not a folder Comeni can read")) from None
+    for root in roots:
+        try:
+            if resolved.is_relative_to(root.resolve(strict=True)):
+                return resolved
+        except OSError:
+            continue
+    raise ValueError(coded("MI0221", f"{path} is not a folder Comeni can read"))
+
+
+def _visible(entries):
+    return [e for e in entries if not e.name.startswith(".")]
+
+
+def _count_files(folder: Path) -> int:
+    try:
+        with os.scandir(folder) as entries:
+            return sum(1 for e in _visible(entries) if e.is_file())
+    except OSError:
+        return 0
+
+
+def list_folder(path: Path | str | None, roots: list[Path]) -> FolderListing:
+    """A folder's subfolders, each with how many files it holds, and its own file count. Hidden
+    entries are left out. `None` lists the roots."""
+    if path is None:
+        if not roots:
+            raise ValueError(coded("MI0222", "no data folders are configured on this installation"))
+        found = [r.resolve() for r in roots if r.is_dir()]
+        return FolderListing(path=None, files=0, folders=[
+            Folder(name=str(r), path=str(r), files=_count_files(r)) for r in found])
+    folder = inside_roots(path, roots)
+    with os.scandir(folder) as entries:
+        visible = _visible(entries)
+        subs = sorted((e for e in visible if e.is_dir()), key=lambda e: e.name)
+        files = sum(1 for e in visible if e.is_file())
+    return FolderListing(path=str(folder), files=files, folders=[
+        Folder(name=e.name, path=str(Path(e.path).resolve()), files=_count_files(Path(e.path)))
+        for e in subs])

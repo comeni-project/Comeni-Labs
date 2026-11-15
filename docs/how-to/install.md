@@ -18,6 +18,19 @@ make dev
 Open [http://localhost:5173](http://localhost:5173). That is the Vite development frontend, so
 frontend changes appear without rebuilding the production bundle.
 
+## Point it at your data
+
+Comeni reads your files where they are, and only inside one folder you name. It never copies
+them. Set that folder before you start the stack:
+
+```bash
+COMENI_DATA_ROOT=/path/to/your/data make dev
+```
+
+The folder is mounted read-only, at the same path, into the services that measure your files and
+run pipelines. Unset, it is `.run/data` in the checkout. Data shows this folder's tree for you to
+tick. A path outside it is refused with `MI0221`.
+
 ## Check it worked
 
 You should see the Comeni home screen. On a fresh checkout, it may show the first-run prompt

@@ -124,6 +124,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/health/ai", "get"): "aiHealth",
         ("/api/health", "get"): "liveness",
         ("/api/health/registry", "get"): "registryHealth",
+        ("/api/data/tree", "get"): "readDataTree",
         ("/api/settings", "get"): "readSettings",
         ("/api/settings/retention/last", "get"): "readLastRetentionSweep",
         # Whether a model is configured, from settings alone: the describe box's question,

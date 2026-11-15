@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     container. It shipped as a bare relative `Path("examples/…")`, passed every test, and answered
     500 the first time the stack came up. Checkpoint 1 is what found it.
     """
+    data_roots: list[Path] = []
+    """The folders Comeni may read a person's files from (`MENDEL_DATA_ROOTS`, a JSON list), each
+    mounted read-only at the same absolute path in Mendel and in Wiener's worker (#511, #508).
+    Files are read where they are, never copied. Empty: Data says no folder is configured."""
     forge_cache: Path = Path("./.run/forge")
     """Where the forge keeps its clone of each catalogue source between syncs, so a restart does
     not re-clone nf-core/modules. Only the worker that syncs reads it. `MENDEL_FORGE_CACHE`."""

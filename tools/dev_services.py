@@ -65,8 +65,10 @@ def prepare(root: Path) -> None:
                 stream.write((root / ".env.example").read_text())
         except FileExistsError:
             pass
+    # `.run/data` is the default data root (COMENI_DATA_ROOT): made here, so that Docker does not
+    # make it as root when it mounts it.
     for path in [".run/wiener/artifacts", ".run/wiener/work", ".run/drafts", ".run/forge",
-                 ".run/registries", "workspace"]:
+                 ".run/data", ".run/registries", "workspace"]:
         (root / path).mkdir(parents=True, exist_ok=True)
     refresh_registry(root / "registry", root / ".run/registry")
 

@@ -3712,6 +3712,33 @@ MI0220:
     stops saying it is working and offers Retry. The error itself goes to the worker's log, not
     to the chat or the model.
 
+MI0221:
+  emitted_by: api
+  concern: storage
+  says: "a path is not inside a data folder this installation can read"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Pick the folder from the data tree, or add the folder that holds it to `MENDEL_DATA_ROOTS`
+    (and mount it read-only at the same path), then restart the services.
+  explanation: |
+    Comeni reads a person's files where they are, and only under the folders the installation
+    names. Every path is resolved first, following each `..` and symlink, and must then sit under
+    one of those folders, so neither `../` nor a link inside a folder reaches the rest of the
+    machine. A path that does not exist is refused the same way.
+MI0222:
+  emitted_by: api
+  concern: storage
+  says: "no data folders are configured on this installation"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Set `MENDEL_DATA_ROOTS` (and `WIENER_DATA_ROOTS`) to the folders that hold your data, mount
+    them read-only at the same path, and restart the services. The development stack mounts
+    `COMENI_DATA_ROOT`.
+  explanation: |
+    Data lists and reads files only under configured folders. With none configured there is
+    nothing it may read, and it says so rather than reading anywhere.
 MI0300:
   emitted_by: api
   concern: settings

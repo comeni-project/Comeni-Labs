@@ -947,6 +947,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A folder under the data roots
+         * @description The folder's subfolders and file count; no `path` lists the roots themselves.
+         */
+        get: operations["readDataTree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/forge/catalogue": {
         parameters: {
             query?: never;
@@ -2909,6 +2929,24 @@ export interface components {
             feeds_it: string[];
             /** Reads It */
             reads_it: string[];
+        };
+        /** Folder */
+        Folder: {
+            /** Name */
+            name: string;
+            /** Path */
+            path: string;
+            /** Files */
+            files: number;
+        };
+        /** FolderListing */
+        FolderListing: {
+            /** Path */
+            path: string | null;
+            /** Folders */
+            folders: components["schemas"]["Folder"][];
+            /** Files */
+            files: number;
         };
         /** FormatLink */
         FormatLink: {
@@ -6580,6 +6618,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActionResult"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readDataTree: {
+        parameters: {
+            query?: {
+                path?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderListing"];
                 };
             };
             /** @description The id in the path names nothing. */
