@@ -81,6 +81,25 @@ comments, and the board sources in `docs/superpowers/specs/2026-11-15-frontend-r
 5. **Five hundred samples.** The scan must not hold file contents in memory beyond one head at a time, and the
    Samples table must render a 500-row fixture without mounting 500 rows. Tasks 3 and 8 pin these.
 
+## Review checkpoints
+
+There is no reviewer per task. A fresh reviewer, on the most capable model, reads the range since the last
+checkpoint at each of these points, and execution waits for its findings:
+
+| Checkpoint | After | What the reviewer checks above all |
+|---|---|---|
+| **A** | Task 3 | Path safety, the migration, the scan's memory use, and that no path reaches the draft |
+| **B** | Task 6 | The rule and checks, plus bindings against the artifact's channels, and Wiener's guard |
+| **C** | Task 9 | The Data UI against `Main.dc.html`, and the agent tools' AI marking and protection |
+| **D** | Task 12 | Build and Run against their board files, and the end-to-end walk |
+| **Final** | Task 13 | The whole branch |
+
+At each checkpoint:
+- Critical and Important findings are fixed, test first, before the next task.
+- Minor findings go in the ledger, and then into one checklist issue under #512.
+
+Cuts and deferrals are tracked in issue #512 and its sub-issues.
+
 ---
 
 ### Task 1: Tokens, the rail and the analysis frame

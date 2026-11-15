@@ -48,12 +48,14 @@ question, and runs it, **with no path typed anywhere** and no run-time inputs fo
 
 ## Non-goals
 
-- Settings, Forge and Registry restyling (part 2). They render inside the new rail unchanged.
-- Cloud storage. The rail keeps a muted placeholder.
-- The optional sample sheet (conditions, batches). It is designed, but not built in part 1; **+ Add column** adds a
+- Settings, Forge and Registry restyling (part 2, #513). They render inside the new rail unchanged.
+- Cloud storage (#516). The rail keeps a muted placeholder.
+- The optional sample sheet (conditions, batches) (#515). It is designed, but not built in part 1; **+ Add column** adds a
   typed-in column.
-- Standard references downloaded per machine. The References page shows Standard as "later" in part 1, beside
+- Standard references downloaded per machine (#514). The References page shows Standard as "later" in part 1, beside
   From a file.
+
+Everything cut is tracked under #512.
 
 ## Anti-goals
 
@@ -102,6 +104,18 @@ question, and runs it, **with no path typed anywhere** and no run-time inputs fo
    - The browser asks Mendel for the run's bindings (each artifact channel answered from the Data tables) and posts
      them to Wiener, the same courier role it has today (`useSubmit.ts`).
    - Wiener refuses an input path outside its data roots, with a coded message.
+
+## One engine, one loop
+
+Data adds no second builder:
+- **Facts:** the scan records the facts the samples agree on as MEASURED on the draft, through
+  `decisions.observe`, as a sample upload does today (`agent/direct.upload`).
+- **Inputs:** the scan sets the input type, through `changes.apply`, as a sample upload does today.
+- **Build:** resolution, routing, rules and emission read those facts unchanged, and the #463 agent loop builds
+  the pipeline from them.
+- **The Data assistant** is the same session and loop as Build's assistant, with three more tools: `read_data`,
+  `set_reading_rule` and `apply_fix`.
+- **Paths** join only at run time, through the bindings. The engine never sees one.
 
 ## Decided by the operator
 
