@@ -146,11 +146,26 @@ _LABELS = {
 }
 
 
-def _label(name: str, arguments: dict) -> str:
+_DOING = {
+    "read_goal": "Reading the goal", "read_pipeline": "Reading the pipeline",
+    "read_step": "Reading the step {node}", "find_tools": "Looking for tools around {type_id}",
+    "read_rules": "Reading the rules for {role}", "read_facts": "Reading the facts about your data",
+    "what_is_needed": "Checking what is still needed", "want": "Asking for {type_id}",
+    "have": "Noting {type_id}", "set_fact": "Noting {subject}",
+    "choose_tool": "Choosing {contract} for {type_id}", "exclude_tool": "Leaving {contract} out",
+    "switch_role": "Switching {role}", "switch_input": "Switching {contract}'s {port} {state}",
+    "set_value": "Setting {name} to {value}", "keep_whole": "Keeping {contract} whole",
+    "undo": "Withdrawing {kind} {subject}", "resolve": "Building the pipeline",
+    "compile": "Compiling it to Nextflow", "ask": "Asking you",
+}
+"""What each tool is doing while it runs (#504), beside what it did (`_LABELS`)."""
+
+
+def _label(name: str, arguments: dict, labels: dict[str, str] = _LABELS) -> str:
     try:
-        return _LABELS.get(name, name).format(**arguments)[:300]
+        return labels.get(name, name).format(**arguments)[:300]
     except (KeyError, IndexError, ValueError):
-        return re.sub(r"\{[a-z_]+\}", "", _LABELS.get(name, name)).strip()[:300]
+        return re.sub(r"\{[a-z_]+\}", "", labels.get(name, name)).strip()[:300]
 
 
 def _write(session_id: str, seq: int, blocks: list[dict], state: TurnState | None = None,
@@ -232,8 +247,8 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
         if reply.usage is not None:
             spent += (reply.usage.input_tokens or 0) + (reply.usage.output_tokens or 0)
         if reply.text:
-            blocks.append(AgentMessage(id=f"say-{seq}-{step}", text=reply.text[:16000])
-                          .model_dump(mode="json"))
+            blocks.append(AgentMessage(id=f"say-{seq}-{step}", text=reply.text[:16000],
+                                       narration=bool(reply.calls)).model_dump(mode="json"))
         if not reply.calls:
             _write(session_id, seq, blocks, TurnState.ANSWERED, invocation)
             return TurnState.ANSWERED.value
@@ -242,11 +257,16 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
              "function": {"name": c.name, "arguments": json.dumps(c.arguments)}}
             for c in reply.calls]})
         for made in reply.calls:
-            result = call(ctx, made.name, made.arguments)
-            blocks.append(ToolLine(id=f"tool-{seq}-{len(blocks)}", name=made.name[:64],
-                                   label=_label(made.name, made.arguments), ok=result.ok,
-                                   summary=(result.refusal or "")[:2000])
+            # **Said before it runs** (#504): the page shows what is happening, not "working".
+            line = f"tool-{seq}-{len(blocks)}"
+            blocks.append(ToolLine(id=line, name=made.name[:64], ok=True, running=True,
+                                   label=_label(made.name, made.arguments, _DOING))
                           .model_dump(mode="json"))
+            _write(session_id, seq, blocks)
+            result = call(ctx, made.name, made.arguments)
+            blocks[-1] = ToolLine(id=line, name=made.name[:64],
+                                  label=_label(made.name, made.arguments), ok=result.ok,
+                                  summary=(result.refusal or "")[:2000]).model_dump(mode="json")
             messages.append({"role": "tool", "tool_call_id": made.id,
                              "content": result.model_dump_json(exclude_none=True)})
             if made.name == "ask" and result.ok:

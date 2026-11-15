@@ -16,7 +16,7 @@ For the task sequence, see [Build and inspect a pipeline](../../how-to/pipelines
 | Delete | remove the selected step |
 | Fit, −, +, 1:1, Tidy | fit the drawing, zoom, reset the view, give moved steps back their places |
 | Canvas · What was understood | the switch above the canvas: the drawing, or the record of what you said, measured and corrected |
-| Conversation | what you say and what the agent says; its working trail, one line per tool it used, folds into **How I got here** once it answers |
+| Conversation | what you say and what the agent says. While it works, its trail shows what it says it is about to do, each tool it used, the one running now, and *Thinking…* while the model answers; all of it folds into **How I got here** once it answers |
 | Agent question | a question the agent needs you to answer, drawn as options, a number with its unit, yes or no, an upload, or a line of text; only the newest is answerable |
 | Retry | on a turn that failed: ask the agent again |
 | Open step | a step opened over the conversation: what the AI chose there and **Looks right**, what still needs you, what was measured, what a rule settled, and its tools; **×** returns |

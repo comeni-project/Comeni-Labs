@@ -1,11 +1,9 @@
 import { Fragment, type ReactNode } from "react";
 
-import type { AuthoringBlock, AuthoringTurn } from "../../api/types";
+import type { AuthoringTurn } from "../../api/types";
 import { AgentQuestion, type AnswerValue } from "./AgentQuestion";
 import { Secondary } from "./blocks/parts";
-import { ToolTrail } from "./ToolTrail";
-
-type ToolLine = Extract<AuthoringBlock, { kind: "tool" }>;
+import { ToolTrail, type TrailStep } from "./ToolTrail";
 
 /** **The conversation with the builder agent** (#463): the person's words, and each of the
  *  agent's turns as what it did (its working trail), what it said, and what it asks. Nothing here
@@ -58,11 +56,14 @@ function AgentTurn({ turn, answerable, onAnswer, onRetry, onUpload }: {
   onRetry: (seq: number) => void;
   onUpload?: (questionId: string, files: File[]) => Promise<unknown>;
 }) {
-  const tools = turn.blocks.filter((b): b is ToolLine => b.kind === "tool");
-  const rest = turn.blocks.filter((b) => b.kind !== "tool");
+  // **The trail is the working; the rest is the answer** (#504): tools and what the agent said
+  // beside them, in order, then its words, notices and question.
+  const trail = turn.blocks.filter((b): b is TrailStep =>
+    b.kind === "tool" || (b.kind === "message" && b.narration));
+  const rest = turn.blocks.filter((b) => !trail.includes(b as TrailStep));
   return (
     <div className="flex flex-col gap-[10px] min-w-0">
-      <ToolTrail tools={tools} live={turn.state === "pending"} />
+      <ToolTrail steps={trail} live={turn.state === "pending"} />
       {rest.map((block) => {
         switch (block.kind) {
           case "message":

@@ -85,7 +85,7 @@ describe("the live canvas", () => {
 describe("the conversation", () => {
   it("polls while the agent works and draws its trail", async () => {
     open(live());
-    expect(await screen.findByRole("status", { name: "working" })).toHaveTextContent("Read SAMTOOLS_SORT");
+    expect(await screen.findByRole("status", { name: "working" })).toHaveTextContent("Reading the step samtools_sort…");
   });
 
   it("sends an answer to the agent's question by its id", async () => {

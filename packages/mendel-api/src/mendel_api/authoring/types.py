@@ -232,21 +232,25 @@ class Notice(_Block):
 
 
 class AgentMessage(_Block):
-    """What the builder agent says, in its own words (#463)."""
+    """What the builder agent says, in its own words (#463). `narration` is what it said beside a
+    tool call, while working (#504): drawn with its trail, not as its answer."""
 
     kind: Literal[BlockKind.MESSAGE] = BlockKind.MESSAGE
     text: Annotated[str, Field(max_length=16000)]
+    narration: bool = False
 
 
 class ToolLine(_Block):
     """One tool the agent called: its name, a line a person reads, whether it worked, and the
-    refusal when it did not (#463)."""
+    refusal when it did not (#463). `running` while the tool has not returned (#504): its label
+    says what is happening now."""
 
     kind: Literal[BlockKind.TOOL] = BlockKind.TOOL
     name: str = Field(max_length=64)
     label: Prose
     ok: bool
     summary: Prose = ""
+    running: bool = False
 
 
 class AgentAsk(_Block):

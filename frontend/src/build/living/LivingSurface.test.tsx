@@ -103,7 +103,7 @@ describe("the two surfaces", () => {
 describe("the states a session can be in", () => {
   it("shows the agent working, and the composer stays open (issue 392)", () => {
     surface();
-    expect(screen.getByRole("status", { name: "working" })).toHaveTextContent("Read SAMTOOLS_SORT");
+    expect(screen.getByRole("status", { name: "working" })).toHaveTextContent("Reading the step samtools_sort…");
     expect(screen.getByTestId("living-status")).toHaveTextContent("working");
     expect(screen.getByTestId("composer")).not.toBeDisabled();
   });

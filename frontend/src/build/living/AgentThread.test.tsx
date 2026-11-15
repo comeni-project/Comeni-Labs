@@ -14,8 +14,11 @@ const person = (seq: number, text: string): AuthoringTurn => ({
   seq, role: "person", state: "answered", text, blocks: [], base_revision: 0, at: AT,
 });
 
-const tool = (id: string, label: string) =>
-  ({ id, kind: "tool", name: "read_tools", label, ok: true, summary: "" }) as const;
+const tool = (id: string, label: string, running = false) =>
+  ({ id, kind: "tool", name: "read_tools", label, ok: true, summary: "", running }) as const;
+
+const said = (id: string, text: string, narration = false) =>
+  ({ id, kind: "message", text, narration }) as const;
 
 const agent = (seq: number, state: AuthoringTurn["state"], blocks: AuthoringTurn["blocks"]): AuthoringTurn => ({
   seq, role: "assistant", state, text: "", blocks, base_revision: 0, at: AT,
@@ -31,12 +34,38 @@ describe("the agent's thread", () => {
     expect(screen.queryByText(/How I got here/)).toBeNull();
 
     rerender(<AgentThread working={false} {...props} turns={[person(1, "gene counts"), agent(2, "answered", [
-      ...tools, { id: "m", kind: "message", text: "I chose STAR because your reads are spliced." }])]} />);
+      ...tools, said("m", "I chose STAR because your reads are spliced.")])]} />);
     const fold = screen.getByRole("button", { name: /How I got here · 3 steps/ });
     expect(screen.queryByText("Read the goal")).toBeNull();
     expect(screen.getByText(/I chose STAR/)).toBeVisible();
     fireEvent.click(fold);
     expect(screen.getByText("Read the goal")).toBeVisible();
+  });
+
+  it("tells what it is doing as it works: its words in order with its tools, and the tool running", () => {
+    const props = { onAnswer: vi.fn(), onRetry: vi.fn() };
+    const { rerender } = render(<AgentThread working {...props} turns={[person(1, "counts"),
+      agent(2, "pending", [said("n1", "Let me see which aligners fit paired reads.", true),
+        tool("t1", "Looking at the aligners for fastq.reads", true)])]} />);
+    const live = screen.getByRole("status", { name: "working" });
+    expect(live.textContent).toMatch(/Let me see which aligners.*Looking at the aligners for fastq\.reads/);
+    expect(within(live).getByTestId("running")).toHaveTextContent("Looking at the aligners for fastq.reads");
+    expect(within(live).queryByText("Thinking…")).toBeNull();
+
+    // Between tools the model itself is answering: that is thinking.
+    rerender(<AgentThread working {...props} turns={[person(1, "counts"),
+      agent(2, "pending", [said("n1", "Let me see which aligners fit paired reads.", true),
+        tool("t1", "Looked at the aligners for fastq.reads")])]} />);
+    expect(within(screen.getByRole("status", { name: "working" })).getByText("Thinking…")).toBeVisible();
+
+    // Answered: the narration folds with the tools, and only the answer is prose.
+    rerender(<AgentThread working={false} {...props} turns={[person(1, "counts"),
+      agent(2, "answered", [said("n1", "Let me see which aligners fit paired reads.", true),
+        tool("t1", "Looked at the aligners for fastq.reads"), said("m", "STAR it is.")])]} />);
+    expect(screen.queryByText("Let me see which aligners fit paired reads.")).toBeNull();
+    expect(screen.getByText("STAR it is.")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /How I got here · 1 step/ }));
+    expect(screen.getByText("Let me see which aligners fit paired reads.")).toBeVisible();
   });
 
   it("draws an agent question's options as buttons and sends the choice", () => {

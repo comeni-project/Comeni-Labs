@@ -1516,7 +1516,8 @@ export interface components {
         };
         /**
          * AgentMessage
-         * @description What the builder agent says, in its own words (#463).
+         * @description What the builder agent says, in its own words (#463). `narration` is what it said beside a
+         *     tool call, while working (#504): drawn with its trail, not as its answer.
          */
         AgentMessage: {
             /** Id */
@@ -1528,6 +1529,11 @@ export interface components {
             kind: "message";
             /** Text */
             text: string;
+            /**
+             * Narration
+             * @default false
+             */
+            narration: boolean;
         };
         /** AiChoiceView */
         AiChoiceView: {
@@ -4598,7 +4604,8 @@ export interface components {
         /**
          * ToolLine
          * @description One tool the agent called: its name, a line a person reads, whether it worked, and the
-         *     refusal when it did not (#463).
+         *     refusal when it did not (#463). `running` while the tool has not returned (#504): its label
+         *     says what is happening now.
          */
         ToolLine: {
             /** Id */
@@ -4619,6 +4626,11 @@ export interface components {
              * @default
              */
             summary: string;
+            /**
+             * Running
+             * @default false
+             */
+            running: boolean;
         };
         /**
          * TurnState

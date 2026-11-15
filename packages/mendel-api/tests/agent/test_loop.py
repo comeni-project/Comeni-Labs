@@ -53,6 +53,35 @@ def test_a_turn_calls_tools_then_replies(clean, monkeypatch):
     assert [(c.agent, c.purpose, c.state) for c in calls] == [("builder", "agent", "succeeded")] * 2
 
 
+def test_the_agent_narrates_and_the_running_tool_shows_while_it_runs(clean, monkeypatch):
+    """#504: what the agent says beside a tool call is narration, drawn with the trail; the tool
+    it is running is written before it returns, so the page can say what is happening."""
+    seen: list[list[dict]] = []
+    real = loop.call
+
+    def watching(ctx, name, arguments):
+        with session_scope() as db:
+            turn = db.scalars(select(PipelineAuthoringTurn).where(
+                PipelineAuthoringTurn.session_id == ctx.session_id)
+                .order_by(PipelineAuthoringTurn.seq.desc())).first()
+            seen.append(list(turn.blocks))
+        return real(ctx, name, arguments)
+
+    monkeypatch.setattr(loop, "call", watching)
+    session_id, seq, _ = _started(monkeypatch, [
+        AgentReply(text="Let me see what you asked for.",
+                   calls=[ToolCall(id="c-read_goal", name="read_goal", arguments={})]),
+        _say("Nothing is built yet.")])
+    [during] = seen
+    assert during[-1]["kind"] == "tool" and during[-1]["running"] is True
+    assert during[-1]["label"] == "Reading the goal"
+    assert (during[0]["kind"], during[0]["narration"]) == ("message", True)
+    blocks = _turn(session_id, seq).blocks
+    assert [(b["kind"], b.get("narration"), b.get("running")) for b in blocks] == [
+        ("message", True, None), ("tool", None, False), ("message", False, None)]
+    assert blocks[1]["label"] == "Read the goal"
+
+
 def test_a_tool_refusal_goes_back_to_the_model(clean, monkeypatch):
     session_id, seq, script = _started(
         monkeypatch, [_call("want", type_id="no.such.type", because="test"), _say("Sorry")])

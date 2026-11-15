@@ -15,8 +15,10 @@ const TRIM = "nf-core/trimgalore@2.3.0";
 const ALIGN = "nf-core/star/align@2.7.11b";
 const SORT = "nf-core/samtools/sort@1.24";
 
-const tool = (seq: number, n: number, name: string, label: string, summary = "", ok = true) =>
-  ({ id: `tool-${seq}-${n}`, kind: "tool", name, label, ok, summary });
+const tool = (seq: number, n: number, name: string, label: string, summary = "", ok = true, running = false) =>
+  ({ id: `tool-${seq}-${n}`, kind: "tool", name, label, ok, summary, running });
+const thought = (seq: number, n: number, text: string) =>
+  ({ id: `say-${seq}-${n}`, kind: "message", text, narration: true });
 
 export const FAKE_SESSION = {
   id: "fake",
@@ -59,9 +61,11 @@ export const FAKE_SESSION = {
       text: "I have 12 paired RNA-seq samples, a genome and its annotation. I want gene counts." },
     { seq: 1, role: "assistant", state: "answered", base_revision: 0, at: at(1), text: "",
       blocks: [
+        thought(1, 0, "You want gene counts from paired reads and a genome. Let me record that first."),
         tool(1, 0, "read_goal", "Read the goal", "nothing wanted yet"),
         tool(1, 1, "want", "Wanted counts.matrix"),
         tool(1, 2, "have", "Have fastq.reads, genome.fasta, annotation.gtf"),
+        thought(1, 1, "Your reads are paired and 150 bp, so I'll check which aligners suit spliced reads."),
         tool(1, 3, "tools_for", "Looked at the aligners for fastq.reads", "STAR, HISAT2"),
         tool(1, 4, "choose_tool", "Chose STAR for alignment"),
         tool(1, 5, "resolve", "Built the pipeline", "4 steps"),
@@ -81,7 +85,8 @@ export const FAKE_SESSION = {
     { seq: 4, role: "person", state: "answered", base_revision: 4, at: at(13), blocks: [],
       text: "and what does the sorter do?" },
     { seq: 5, role: "assistant", state: "pending", base_revision: 4, at: at(13), text: "",
-      blocks: [tool(5, 0, "read_step", "Read SAMTOOLS_SORT")] },
+      blocks: [thought(5, 0, "I'll look at the sorter's step to explain what it does to your alignments."),
+        tool(5, 0, "read_step", "Reading the step samtools_sort", "", true, true)] },
   ],
   working: true,
   ai_unreviewed: [{ node: "star_align", what: "chose nf-core/star/align@2.7.11b" }],
