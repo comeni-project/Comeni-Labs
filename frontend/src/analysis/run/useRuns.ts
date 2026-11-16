@@ -97,3 +97,12 @@ export function useSamples(draftId: string): string[] {
   });
   return (data.data?.samples ?? []).filter((s) => !s.left_out).map((s) => s.name);
 }
+
+/** What Data answers each input type with: a reference's file name, by type. */
+export function useReferences(draftId: string): Record<string, string> {
+  const data = useQuery({
+    queryKey: ["analysis-data", draftId],
+    queryFn: () => get<AnalysisData>(`/data/${encodeURIComponent(draftId)}`),
+  });
+  return Object.fromEntries((data.data?.references ?? []).map((r) => [r.type_id, r.name]));
+}

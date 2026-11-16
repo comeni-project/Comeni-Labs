@@ -134,20 +134,20 @@ export function Port({
       // **On the edge, at the one derivation.** `y` is `portOffset(index)` — the caller does not
       // compute it and neither does this component, which is `impl-geom`'s *never write a
       // coordinate twice*. `-4px` centres a 7px square on a 1px border.
-      style={{ top: y - 3.5, [inbound ? "left" : "right"]: -4 }}
-      className={`absolute w-[7px] h-[7px] p-0 leading-none z-10 transition-transform
+      style={{ top: y - 4, [inbound ? "left" : "right"]: inbound ? -5 : -4 }}
+      className={`absolute w-[8px] h-[8px] p-0 leading-none z-10 transition-transform rounded-full
                   ${onStartWire || onFinishWire ? "cursor-crosshair" : "cursor-help"}
                   hover:scale-150 focus-visible:scale-150
                   focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--now)]`}
     >
-      <span aria-hidden className="block w-full h-full" style={{
+      <span aria-hidden className="block w-full h-full rounded-full box-border" style={{
         // `.port` is a filled square with a 1px stroke; `.port.on` swaps both for `--now`. An
         // unmet input is the one that spends `--needs-you`, because it is the one that needs
         // somebody — invariant 6, on the smallest element that can carry it.
         background: verdict === "yes" || verdict === "conventional-no"
           ? "var(--now-soft)"
           : "var(--node)",
-        border: `1px ${optional ? "dashed" : "solid"} ${
+        border: `1.6px ${optional ? "dashed" : "solid"} ${
           verdict === "no"
             ? "var(--port-line)"
             : verdict === "conventional-no"

@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import type { components } from "../../api/schema";
 import type { DraftEdge, DraftGraph, PortView, Step } from "../../api/types";
 import { Canvas } from "../Canvas";
-import { elbow, heightOf, NODE_W, path, portOffset, RANK_PITCH, SPINE, type Point, type Positions } from "../geometry";
+import { elbow, MEASURE_W, NODE_W, path, portOffset, RANK_PITCH, type Point, type Positions } from "../geometry";
 import { idFor, withEdge, withNode, withoutEdge, withoutNode } from "../graphOps";
 import { Minimap } from "../Minimap";
 import { Picker } from "../Picker";
@@ -11,10 +11,11 @@ import { Port } from "../Port";
 import { place } from "../Sources";
 import { accepts, useCompatibility } from "../useCompatibility";
 import { useView } from "../useView";
-import { Flowline, flowLabel, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "./CollectionChannel";
+import { chipName, Flowline, flowLabel, ResultNode, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "./CollectionChannel";
+import { useTypeNames } from "./useTypeNames";
 import { valuesOf } from "./values";
 import type { Author } from "./format";
-import { LivingNode, type ReviewState, type StepProgress } from "./LivingNode";
+import { anchorOf, cardHeight, LivingNode, type ReviewState, type StepProgress } from "./LivingNode";
 import { StepMenu } from "./StepMenu";
 
 type Channel = components["schemas"]["ChannelView"];
@@ -74,6 +75,9 @@ export function LivingCanvas({
   onConnected,
   progress,
   fitOnOpen = false,
+  given = {},
+  showTool = true,
+  showPorts = true,
 }: {
   graph: DraftGraph;
   positions: Positions;
@@ -115,6 +119,11 @@ export function LivingCanvas({
   progress?: Record<string, StepProgress>;
   /** Fit the drawing to the frame when it first has steps (Run's panels, which open small). */
   fitOnOpen?: boolean;
+  /** What Data answers each input type with (a reference's file name), for its chip. */
+  given?: Record<string, string>;
+  /** The rail's *On the steps*: each step's tool and version, and its port names. */
+  showTool?: boolean;
+  showPorts?: boolean;
 }) {
   const [here, setHere] = useState<{ x: number; y: number } | null>(null);
   const view = useView();
@@ -164,8 +173,21 @@ export function LivingCanvas({
   }, [wiring]);
 
   const at: Positions = { ...positions, ...moved };
-  /** A step's drawn height: taller for many ports (#494). */
-  const tall = (id: string) => heightOf(steps[id]?.ports ?? []);
+  const typeName = useTypeNames();
+  const measuring = (id: string) => !!(steps[id] as { measures?: boolean } | undefined)?.measures;
+  /** The value a measurement set at this step, for its card's row: `sa_index_nbases 8`, or
+   *  *in the run* when the run measures it. */
+  const setRowOf = (id: string): string | undefined => {
+    const settings = steps[id]?.settings ?? [];
+    const measured = settings.find((x) => x.tier === 3 && x.evidence === "measured" && x.value != null);
+    if (measured) return `${measured.name} ${String(measured.value)}`;
+    const atRun = settings.find((x) => x.at_run);
+    return atRun ? `${atRun.name} · set in the run` : undefined;
+  };
+  /** A step's drawn height: its ports (#494), its measured value's row, Run's progress row. */
+  const tall = (id: string) => cardHeight(steps[id]?.ports ?? [],
+    { measures: measuring(id), setRow: !!setRowOf(id), progress: !!progress?.[id] });
+  const widthOf = (id: string) => (measuring(id) ? MEASURE_W : NODE_W);
 
   // **The canvas follows the engine**: when the step in focus changes, or the server places it,
   // it is brought on screen. Read from the server's placement, not a drag's, so moving a step by
@@ -199,13 +221,13 @@ export function LivingCanvas({
     const box = at[node];
     if (!box) return null;
     const index = portsOf(node, "in").findIndex((p) => p.name === port);
-    return { x: box.x, y: box.y + (index < 0 ? SPINE : portOffset(index)) };
+    return { x: box.x, y: box.y + anchorOf(measuring(node), Math.max(0, index)) };
   };
   const tipOut = (node: string, port: string): Point | null => {
     const box = at[node];
     if (!box) return null;
     const index = portsOf(node, "out").findIndex((p) => p.name === port);
-    return { x: box.x + NODE_W, y: box.y + (index < 0 ? SPINE : portOffset(index)) };
+    return { x: box.x + widthOf(node), y: box.y + anchorOf(measuring(node), Math.max(0, index)) };
   };
   const gathers = (node: string, port: string) =>
     portsOf(node, "in").some((p) => p.name === port && p.gathers);
@@ -244,6 +266,21 @@ export function LivingCanvas({
     return [{ channel, box: geometry.box, edge: geometry.edge, feeds }];
   });
 
+  /** **Results**: a chip after each step nothing else reads (not a measuring step), named for what
+   *  it makes, with how many — or, on Run, how far it has got. */
+  const read = new Set(solid.map((e) => e.from_node));
+  const results = ids.filter((id) => at[id] && !read.has(id) && !measuring(id) && portsOf(id, "out").length > 0)
+    .map((id) => {
+      const out = portsOf(id, "out")[0];
+      const perItem = steps[id]?.runs === "per_item";
+      return {
+        id,
+        at: { x: at[id].x + NODE_W + 48, y: at[id].y + portOffset(0) - SOURCE_H / 2 },
+        name: chipName(typeName(out.type_id)),
+        detail: progress?.[id]?.label ?? (perItem && samples ? `${samples} files` : "1 file"),
+      };
+    });
+
   const drawn = ids.length;
   /** Fit the whole drawing, inputs included, in the frame the probe sits in. */
   const fitView = () => {
@@ -252,7 +289,7 @@ export function LivingCanvas({
     const xs = [...ids.map((id) => at[id]?.x ?? 0), ...sources.map((s) => s.box.x)];
     const ys = [...ids.map((id) => at[id]?.y ?? 0), ...sources.map((s) => s.box.y)];
     const left = Math.min(...xs), top = Math.min(...ys);
-    const right = Math.max(...ids.map((id) => (at[id]?.x ?? 0) + NODE_W));
+    const right = Math.max(...ids.map((id) => (at[id]?.x ?? 0) + NODE_W), ...results.map((r) => r.at.x + SOURCE_W));
     const bottom = Math.max(...ids.map((id) => (at[id]?.y ?? 0) + tall(id)), ...sources.map((s) => s.box.y + SOURCE_H));
     const rect = frame.getBoundingClientRect();
     view.fit(right - left, bottom - top, rect.width, rect.height - 96, { x: left, y: top - 40 });
@@ -284,7 +321,7 @@ export function LivingCanvas({
   const moving = (e: React.SyntheticEvent) => {
     if (!(e.target as HTMLElement).closest("[data-node]")) touched.current = true;
   };
-  const width = Math.max(0, ...ids.map((id) => (at[id]?.x ?? 0) + NODE_W + 80));
+  const width = Math.max(0, ...ids.map((id) => (at[id]?.x ?? 0) + NODE_W + 80), ...results.map((r) => r.at.x + SOURCE_W + 20));
   const height = Math.max(
     0,
     ...ids.map((id) => (at[id]?.y ?? 0) + tall(id) + 88),
@@ -447,6 +484,15 @@ export function LivingCanvas({
             }),
           ];
         })}
+        {results.map((r) => {
+          const from = tipOut(r.id, portsOf(r.id, "out")[0].name);
+          if (!from) return null;
+          return (
+            <Flowline key={`result-wire-${r.id}`} testId={`result-wire-${r.id}`} from={from}
+                      to={{ x: r.at.x, y: r.at.y + SOURCE_H / 2 }}
+                      flow={steps[r.id]?.runs === "per_item" ? "many" : "one"} />
+          );
+        })}
         {solid.map((edge) => {
           const from = tipOut(edge.from_node, edge.from_port);
           const to = tipIn(edge.to_node, edge.to_port);
@@ -506,7 +552,11 @@ export function LivingCanvas({
 
       {sources.map(({ channel, box }) => (
         <SourceNode key={channel.name} at={box} name={channel.name} typeId={channel.type_id}
-                    states={channel.states} grain={channel.grain} count={channel.count ?? null} />
+                    states={channel.states} grain={channel.grain} count={channel.count ?? samples ?? null}
+                    given={given[channel.type_id]} />
+      ))}
+      {results.map((r) => (
+        <ResultNode key={`result-${r.id}`} testId={`living-result-${r.id}`} at={r.at} name={r.name} detail={r.detail} />
       ))}
 
       {ids.map((id) => {
@@ -525,7 +575,12 @@ export function LivingCanvas({
             takes={steps[id]?.takes_samples?.samples}
             samples={samples}
             version={steps[id]?.contract_id.split("@")[1]}
+            tool={steps[id]?.contract_id.split("@")[0].replace(/^[^/]+\//, "").replaceAll("/", " ")}
             does={(steps[id] as { does?: string | null } | undefined)?.does}
+            measures={measuring(id)}
+            setRow={setRowOf(id)}
+            showTool={showTool}
+            showPorts={showPorts}
             progress={progress?.[id]}
             selected={selected === id}
             onSelect={() => {
@@ -574,11 +629,11 @@ export function LivingCanvas({
           )}
           {editable && (
             <div data-testid={`ports-${id}`} className="absolute pointer-events-none"
-                 style={{ left: at[id].x, top: at[id].y, width: NODE_W, height: tall(id) }}>
+                 style={{ left: at[id].x, top: at[id].y, width: widthOf(id), height: tall(id) }}>
               {(["in", "out"] as const).flatMap((side) =>
                 portsOf(id, side).map((port, i) => (
                   <span key={`${side}.${port.name}`} className="pointer-events-auto">
-                    <Port port={port} side={side} y={portOffset(i)}
+                    <Port port={port} side={side} y={anchorOf(measuring(id), i)}
                           verdict={side === "in" ? verdictFor(id, port.name) : undefined}
                           onStartWire={() => setWiring({ node: id, port: port.name })}
                           onFinishWire={() => {

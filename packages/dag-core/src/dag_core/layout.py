@@ -13,14 +13,15 @@ from dataclasses import dataclass, field, replace
 
 from dag_core.graph import Graph
 
-NODE_W = 172
-NODE_H = 136
-"""Node width, and the height of a node with one or two ports a side, shared with the browser."""
+NODE_W = 145
+NODE_H = 64
+"""Node width, and the height of a node with one port a side, shared with the browser: the board's
+compact step card (#511), a name and a tool line above its ports."""
 
-RANK_PITCH = 224
+RANK_PITCH = 200
 """Distance between ranks along the left-to-right flow."""
 
-SIBLING_PITCH = 194
+SIBLING_PITCH = 120
 """Minimum distance between nodes that share a rank."""
 
 HEAD_H = 44
@@ -29,17 +30,17 @@ HEAD_H = 44
 PORT_ROW = 19
 """Height of a port row in the browser canvas."""
 
-SPINE = NODE_H // 2
-"""Primary port anchor, derived from the node height."""
+SPINE = 50
+"""Primary port anchor: just under the card's two header lines (`HEAD_H`)."""
 
-SECOND = SPINE + 22
+SECOND = SPINE + 18
 """Secondary port anchor, exported for the browser geometry guard."""
 
 CORNER = 7
 """Corner radius used by the browser when rendering routed wires."""
 
-ROW_FIRST = SPINE + 11 + 22
-"""A one-port node's content height: the spine row's lower half and the footer below it."""
+ROW_FIRST = SPINE + 14
+"""A one-port node's height: the spine row and the card's padding below it."""
 
 SIBLING_GAP = SIBLING_PITCH - NODE_H
 """The space left between a tall node and the next one in its rank."""
@@ -210,10 +211,10 @@ def _across(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[s
             continue
         wanted = []
         for nid in ids:
-            centres = sorted(x[p] + NODE_H // 2 for p in incoming[nid] if p in x)
+            centres = sorted(x[p] + SPINE for p in incoming[nid] if p in x)
             # Average the middle pair so a node with two producers is centred between them.
             if not centres:
-                middle = NODE_H // 2
+                middle = SPINE
             else:
                 half = len(centres) // 2
                 middle = (
@@ -221,7 +222,7 @@ def _across(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[s
                     if len(centres) % 2
                     else (centres[half - 1] + centres[half]) // 2
                 )
-            wanted.append((middle - NODE_H // 2, nid))
+            wanted.append((middle - SPINE, nid))
         # Preserve the chosen order while preventing sibling overlap: a tall node (#494) keeps
         # the same gap below it as a short one.
         edge_x = None
@@ -253,7 +254,7 @@ def _anchor(ports: list[str], name: str) -> int:
     return _port_offset(ports.index(name))
 
 
-PORT_GAP = 22
+PORT_GAP = 18
 """Distance between adjacent port anchors."""
 
 
@@ -266,7 +267,7 @@ def _port_offset(index: int) -> int:
     return SPINE + index * PORT_GAP
 
 
-HANG_GAP = 48
+HANG_GAP = 24
 """Between a step and the measuring step hung under it."""
 
 HANG_REACH = 14

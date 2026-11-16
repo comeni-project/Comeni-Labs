@@ -23,6 +23,7 @@ import type { ServerNotice } from "./useAuthoringSession";
 import { useFocus } from "./useFocus";
 import { SidePanel, type SideTab } from "../../analysis/build/SidePanel";
 import { RailControls } from "../../app/rail/RailContext";
+import { useBrowserSetting } from "../../preferences/useBrowserSetting";
 import { open as isOpen } from "../useBuilder";
 import { type InputFrom, ToolForm } from "../../analysis/build/ToolForm";
 import { valuesOf } from "./values";
@@ -79,10 +80,15 @@ export function LivingSurface({
   // The analysis's kept samples: a per-sample step reads ×N, a fan-in port *all N*.
   const data = useQuery({
     queryKey: ["analysis-data", session.draft_id],
-    queryFn: () => get<{ samples?: { left_out?: boolean }[] }>(`/data/${encodeURIComponent(session.draft_id)}`),
+    queryFn: () => get<{ samples?: { left_out?: boolean }[]; references?: { name: string; type_id: string }[] }>(
+      `/data/${encodeURIComponent(session.draft_id)}`),
     retry: false,
   });
   const kept = data.data?.samples?.filter((s) => !s.left_out).length;
+  const given = Object.fromEntries((data.data?.references ?? []).map((r) => [r.type_id, r.name]));
+  // The rail's *On the steps* switches (the board's): each step's tool and version, its port names.
+  const [tools, setTools] = useBrowserSetting("canvas.tools", "true");
+  const [names, setNames] = useBrowserSetting("canvas.ports", "true");
   // Where *Add step here* asked the next step to go, and the steps placed so.
   const [addAt, setAddAt] = useState<{ x: number; y: number } | null>(null);
   const [placed, setPlaced] = useState<Record<string, { x: number; y: number }>>({});
@@ -212,6 +218,15 @@ export function LivingSurface({
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-full overflow-hidden" data-testid="living">
+      <RailControls label="On the steps">
+        {([["Tool and version", tools, setTools], ["Input and output names", names, setNames]] as const).map(([words, on, set]) => (
+          <label key={words} className="flex items-center gap-2 px-[10px] py-[5px] text-[13px] text-ink-2 cursor-pointer">
+            <input type="checkbox" checked={on === "true"} onChange={(e) => set(String(e.target.checked))}
+                   className="accent-[var(--now)] w-[14px] h-[14px]" />
+            {words}
+          </label>
+        ))}
+      </RailControls>
       {review.length > 0 && (
         <RailControls label="Review">
           <ul className="list-none m-0 p-0 flex flex-col">
@@ -293,6 +308,9 @@ export function LivingSurface({
               onMenu={session.retired ? undefined : (node) => { setCardFor(null); setMenuFor(node); }}
               beside={beside}
               samples={kept || undefined}
+              given={given}
+              showTool={tools === "true"}
+              showPorts={names === "true"}
               onAddHere={session.retired ? undefined : (at) => { setAddAt(at); setBrowsing(true); }}
               connect={connect}
               onConnected={() => setConnect(null)}

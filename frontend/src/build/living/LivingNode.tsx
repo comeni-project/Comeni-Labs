@@ -1,5 +1,5 @@
 import type { PortView } from "../../api/types";
-import { HEAD_H, NODE_W, PORT_GAP, heightOf, portOffset } from "../geometry";
+import { MEASURE_H, MEASURE_W, NODE_W, PORT_GAP, heightOf, portOffset } from "../geometry";
 import type { Author } from "./format";
 import { processName } from "./format";
 import { spelledStates } from "../../ui/spelled";
@@ -9,16 +9,45 @@ export type ReviewState = "reviewed" | "again" | "proposed" | "unknown";
 /** The step's values by how they were decided: tiers 1–2 settled, tier 3 measured, tier 4 open. */
 export type Counts = { settled: number; measured: number; open: number; optional?: number; read?: number };
 
-/** One step on the living canvas — the 172×112 symbol every canvas in the product draws.
+/** How far a step has got in a run: *done*, *running*, *waiting* or *failed*, with its words. */
+export type StepProgress = {
+  state: "done" | "running" | "waiting" | "failed";
+  done: number;
+  running: number;
+  of: number;
+  label: string;
+};
+
+const PROGRESS_INK: Record<StepProgress["state"], string> = {
+  done: "var(--done)", running: "var(--now)", waiting: "var(--line-2)", failed: "var(--needs-you)",
+};
+
+/** The row a measured value takes under the ports (`sa_index_nbases 8`), and Run's progress row. */
+export const SET_ROW = 26;
+export const PROGRESS_ROW = 22;
+
+/** A step's drawn height: its ports, then a measured value's row and Run's progress row. */
+export function cardHeight(ports: PortView[], { measures = false, setRow = false, progress = false } = {}): number {
+  if (measures) return MEASURE_H;
+  return heightOf(ports) + (setRow ? SET_ROW : 0) + (progress ? PROGRESS_ROW : 0);
+}
+
+/** Where a port sits on a card: on the spine and below for a step, the middle of a measuring pill. */
+export function anchorOf(measures: boolean, index: number): number {
+  return measures ? Math.round(MEASURE_H / 2) : portOffset(index);
+}
+
+/** One step on the canvas, as the board draws it (#511, `Build.dc.html`): a compact card with what
+ *  the step does, its tool and version, its ports as dots on the edges, and its marks.
  *
  * **Geometry from `geometry.ts`, never a literal here.** A wire lands on a port because both read
- * one derivation; the 2026-08-30 walk found `NODE_W` at 232 in the browser and 172 in Python the
- * one time a component kept its own.
+ * one derivation.
  *
- * **Outlined, never striped** (the *Build* and *Question* boards). How each value was decided is
- * the footer's — *1 measured · 13 settled*, each in its meaning's ink. A step with a value that
- * needs the person carries a red dot; one the AI chose and nobody reviewed carries a small *AI*
- * tag beside its name.
+ * - A per-sample step is a stack of cards with *×N*; a measuring step is a small pill in the
+ *   measured colour, hung under the step it measures.
+ * - A value measured from the data shows as one row under the ports (`sa_index_nbases 8`).
+ * - *AI* and *N open* are tags on the top edge; nothing is striped or filled for its source.
+ * - Port names show when the rail's *Input and output names* is on and a side has more than one.
  */
 export function LivingNode({
   id,
@@ -34,7 +63,12 @@ export function LivingNode({
   takes,
   samples,
   version,
+  tool,
   does,
+  measures = false,
+  setRow,
+  showTool = true,
+  showPorts = true,
   className,
   delay,
   onAnimationEnd,
@@ -46,32 +80,35 @@ export function LivingNode({
 }: {
   id: string;
   at: { x: number; y: number };
-  /** Kept on the element for tests and tools; the node no longer draws it. */
+  /** Kept on the element for tests and tools; the card does not draw it. */
   author: Author;
   ports: PortView[];
-  /** **Absent when the frame carries no metadata**: a number a step does not have yet is the
-   *  fastest way to make provisional read as committed. */
   counts?: Counts;
-  /** Whether a review of this step holds, is asked for again, or is on offer now. */
   reviewState?: ReviewState;
   /** The AI chose this step or one of its values, and nobody has reviewed it as it now is (#463). */
   aiChoice?: boolean;
   selected?: boolean;
   onSelect?: () => void;
-  /** Whether this step runs per item — its ports are drawn as the ribbon's tall marks. */
+  /** Whether this step runs per item: a stack of cards, and *×N*. */
   perItem?: boolean;
-  /** The samples this step takes, when each sample's tool is chosen per sample and only some come
-   *  here (issue 466); the node says *some samples* and the sentence is its title. */
+  /** The samples this step takes, when only some come here (issue 466). */
   takes?: string;
-  /** How many samples the analysis keeps: a per-sample step reads ×N, a fan-in port *all N*. */
+  /** How many samples the analysis keeps: a per-sample step reads ×N. */
   samples?: number;
   /** The tool's version, from its contract id. */
   version?: string;
-  /** What the step does, in a few words (its role's label): the node's first line. */
+  /** The tool, in words (`star align`), shown before the version. */
+  tool?: string;
+  /** What the step does, in a few words (its role's label): the card's first line. */
   does?: string | null;
-  /** A motion class for a domain event (`motion.ts`), and the callback when it has played. */
+  /** A measuring step (#517): drawn as a pill. */
+  measures?: boolean;
+  /** A value measured from the data and the setting it set (`sa_index_nbases 8`). */
+  setRow?: string;
+  /** The rail's *On the steps* switches. */
+  showTool?: boolean;
+  showPorts?: boolean;
   className?: string;
-  /** When this step's reveal starts, for Spawn's staged arrival. */
   delay?: number;
   onAnimationEnd?: () => void;
   onPointerDown?: (e: React.PointerEvent) => void;
@@ -79,17 +116,30 @@ export function LivingNode({
   onPointerUp?: (e: React.PointerEvent) => void;
   /** Open the step's menu (#499): a right-click, or Shift+F10 and the menu key. */
   onMenu?: () => void;
-  /** **On Run**: how far this step has got, drawn in place of the value counts (the board's
-   *  bar and *14 of 24 · 2 running*). */
+  /** **On Run**: how far this step has got, in a row under the ports. */
   progress?: StepProgress;
 }) {
-  // **Every port, each on its own row at its anchor** (#494): input *i* on the left and output
-  // *i* on the right of row *i*, where both their marks sit; the node grows to hold them.
   const ins = ports.filter((p) => p.side === "in");
   const outs = ports.filter((p) => p.side === "out");
-  const height = heightOf(ports);
-  const rows = Array.from({ length: Math.max(ins.length, outs.length) }, (_, i) => [ins[i], outs[i]] as const);
-  const edge = `1px solid ${selected ? "var(--now)" : "var(--node-line)"}`;
+  const rows = Math.max(1, ins.length, outs.length);
+  const height = cardHeight(ports, { measures, setRow: !!setRow, progress: !!progress });
+  const width = measures ? MEASURE_W : NODE_W;
+  const labelled = showPorts && !measures && (ins.length > 1 || outs.length > 1);
+  const edge = selected ? "var(--now)" : measures ? "var(--measured)" : "var(--line-2)";
+  // A measuring step is named for what it measures (*Genome length*), from its output.
+  const measured = measures ? outs[0]?.name.replaceAll("_", " ") : undefined;
+  const name = measured ? measured[0].toUpperCase() + measured.slice(1) : does ?? processName(id);
+  const toolLine = [tool, version].filter(Boolean).join(" ");
+  const tags = [
+    aiChoice && { key: "ai", words: "AI", testId: `node-ai-${id}`, title: "Chosen by the AI and not reviewed yet: open the step to review it",
+                  style: { color: "var(--ai)", background: "var(--ai-soft)", borderColor: "var(--ai-line)" } },
+    (counts?.open ?? 0) > 0 && { key: "open", words: `${counts!.open} open`, testId: `node-open-${id}`, title: "A value here needs you",
+                                 style: { color: "var(--needs-you-ink)", background: "var(--needs-you-soft)", borderColor: "var(--needs-you-line)" } },
+    reviewState === "again" && { key: "again", words: "Review again", testId: `node-again-${id}`, title: "Changed since it was reviewed",
+                                 style: { color: "var(--now-ink)", background: "var(--now-soft)", borderColor: "var(--now-line)" } },
+    takes && { key: "takes", words: "some samples", testId: `node-branch-${id}`, title: `takes only ${takes}`,
+               style: { color: "var(--measured-ink)", background: "var(--measured-soft)", borderColor: "var(--measured-line)" } },
+  ].filter(Boolean) as { key: string; words: string; testId: string; title: string; style: React.CSSProperties }[];
 
   return (
     <button
@@ -97,6 +147,7 @@ export function LivingNode({
       data-node={id}
       data-testid={`living-node-${id}`}
       data-author={author}
+      data-measures={measures ? "true" : undefined}
       aria-pressed={selected}
       aria-label={processName(id)}
       onClick={onSelect}
@@ -108,158 +159,111 @@ export function LivingNode({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      className={`absolute flex flex-col text-left p-0 cursor-pointer touch-none focus-visible:shadow-[var(--ring)] ${className ?? ""}`}
+      className={`absolute block text-left p-0 cursor-pointer touch-none focus-visible:shadow-[var(--ring)] ${className ?? ""}`}
       style={{
         left: at.x,
         top: at.y,
-        width: NODE_W,
+        width,
         height,
-        background: "var(--node)",
-        borderRadius: "var(--radius-button)",
-        // Four longhands, never `border`: React cannot redraw a shorthand next to its own longhand,
-        // and selecting a step changes them.
-        borderTop: edge,
-        borderRight: edge,
-        borderBottom: edge,
-        borderLeft: edge,
-        boxShadow: selected ? "0 0 0 3px var(--now-soft)" : undefined,
+        background: measures ? "var(--measured-soft)" : "var(--surface)",
+        borderRadius: measures ? 20 : 10,
+        // Four longhands, never `border`: React cannot redraw a shorthand next to its own longhand.
+        borderTop: `1px solid ${edge}`,
+        borderRight: `1px solid ${edge}`,
+        borderBottom: `1px solid ${edge}`,
+        borderLeft: `1px solid ${edge}`,
+        boxShadow: [
+          perItem && !measures && "4px 4px 0 -1px var(--surface), 4px 4px 0 0 var(--line-2), 8px 8px 0 -1px var(--surface), 8px 8px 0 0 var(--line-2)",
+          selected && "0 0 0 3px var(--now-soft)",
+        ].filter(Boolean).join(", ") || undefined,
         animationDelay: delay === undefined ? undefined : `${delay}ms`,
       }}
     >
-      {/* **Ports, as the collection grammar draws them**: a square for a single value, a tall
-          mark where a ribbon lands, and a wide one where a ribbon converges. Positions from
-          `portOffset`, the one derivation. */}
+      <span className="absolute flex flex-col gap-[2px] min-w-0"
+            style={measures ? { left: 14, right: 14, top: 5 } : { left: 11, right: 11, top: 8 }}>
+        <span className={`text-[13px] font-semibold truncate ${measures ? "text-measured-ink" : "text-ink"}`}
+              data-testid={`node-name-${id}`}>{name}</span>
+        {showTool && toolLine && (
+          <span className={`font-data text-[10.5px] truncate ${measures ? "text-measured-ink" : "text-ink-3"}`}
+                data-testid={`node-tool-${id}`}>{toolLine}</span>
+        )}
+      </span>
+      {/* **Ports, as dots on the edges** at `anchorOf`, the one derivation the wires read. */}
       {(["in", "out"] as const).flatMap((side) =>
-        ports.filter((p) => p.side === side).map((port, index) => {
+        (side === "in" ? ins : outs).map((port, index) => {
           const gather = side === "in" && port.gathers;
-          const tall = gather ? 29 : perItem ? 25 : 7;
-          const wide = gather ? 12 : 7;
+          const optional = side === "in" && port.optional;
+          const tall = gather ? 16 : 8;
           return (
-            <span
-              key={`mark-${side}-${port.name}`}
-              aria-hidden
-              data-port-mark={gather ? "gather" : perItem ? "many" : "one"}
-              data-optional={side === "in" && port.optional ? "true" : undefined}
-              className="absolute"
-              style={{
-                left: side === "in" ? -Math.ceil(wide / 2) - 1 : NODE_W - Math.floor(wide / 2) - 2,
-                top: portOffset(index) - tall / 2 - 1,
-                width: wide,
-                height: tall,
-                // An optional input (issue 460) is hollow and dashed, as `Port` draws it.
-                background: side === "in" && port.optional ? "transparent" : selected ? "var(--now)" : "var(--node)",
-                border: `1px ${side === "in" && port.optional ? "dashed" : "solid"} ${selected ? "var(--now)" : "var(--port-line)"}`,
-              }}
-            />
+            <span key={`mark-${side}-${port.name}`} aria-hidden
+                  data-port-mark={gather ? "gather" : perItem ? "many" : "one"}
+                  data-optional={optional ? "true" : undefined}
+                  className="absolute box-border"
+                  style={{
+                    left: side === "in" ? -5 : width - 4,
+                    top: anchorOf(measures, index) - tall / 2,
+                    width: 8,
+                    height: tall,
+                    borderRadius: 4,
+                    background: selected ? "var(--now)" : "var(--surface)",
+                    border: `1.6px ${optional ? "dashed" : "solid"} ${selected ? "var(--now)" : "var(--mark)"}`,
+                  }} />
           );
         }),
       )}
-      <span
-        className="flex flex-col justify-center gap-[2px] px-[10px] w-full shrink-0"
-        style={{ height: HEAD_H, borderBottom: "1px solid var(--node-rule)" }}
-      >
-       {/* What the step does, then the tool that does it. */}
-       <span className="flex items-center gap-2 min-w-0">
-        <span className="text-[12.5px] font-semibold text-ink truncate"
-              data-testid={does ? undefined : `node-name-${id}`}>{does ?? processName(id)}</span>
-        {aiChoice && (
-          <span data-testid={`node-ai-${id}`} title="Chosen by the AI and not reviewed yet: open the step to review it"
-                className="shrink-0 px-[4px] rounded-control text-[9.5px] font-semibold leading-[15px]"
-                style={{ background: "var(--now-soft)", color: "var(--now-ink)" }}>
-            AI
+      {labelled && (["in", "out"] as const).flatMap((side) =>
+        (side === "in" ? ins : outs).map((port, index) => (
+          <span key={`label-${side}-${port.name}`} data-port-row
+                title={`${port.type_id}${spelledStates(port.states)}`}
+                className={`absolute font-data text-[10px] whitespace-nowrap ${side === "in" && port.optional ? "text-ink-3" : "text-ink-2"}`}
+                style={{ [side === "in" ? "left" : "right"]: 9, top: portOffset(index) - 7, lineHeight: "14px",
+                         maxWidth: NODE_W / 2 - 12, overflow: "hidden", textOverflow: "ellipsis" }}>
+            {port.name}
+            {side === "in" && port.gathers && samples !== undefined && <span className="text-ink-3"> · all {samples}</span>}
+            {side === "in" && port.optional && !port.met && <span className="text-ink-3"> · optional</span>}
           </span>
-        )}
-        {takes && (
-          <span data-testid={`node-branch-${id}`} title={`takes only ${takes}`}
-                className="ml-auto text-[10.5px] text-measured-ink whitespace-nowrap">some samples</span>
-        )}
-        {reviewState === "again" && (
-          <span className={`${takes ? "" : "ml-auto"} text-[10.5px] font-semibold text-now-ink whitespace-nowrap`}>Review again</span>
-        )}
-        {(counts?.open ?? 0) > 0 && (
-          <span aria-hidden data-testid={`node-open-${id}`}
-                className={`${reviewState === "again" || takes ? "" : "ml-auto"} w-[8px] h-[8px] rounded-full shrink-0`}
-                style={{ background: "var(--needs-you)" }} />
-        )}
-       </span>
-       <span className="flex items-center gap-2 min-w-0">
-        {/* Without a label, the first line is already the tool's name. */}
-        {does && (
-          <span className="font-data text-[10.5px] text-ink-2 truncate" data-testid={`node-name-${id}`}>
-            {processName(id)}
-          </span>
-        )}
-        {version && <span className="font-data text-[10px] text-ink-3 shrink-0">{version}</span>}
-        {perItem && samples !== undefined && (
-          <span className="ml-auto font-data text-[10px] font-semibold text-now-ink shrink-0">×{samples}</span>
-        )}
-       </span>
-      </span>
-      {rows.map(([input, output], i) => (
-        <span key={`row-${i}`} data-port-row
-              className="absolute left-0 right-0 flex items-center justify-between gap-2 px-[10px] font-data text-[10px] whitespace-pre"
-              style={{ top: portOffset(i) - PORT_GAP / 2, height: PORT_GAP }}>
-          <span className="min-w-0 truncate text-ink" title={input ? `${input.type_id}${spelledStates(input.states)}` : undefined}>
-            {input && <><span className="text-ink-3">{"< "}</span>{input.name}</>}
-            {input?.gathers && samples !== undefined && <span className="text-ink-3"> · <span>all {samples}</span></span>}
-            {input?.optional && !input.met && <span className="text-now-ink"> · <span>connect</span></span>}
-          </span>
-          <span className="min-w-0 truncate text-ink-2 text-right" title={output ? `${output.type_id}${spelledStates(output.states)}` : undefined}>
-            {output && <>{output.name}<span className="text-ink-3">{" >"}</span></>}
-          </span>
+        )),
+      )}
+      {setRow && !measures && (
+        <span data-testid={`node-set-${id}`}
+              className="absolute truncate rounded-xs px-[6px] py-[3px] font-data text-[10.5px] text-measured-ink bg-measured-soft"
+              style={{ left: 8, right: 8, top: portOffset(rows - 1) + PORT_GAP - 6 }}>
+          {setRow}
         </span>
-      ))}
-      {progress && (
-        <span
-          data-testid={`node-progress-${id}`}
-          data-state={progress.state}
-          className="absolute left-0 right-0 bottom-0 h-[22px] flex items-center gap-2 px-[10px] text-[10.5px] whitespace-pre overflow-hidden"
-          style={{ borderTop: "1px solid var(--node-rule)" }}
-        >
+      )}
+      {progress && !measures && (
+        <span data-testid={`node-progress-${id}`} data-state={progress.state}
+              className="absolute left-[10px] right-[10px] flex items-center gap-[6px] text-[10.5px] whitespace-nowrap overflow-hidden"
+              style={{ bottom: 8 }}>
           <span aria-hidden className="w-[7px] h-[7px] rounded-full shrink-0" style={{ background: PROGRESS_INK[progress.state] }} />
           <span className={progress.state === "failed" ? "font-semibold text-needs-you-ink" : "text-ink-2"}>{progress.label}</span>
           {progress.of > 1 && (
-            <span aria-hidden className="ml-auto flex h-[4px] w-[48px] rounded-full overflow-hidden bg-line-soft shrink-0">
+            <span aria-hidden className="ml-auto flex h-[4px] w-[40px] rounded-full overflow-hidden bg-line-soft shrink-0">
               <span style={{ width: `${(100 * progress.done) / progress.of}%`, background: "var(--done)" }} />
               <span style={{ width: `${(100 * progress.running) / progress.of}%`, background: "var(--now-mid)" }} />
             </span>
           )}
         </span>
       )}
-      {counts && !progress && (
-        <span
-          data-testid={`node-footer-${id}`}
-          className="absolute left-0 right-0 bottom-0 h-[22px] flex items-center px-[10px] text-[10.5px] whitespace-pre overflow-hidden"
-          style={{ borderTop: "1px solid var(--node-rule)" }}
-        >
-          <CountWords counts={counts} />
+      {progress && measures && (
+        <span aria-hidden className="absolute w-[7px] h-[7px] rounded-full" data-testid={`node-progress-${id}`}
+              data-state={progress.state} style={{ right: 12, top: MEASURE_H / 2 - 4, background: PROGRESS_INK[progress.state] }} />
+      )}
+      {perItem && samples !== undefined && !measures && (
+        <span className="absolute z-[1] rounded-xs px-[5px] text-[10px] font-bold leading-[14px] text-now-ink bg-now-soft border border-now-line"
+              style={{ right: 12, bottom: -9 }}>×{samples}</span>
+      )}
+      {tags.length > 0 && (
+        <span className="absolute flex gap-1" style={{ right: 10, top: -9 }}>
+          {tags.map((tag) => (
+            <span key={tag.key} data-testid={tag.testId} title={tag.title}
+                  className="rounded-xs px-[5px] py-[1px] text-[10px] font-bold tracking-[.04em] border whitespace-nowrap"
+                  style={tag.style}>
+              {tag.words}
+            </span>
+          ))}
         </span>
       )}
     </button>
   );
-}
-
-/** How far a step has got in a run: *done*, *running*, *waiting* or *failed*, with its words. */
-export type StepProgress = {
-  state: "done" | "running" | "waiting" | "failed";
-  done: number;
-  running: number;
-  of: number;
-  label: string;
-};
-
-const PROGRESS_INK: Record<StepProgress["state"], string> = {
-  done: "var(--done)", running: "var(--now)", waiting: "var(--line-2)", failed: "var(--needs-you)",
-};
-
-/** *1 needs you · 3 measured · 1 optional · 13 settled*, each in its meaning's ink; a zero is not said. */
-function CountWords({ counts }: { counts: Counts }) {
-  const parts = [
-    counts.open > 0 && <span key="open" className="font-semibold text-needs-you-ink">{counts.open} needs you</span>,
-    counts.measured > 0 && <span key="measured" className="font-semibold text-measured-ink">{counts.measured} measured</span>,
-    (counts.read ?? 0) > 0 && <span key="read" className="text-ink-2">{counts.read} read by AI</span>,
-    (counts.optional ?? 0) > 0 && <span key="optional" className="text-ink-2">{counts.optional} optional</span>,
-    counts.settled > 0 && <span key="settled" className="text-ink-2">{counts.settled} settled</span>,
-  ].filter(Boolean) as React.ReactElement[];
-  return <>{parts.flatMap((part, i) => (i ? [<span key={`dot-${i}`} className="text-ink-3"> · </span>, part] : [part]))}</>;
 }

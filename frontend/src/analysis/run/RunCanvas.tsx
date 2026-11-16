@@ -3,7 +3,7 @@ import { LivingCanvas } from "../../build/living/LivingCanvas";
 import { Loading } from "../../ui/States";
 import { Graph } from "./Graph";
 import { progressOf, type RunNode } from "./model";
-import { factsOf, useBuildCanvas } from "./useRuns";
+import { factsOf, useBuildCanvas, useReferences } from "./useRuns";
 
 /** **The run, drawn on Build's canvas** (#511, `Run.dc.html`): the same steps where Build put them,
  *  each with how far it has got. A run of a pipeline the analysis no longer keeps is drawn from
@@ -20,6 +20,7 @@ export function RunCanvas({ draftId, runId, nodes, samples, live, current, selec
   onSelect: (step: string | null) => void;
 }) {
   const canvas = useBuildCanvas(draftId);
+  const given = useReferences(draftId);
   if (!current) return <Graph runId={runId} />;
   if (canvas.isPending) return <Loading what="the pipeline" />;
   const frame = canvas.data?.canvas;
@@ -38,6 +39,7 @@ export function RunCanvas({ draftId, runId, nodes, samples, live, current, selec
       onSelect={onSelect}
       samples={samples || undefined}
       progress={progress}
+      given={given}
       fitOnOpen
     />
   );

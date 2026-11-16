@@ -109,10 +109,18 @@ export function Flowline({
   );
 }
 
-export const SOURCE_W = 120;
-export const SOURCE_H = 80;
+export const SOURCE_W = 124;
+export const SOURCE_H = 40;
 
-/** An input where it enters the pipeline: a type, a grain, and a count only if one was measured. */
+/** A type's name as a chip says it: *Genome*, *Gene annotation*, *Sequencing reads* — the
+ *  vocabulary's name without its format in brackets or a leading *reference*. */
+export function chipName(name: string): string {
+  const bare = name.replace(/\s*\(.*?\)\s*/g, " ").replace(/^reference\s+/i, "").trim();
+  return bare ? bare[0].toUpperCase() + bare.slice(1) : name;
+}
+
+/** **An input, as the board draws it** (#511): a dashed chip with what it is and what answers it —
+ *  the file Data gave it, or how many samples. A per-sample input is a stack. */
 export function SourceNode({
   at,
   name,
@@ -120,6 +128,7 @@ export function SourceNode({
   states,
   grain,
   count,
+  given,
 }: {
   at: Point;
   name: string;
@@ -127,34 +136,44 @@ export function SourceNode({
   states: string[];
   grain: "study" | "sample";
   count: number | null;
+  /** The file Data answers it with, when Data has one (a reference's name). */
+  given?: string;
 }) {
   const typeName = useTypeNames();
-  // **An input says how it is read, in its own box** (the boards): *× 12 samples* for a per-item
-  // input, *read once per task* for one value — nothing is written on its wire.
+  const what = chipName(typeName(typeId));
+  const detail = given ?? (grain === "sample" ? (count === null ? "samples" : `${count} samples`) : "not given yet");
   return (
     <div
       data-testid={`living-source-${name}`}
-      className="absolute flex flex-col justify-center px-[11px] rounded-button"
+      title={`${typeName(typeId)}${spelledStates(states)} · params.${name}`}
+      className="absolute box-border flex flex-col justify-center gap-[1px] px-[10px]"
       style={{
         left: at.x,
         top: at.y,
         width: SOURCE_W,
         height: SOURCE_H,
+        borderRadius: 9,
         background: "var(--now-soft)",
-        border: "1px dashed var(--now)",
+        border: "1px dashed var(--now-line)",
+        boxShadow: grain === "sample" ? "4px 4px 0 -1px var(--surface), 4px 4px 0 0 var(--now-line)" : undefined,
       }}
     >
-      <span className="text-[11px] font-semibold text-now-ink">Input</span>
-      {/* **What it is, then the parameter a run sets** (issue 494): `fasta / assembly.fasta` said
-          neither in words. */}
-      <span className="text-[11.5px] text-ink leading-tight line-clamp-2" title={typeName(typeId)}>
-        {typeName(typeId)}
-        {spelledStates(states)}
-      </span>
-      <span className="font-data text-[10px] text-ink-2 truncate">params.{name}</span>
-      <span className="text-[10.5px] text-ink-2">
-        {grain === "sample" ? (count === null ? "× N items" : `× ${count} samples`) : "read once per task"}
-      </span>
+      <span className="text-[12px] font-semibold text-now-ink truncate">{what}</span>
+      <span className={`font-data text-[10.5px] truncate ${given || grain === "sample" ? "text-now-ink" : "text-ink-3"}`}>{detail}</span>
+    </div>
+  );
+}
+
+/** **A result, as the board draws it**: a green chip after a step nothing else reads, with what it
+ *  is and how much of it there is (*24 tables*, or on Run *14 of 24*). */
+export function ResultNode({ at, name, detail, testId }: { at: Point; name: string; detail: string; testId: string }) {
+  return (
+    <div data-testid={testId}
+         className="absolute box-border flex flex-col justify-center gap-[1px] px-[10px] pointer-events-none"
+         style={{ left: at.x, top: at.y, width: SOURCE_W, height: SOURCE_H, borderRadius: 9,
+                  background: "var(--done-soft)", border: "1px solid var(--done-line)" }}>
+      <span className="text-[12px] font-semibold text-done-ink truncate">{name}</span>
+      <span className="font-data text-[10.5px] text-done-ink truncate">{detail}</span>
     </div>
   );
 }

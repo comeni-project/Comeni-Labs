@@ -25,30 +25,33 @@
  *
  * `impl-geom` on the redesign canvas: *variable heights put a jog between every pair and the
  * whole thing reads sloppy again.* The height used to be computed from the port count. */
-export const NODE_W = 172;
-/** `NODE_H` — a process node with one or two ports a side; a node with more grows (`nodeHeight`). */
-export const NODE_H = 136;
+export const NODE_W = 145;
+/** `NODE_H` — a step card with one port a side; a card with more grows (`nodeHeight`). */
+export const NODE_H = 64;
 /** `HEAD_H` — the node's title band: what the step does, then its tool and version. */
 export const HEAD_H = 44;
 /** `PORT_ROW` — the height of one port row INSIDE a node. It no longer sizes the node. */
 export const PORT_ROW = 19;
 /** `PORT_GAP` — between one port and the next along an edge. */
-export const PORT_GAP = 22;
+export const PORT_GAP = 18;
 /** `SPINE` — **every symbol connects here.** The one derivation, and `impl-geom`'s rule:
  *  *port positions are DERIVED from node geometry in one place. Never write a coordinate
  *  twice.* Writing an endpoint separately from the node it belongs to is what put every wire
  *  6px above its port on the 2026-08-29 walk. */
-export const SPINE = 68;
+export const SPINE = 50;
 /** `SECOND` — a secondary input, 22 below the spine. */
-export const SECOND = 90;
+export const SECOND = 68;
 /** `RANK_PITCH` — between one rank and the next, ALONG the flow. Left to right since phase 6. */
-export const RANK_PITCH = 224;
+export const RANK_PITCH = 200;
 /** `SIBLING_PITCH` — between two nodes sharing a rank, ACROSS the flow. */
-export const SIBLING_PITCH = 194;
+export const SIBLING_PITCH = 120;
 /** The radius of an elbow's rounded corner. */
 export const CORNER = 7;
 /** Between a step and the measuring step hung under it (#517). */
-export const HANG_GAP = 48;
+export const HANG_GAP = 24;
+/** A measuring step's pill (#517, the board's *Genome length*): its size, and its ports at its middle. */
+export const MEASURE_W = 140;
+export const MEASURE_H = 42;
 /** How far a hung step's wire runs out before it turns, and in before its port. */
 export const HANG_REACH = 14;
 
@@ -72,7 +75,7 @@ export function portOffset(index: number): number {
  *  anchor, inside the node above the footer. `node_height` in `dag_core.layout`, read off this
  *  source by `test_the_canvas_and_the_layout_agree_on_a_steps_height`. */
 export function nodeHeight(ports: number): number {
-  return Math.max(NODE_H, 101 + PORT_GAP * (ports - 1));
+  return Math.max(NODE_H, 64 + PORT_GAP * (ports - 1));
 }
 
 /** A step's height from its ports, as the canvas draws it. */
@@ -97,7 +100,7 @@ export function elbow(start: Point, end: Point): Point[] {
   if (end.x <= start.x) {
     // **Into a step hung under its source** (#517): out to the right, down into the gap above
     // the hung step, back along it, and into the port from the left. `hung_wire` in dag_core.
-    const below = end.y - SPINE - HANG_GAP / 2;
+    const below = end.y - Math.round(MEASURE_H / 2) - HANG_GAP / 2;
     const out = start.x + HANG_REACH;
     const back = end.x - HANG_REACH;
     return [start, { x: out, y: start.y }, { x: out, y: below }, { x: back, y: below }, { x: back, y: end.y }, end];
