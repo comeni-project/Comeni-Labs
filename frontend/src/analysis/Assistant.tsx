@@ -15,6 +15,7 @@ export function Assistant({ draftId }: { draftId: string }) {
   // `?assistant=1` opens it, so it can be linked open.
   const [params] = useSearchParams();
   const [open, setOpen] = useState(params.get("assistant") === "1");
+  const [session, setSession] = useState<string | null>(null);
   const model = useAiConfigured();
   return (
     <>
@@ -26,6 +27,9 @@ export function Assistant({ draftId }: { draftId: string }) {
         </svg>
         Assistant
       </button>
+      {/* Once opened, the conversation is watched even with the drawer shut, so a turn the agent
+          finishes later still refreshes the page underneath. */}
+      {session && <Watcher draftId={draftId} sessionId={session} />}
       <Drawer open={open} onClose={() => setOpen(false)} label="Assistant">
         <div className="flex items-center gap-2 px-[14px] py-3 border-b border-line-soft">
           <span className="text-[14px] font-semibold text-ink">Assistant</span>
@@ -33,7 +37,8 @@ export function Assistant({ draftId }: { draftId: string }) {
           <button type="button" onClick={() => setOpen(false)} aria-label="Close the assistant"
                   className="ml-auto border-0 bg-transparent text-[18px] text-ink-3 cursor-pointer">×</button>
         </div>
-        {model.configured ? <Conversation draftId={draftId} /> : <NeedsAModel />}
+        {model.pending ? <p className="m-4 text-[13px] text-ink-3">Opening…</p>
+          : model.configured ? <Conversation draftId={draftId} onSession={setSession} /> : <NeedsAModel />}
       </Drawer>
     </>
   );
@@ -53,7 +58,7 @@ function NeedsAModel() {
   );
 }
 
-function Conversation({ draftId }: { draftId: string }) {
+function Conversation({ draftId, onSession }: { draftId: string; onSession: (id: string) => void }) {
   const [session, setSession] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const asked = useRef<string | null>(null);
@@ -61,21 +66,26 @@ function Conversation({ draftId }: { draftId: string }) {
     if (asked.current === draftId) return;
     asked.current = draftId;
     post<{ session_id: string }>(`/pipeline/drafts/${encodeURIComponent(draftId)}/session`, {})
-      .then(({ session_id }) => setSession(session_id), setError);
-  }, [draftId]);
+      .then(({ session_id }) => { setSession(session_id); onSession(session_id); }, setError);
+  }, [draftId, onSession]);
   if (error) return <p role="alert" className="m-4 text-[13px] text-needs-you-ink">The conversation could not open.</p>;
   if (!session) return <p className="m-4 text-[13px] text-ink-3">Opening the conversation…</p>;
   return <Talk draftId={draftId} sessionId={session} />;
 }
 
-function Talk({ draftId, sessionId }: { draftId: string; sessionId: string }) {
+/** When the agent changes the data (its turn lands), the page underneath reads it again. */
+function Watcher({ draftId, sessionId }: { draftId: string; sessionId: string }) {
   const living = useAuthoringSession(sessionId);
   const client = useQueryClient();
-  // When the agent changes the data (its turn lands), the page underneath reads it again.
   const landed = living.session?.decision_revision;
   useEffect(() => {
     void client.invalidateQueries({ queryKey: ["analysis-data", draftId] });
   }, [landed, client, draftId]);
+  return null;
+}
+
+function Talk({ sessionId }: { draftId: string; sessionId: string }) {
+  const living = useAuthoringSession(sessionId);
   if (!living.session) return <p className="m-4 text-[13px] text-ink-3">Opening the conversation…</p>;
   return (
     <div className="flex flex-col flex-1 min-h-0">

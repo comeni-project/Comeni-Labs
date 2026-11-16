@@ -3,6 +3,7 @@ ticks, and what was found in them. An analysis is a draft, so its data is addres
 draft's id."""
 
 import logging
+from typing import Literal
 
 from comeni_core.diagnostics import coded
 from fastapi import APIRouter, HTTPException
@@ -65,7 +66,7 @@ def _view(draft_id: str, row: AnalysisData | None) -> AnalysisDataView:
         fixes=[Fix(**f) for f in row.fixes or []],
         rule_result=RuleResult(samples=len(samples), unfit=len(row.unfit or []),
                                examples=scanned.examples),
-        checks=rule.checks(samples, list(row.unfit or [])),
+        checks=rule.checks(samples, list(row.unfit or []), [Fix(**f) for f in row.fixes or []]),
         references=[Reference(**r) for r in row.references or []],
         columns=dict(row.columns or {}),
         summary=summary(samples, list(row.files or [])))
@@ -164,14 +165,67 @@ def confirm_rule(draft_id: str) -> AnalysisDataView:
         return _view(draft_id, row)
 
 
+class FixRequest(BaseModel):
+    kind: Literal["use_file", "leave_out", "keep"]
+    sample: str
+    file: str | None = None
+    measurement: str | None = None
+
+
 @router.post("/{draft_id}/fixes", operation_id="applyDataFix",
              summary="Use a file as a sample's mate, or leave a sample out; then scan again",
              responses=REFUSES)
-async def apply_fix(draft_id: str, body: Fix) -> AnalysisDataView:
-    """A fix is kept and applied on every scan, so it survives the next one."""
+async def apply_fix(draft_id: str, body: FixRequest) -> AnalysisDataView:
+    """A fix is kept and applied on every scan, so it survives the next one. **Recorded as the
+    person's**: who made a change is the server's to say, never the page's."""
+    made = Fix(kind=body.kind, sample=body.sample, file=body.file, measurement=body.measurement)
+    with session_scope() as db:
+        _draft(db, draft_id)
+        row = db.get(AnalysisData, draft_id)
+        rule.validate(made, list(row.samples or []) if row else [],
+                      list(row.unfit or []) if row else [])
+
     def keep(row):
-        row.fixes = [*(row.fixes or []), body.model_dump()]
+        row.fixes = [*(row.fixes or []), made.model_dump()]
     return await _rescan(draft_id, keep)
+
+
+@router.post("/{draft_id}/fixes/{index}/keep", operation_id="keepDataFix",
+             summary="Keep a fix the AI made: it becomes the person's", responses=REFUSES)
+def keep_fix(draft_id: str, index: int) -> AnalysisDataView:
+    with session_scope() as db:
+        _draft(db, draft_id)
+        row = db.get(AnalysisData, draft_id)
+        fixes = list(row.fixes or []) if row else []
+        if not 0 <= index < len(fixes):
+            raise HTTPException(status_code=404, detail=f"no fix {index}")
+        fixes[index] = {**fixes[index], "by": "you"}
+        row.fixes = fixes
+        db.flush()
+        return _view(draft_id, row)
+
+
+@router.post("/{draft_id}/rescan", operation_id="rescanData",
+             summary="Read the ticked folders again", responses=REFUSES)
+async def rescan(draft_id: str) -> AnalysisDataView:
+    """Files added, changed or removed since the last scan are read again."""
+    return await _rescan(draft_id, lambda row: None)
+
+
+class Cell(BaseModel):
+    value: str
+
+
+@router.put("/{draft_id}/columns/{name}/{sample}", operation_id="setDataCell",
+            summary="Set one sample's value in a column", responses=REFUSES)
+def set_cell(draft_id: str, name: str, sample: str, body: Cell) -> AnalysisDataView:
+    """One cell, so two cells edited one after the other both stand."""
+    def keep(row):
+        if name not in (row.columns or {}):
+            raise HTTPException(status_code=404, detail=f"no column {name}")
+        column = {**row.columns[name], sample: body.value.strip()}
+        row.columns = {**row.columns, name: column}
+    return _change(draft_id, keep)
 
 
 def _blank(draft_id: str) -> AnalysisData:
@@ -266,7 +320,9 @@ def set_column(draft_id: str, body: Column) -> AnalysisDataView:
                                          "choose another name"))
 
     def keep(row):
-        row.columns = {**(row.columns or {}), name: dict(body.values)}
+        # A column that exists keeps its values: adding it again changes nothing.
+        given = dict(body.values) or dict((row.columns or {}).get(name, {}))
+        row.columns = {**(row.columns or {}), name: given}
     return _change(draft_id, keep)
 
 

@@ -25,3 +25,16 @@ it("files lists recognised-as and used-as, paged", async () => {
   expect(screen.getByText("did not fit the rule")).toBeTruthy();
   expect(screen.getByText("3 files · what each was recognised as")).toBeTruthy();
 });
+
+it("a filter shows only the files that did not fit the rule", async () => {
+  const { fireEvent } = await import("@testing-library/react");
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <Files draftId="d1" />
+    </QueryClientProvider>,
+  );
+  await screen.findAllByText("L01_R1.fq.gz");
+  fireEvent.click(screen.getAllByRole("button", { name: /Did not fit/ })[0]);
+  expect(screen.queryAllByText("L01_R1.fq.gz")).toHaveLength(0);
+  expect(screen.getAllByText("notes.txt").length).toBeGreaterThan(0);
+});

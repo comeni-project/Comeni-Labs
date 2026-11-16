@@ -43,6 +43,8 @@ class Scan(BaseModel):
     error: str | None = None
     examples: list[tuple[str, str, str | None]] = []
     """The first three files the rule fitted: file, sample, read."""
+    finished_at: str | None = None
+    """When the scan finished, so the page can say how fresh the data is."""
 
 
 class Reference(BaseModel):

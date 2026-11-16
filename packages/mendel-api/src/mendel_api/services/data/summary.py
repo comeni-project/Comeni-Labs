@@ -65,7 +65,7 @@ def _size(total: int) -> str:
 
 def summary(samples: list[dict], files: list[dict]) -> Summary:
     kept = [s for s in samples if not s.get("left_out")]
-    kinds = {s.get("type_id") for s in kept}
+    kinds = {s.get("type_id") for s in kept if s.get("type_id")}
     tiles = [
         Tile(label="Samples", value=str(len(kept)),
              hint=f"{len(samples) - len(kept)} left out" if len(samples) > len(kept) else None),

@@ -48,14 +48,13 @@ export async function put<T>(path: string, payload: unknown): Promise<T> {
   return send<T>("PUT", path, payload);
 }
 
-/** `DELETE`, for what a person deletes (Part H). Answers nothing on success (204); a refusal is
- *  a `Refused` with its coded sentence, as everywhere. */
-/** Delete a resource. A 204 returns no body; other responses use the JSON/refusal handler. */
 /** A DELETE that answers with what is left, such as an analysis's data after an undo. */
 export async function del<T>(path: string): Promise<T> {
   return answered<T>(path, await fetch(ROOT + path, { method: "DELETE" }));
 }
 
+/** `DELETE`, for what a person deletes (Part H). Answers nothing on success (204); a refusal is
+ *  a `Refused` with its coded sentence, as everywhere. */
 export async function remove(path: string): Promise<void> {
   const r = await fetch(ROOT + path, { method: "DELETE" });
   if (r.status === 204) return;

@@ -31,12 +31,31 @@ class Rule(BaseModel):
 
 
 class Fix(BaseModel):
-    kind: Literal["use_file", "leave_out"]
+    kind: Literal["use_file", "leave_out", "keep"]
     sample: str
     file: str | None = None
     """For `use_file`: the file's name in the same folder."""
+    measurement: str | None = None
+    """For `keep`: the measured value the person decided is fine for this sample."""
     by: Literal["you", "ai"] = "you"
     reason: str | None = None
+
+
+def validate(fix: Fix, samples: list[dict], unfit: list[str]) -> None:
+    """A fix that would do nothing is refused here (CLAUDE.md: validate offered ids at the
+    receiving boundary): the sample must be one of this data's, and a mate must be a file that
+    stands alone beside it."""
+    names = {s["name"]: s for s in samples}
+    if fix.sample not in names:
+        raise ValueError(coded("MI0226", f"there is no sample {fix.sample!r} in this data"))
+    if fix.kind == "use_file":
+        lone = {_name(s["files"][0]) for s in samples
+                if len(s["files"]) == 1 and s["name"] != fix.sample}
+        if fix.file not in lone | set(unfit) or len(names[fix.sample]["files"]) != 1:
+            raise ValueError(coded("MI0226", f"{fix.file!r} is not a file standing alone that "
+                                             f"could be {fix.sample}'s mate"))
+    if fix.kind == "keep" and not fix.measurement:
+        raise ValueError(coded("MI0226", "say which measured value to keep"))
 
 
 class Grouped(BaseModel):
@@ -148,7 +167,7 @@ def _name(path: str) -> str:
     return path.rsplit("/", 1)[-1]
 
 
-def checks(samples: list[dict], unfit: list[str]) -> list[Check]:
+def checks(samples: list[dict], unfit: list[str], fixes: list[Fix] = ()) -> list[Check]:
     """What *Check these* lists: a sample without its mate where most files are in pairs, with
     the nearby file that looks like it; and a sample whose measured value differs from the one
     most samples share. Left-out samples are not checked again."""
@@ -194,7 +213,10 @@ def checks(samples: list[dict], unfit: list[str]) -> list[Check]:
         common, count = Counter(_plain(v) for _, v in values).most_common(1)[0]
         if count <= len(values) / 2 or count == len(values):
             continue
+        kept_values = {(f.sample, f.measurement) for f in fixes if f.kind == "keep"}
         for sample, value in values:
+            if (sample, measurement) in kept_values:
+                continue  # the person decided this value is fine
             if _plain(value) != common:
                 found.append(Check(sample=sample, kind="odd_fact", measurement=measurement,
                                    detail=f"{_words(measurement)} is {_plain(value)}; most "

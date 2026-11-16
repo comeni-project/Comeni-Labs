@@ -6,7 +6,8 @@ import { Samples } from "./Samples";
 import type { AnalysisData } from "./types";
 
 function actions() {
-  return { setRule: vi.fn(), confirmRule: vi.fn(), undoFix: vi.fn(), setColumn: vi.fn() };
+  return { setRule: vi.fn(async () => undefined), confirmRule: vi.fn(), undoFix: vi.fn(),
+           setCell: vi.fn(), addColumn: vi.fn() };
 }
 
 function samples(data: AnalysisData = analysis(), act = actions()) {
@@ -35,6 +36,22 @@ it("looks right confirms; change the rule submits a pattern", () => {
   fireEvent.change(screen.getByRole("textbox", { name: "Reading rule" }), { target: { value: "{sample}_R{read}.fq.gz" } });
   fireEvent.click(screen.getByRole("button", { name: "Use this rule" }));
   expect(act.setRule).toHaveBeenCalledWith("{sample}_R{read}.fq.gz");
+});
+
+it("a refused rule keeps the editor open", async () => {
+  const act = actions();
+  act.setRule = vi.fn(async () => { throw new Error("MI0223"); });
+  samples(withRule(), act);
+  fireEvent.click(screen.getByRole("button", { name: "Change the rule" }));
+  fireEvent.click(screen.getByRole("button", { name: "Use this rule" }));
+  expect(await screen.findByRole("textbox", { name: "Reading rule" })).toBeTruthy();
+});
+
+it("a confirmed AI rule no longer reads as AI, and its reason shows", () => {
+  samples(withRule({ rule: { pattern: "{sample}_{read}.fq", origin: "ai", confirmed: true, reason: "names end _1/_2" } }));
+  const rule = screen.getByRole("region", { name: "How the samples were read" });
+  expect(within(rule).queryByText("AI")).toBeNull();
+  expect(within(rule).getByText(/names end _1\/_2/)).toBeTruthy();
 });
 
 it("an AI rule is tagged AI until confirmed", () => {
@@ -79,9 +96,9 @@ it("add column prompts for a name and stores values", () => {
   expect(screen.getByRole("columnheader", { name: "condition" })).toBeTruthy();
   fireEvent.change(screen.getByRole("textbox", { name: "condition for L02" }), { target: { value: "control" } });
   fireEvent.blur(screen.getByRole("textbox", { name: "condition for L02" }));
-  expect(act.setColumn).toHaveBeenCalledWith("condition", { L01: "treated", L02: "control" });
+  expect(act.setCell).toHaveBeenCalledWith("condition", "L02", "control");
   fireEvent.click(screen.getByRole("button", { name: "+ Add column" }));
   fireEvent.change(screen.getByRole("textbox", { name: "New column" }), { target: { value: "batch" } });
   fireEvent.click(screen.getByRole("button", { name: "Add" }));
-  expect(act.setColumn).toHaveBeenCalledWith("batch", {});
+  expect(act.addColumn).toHaveBeenCalledWith("batch");
 });

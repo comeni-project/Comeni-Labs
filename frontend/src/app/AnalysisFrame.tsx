@@ -13,6 +13,7 @@ import { AnalysisSlot, type AnalysisPage } from "./rail/AnalysisSlot";
 import { RailSlot } from "./rail/RailContext";
 
 type DraftOut = components["schemas"]["DraftOut"];
+type AnalysisData = components["schemas"]["AnalysisDataView"];
 type DraftsPage = components["schemas"]["DraftsPage"];
 type AuthoringSessionView = components["schemas"]["AuthoringSessionView"];
 type RunsPage = wiener["schemas"]["RunsPage"];
@@ -36,13 +37,30 @@ export function AnalysisFrame() {
     queryKey: ["draft", draftId],
     queryFn: () => get<DraftOut>(`/pipeline/drafts/${encodeURIComponent(draftId)}`),
   });
+  // What each page holds, under its name in the rail (the board's status line and counts).
+  const data = useQuery({
+    queryKey: ["analysis-data", draftId],
+    queryFn: () => get<AnalysisData>(`/data/${encodeURIComponent(draftId)}`),
+  });
+  const kept = (data.data?.samples ?? []).filter((s) => !s.left_out).length;
+  const checks = data.data?.checks.length ?? 0;
+  const steps = draft.data?.graph.nodes.length ?? 0;
+  const status = {
+    data: !data.data?.folders.length ? "No data yet"
+      : data.data.scan.state === "scanning" ? "Reading…"
+      : `${kept} samples${checks ? ` · ${checks} to check` : ""}`,
+    build: steps ? `${steps} ${steps === 1 ? "step" : "steps"}` : "Not built",
+  };
+  const counts = data.data
+    ? { samples: data.data.samples.length, references: data.data.references.length, files: data.data.files }
+    : {};
   const after = location.pathname.split("/").slice(3);
   const page: AnalysisPage = after[0] === "build" || after[0] === "run" ? after[0] : "data";
   const run = page === "run" ? after[1] : undefined;
 
   return (
     <AnalysisContext.Provider value={{ draftId, name: draft.data?.name ?? "" }}>
-      <RailSlot><AnalysisSlot draftId={draftId} page={page} run={run} /></RailSlot>
+      <RailSlot><AnalysisSlot draftId={draftId} page={page} run={run} status={status} counts={counts} /></RailSlot>
       {draft.error ? <Failed error={draft.error} /> : <Outlet />}
     </AnalysisContext.Provider>
   );

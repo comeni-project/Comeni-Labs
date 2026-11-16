@@ -35,3 +35,10 @@ it("a clickable row is reachable by keyboard and opens on Enter", () => {
   fireEvent.keyDown(first, { key: "Enter" });
   expect(opened).toEqual(["S0"]);
 });
+
+it("the header scrolls sideways with the rows, in one box", () => {
+  render(<DataTable label="Samples" rows={rows.slice(0, 3)} columns={columns} rowKey={(r) => r.name} height={400} />);
+  const box = screen.getByTestId("table-scroll");
+  expect(box.contains(screen.getByRole("columnheader", { name: "Sample" }))).toBe(true);
+  expect(box.contains(screen.getAllByRole("row")[1])).toBe(true);
+});

@@ -14,12 +14,14 @@ const plain = (value: unknown) => value === true ? "yes" : value === false ? "no
 
 /** Data · Samples (#511): how the files were read into samples, as examples you can confirm or
  *  change, and the samples table. Its columns follow the kind of data. */
-export function Samples({ data, setRule, confirmRule, undoFix, setColumn }: {
+export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColumn }: {
   data: AnalysisData;
-  setRule: (pattern: string | null) => void;
+  /** Resolves once the rule is saved; rejects when it is refused, and the editor stays open. */
+  setRule: (pattern: string | null) => Promise<unknown>;
   confirmRule: () => void;
   undoFix: (index: number) => void;
-  setColumn: (name: string, values: Record<string, string>) => void;
+  setCell: (column: string, sample: string, value: string) => void;
+  addColumn: (name: string) => void;
 }) {
   const [filter, setFilter] = useState<"all" | "check">("all");
   const [find, setFind] = useState("");
@@ -48,7 +50,7 @@ export function Samples({ data, setRule, confirmRule, undoFix, setColumn }: {
       cell: (s: Sample) => (
         <input aria-label={`${name} for ${s.name}`} defaultValue={values[s.name] ?? ""}
                onBlur={(e) => { if ((values[s.name] ?? "") !== e.target.value.trim())
-                 setColumn(name, { ...values, [s.name]: e.target.value.trim() }); }}
+                 setCell(name, s.name, e.target.value.trim()); }}
                className="w-full h-7 px-2 border border-line rounded-control bg-surface text-[12.5px] text-ink" />
       ) })),
   ];
@@ -62,7 +64,11 @@ export function Samples({ data, setRule, confirmRule, undoFix, setColumn }: {
                                      options={[{ id: "all", label: "All" }, { id: "check", label: `To check · ${flagged.size}` }]} />
           <input aria-label="Find a sample" placeholder="Find a sample" value={find} onChange={(e) => setFind(e.target.value)}
                  className="h-8 w-[180px] px-[10px] border border-line-2 rounded-control bg-surface text-[13px] text-ink" />
-          {adding ? <AddColumn onAdd={(name) => { setColumn(name, {}); setAdding(false); }} />
+          {adding ? <AddColumn onAdd={(name) => {
+            // A column that exists is not added again: its values stay.
+            if (!(name in data.columns)) addColumn(name);
+            setAdding(false);
+          }} />
             : <button type="button" onClick={() => setAdding(true)}
                       className="h-8 px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-now-ink cursor-pointer">
                 + Add column
@@ -111,24 +117,27 @@ function AddColumn({ onAdd }: { onAdd: (name: string) => void }) {
 }
 
 function ReadingRule({ data, setRule, confirmRule }: {
-  data: AnalysisData; setRule: (pattern: string | null) => void; confirmRule: () => void;
+  data: AnalysisData; setRule: (pattern: string | null) => Promise<unknown>; confirmRule: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [pattern, setPattern] = useState(data.rule.pattern ?? "{sample}_R{read}.fastq.gz");
   const { samples, unfit } = data.rule_result;
-  const paired = data.samples.some((s) => s.files.length === 2);
+  const paired = data.samples.filter((s) => s.files.length === 2).length > data.samples.length / 2;
   return (
     <section aria-label="How the samples were read"
              className="flex flex-col gap-[10px] px-5 py-4 bg-surface border border-line rounded-panel">
       <div className="flex items-center gap-2">
-        <SourceTag source={data.rule.origin === "ai" ? "ai" : data.rule.origin === "you" ? "you" : "rule"} />
+        {/* AI until the person keeps it: confirmed, it is theirs. */}
+        <SourceTag source={data.rule.origin === "ai" && !data.rule.confirmed ? "ai"
+          : data.rule.origin === "rule" ? "rule" : "you"} />
         <span className="text-[15px] font-semibold text-ink">How the samples were read</span>
         {data.rule.confirmed && <span className="text-[12.5px] text-done-ink">· confirmed</span>}
       </div>
-      <div className="grid grid-cols-[auto_auto_1fr] gap-x-3 gap-y-1 items-center text-[13px]">
+      {data.rule.reason && <span className="text-[12.5px] text-ink-3">{data.rule.reason}</span>}
+      <div className="grid grid-cols-[minmax(0,auto)_auto_minmax(0,1fr)] gap-x-3 gap-y-1 items-center text-[13px]">
         {data.scan.examples.map(([file, sample, read]) => (
           <span key={file} data-testid="rule-example" className="contents">
-            <span className="font-data text-[12px] text-ink-2">{file}</span>
+            <span className="font-data text-[12px] text-ink-2 break-all">{file}</span>
             <span className="text-ink-3">→</span>
             <span>sample <b>{sample}</b>{read ? `, read ${read}` : ""}</span>
           </span>
@@ -143,12 +152,12 @@ function ReadingRule({ data, setRule, confirmRule }: {
         <span className="flex items-center gap-2 flex-wrap">
           <input aria-label="Reading rule" value={pattern} onChange={(e) => setPattern(e.target.value)}
                  className="h-8 w-[320px] max-w-full px-[10px] border border-line-2 rounded-control bg-surface font-data text-[12.5px] text-ink" />
-          <button type="button" onClick={() => { setRule(pattern.trim()); setEditing(false); }}
+          <button type="button" onClick={() => setRule(pattern.trim()).then(() => setEditing(false), () => undefined)}
                   className="h-8 px-3 rounded-control bg-action text-on-action shadow-raise border-0 text-[12.5px] font-semibold cursor-pointer">
             Use this rule
           </button>
           {data.rule.pattern && (
-            <button type="button" onClick={() => { setRule(null); setEditing(false); }}
+            <button type="button" onClick={() => setRule(null).then(() => setEditing(false), () => undefined)}
                     className="h-8 px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer">
               Pair by name again
             </button>

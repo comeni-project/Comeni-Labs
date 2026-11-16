@@ -31,7 +31,8 @@ def read_data(ctx: ToolContext, _: Nothing) -> DataView:
         samples = list(row.samples or [])
         reading = Rule(**row.rule) if row.rule else Rule()
         unfit = list(row.unfit or [])
-    found = rule.checks(samples, unfit)
+        fixes = list(row.fixes or [])
+    found = rule.checks(samples, unfit, [Fix(**f) for f in fixes])
     return DataView(
         samples=[s["name"] for s in samples],
         left_out=[s["name"] for s in samples if s.get("left_out")],
@@ -50,6 +51,9 @@ def _rescan(ctx: ToolContext, change) -> int:
         row.revision = (row.revision or 0) + 1
         revision = row.revision
     scan.scan(ctx.draft_id, who=ctx.who, revision=revision)
+    from mendel_api.agent import chat
+
+    chat.rebuild_for_data(ctx.draft_id, ctx.who)
     return revision
 
 
@@ -78,6 +82,9 @@ class ApplyFixArgs(BaseModel):
 
 def apply_fix(ctx: ToolContext, a: ApplyFixArgs) -> TextView:
     made = Fix(kind=a.kind, sample=a.sample, file=a.file, by="ai", reason=a.because)
+    with session_scope() as db:
+        row = _row(db, ctx.draft_id)
+        rule.validate(made, list(row.samples or []), list(row.unfit or []))
 
     def keep(row):
         row.fixes = [*(row.fixes or []), made.model_dump()]

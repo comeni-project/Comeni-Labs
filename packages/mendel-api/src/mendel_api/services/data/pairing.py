@@ -67,5 +67,5 @@ def pair(names: list[str], taken: set[str] | None = None) -> list[tuple[str, lis
         for group in ([sorted(indexes, key=lambda i: _mate(names[i]))] if mates
                       else [[i] for i in indexes]):
             name = key[0] if mates else stem(names[group[0]])
-            samples.append((unique(name[:256], taken), group))
+            samples.append((unique(name[:200], taken), group))
     return samples

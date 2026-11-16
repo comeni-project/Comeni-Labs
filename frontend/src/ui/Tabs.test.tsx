@@ -21,3 +21,11 @@ it("tabs move with arrow keys", () => {
   fireEvent.keyDown(assistant, { key: "ArrowRight" });
   expect(screen.getByRole("tab", { name: "Step" }).getAttribute("aria-selected")).toBe("true");
 });
+
+it("Home and End go to the first and last tab", () => {
+  render(<Two />);
+  fireEvent.keyDown(screen.getByRole("tab", { name: "Step" }), { key: "End" });
+  expect(screen.getByRole("tab", { name: "Assistant" }).getAttribute("aria-selected")).toBe("true");
+  fireEvent.keyDown(screen.getByRole("tab", { name: "Assistant" }), { key: "Home" });
+  expect(screen.getByRole("tab", { name: "Step" }).getAttribute("aria-selected")).toBe("true");
+});

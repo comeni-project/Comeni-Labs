@@ -2,11 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { get } from "../../api/client";
-import type { components } from "../../api/schema";
 import { Panel } from "../../ui/Panel";
+import { allFiles } from "./files";
 import type { AnalysisData } from "./types";
 
-type FilesPage = components["schemas"]["FilesPage"];
 
 /** Data · References (#511): the study-wide files a pipeline reads once, such as a genome and its
  *  annotation. Standard references, downloaded once per machine, come later (#514). */
@@ -16,7 +15,7 @@ export function References({ data, onAdd, onRemove }: {
   const types = useQuery({ queryKey: ["reference-types"], queryFn: () => get<string[]>("/data/reference-types") });
   const files = useQuery({
     queryKey: ["analysis-files", data.draft_id, data.revision],
-    queryFn: () => get<FilesPage>(`/data/${encodeURIComponent(data.draft_id)}/files?limit=1000`),
+    queryFn: () => allFiles(data.draft_id),
   });
   const [path, setPath] = useState("");
   const [kind, setKind] = useState("");

@@ -3749,6 +3749,18 @@ MI0225:
   explanation: |
     Measured values are already a column of the samples table; a typed column of the same name
     would sit beside them and disagree.
+MI0226:
+  emitted_by: api
+  concern: workflow
+  says: "a fix names a sample or file this data does not have"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Choose the fix from Check these, or name a sample the data has; a mate must be a file that
+    stands alone beside a sample with one file.
+  explanation: |
+    A fix that names nothing in the data would be kept and do nothing, while saying it was
+    applied. It is refused instead, whoever offers it: the person's page or the AI.
 MI0300:
   emitted_by: api
   concern: settings

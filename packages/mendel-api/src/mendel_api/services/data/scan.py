@@ -10,6 +10,7 @@ is written down as `failed`, with what went wrong, and the person can tick again
 
 import os
 import stat
+from datetime import UTC, datetime
 from pathlib import Path
 
 from mendel_api.authoring.types import SampleFact
@@ -155,7 +156,8 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
               samples=[s.model_dump(mode="json") for s in samples], unfit=unfit)
         decisions.data_changed(draft_id)
         _save(draft_id, revision, scan=Scan(state="done", done=done, total=total,
-                                            examples=examples).model_dump())
+                                            examples=examples,
+                                            finished_at=datetime.now(UTC).isoformat()).model_dump())
     except _Stale:
         raise
     except Exception as failed:  # noqa: BLE001 — a scan says what went wrong, never hangs

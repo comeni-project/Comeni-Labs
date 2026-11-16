@@ -28,7 +28,7 @@ it("check these lists checks with their fixes, and a fix posts it", () => {
   const onFix = overview();
   const checks = screen.getByRole("region", { name: "Check these" });
   expect(within(checks).getByText("L17_R1")).toBeTruthy();
-  fireEvent.click(within(checks).getByRole("button", { name: "Use L17_2.fq.gz" }));
+  fireEvent.click(within(checks).getByRole("button", { name: "Use L17_2.fq.gz as L17_R1's mate" }));
   expect(onFix).toHaveBeenCalledWith({ kind: "use_file", sample: "L17_R1", file: "L17_2.fq.gz", by: "you", reason: null });
 });
 
@@ -51,4 +51,25 @@ it("an empty analysis shows only the folder prompt", () => {
 it("a running scan shows how far it has got", () => {
   overview(analysis({ scan: { state: "scanning", done: 12, total: 48, error: null, examples: [] } }));
   expect(screen.getByRole("status").textContent).toContain("12 of 48");
+});
+
+it("an odd value can be kept, and each leave-out names its sample", () => {
+  const data = analysis({ checks: [{ sample: "L02", kind: "odd_fact", measurement: "read_length",
+                                     detail: "Read length is 50; most samples have 101",
+                                     fixes: [{ kind: "leave_out", sample: "L02", file: null, measurement: null,
+                                               by: "you", reason: null }] }] });
+  const onFix = overview(data);
+  fireEvent.click(screen.getByRole("button", { name: "Leave L02 out" }));
+  expect(onFix).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "leave_out", sample: "L02" }));
+  fireEvent.click(screen.getByRole("button", { name: "Keep L02's read_length" }));
+  expect(onFix).toHaveBeenLastCalledWith({ kind: "keep", sample: "L02", measurement: "read_length" });
+});
+
+it("hundreds of samples do not widen the page", () => {
+  const values = Array.from({ length: 500 }, (_, i) => ({ sample: `S${i}`, value: i }));
+  overview(analysis({ summary: { ...analysis().summary,
+    compare_by: [{ measurement: "read_length", label: "Read length", unit: "bp", values, median: 250 }] } }));
+  const bars = screen.getByTestId("compare-bars");
+  expect(bars.className).toContain("overflow-hidden");
+  expect(bars.className).toContain("gap-0");
 });

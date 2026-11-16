@@ -1070,9 +1070,67 @@ export interface paths {
         put?: never;
         /**
          * Use a file as a sample's mate, or leave a sample out; then scan again
-         * @description A fix is kept and applied on every scan, so it survives the next one.
+         * @description A fix is kept and applied on every scan, so it survives the next one. **Recorded as the
+         *     person's**: who made a change is the server's to say, never the page's.
          */
         post: operations["applyDataFix"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/{draft_id}/fixes/{index}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Keep a fix the AI made: it becomes the person's */
+        post: operations["keepDataFix"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/{draft_id}/rescan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read the ticked folders again
+         * @description Files added, changed or removed since the last scan are read again.
+         */
+        post: operations["rescanData"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/{draft_id}/columns/{name}/{sample}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set one sample's value in a column
+         * @description One cell, so two cells edited one after the other both stand.
+         */
+        put: operations["setDataCell"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2404,6 +2462,11 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** Cell */
+        Cell: {
+            /** Value */
+            value: string;
+        };
         /** Change */
         Change: {
             value?: components["schemas"]["JsonValue"];
@@ -3315,11 +3378,13 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "use_file" | "leave_out";
+            kind: "use_file" | "leave_out" | "keep";
             /** Sample */
             sample: string;
             /** File */
             file?: string | null;
+            /** Measurement */
+            measurement?: string | null;
             /**
              * By
              * @default you
@@ -3328,6 +3393,20 @@ export interface components {
             by: "you" | "ai";
             /** Reason */
             reason?: string | null;
+        };
+        /** FixRequest */
+        FixRequest: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "use_file" | "leave_out" | "keep";
+            /** Sample */
+            sample: string;
+            /** File */
+            file?: string | null;
+            /** Measurement */
+            measurement?: string | null;
         };
         /** Folder */
         Folder: {
@@ -4834,6 +4913,8 @@ export interface components {
                 string,
                 string | null
             ][];
+            /** Finished At */
+            finished_at?: string | null;
         };
         /**
          * ScannedFile
@@ -7402,7 +7483,134 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Fix"];
+                "application/json": components["schemas"]["FixRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    keepDataFix: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    rescanData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    setDataCell: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                name: string;
+                sample: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Cell"];
             };
         };
         responses: {

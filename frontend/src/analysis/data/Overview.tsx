@@ -60,7 +60,13 @@ export function Overview({ data, onFix }: { data: AnalysisData; onFix: (fix: Dat
 }
 
 function fixLabel(fix: DataFix): string {
-  return fix.kind === "use_file" ? `Use ${fix.file}` : "Leave out";
+  return fix.kind === "use_file" ? `Use ${fix.file}` : fix.kind === "keep" ? "Keep it" : "Leave out";
+}
+
+function fixName(fix: DataFix): string {
+  if (fix.kind === "use_file") return `Use ${fix.file} as ${fix.sample}'s mate`;
+  if (fix.kind === "keep") return `Keep ${fix.sample}'s ${fix.measurement}`;
+  return `Leave ${fix.sample} out`;
 }
 
 function Checks({ data, onFix }: { data: AnalysisData; onFix: (fix: DataFix) => void }) {
@@ -75,8 +81,13 @@ function Checks({ data, onFix }: { data: AnalysisData; onFix: (fix: DataFix) => 
             <span className="text-[12px] text-ink-3 truncate">{check.detail}</span>
           </span>
           <span className="flex gap-[6px] flex-wrap justify-end">
-            {check.fixes.map((fix) => (
-              <button key={fixLabel(fix)} type="button" onClick={() => onFix(fix)}
+            {[...check.fixes,
+              ...(check.kind === "odd_fact" && check.measurement
+                ? [{ kind: "keep", sample: check.sample, measurement: check.measurement } as DataFix] : [])
+            ].map((fix) => (
+              <button key={fixLabel(fix)} type="button" aria-label={fixName(fix)}
+                      onClick={() => onFix(fix.kind === "keep"
+                        ? { kind: "keep", sample: fix.sample, measurement: fix.measurement } as DataFix : fix)}
                       className="h-[30px] px-[11px] rounded-control border border-line-2 bg-surface text-[12.5px] text-ink
                                  cursor-pointer hover:bg-surface-2">
                 {fixLabel(fix)}
@@ -94,6 +105,8 @@ function Compare({ data }: { data: AnalysisData }) {
   const [chosen, setChosen] = useState(options[0].measurement);
   const fact = options.find((o) => o.measurement === chosen) ?? options[0];
   const top = Math.max(...fact.values.map((v) => v.value), 1);
+  const flagged = new Set(data.checks.map((c) => c.sample));
+  const many = fact.values.length > 60;
   const unit = fact.unit ? ` ${fact.unit}` : "";
   return (
     <Panel title="Compare samples by" className="w-full">
@@ -105,10 +118,12 @@ function Compare({ data }: { data: AnalysisData }) {
           </select>
           <span className="text-[12px] text-ink-3">measured from this data · median {fact.median}{unit}</span>
         </div>
-        <div className="flex items-end gap-1 h-[120px] pt-[6px] border-b border-line">
+        {/* Hundreds of samples narrow the bars rather than widen the page. */}
+        <div data-testid="compare-bars"
+             className={`flex items-end h-[120px] pt-[6px] border-b border-line overflow-hidden ${many ? "gap-0" : "gap-1"}`}>
           {fact.values.map((v) => (
             <span key={v.sample} data-testid="compare-bar" title={`${v.sample}: ${v.value}${unit}`}
-                  className="flex-1 min-w-[3px] rounded-t-xs bg-now-mid"
+                  className={`flex-1 min-w-0 ${many ? "" : "rounded-t-xs"} ${flagged.has(v.sample) ? "bg-measured" : "bg-now-mid"}`}
                   style={{ height: `${Math.max(4, (v.value / top) * 100)}%` }} />
           ))}
         </div>

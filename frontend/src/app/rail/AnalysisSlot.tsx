@@ -37,12 +37,14 @@ const PAGES: { page: AnalysisPage; label: string; icon: IconName }[] = [
 
 /** What is open: the analysis switcher, then Data / Build / Run with the active page's sub-pages
  *  indented under it. `status` is the one-line state under each page's name ("24 samples"). */
-export function AnalysisSlot({ draftId, page, run, status = {} }: {
+export function AnalysisSlot({ draftId, page, run, status = {}, counts = {} }: {
   draftId: string;
   page: AnalysisPage;
   /** The run open under Run, whose sub-pages are listed; none, and Run lists no sub-pages. */
   run?: string;
   status?: Partial<Record<AnalysisPage, string>>;
+  /** A number beside a sub-page: how many samples, references, files. */
+  counts?: Record<string, number>;
 }) {
   const { mini } = useRail();
   const draft = useQuery({
@@ -79,11 +81,14 @@ export function AnalysisSlot({ draftId, page, run, status = {} }: {
                   const to = sub ? `${root}/${sub}` : root;
                   return (
                     <li key={name}>
-                      <NavLink to={to} end
+                      <NavLink to={to} end aria-label={name}
                                className={({ isActive }) =>
                                  `flex items-center pl-[39px] pr-[10px] py-[6px] rounded-control text-[13px] no-underline
                                   ${isActive ? "text-ink font-semibold" : "text-ink-2 hover:text-ink hover:bg-surface-2"}`}>
                         {name}
+                        {sub && counts[sub] !== undefined && (
+                          <span className="ml-auto text-[11.5px] font-medium text-ink-3">{counts[sub]}</span>
+                        )}
                       </NavLink>
                     </li>
                   );
@@ -115,10 +120,15 @@ function Switcher({ draftId, name }: { draftId: string; name: string }) {
     document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
   }, [open]);
+  const [failed, setFailed] = useState(false);
   const fresh = async () => {
     setOpen(false);
-    const { id } = await post<{ id: string }>("/pipeline/drafts", { graph: { nodes: [], edges: [] } });
-    navigate(`/a/${encodeURIComponent(id)}/data`);
+    try {
+      const { id } = await post<{ id: string }>("/pipeline/drafts", { graph: { nodes: [], edges: [] } });
+      navigate(`/a/${encodeURIComponent(id)}/data`);
+    } catch {
+      setFailed(true);
+    }
   };
 
   return (
@@ -132,6 +142,7 @@ function Switcher({ draftId, name }: { draftId: string; name: string }) {
         </span>
         <span className="text-ink-3"><Icon name="updown" size={16} /></span>
       </button>
+      {failed && <p role="alert" className="m-0 mt-1 px-1 text-[12px] text-needs-you-ink">A new analysis could not start.</p>}
       {open && (
         <div role="listbox" aria-label="Analyses"
              className="absolute z-20 left-0 right-0 mt-1 rounded-control border border-line bg-surface shadow-e2 py-1

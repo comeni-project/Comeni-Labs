@@ -11,9 +11,10 @@ export function Tabs<const T extends string>({ tabs, value, onChange, label }: {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const move = (event: KeyboardEvent, index: number) => {
     const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-    if (!step) return;
+    const jump = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : null;
+    if (!step && jump === null) return;
     event.preventDefault();
-    const next = (index + step + tabs.length) % tabs.length;
+    const next = jump ?? (index + step + tabs.length) % tabs.length;
     onChange(tabs[next].id);
     refs.current[next]?.focus();
   };
