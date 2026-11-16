@@ -1,7 +1,7 @@
 """The where-it-runs table covers every place a declared measurer can run (spec §2).
 
-Review focus 1 of 14.7.6.7: a reader must not come away thinking nothing leaves their machine at
-level 0. The table has to say the sample's head reaches this server.
+Review focus 1 of 14.7.6.7: a reader must not come away thinking nothing is read off their files.
+The table has to say this server reads the start of each file.
 """
 
 from mendel_resolver import layers
@@ -34,6 +34,6 @@ def test_the_table_names_every_place_a_piece_runs():
         )
 
 
-def test_the_table_says_a_samples_head_reaches_this_server_at_level_0():
+def test_the_table_says_this_server_reads_the_start_of_each_file():
     table = _table()
-    assert "level 0" in table and "head reaches this server" in table
+    assert "first 4 MB of each file" in table and "this server" in table

@@ -13,6 +13,7 @@ from mendel_api.db import session_scope
 from mendel_api.models import AnalysisData, PipelineDraft
 from mendel_api.refusals import REFUSES
 from mendel_api.services.data import roots, rule
+from mendel_api.services.data.bindings import Bindings, bind
 from mendel_api.services.data.rule import Fix, Rule
 from mendel_api.services.data.summary import summary
 from mendel_api.services.data.types import (
@@ -237,3 +238,24 @@ def set_column(draft_id: str, body: Column) -> AnalysisDataView:
     def keep(row):
         row.columns = {**(row.columns or {}), name: dict(body.values)}
     return _change(draft_id, keep)
+
+
+@router.get("/{draft_id}/bindings", operation_id="readRunBindings",
+            summary="A run's inputs, answered from the analysis's data", responses=REFUSES)
+def read_bindings(draft_id: str) -> Bindings:
+    """Each input the kept pipeline declares, answered by type from the samples and references,
+    or `missing` with why. Built now, never stored: the browser sends it to Wiener."""
+    from comeni_core import yaml_strict
+    from comeni_core.artifact.pipeline import Pipeline
+
+    from mendel_api.services import drafts as draft_service
+
+    with session_scope() as db:
+        _draft(db, draft_id)
+        row = db.get(AnalysisData, draft_id)
+        samples = list(row.samples or []) if row else []
+        references = list(row.references or []) if row else []
+    path = draft_service.artifact_path(draft_id)
+    pipeline = (Pipeline.model_validate(yaml_strict.load(path))
+                if path is not None and path.is_file() else None)
+    return bind(pipeline, samples, references)

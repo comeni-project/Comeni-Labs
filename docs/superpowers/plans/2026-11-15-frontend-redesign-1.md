@@ -470,7 +470,7 @@ Done, outside the original plan, from Checkpoint A's finding 4 and the operator'
   samplesheet cell, resolves outside `data_roots`. Paths under the existing `.run/wiener` work and artifact roots
   stay allowed.
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `test_samplesheet_rows_come_from_kept_samples_in_artifact_column_order`
   - `test_left_out_sample_is_not_bound`
   - `test_direct_reference_channel_bound_by_type`
@@ -481,10 +481,10 @@ Done, outside the original plan, from Checkpoint A's finding 4 and the operator'
     - `test_run_with_path_inside_data_roots_is_accepted`
     - `test_run_with_path_outside_is_refused`
     - `test_samplesheet_cell_outside_is_refused`
-- [ ] **Step 2:** Run both test files. Expected: FAIL.
-- [ ] **Step 3:** Implement, then run `make client`. This regenerates both clients.
-- [ ] **Step 4:** Run the tests again, then all of `packages/wiener-api/tests/`. Expected: PASS.
-- [ ] **Step 5:** Commit: `feat: a run's inputs come from the analysis's data (#508, #511)`.
+- [x] **Step 2:** Run both test files. Expected: FAIL.
+- [x] **Step 3:** Implement, then run `make client`. This regenerates both clients.
+- [x] **Step 4:** Run the tests again, then all of `packages/wiener-api/tests/`. Expected: PASS.
+- [x] **Step 5:** Commit: `feat: a run's inputs come from the analysis's data (#508, #511)`.
 
 **→ Checkpoint B.**
 

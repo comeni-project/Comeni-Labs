@@ -40,11 +40,24 @@ from wiener_api.task_query import TaskQuery
 router = APIRouter(prefix="/api")
 
 
+class StagedSample(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sample: str
+    files: list[str]
+
+
+class Staged(BaseModel):
+    """Samples whose files the launcher links into the run's own folder (#511)."""
+
+    model_config = ConfigDict(extra="forbid")
+    stage: list[StagedSample]
+
+
 class SubmitRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     artifact_id: str
-    params: dict[str, str | list[str] | list[dict[str, str]]] = {}
+    params: dict[str, str | list[str] | list[dict[str, str]] | Staged] = {}
     """The values only the laboratory can supply, and **the artifact is the schema**.
 
     Mendel emits every value it can justify and `= null` for every value it cannot, so a
@@ -294,6 +307,16 @@ async def submit(body: SubmitRequest) -> RunAccepted:
                 "unknown": sorted(supplied - holes),
                 "missing": sorted(holes - supplied),
             })
+        # **A run reads only from the data folders** (#508): every path a value names resolves
+        # inside them, or the run's own folders. Unconfigured, there is nothing to check against.
+        if settings.data_roots:
+            given = {k: v.model_dump() if isinstance(v, Staged) else v
+                     for k, v in body.params.items()}
+            outside = launcher.paths_outside(
+                given, [*settings.data_roots, settings.artifact_root, settings.work_root])
+            if outside:
+                raise HTTPException(status_code=422, detail=coded(
+                    "MW0103", f"{outside[0]} is outside the folders runs read from"))
         # `""` means "run without it" only for an input the pipeline takes as optional (#460).
         optional = optional_holes(body.artifact_id)
         empty = sorted(name for name, value in body.params.items()
@@ -312,7 +335,8 @@ async def submit(body: SubmitRequest) -> RunAccepted:
         # parameters, and they live in its own directory rather than in the job, so a Redis
         # that loses the job loses a delay, not the run.
         try:
-            launcher.write_params(run_id, body.params)
+            launcher.write_params(run_id, {k: v.model_dump() if isinstance(v, Staged) else v
+                                           for k, v in body.params.items()})
         except OSError as exc:
             raise HTTPException(status_code=507, detail=coded(
                 "MW0101", f"the run's parameters could not be written: {exc.strerror}",

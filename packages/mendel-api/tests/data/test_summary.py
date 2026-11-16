@@ -4,9 +4,7 @@ from mendel_api.services import decisions
 from mendel_api.services.data import scan as scanning
 from mendel_api.services.data.summary import summary
 from mendel_api_tests.building import clean as clean  # noqa: F401
-from test_scan import client as client  # noqa: F401
-from test_scan import draft, pairs, tick, view  # noqa: F401
-from test_scan import root as root
+from mendel_api_tests.data import draft, pairs, tick, view
 
 
 def a_reference(root):

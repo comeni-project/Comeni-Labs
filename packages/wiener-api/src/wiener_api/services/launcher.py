@@ -10,6 +10,7 @@ on screen would explain.
 import csv
 import json
 import logging
+import os
 import pathlib
 import shutil
 import socket
@@ -164,6 +165,54 @@ def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
     return subprocess.Popen(argv, cwd=cwd)
 
 
+def _suffix(path: str) -> str:
+    name = os.path.basename(path)
+    return name[name.index("."):] if "." in name else ""
+
+
+def _stage(name: str, samples: list[dict], workdir: pathlib.Path) -> str:
+    """Samples sent as `stage` (#511): each file linked into the run's own folder under its
+    sample's name, read 1 and read 2 as `_R1`/`_R2`, and the parameter pointed at a pattern over
+    that folder, so Nextflow reads exactly these files and nothing else in their folders."""
+    folder = workdir / name
+    folder.mkdir(parents=True, exist_ok=True)
+    paired = any(len(s["files"]) == 2 for s in samples)
+    for sample in samples:
+        stem = str(sample["sample"]).replace(os.sep, "_")
+        files = list(sample["files"])
+        names = ([f"{stem}_R{i}{_suffix(f)}" for i, f in enumerate(files, 1)] if len(files) == 2
+                 else [f"{stem}{_suffix(files[0])}"])
+        for link, target in zip(names, files, strict=True):
+            (folder / link).symlink_to(target)
+    return f"{folder}/*_R{{1,2}}.*" if paired else f"{folder}/*"
+
+
+def _paths(value: object) -> list[str]:
+    """Every path a parameter's value names: a plain string, a samplesheet's cells, a stage's
+    files."""
+    if isinstance(value, str):
+        return [value] if value.startswith("/") else []
+    if isinstance(value, dict) and isinstance(value.get("stage"), list):
+        return [f for s in value["stage"] for f in s.get("files", []) if isinstance(f, str)]
+    if isinstance(value, list):
+        return [cell for row in value if isinstance(row, dict) for cell in row.values()
+                if isinstance(cell, str) and cell.startswith("/")]
+    return []
+
+
+def paths_outside(params: dict[str, object], roots: list[pathlib.Path]) -> list[str]:
+    """The paths in `params` that do not resolve inside one of `roots` (#508): a run reads only
+    from the data folders. A link is followed before the check, so one cannot lead out."""
+    resolved = [pathlib.Path(r).resolve() for r in roots]
+    outside = []
+    for value in params.values():
+        for path in _paths(value):
+            target = pathlib.Path(path).resolve()
+            if not any(target.is_relative_to(root) for root in resolved):
+                outside.append(path)
+    return outside
+
+
 def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dict[str, object]:
     """Turn a submitted samplesheet into a CSV in the workdir, and point the param at it.
 
@@ -185,6 +234,9 @@ def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dic
     """
     written: dict[str, object] = {}
     for name, value in params.items():
+        if isinstance(value, dict) and isinstance(value.get("stage"), list):
+            written[name] = _stage(name, value["stage"], workdir)
+            continue
         rows = value if isinstance(value, list) else None
         if not rows or not all(isinstance(row, dict) for row in rows):
             written[name] = value

@@ -4,9 +4,7 @@ data and applied on every scan."""
 from mendel_api.services import decisions
 from mendel_api.services.data import scan as scanning
 from mendel_api_tests.building import clean as clean  # noqa: F401
-from test_scan import PAIR, draft, pairs, tick, view  # noqa: F401
-from test_scan import client as client  # noqa: F401 — the shared fixtures
-from test_scan import root as root
+from mendel_api_tests.data import PAIR, draft, pairs, tick, view
 
 
 def folder_with_a_stray_mate(root):

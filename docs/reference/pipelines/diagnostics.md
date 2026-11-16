@@ -263,6 +263,7 @@ decline to curate one.
 | `MI0401` | a draft with a gate running cannot be deleted |
 | `MW0101` | a run's parameters could not be written; nothing was queued |
 | `MW0102` | a run had no parameters to launch with, so it was failed rather than started empty |
+| `MW0103` | a run's input is outside the folders runs read from |
 
 ## Wiener — what may enter
 

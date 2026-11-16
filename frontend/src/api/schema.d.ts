@@ -1117,6 +1117,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data/{draft_id}/bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A run's inputs, answered from the analysis's data
+         * @description Each input the kept pipeline declares, answered by type from the samples and references,
+         *     or `missing` with why. Built now, never stored: the browser sends it to Wiener.
+         */
+        get: operations["readRunBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/forge/catalogue": {
         parameters: {
             query?: never;
@@ -2224,6 +2245,26 @@ export interface components {
         BeginAuthoring: {
             /** Prompt */
             prompt: string;
+        };
+        /** Bindings */
+        Bindings: {
+            /**
+             * Params
+             * @default {}
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /**
+             * Missing
+             * @default []
+             */
+            missing: components["schemas"]["Missing"][];
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
         };
         /** BuiltPipeline */
         BuiltPipeline: {
@@ -3731,6 +3772,15 @@ export interface components {
             when: number | boolean | string | null;
             /** Then */
             then: number | boolean | string | null;
+        };
+        /** Missing */
+        Missing: {
+            /** Channel */
+            channel: string;
+            /** Type Id */
+            type_id: string;
+            /** Why */
+            why: string;
         };
         /** ModuleDetail */
         ModuleDetail: {
@@ -7406,6 +7456,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readRunBindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Bindings"];
                 };
             };
             /** @description The id in the path names nothing. */

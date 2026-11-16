@@ -5579,3 +5579,6 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `test_listing_a_file_is_refused_not_a_crash` (both failed on the old `roots.py`), and
   `test_scan_of_many_samples_holds_one_samples_heads_at_a_time` against a scan that read every head
   first (peak 62, not 2). All pass after.
+- 2026-11-16, redesign Task 7 (#508, #511): `test_submit_refuses_an_input_outside_the_data_roots`
+  and `test_submit_takes_staged_samples`, run against the committed `routes/runs.py` (no guard, no
+  `stage` shape): both failed. Both pass after.

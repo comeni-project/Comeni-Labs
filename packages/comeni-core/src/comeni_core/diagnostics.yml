@@ -3849,3 +3849,17 @@ MW0102:
     A pipeline started with none of its declared inputs would run with every one of them empty,
     and fail somewhere deep inside with a message about a missing file. Failing it before it
     starts says what is actually wrong.
+MW0103:
+  emitted_by: wiener-api
+  concern: storage
+  says: "a run's input is outside the folders runs read from"
+  fires_on: [run]
+  refuses: true
+  fix: |
+    Choose the file from the analysis's Data, which only lists files under the data folders, or
+    add its folder to `WIENER_DATA_ROOTS` (and `MENDEL_DATA_ROOTS`), mounted read-only at the same
+    path, and restart.
+  explanation: |
+    A run reads a person's files only from the installation's data folders. Every path a run's
+    parameters name, in a value, a samplesheet's cells or the samples it stages, is resolved,
+    following links, and must sit inside one of them or the run's own folders.
