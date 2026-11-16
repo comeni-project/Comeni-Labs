@@ -102,15 +102,6 @@ def test_an_mcp_write_after_the_persons_change_is_refused(clean):
     assert fresh["ok"] is True and fresh["revision"] > stale["revision"]
 
 
-def test_mcp_answers_only_where_the_protection_level_allows_the_agent(clean, monkeypatch):
-    from mendel_api.services import protection
-
-    draft = served.draft_of(asyncio.run(served.server.call_tool("open_draft", {})))
-    monkeypatch.setattr(protection, "allows", lambda crossing: False)
-    refused = _result(asyncio.run(served.server.call_tool("read_goal", {"draft_id": draft})))
-    assert refused["ok"] is False and refused["refusal"].startswith("MI0213")
-
-
 def test_a_malformed_authorization_header_is_a_clean_refusal(monkeypatch):
     monkeypatch.setattr(settings, "mcp_token", "the-token")
     with TestClient(create_app()) as client:

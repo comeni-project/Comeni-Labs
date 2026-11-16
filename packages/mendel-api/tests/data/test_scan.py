@@ -179,18 +179,6 @@ def test_a_failed_scan_says_so_and_does_not_raise(clean, client, root, monkeypat
     assert got["state"] == "failed" and "disk on fire" in got["error"]
 
 
-def test_scan_refused_when_protection_forbids_inspection(clean, client, root, monkeypatch):
-    from mendel_api.services import protection
-
-    d = draft(client)
-    tick(client, d, pairs(root / "liver", "L01"))
-    monkeypatch.setattr(protection, "allows", lambda crossing: False)
-    scanning.scan(d, who="ana")
-    got = view(client, d)
-    assert got["scan"]["state"] == "failed" and "MI0213" in got["scan"]["error"]
-    assert got["samples"] == []
-
-
 def test_paths_never_reach_the_draft(clean, client, root):
     d = draft(client)
     folder = pairs(root / "liver", "L01")

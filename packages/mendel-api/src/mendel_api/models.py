@@ -294,7 +294,7 @@ class AiInvocation(Base):
     """Input tokens the provider served from its prompt cache (#183). Null when it said nothing."""
     response: Mapped[str | None] = mapped_column(Text, nullable=True)
     """Exactly what the model returned, admitted or refused (#182). A level-0 store: a reply can
-    echo the person's words, and each future protection level decides whether it is kept."""
+    echo the person's words."""
     response_cleared: Mapped[str | None] = mapped_column(
         _one_of(ReplyCleared, 16, "response_cleared"), nullable=True
     )

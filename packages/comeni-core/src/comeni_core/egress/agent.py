@@ -3,8 +3,8 @@
 The conversation is the person's own words and the agent's own replies, as typed. A tool result
 is its name, whether it worked, a typed view of what it read or did, or the coded refusal the
 engine gave. The views are declared here, beside the door, so the egress guards walk every shape
-that reaches a model. At protection level 0 a view may carry a sample's name (the operator's
-decision, 2026-11-14); stricter levels filter before a view is built.
+that reaches a model. A view may carry a sample's name (the operator's decision, 2026-11-14), never
+a path or a file's contents.
 """
 
 from enum import StrEnum
@@ -179,7 +179,7 @@ class RulesView(EgressPayload):
 
 
 class FactsView(EgressPayload):
-    """The facts about the person's data, and their samples by name at level 0."""
+    """The facts about the person's data, and their samples by name."""
 
     kind: Literal[ViewKind.FACTS] = ViewKind.FACTS
     facts: list[FactLine] = Field(default_factory=list)

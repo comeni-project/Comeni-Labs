@@ -24,7 +24,6 @@ from mendel_api.routes import health as health_routes
 from mendel_api.routes import proposals as proposal_routes
 from mendel_api.routes import registry as registry_routes
 from mendel_api.routes import settings as settings_routes
-from mendel_api.services import protection
 
 TAGS = [
     {"name": "questions", "description": "What is open, and how it gets closed."},
@@ -83,7 +82,6 @@ def create_app() -> FastAPI:
     app.add_exception_handler(KeyError, missing_handler)
     # A setting that is locked (pinned by .env, or not built) is a 409 with its reason, `MI0300`.
     app.add_exception_handler(SettingLocked, locked_handler)
-    protection.warn_if_unbuilt()
 
     @app.get(
         "/api/health", operation_id="liveness", summary="Is the service up", tags=["health"]

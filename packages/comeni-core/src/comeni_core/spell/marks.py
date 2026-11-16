@@ -90,10 +90,9 @@ class Mark(StrEnum):
     """Text a human typed or a tool printed. Unbounded, and the thing the egress boundary
     exists to contain. Only the fields named in the guard's allowlist may carry it."""
     SAMPLE = "sample"
-    """**Data from a person's file.** The start of a sample, decoded to text, for the
-    characteriser (14.7.7). Not `FREE_TEXT`: nobody typed it, and it is the one thing this
-    system holds that came from inside someone's data. Bounded by its type (`SampleText`), and
-    reachable from door 6 only (`tests/guards/test_egress.py`)."""
+    """**Something of a person's data**: a sample's name, for the builder agent to talk about
+    (#463). Not `FREE_TEXT`: nobody typed it. Bounded by its type (`SampleName`), and reachable
+    from the builder agent's door only (`tests/guards/test_egress.py`)."""
 
     OPTION_ID = "option-id"
     """One answer a person may pick, addressed by id rather than by value.
@@ -240,23 +239,6 @@ EXCERPT_BYTES = 8 * 1024
 """Maximum UTF-8 byte length of a sample excerpt shown to a model."""
 EXCERPT_LINES = 200
 """…and in lines, whichever comes first."""
-
-
-def _sample_text(value: str) -> str:
-    """At most `EXCERPT_BYTES` and `EXCERPT_LINES`. **A bound, not a shape**: what a sample says
-    is not this code's to check, but how much of it may leave is."""
-    if len(value.encode()) > EXCERPT_BYTES:
-        raise ValueError(f"an excerpt is at most {EXCERPT_BYTES} bytes")
-    # Match the excerpt cutter: only `\n` separates lines. `splitlines()` would also treat
-    # Unicode separators as boundaries and reject excerpts the cutter retained.
-    lines = value.count("\n") + (1 if value and not value.endswith("\n") else 0)
-    if lines > EXCERPT_LINES:
-        raise ValueError(f"an excerpt is at most {EXCERPT_LINES} lines")
-    return value
-
-
-SampleText = Annotated[str, Mark.SAMPLE, AfterValidator(_sample_text)]
-"""A bounded excerpt from the start of a sample."""
 
 
 def _sample_name(value: str) -> str:

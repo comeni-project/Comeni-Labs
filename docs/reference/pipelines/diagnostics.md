@@ -219,8 +219,6 @@ decline to curate one.
 | `MI0203` | only a turn that failed is asked again |
 | `MI0204` | the goal a model wrote names something this registry does not declare |
 | `MI0208` | that value does not fit what this measurement can be |
-| `MI0213` | the protection level does not allow this crossing |
-| `MI0214` | an upload was refused: one file or a pair, nothing else |
 | `MI0219` | there is no pipeline to compile yet |
 | `MI0220` | the builder's turn did not run to the end |
 | `MI0500` | a rule proposal cannot be approved as it stands |

@@ -3658,31 +3658,6 @@ MI0208:
     Every measurement is declared with what it may hold: a read length is a positive whole
     number, strandedness is one of three words. A value outside that would reach a rule that
     decides on it, and a rule deciding on an impossible value decides wrongly without saying so.
-MI0213:
-  emitted_by: api
-  concern: workflow
-  says: "the protection level does not allow this crossing"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Level 0 is the only level built: it lets a sample be uploaded and read. Open, guarded and
-    sealed are designed (issue 71); until they are, a lab that needs one does not upload.
-  explanation: |
-    Every place data could cross (an upload reaching this server, a model reading a sample, the
-    characterise payload leaving) asks the protection level first. Each level's row says which
-    crossings it allows; a level whose row is not built allows none, so tightening is filling in
-    a row, never a crossing that forgot to ask.
-MI0214:
-  emitted_by: api
-  concern: workflow
-  says: "an upload was refused: one file or a pair, nothing else"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Upload one file, or the two files of a pair (R1 and R2).
-  explanation: |
-    A sample answers a question about the data, and one file or one pair is what a question
-    about the data can be answered from. Nothing is read before the count is checked.
 MI0219:
   emitted_by: api
   concern: workflow

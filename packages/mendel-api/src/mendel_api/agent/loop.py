@@ -34,7 +34,7 @@ from mendel_api.authoring.types import (
 )
 from mendel_api.db import session_scope
 from mendel_api.models import AiInvocation, PipelineAuthoringSession, PipelineAuthoringTurn
-from mendel_api.services import decisions, protection
+from mendel_api.services import decisions
 from mendel_api.settings import settings
 
 log = logging.getLogger(__name__)
@@ -259,12 +259,6 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
     with session_scope() as db:
         draft_id = db.get(PipelineAuthoringSession, session_id).draft_id
     blocks: list[dict] = []
-    if not protection.allows(protection.Crossing.AGENT):
-        blocks.append(Notice(id=f"refused-{seq}", notice=NoticeKind.REFUSAL,
-                             text=protection.refuse(protection.Crossing.AGENT),
-                             code="MI0213").model_dump(mode="json"))
-        _write(session_id, seq, blocks, TurnState.FAILED)
-        return TurnState.FAILED.value
     access = model_access()
     if access is None:
         blocks.append(Notice(id=f"refused-{seq}", notice=NoticeKind.REFUSAL,

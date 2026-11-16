@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.egress.agent import AgentRequest
-from comeni_core.egress.characterisation import CharacteriseRequest
 from comeni_core.egress.forge import ForgeRequest
 from comeni_core.egress.repair import RepairRequest
 from comeni_core.egress.rules import RuleProposalRequest
@@ -39,9 +38,8 @@ BOUNDARIES: dict[str, Boundary] = {
     "publication": Boundary(Pipeline, BoundaryFlow.PIPELINE),
     # Forge MVP 3 (#364): public module files and registry ids in, drafted items out.
     "forge_drafting": Boundary(ForgeRequest, BoundaryFlow.FORGE),
-    "characterisation": Boundary(CharacteriseRequest, BoundaryFlow.PIPELINE),
-    # #463: the builder agent's conversation and what its tools return to its model. At level 0
-    # a result may carry a sample's name; `tests/fixtures/guard-ledger.md` records why.
+    # #463: the builder agent's conversation and what its tools return to its model. A result may
+    # carry a sample's name; `tests/fixtures/guard-ledger.md` records why.
     "builder_agent": Boundary(AgentRequest, BoundaryFlow.PIPELINE),
     # #462: people's past answers and the study facts they rested on, a rule row out.
     "rule_proposal": Boundary(RuleProposalRequest, BoundaryFlow.FORGE),

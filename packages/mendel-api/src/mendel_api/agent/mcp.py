@@ -18,7 +18,7 @@ from pydantic import Field
 from starlette.responses import JSONResponse
 
 from mendel_api.agent.tools import TOOLS, Tool, ToolContext, call
-from mendel_api.services import decisions, drafts, protection
+from mendel_api.services import decisions, drafts
 from mendel_api.settings import settings
 
 server = MCPServer(
@@ -58,11 +58,6 @@ def _served(tool: Tool):
 
     def run(*, draft_id: str, ctx: Context | None = None, revision: int | None = None,
             **arguments) -> dict:
-        # **The protection level holds over MCP too** (#463 review): a client is most likely a
-        # model, and the agent's crossing is what this level allows or refuses.
-        if not protection.allows(protection.Crossing.AGENT):
-            return {"tool": tool.name, "ok": False, "revision": decisions.revision(draft_id),
-                    "refusal": protection.refuse(protection.Crossing.AGENT)}
         # **A write states the revision it was read from** (#463 review): the person or the
         # in-app agent may have changed the pipeline since; that change stands, and this one is
         # refused (`MI0201`) until the client reads again. Every result says the revision now.

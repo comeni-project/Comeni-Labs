@@ -16,10 +16,10 @@ describe("the client", () => {
 
   it("turns a coded 403 into a Refused", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: false, status: 403, json: async () => ({ detail: "MI0213: the level is sealed" }),
+      ok: false, status: 403, json: async () => ({ detail: "MI0221: not a folder Comeni can read" }),
     }));
     await expect(put("/x/samples", {}))
-      .rejects.toEqual(new Refused("MI0213: the level is sealed"));
+      .rejects.toEqual(new Refused("MI0221: not a folder Comeni can read"));
   });
 
   // Issue 228: a proxy's own 403 page is not this API refusing anything.

@@ -68,7 +68,7 @@ async function send<T>(method: string, path: string, payload: unknown): Promise<
 
 async function answered<T>(path: string, r: Response): Promise<T> {
   // **422, 409 and 403 are refusals with a coded reason**: a setting locked between reading
-  // and saving (409, `MI0300`), the protection level refusing a crossing (403, `MI0213`). The
+  // and saving (409, `MI0300`), a refusal with its coded reason (403). The
   // person needs that sentence, not a status code. **A 403 with no reason is not ours**: a
   // proxy's own page stays an error naming the path (issue 228).
   // Preserve application refusal sentences. A 403 without one remains a path/status error.

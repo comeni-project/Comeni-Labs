@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 
 from mendel_api.agent.tools import Tool, ToolContext, register
 from mendel_api.authoring.types import FactKind
-from mendel_api.services import authoring_decisions, decisions, explain, gaps, protection, registry
+from mendel_api.services import authoring_decisions, decisions, explain, gaps, registry
 
 
 class Nothing(BaseModel):
@@ -212,16 +212,14 @@ def read_rules(ctx: ToolContext, args: RoleArgs) -> RulesView:
 
 def read_facts(ctx: ToolContext, _: Nothing) -> FactsView:
     current = decisions.read(ctx.draft_id)
-    samples: list[str] = []
-    if protection.allows(protection.Crossing.AGENT):
-        from mendel_api.db import session_scope
-        from mendel_api.models import AnalysisData
+    from mendel_api.db import session_scope
+    from mendel_api.models import AnalysisData
 
-        # The analysis's samples, from its data (#511): the one place samples live.
-        with session_scope() as db:
-            row = db.get(AnalysisData, ctx.draft_id)
-            kept = row.samples if row else []
-            samples = [str(s["name"]) for s in kept if not s.get("left_out")]
+    # The analysis's samples, from its data (#511): the one place samples live.
+    with session_scope() as db:
+        row = db.get(AnalysisData, ctx.draft_id)
+        kept = row.samples if row else []
+        samples = [str(s["name"]) for s in kept if not s.get("left_out")]
     return FactsView(
         facts=[FactLine(measurement=f.subject, value=f.value, source=f.origin.value)
                for f in current.facts],

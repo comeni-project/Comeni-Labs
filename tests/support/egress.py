@@ -18,11 +18,8 @@ from support.walk import reachable
 PIPELINE_DOORS = {
     "compiler_repair",
     "publication",
-    # Door 6, 14.7.7: the characteriser. The first door that carries data from a person's file,
-    # at protection level 0 only. On the pipeline path because what it reads becomes the goal.
-    "characterisation",
     # #463: the builder agent's conversation and tool results. The person's words, engine views
-    # of the pipeline, the registry and the person's facts, and at level 0 a sample's name: on
+    # of the pipeline, the registry and the person's facts, and a sample's name: on
     # the pipeline path because they are what the agent builds from.
     "builder_agent",
 }
@@ -57,8 +54,7 @@ arrives, and it is still a blob — sign the artifact beside the bundle, not ins
 # A16 splitting `DecisionRecord` into three, and `Pipeline` taking door 4 — which is exactly
 # what a literal list exists to make somebody look at.
 # **`ai_invocation.response` is not here, and should not be** (#182, 2026-09-29): a model's reply
-# is stored, never sent — it crosses no door. It is a level-0 store, recorded in
-# `docs/design/authoring-protocol.md`'s protection table and loosenings.
+# is stored, never sent — it crosses no door.
 FREE_TEXT_FIELDS = {
     # Declared type/state signatures from registry vocabulary, sent through the forge door.
     ("KnownIds", "signatures"),
@@ -228,14 +224,10 @@ FREE_TEXT_FIELDS = {
 
 
 SAMPLE_FIELDS = {
-    # The first, 14.7.7: the start of a sample, decoded to text, for the characteriser. **Not
-    # free text, and counted apart on purpose**: free text is what a person typed or a tool
-    # printed, and this is what a person's *file* holds. At most 8 KB and 200 lines, which the
-    # type enforces (`marks.SampleText`), and only at protection level 0.
-    ("CharacteriseRequest", "excerpt"),
-    # The second, #463: the samples of the person's last upload, by name, returned to the
-    # builder agent's model by a read tool. Level 0 only (the operator's decision, 2026-11-14;
-    # `tests/fixtures/guard-ledger.md`); a stricter level filters it before the view is built.
+    # #463: the person's samples, by name, returned to the builder agent's model by a read tool
+    # (the operator's decision, 2026-11-14; `tests/fixtures/guard-ledger.md`). **Not free text,
+    # and counted apart on purpose**: free text is what a person typed or a tool printed, and
+    # this is something of a person's data.
     ("SamplesView", "names"),
     ("FactsView", "samples"),
 }

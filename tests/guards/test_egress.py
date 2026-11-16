@@ -18,7 +18,6 @@ import pytest
 from comeni_core.egress import boundaries as egress
 from comeni_core.egress.agent import AgentToolResult
 from comeni_core.egress.base import EgressPayload
-from comeni_core.egress.characterisation import CharacteriseRequest
 from comeni_core.plan.tiers import Tier, ValueSource
 from comeni_core.spell.marks import Mark
 from pydantic import ValidationError, computed_field
@@ -114,9 +113,9 @@ def test_sample_data_lives_only_where_declared():
     assert found == SAMPLE_FIELDS
 
 
-def test_only_the_characterisation_and_agent_doors_can_reach_a_sample():
+def test_only_the_agent_door_can_reach_a_sample():
     """A sample field nested in any other door's payload, through any path, fails here. The
-    builder agent's door reaches one at level 0 (the operator's decision, 2026-11-14; see
+    builder agent's door reaches a sample's name (the operator's decision, 2026-11-14; see
     `tests/fixtures/guard-ledger.md`)."""
     reaching = {
         name
@@ -124,7 +123,7 @@ def test_only_the_characterisation_and_agent_doors_can_reach_a_sample():
         for model in reachable(payload)
         if _fields(model, Mark.SAMPLE)
     }
-    assert reaching == {"characterisation", "builder_agent"}
+    assert reaching == {"builder_agent"}
 
 
 def test_the_builder_agent_door_is_the_conversation_and_one_typed_result_per_tool_call():
@@ -138,35 +137,6 @@ def test_the_builder_agent_door_is_the_conversation_and_one_typed_result_per_too
     assert list(AgentTurn.model_fields) == ["speaker", "content"]
     assert list(AgentToolResult.model_fields) == ["tool", "ok", "view", "refusal"]
     assert egress.FLOWS["builder_agent"] is egress.BoundaryFlow.PIPELINE
-
-
-def test_the_characterisation_door_carries_the_excerpt_and_nothing_of_the_file():
-    """Spec §6: no file name, no extension, no session, no question, no conversation."""
-    door = egress.PAYLOADS["characterisation"]
-    assert list(door.model_fields) == ["excerpt", "binary_before", "registry"]
-    assert reachable(door) == {door}, "the payload holds no nested model that could grow a field"
-
-
-@pytest.mark.parametrize(
-    "text",
-    ["x" * 8193, "a\n" * 201, "é" * 4097],
-    ids=["bytes", "lines", "bytes-as-utf8"],
-)
-def test_an_excerpt_over_its_bound_is_refused_by_its_type(text):
-    with pytest.raises(ValidationError):
-        CharacteriseRequest(excerpt=text)
-
-
-@pytest.mark.parametrize("separator", ["\u2028", "\x85", "\x0c"], ids=["u2028", "nel", "ff"])
-def test_an_excerpt_counts_lines_as_the_cutter_does(separator):
-    """Issue 237: 200 newline-separated lines are 200 lines, whatever else they hold."""
-    text = "\n".join(f"a{separator}b" for _ in range(200))
-    assert CharacteriseRequest(excerpt=text).excerpt
-
-
-def test_an_excerpt_at_its_bound_is_accepted():
-    assert CharacteriseRequest(excerpt="a\n" * 199 + "a").excerpt
-    assert CharacteriseRequest(excerpt="x" * 8192).excerpt
 
 
 def test_payloads_forbid_unknown_fields():

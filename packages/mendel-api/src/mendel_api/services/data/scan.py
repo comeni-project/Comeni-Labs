@@ -15,7 +15,7 @@ from pathlib import Path
 from mendel_api.authoring.types import SampleFact
 from mendel_api.db import session_scope
 from mendel_api.models import AnalysisData
-from mendel_api.services import inspect, protection, registry
+from mendel_api.services import inspect, registry
 from mendel_api.services.data import pairing
 from mendel_api.services.data.roots import inside_roots
 from mendel_api.services.data.types import DataSample, Scan, ScannedFile
@@ -95,8 +95,6 @@ def scan(draft_id: str, *, who: str, revision: int | None = None) -> None:
 
 def _run(draft_id: str, folders: list[str], revision: int, who: str) -> None:
     try:
-        if not protection.allows(protection.Crossing.SAMPLE_HEAD):
-            raise ValueError(protection.refuse(protection.Crossing.SAMPLE_HEAD))
         groups = _files(folders)
         total = sum(len(g) for g in groups)
         _save(draft_id, revision, scan=Scan(state="scanning", total=total).model_dump())
