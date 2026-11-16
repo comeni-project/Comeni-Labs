@@ -341,6 +341,23 @@ Board: every screen. Compare how each piece repeats across `Main`, `Build`, `Run
 
 **→ Checkpoint A.**
 
+### Task 4b (inserted 2026-11-16, operator): Facts derived, rules cleaned up
+
+Done, outside the original plan, from Checkpoint A's finding 4 and the operator's rules audit:
+
+- [x] Facts and inputs about the data are derived from `analysis_data` at every `decisions.read`, never logged
+  (`services/data/facts.py`). A person's or the AI's word stands. A finished scan rebuilds the pipeline.
+- [x] Protection levels, their checks and setting, MI0213 and MI0214 are removed. A posture is #71.
+- [x] The characterisation door (door 6), its payload and `SampleText` are removed.
+- [x] Shape versions are removed in both services: stamps, load checks, goldens, MI0400 and MW0100.
+- [x] Invariants 3, 14 and 15, the tiers section and the public claims are rewritten. `CLAUDE.md`'s
+  issue-first rule now covers only defects outside the plan.
+
+**Consequences for later tasks:**
+- Task 5 rewrites pairing only. Facts already follow the data.
+- Task 7's samplesheet fact columns read each sample's own value for a fact that *varies*.
+- Tasks 12–14 show source tags (MEASURED / RULE / DEFAULT / YOU / AI / NOT SET), never tier colours.
+
 ### Task 5: The reading rule, Check these, and fixes
 
 **Files:**
