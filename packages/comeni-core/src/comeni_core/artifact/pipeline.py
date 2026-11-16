@@ -983,8 +983,9 @@ class Pipeline(EgressPayload):
     # ---------------- DIGEST AND CONSTRUCTION ----------------
 
     def content_digest(self) -> str:
-        """Hash the pipeline with emitted set to None, avoiding a self-referential digest."""
-        return digest_of(self.model_copy(update={"emitted": None}))
+        """Hash the pipeline without `emitted` and `gate`: both are verdicts about the emitted
+        files, stamped after keep, not part of which pipeline this is (#529)."""
+        return digest_of(self.model_copy(update={"emitted": None, "gate": None}))
 
     @classmethod
     def of(

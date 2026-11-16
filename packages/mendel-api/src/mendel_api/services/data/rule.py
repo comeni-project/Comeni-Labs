@@ -11,6 +11,7 @@ AI) applied, and what *Check these* finds.
 """
 
 import re
+import statistics
 from collections import Counter
 from typing import Literal
 
@@ -155,7 +156,11 @@ def _words(measurement: str) -> str:
 
 def _plain(value: object) -> str:
     """A value as a person reads it: `true`, `101`, `phred33`."""
-    return str(value).lower() if isinstance(value, bool) else str(value)
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, int | float) and abs(value) >= 10_000:
+        return f"{round(value):,}"  # 2,814,816 rather than 2814816 (walk 2026-11-16)
+    return str(value)
 
 
 def _read_order(name: str) -> tuple[str, str]:
@@ -165,6 +170,28 @@ def _read_order(name: str) -> tuple[str, str]:
 
 def _name(path: str) -> str:
     return path.rsplit("/", 1)[-1]
+
+
+def _far_from_median(measurement: str, values: list[tuple[str, object]],
+                     kept: set[tuple[str, str]]) -> list[Check]:
+    numbers = [(s, v) for s, v in values if isinstance(v, int | float) and not isinstance(v, bool)]
+    if len(numbers) < 3 or len(numbers) != len(values):
+        return []
+    median = statistics.median(v for _, v in numbers)
+    if median <= 0:
+        return []
+    return [Check(sample=sample, kind="odd_fact", measurement=measurement,
+                  detail=f"{_words(measurement)} is {_plain(value)}; the median is "
+                         f"{_plain(int(median) if median == int(median) else median)}",
+                  fixes=[Fix(kind="leave_out", sample=sample)])
+            for sample, value in numbers
+            if (sample, measurement) not in kept
+            and (value > median * 10 or value * 10 < median)]
+
+
+def to_check(found: list[Check]) -> int:
+    """How many samples need a look: one flagged for two measurements is one (walk 2026-11-16)."""
+    return len({c.sample for c in found})
 
 
 def checks(samples: list[dict], unfit: list[str], fixes: list[Fix] = ()) -> list[Check]:
@@ -209,11 +236,16 @@ def checks(samples: list[dict], unfit: list[str], fixes: list[Fix] = ()) -> list
             continue
         for fact in s.get("facts", []):
             measured.setdefault(fact["measurement"], []).append((s["name"], fact.get("value")))
+    kept_values = {(f.sample, f.measurement) for f in fixes if f.kind == "keep"}
     for measurement, values in sorted(measured.items()):
         common, count = Counter(_plain(v) for _, v in values).most_common(1)[0]
-        if count <= len(values) / 2 or count == len(values):
+        if count <= len(values) / 2:
+            # No value most samples share, as with counts: a number ten times above or below
+            # the median is the odd one (walk 2026-11-16: an assembly in 65 pieces among 1-24).
+            found += _far_from_median(measurement, values, kept_values)
             continue
-        kept_values = {(f.sample, f.measurement) for f in fixes if f.kind == "keep"}
+        if count == len(values):
+            continue
         for sample, value in values:
             if (sample, measurement) in kept_values:
                 continue  # the person decided this value is fine

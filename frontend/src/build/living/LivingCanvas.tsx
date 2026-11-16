@@ -330,6 +330,15 @@ export function LivingCanvas({
     if (shown === firstShown.current || touched.current) return;
     fitLatest.current();
   }, [shown]);
+  // **Fitted as the agent builds** (walk 2026-11-16): a pipeline that grows on a canvas nobody
+  // has moved is fitted each time its step count changes; a person's own view is kept.
+  const lastDrawn = useRef(drawn);
+  useEffect(() => {
+    if (drawn === lastDrawn.current) return;
+    lastDrawn.current = drawn;
+    if (drawn === 0 || touched.current) return;
+    requestAnimationFrame(() => fitLatest.current());
+  }, [drawn]);
   const opened = useRef(false);
   useEffect(() => {
     if (!fitOnOpen || opened.current || drawn === 0) return;

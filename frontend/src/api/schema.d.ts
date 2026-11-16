@@ -5100,7 +5100,7 @@ export interface components {
             /** Recognised */
             recognised?: string | null;
             /** Used As */
-            used_as?: "reference" | null;
+            used_as?: ("reference" | "candidate") | null;
         };
         /** Setting */
         Setting: {

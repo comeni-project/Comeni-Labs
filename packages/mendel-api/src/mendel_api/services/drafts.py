@@ -275,13 +275,13 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
         ]
         # Each listed analysis's data, without its file list (#511).
         from mendel_api.models import AnalysisData
-        from mendel_api.services.data.rule import Fix, checks
+        from mendel_api.services.data.rule import Fix, checks, to_check
 
         data = {
             draft_id: DataSummary(
                 samples=sum(1 for s in samples or [] if not s.get("left_out")),
-                checks=len(checks(list(samples or []), list(unfit or []),
-                                  [Fix(**f) for f in fixes or []])),
+                checks=to_check(checks(list(samples or []), list(unfit or []),
+                                       [Fix(**f) for f in fixes or []])),
                 scan=(scan or {}).get("state", "idle"), folders=len(folders or []))
             for draft_id, samples, unfit, fixes, scan, folders in session.query(
                 AnalysisData.draft_id, AnalysisData.samples, AnalysisData.unfit,

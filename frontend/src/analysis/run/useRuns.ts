@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 
 import { get, post } from "../../api/client";
 import type { components } from "../../api/schema";
@@ -74,6 +75,15 @@ export function useRun(runId: string) {
     queryFn: () => fromWiener<{ nodes: RunNode[] }>(`/api/runs/${runId}/graph`),
     refetchInterval: live ? 4_000 : false,
   });
+  // **Read once more when it ends** (walk 2026-11-16): polling stops with the run, and the last
+  // poll can land before the last task, leaving a finished run at "4 of 5".
+  const wasLive = useRef(live);
+  const { refetch: again } = overview;
+  const { refetch: redraw } = graph;
+  useEffect(() => {
+    if (wasLive.current && !live) { void again(); void redraw(); }
+    wasLive.current = live;
+  }, [live, again, redraw]);
   return { state, overview, graph, live };
 }
 

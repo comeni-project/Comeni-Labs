@@ -81,6 +81,13 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     return () => clearTimeout(wait);
   }, [revision]);
 
+  // **The analyses list follows what was committed** (#530): the rail, Home and Run read the
+  // analysis's name, step count and kept digest from it, and the agent renames and builds.
+  const working = session.data?.working ?? false;
+  useEffect(() => {
+    if (session.data && !working) void client.invalidateQueries({ queryKey: ["drafts"] });
+  }, [client, working, settledRevision, session.data === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const preview = useQuery({
     queryKey: [...key(sessionId), "preview", settledRevision],
     queryFn: () => get<AuthoringPreview>(`/pipeline/authoring/${sessionId}/preview`),

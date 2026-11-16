@@ -42,7 +42,7 @@ it("a reference is listed with its kind and can be removed", () => {
   expect(remove).toHaveBeenCalledWith(0);
 });
 
-it("kinds are offered and listed by their names, not their ids (#527)", async () => {
+it("kinds are offered and listed by their names, not their ids (issue 527)", async () => {
   refs(analysis({ references: [{ path: "/d/genes.gtf", name: "genes.gtf", type_id: "annotation.gtf",
                                 origin: "you", facts: [] }] }));
   expect(await screen.findByRole("option", { name: "Genome sequence" })).toBeTruthy();

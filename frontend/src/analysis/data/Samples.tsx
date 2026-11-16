@@ -5,13 +5,12 @@ import { Panel } from "../../ui/Panel";
 import { Segmented } from "../../ui/Segmented";
 import { SourceTag } from "../../ui/SourceTag";
 import type { AnalysisData } from "./types";
+import { plain } from "./values";
 
 type Sample = AnalysisData["samples"][number];
 
 const words = (id: string) => id.replace(/[_.]/g, " ").replace(/^./, (c) => c.toUpperCase());
 const base = (path: string) => path.split("/").pop() ?? path;
-const plain = (value: unknown) => value === true ? "yes" : value === false ? "no" : value == null ? "—" : String(value);
-
 /** Data · Samples (#511): how the files were read into samples, as examples you can confirm or
  *  change, and the samples table. Its columns follow the kind of data. */
 export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColumn }: {
@@ -32,6 +31,7 @@ export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColum
 
   const paired = data.samples.filter((s) => s.files.length === 2).length > data.samples.length / 2;
   const facts = [...new Set(data.samples.flatMap((s) => s.facts.map((f) => f.measurement)))].sort();
+  const units = Object.fromEntries(data.summary.compare_by.map((c) => [c.measurement, c.unit]));
   const columns: Column<Sample>[] = [
     { id: "name", header: "Sample", width: "minmax(140px,1.2fr)", cell: (s) => (
       <span className="flex items-center gap-2 min-w-0">
@@ -44,7 +44,7 @@ export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColum
          { id: "r2", header: "Read 2", cell: (s: Sample) => <Mono>{s.files[1] ? base(s.files[1]) : "—"}</Mono> }]
       : [{ id: "file", header: "File", cell: (s: Sample) => <Mono>{s.files.map(base).join(", ")}</Mono> }]),
     ...facts.map((m) => ({ id: `fact-${m}`, header: words(m), width: "110px", cell: (s: Sample) => (
-      <Mono>{plain(s.facts.find((f) => f.measurement === m)?.value)}</Mono>
+      <Mono>{plain(s.facts.find((f) => f.measurement === m)?.value, units[m])}</Mono>
     ) })),
     ...Object.entries(data.columns).map(([name, values]) => ({ id: `col-${name}`, header: name, width: "130px",
       cell: (s: Sample) => (
@@ -144,8 +144,9 @@ function ReadingRule({ data, setRule, confirmRule }: {
         ))}
       </div>
       <span className="text-[13px] text-ink-2">
-        {data.rule.pattern ? <>Rule <span className="font-data">{data.rule.pattern}</span>: </> : "Paired by name: "}
-        <b>{samples} samples</b>{paired ? ", paired" : ""}.
+        {data.rule.pattern ? <>Rule <span className="font-data">{data.rule.pattern}</span>: </>
+          : paired ? "Paired by name: " : "One sample per file: "}
+        <b>{samples} {samples === 1 ? "sample" : "samples"}</b>{paired ? ", paired" : ""}.
         {unfit > 0 && ` ${unfit} ${unfit === 1 ? "file did" : "files did"} not fit the pattern.`}
       </span>
       {editing ? (

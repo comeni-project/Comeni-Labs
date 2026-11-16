@@ -65,7 +65,9 @@ export function Send({ draftId, kept }: { draftId: string; kept: boolean }) {
   const unreviewed = canvas.data?.ai_unreviewed ?? [];
   const files = kept_.reduce((n, s) => n + s.files.length, 0) + refs.length;
   const gone = missing.filter((x) => x.why.startsWith("file not found"));
-  const odd = data.data?.checks.filter((c) => !out.some((s) => s.name === c.sample)) ?? [];
+  // One entry a sample: a sample odd in two measurements is one to check.
+  const odd = [...new Map((data.data?.checks ?? []).filter((c) => !out.some((s) => s.name === c.sample))
+    .map((c) => [c.sample, c])).values()];
   const length = kept_[0]?.facts.find((f) => f.measurement === "read_length")?.value;
   const asked = Math.max(0, ...(before.data?.rows ?? []).map((r) => r.memory_asked_bytes ?? 0));
   const heaviest = (before.data?.rows ?? []).find((r) => r.memory_asked_bytes === asked);
@@ -119,7 +121,7 @@ export function Send({ draftId, kept }: { draftId: string; kept: boolean }) {
         <header className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-[3px] min-w-0">
             <h1 className="m-0 text-[22px] font-semibold tracking-[-.015em] text-ink">New run</h1>
-            <span className="text-[13px] text-ink-2">{name || "This analysis"} · {steps.length} steps</span>
+            <span className="text-[13px] text-ink-2">{name || "This analysis"} · {steps.length} {steps.length === 1 ? "step" : "steps"}</span>
           </div>
           <span className="ml-auto flex items-center gap-3">
             <span data-testid="run-ready" className={`flex items-center gap-[6px] text-[12.5px] ${ready ? "text-done-ink" : "text-needs-you-ink"}`}>

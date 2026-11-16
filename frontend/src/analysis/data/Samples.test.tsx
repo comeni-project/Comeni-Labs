@@ -102,3 +102,22 @@ it("add column prompts for a name and stores values", () => {
   fireEvent.click(screen.getByRole("button", { name: "Add" }));
   expect(act.addColumn).toHaveBeenCalledWith("batch");
 });
+
+it("assemblies: lengths read in Mb by their unit, counts with separators, one sample per file (issue 532)", () => {
+  const base = analysis();
+  samples(analysis({
+    samples: [{ name: "BAC47", files: ["/d/BAC47.fna"], outcome: "measured", type_id: "assembly.fasta", left_out: false,
+                facts: [{ measurement: "assembly_length", value: 2837243, coverage: "all", pieces: [] },
+                        { measurement: "contigs", value: 12065, coverage: "all", pieces: [] },
+                        { measurement: "n50", value: 85010, coverage: "all", pieces: [] }] }],
+    rule_result: { samples: 1, unfit: 0, examples: [] },
+    summary: { ...base.summary, compare_by: [
+      { measurement: "assembly_length", label: "Assembly length", unit: "bp", values: [], median: 0 },
+      { measurement: "n50", label: "N50", unit: "bp", values: [], median: 0 }] },
+  }));
+  expect(screen.getByText("2.84 Mb")).toBeTruthy();
+  expect(screen.getByText("85 kb")).toBeTruthy();
+  expect(screen.getByText("12,065")).toBeTruthy();
+  expect(screen.getByText(/One sample per file/)).toBeTruthy();
+  expect(screen.queryByText(/Paired by name/)).toBeNull();
+});

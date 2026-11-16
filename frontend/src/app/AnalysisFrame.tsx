@@ -45,7 +45,8 @@ export function AnalysisFrame() {
     queryFn: () => get<AnalysisData>(`/data/${encodeURIComponent(draftId)}`),
   });
   const kept = (data.data?.samples ?? []).filter((s) => !s.left_out).length;
-  const checks = data.data?.checks.length ?? 0;
+  // Samples to check, not checks: one odd in two measurements is one (walk 2026-11-16).
+  const checks = new Set((data.data?.checks ?? []).map((c) => c.sample)).size;
   const steps = draft.data?.graph.nodes.length ?? 0;
   const latest = useAnalysisRuns(draftId).list[0];
   const status = {

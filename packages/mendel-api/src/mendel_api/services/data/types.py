@@ -21,8 +21,9 @@ class ScannedFile(BaseModel):
     """The sample it was paired into."""
     recognised: str | None = None
     """The data type measuring recognised it as; `None` when nothing read it."""
-    used_as: Literal["reference"] | None = None
-    """What it is for when it is not a sample's: a reference."""
+    used_as: Literal["reference", "candidate"] | None = None
+    """What it is for when it is not a sample's: a reference, or a candidate for one (it sits in
+    a folder named for references, so it is offered on Data → References, not made a sample)."""
 
 
 class DataSample(BaseModel):

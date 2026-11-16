@@ -74,10 +74,23 @@ it("hundreds of samples do not widen the page", () => {
   expect(bars.className).toContain("gap-0");
 });
 
-it("a scan that stopped offers Read again (#526)", () => {
+it("a scan that stopped offers Read again (issue 526)", () => {
   const onRescan = vi.fn();
   render(<MemoryRouter><Overview data={analysis({ scan: { state: "failed", done: 0, total: 5, error: "boom", examples: [] } })}
                                   onFix={vi.fn()} onRescan={onRescan} /></MemoryRouter>);
   fireEvent.click(screen.getByRole("button", { name: "Read again" }));
   expect(onRescan).toHaveBeenCalled();
+});
+
+it("compare colours only the samples flagged for the chosen measurement, and reads bases in Mb (issue 532)", () => {
+  const base = analysis();
+  overview(analysis({
+    checks: [{ sample: "BAC47", kind: "odd_fact", measurement: "contigs", detail: "Contigs is 65; the median is 4", fixes: [] }],
+    summary: { ...base.summary, compare_by: [{ measurement: "assembly_length", label: "Assembly length", unit: "bp",
+      values: [{ sample: "BAC47", value: 2837243 }, { sample: "N315", value: 2839469 }], median: 2838356 }] },
+  }));
+  const compare = screen.getByRole("region", { name: "Compare samples by" });
+  expect(within(compare).getByText(/median 2.84 Mb/)).toBeTruthy();
+  const bars = within(compare).getAllByTestId("compare-bar");
+  expect(bars.filter((b) => b.className.includes("bg-measured"))).toHaveLength(0);
 });

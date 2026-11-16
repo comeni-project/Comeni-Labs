@@ -140,3 +140,19 @@ def test_it_reads_no_clock():
     attempts = [_attempt(start=0, complete=None, cpus=2)]
     assert series(attempts) == series(attempts)
     assert series(attempts).to_ms == 0, "the last recorded boundary, not a clock"
+
+
+def test_cpu_used_is_each_tasks_mean_spread_over_its_window_and_says_so():
+    """Walk 2026-11-16: reserved alone hid that a task asked 12 cores and used 2. `%cpu` is a
+    task's mean over its run, so spread over the window it is area-true: derived, like bytes.
+    A running attempt has no mean yet and adds nothing."""
+    got = series([
+        _attempt(start=0, complete=300, cpus=4, pct_cpu=150.0),
+        _attempt(start=100, complete=200, cpus=8, pct_cpu=50.0),
+        _attempt(n=2, start=250, complete=None, cpus=2, pct_cpu=None),
+    ])
+    used = next(c for c in got.curves if c.name == "cpu used")
+    assert used.kind is Kind.DERIVED and used.unit == "cpus"
+    assert [(p.at_ms, p.value) for p in used.points] == [
+        (0, 1.5), (100, 2.0), (200, 1.5), (300, 0.0),
+    ]

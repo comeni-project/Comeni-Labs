@@ -122,3 +122,36 @@ def test_a_missing_mate_is_one_check_not_three():
                     y4r1, y42], [])
     assert [(c.sample, c.kind) for c in found] == [("Y4_R1", "missing_mate"), ("Y3", "odd_fact")]
 
+
+
+def test_a_count_ten_times_off_the_median_is_flagged_with_no_common_value():
+    """Walk 2026-11-16: contigs 1, 2, 4, 24, 65 share no value, so BAC47 (65 pieces) was never
+    flagged. A number ten times above or below the median is, once there are three to compare."""
+    found = checks([sample("MRSA252", ["m.fna"], contigs=1, n50=2902619),
+                    sample("N315", ["n.fna"], contigs=2, n50=2814816),
+                    sample("USA300", ["u.fna"], contigs=4, n50=2872769),
+                    sample("ATCC12600", ["a.fna"], contigs=24, n50=2818338 // 12),
+                    sample("BAC47", ["b.fna"], contigs=65, n50=85010)], [])
+    flagged = {(c.sample, c.measurement) for c in found}
+    assert ("BAC47", "contigs") in flagged and ("BAC47", "n50") in flagged
+    assert ("ATCC12600", "contigs") not in flagged
+    bac = next(c for c in found if (c.sample, c.measurement) == ("BAC47", "contigs"))
+    assert bac.detail == "Contigs is 65; the median is 4"
+    assert [f.kind for f in bac.fixes] == ["leave_out"]
+    n50 = next(c for c in found if (c.sample, c.measurement) == ("BAC47", "n50"))
+    assert n50.detail == "N50 is 85,010; the median is 2,814,816"
+
+
+def test_two_samples_are_not_enough_to_call_one_odd():
+    assert checks([sample("a", ["a.fna"], contigs=1), sample("b", ["b.fna"], contigs=65)], []) == []
+
+
+def test_a_sample_flagged_twice_is_one_to_check():
+    """Walk 2026-11-16: BAC47, odd in contigs and in N50, made '3 samples to check' of two."""
+    from mendel_api.services.data.rule import to_check
+
+    found = checks([sample("a", ["a.fna"], contigs=1, n50=2902619),
+                    sample("b", ["b.fna"], contigs=2, n50=2814816),
+                    sample("c", ["c.fna"], contigs=4, n50=2872769),
+                    sample("d", ["d.fna"], contigs=65, n50=85010)], [])
+    assert len(found) == 2 and to_check(found) == 1

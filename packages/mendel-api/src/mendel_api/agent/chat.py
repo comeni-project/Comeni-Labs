@@ -112,10 +112,13 @@ async def data_scanned(draft_id: str) -> None:
     with session_scope() as db:
         row = db.get(AnalysisData, draft_id)
         samples = [s for s in (row.samples if row else []) if not s.get("left_out")]
+        references = sorted(r["type_id"] for r in (row.references if row else []))
     kinds = sorted({s.get("type_id") or "unrecognised" for s in samples})
     measured = sorted({f["measurement"] for s in samples for f in s.get("facts", [])})
-    words = f"I added data in Data: {len(samples)} samples ({', '.join(kinds) or 'none'})"
-    words += f"; measured {', '.join(measured)}." if measured else "."
+    words = (f"I added data in Data: {len(samples)} sample{'' if len(samples) == 1 else 's'} "
+             f"({', '.join(kinds) or 'none'})")
+    words += f"; measured {', '.join(measured)}" if measured else ""
+    words += f"; references: {', '.join(references)}." if references else "; no references."
     await say(session_id, words)
 
 

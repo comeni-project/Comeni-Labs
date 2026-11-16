@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Step } from "../../api/types";
@@ -213,5 +213,28 @@ describe("a step that measures a fact for another (walk 2026-11-15)", () => {
     const d = link.querySelector("path")!.getAttribute("d")!;
     expect(d).toMatch(/^M 369 /);
     expect(d).toMatch(/V 200$/);
+  });
+});
+
+describe("fitting what the agent built (issue 532)", () => {
+  it("fits the drawing once steps arrive on a canvas nobody has moved", async () => {
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
+      { x: 0, y: 0, left: 0, top: 0, right: 600, bottom: 500, width: 600, height: 500, toJSON: () => ({}) } as DOMRect);
+    const empty = { nodes: [], edges: [] };
+    const client = new QueryClient();
+    const draw = (graph: typeof empty | typeof FAKE_SESSION.graph) => (
+      <QueryClientProvider client={client}>
+        <div data-testid="canvas">
+          <LivingCanvas graph={graph} positions={FAKE_SESSION.placement} steps={FAKE_STEPS}
+                        authors={{}} selected={null} onSelect={vi.fn()} />
+        </div>
+      </QueryClientProvider>);
+    const { rerender, container } = render(draw(empty));
+    rerender(draw(FAKE_SESSION.graph));
+    await act(async () => { await new Promise((done) => setTimeout(done, 50)); });
+    const world = container.querySelector<HTMLElement>("[style*='scale(']")!;
+    // The view starts at (250, 20) at 1:1; fitted, it has moved.
+    expect(world.style.transform).not.toBe("translate(250px, 20px) scale(1)");
+    rect.mockRestore();
   });
 });

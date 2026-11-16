@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 
 import { Panel } from "../../ui/Panel";
+import { withUnit } from "./values";
 import { SourceTag } from "../../ui/SourceTag";
 import type { AnalysisData, DataFix } from "./types";
 
@@ -115,9 +116,10 @@ function Compare({ data }: { data: AnalysisData }) {
   const [chosen, setChosen] = useState(options[0].measurement);
   const fact = options.find((o) => o.measurement === chosen) ?? options[0];
   const top = Math.max(...fact.values.map((v) => v.value), 1);
-  const flagged = new Set(data.checks.map((c) => c.sample));
+  // Only what was flagged for THIS measurement: an assembly flagged for its contigs is not odd in length.
+  const flagged = new Set(data.checks.filter((c) => !c.measurement || c.measurement === fact.measurement)
+    .map((c) => c.sample));
   const many = fact.values.length > 60;
-  const unit = fact.unit ? ` ${fact.unit}` : "";
   return (
     <Panel title="Compare samples by" className="w-full">
       <div className="px-4 pb-[14px] flex flex-col gap-[10px]">
@@ -126,13 +128,13 @@ function Compare({ data }: { data: AnalysisData }) {
                   className="h-7 border border-line-2 rounded-control px-2 text-[12.5px] bg-surface text-ink">
             {options.map((o) => <option key={o.measurement} value={o.measurement}>{o.label}</option>)}
           </select>
-          <span className="text-[12px] text-ink-3">measured from this data · median {fact.median}{unit}</span>
+          <span className="text-[12px] text-ink-3">measured from this data · median {withUnit(fact.median, fact.unit)}</span>
         </div>
         {/* Hundreds of samples narrow the bars rather than widen the page. */}
         <div data-testid="compare-bars"
              className={`flex items-end h-[120px] pt-[6px] border-b border-line overflow-hidden ${many ? "gap-0" : "gap-1"}`}>
           {fact.values.map((v) => (
-            <span key={v.sample} data-testid="compare-bar" title={`${v.sample}: ${v.value}${unit}`}
+            <span key={v.sample} data-testid="compare-bar" title={`${v.sample}: ${withUnit(v.value, fact.unit)}`}
                   className={`flex-1 min-w-0 ${many ? "" : "rounded-t-xs"} ${flagged.has(v.sample) ? "bg-measured" : "bg-now-mid"}`}
                   style={{ height: `${Math.max(4, (v.value / top) * 100)}%` }} />
           ))}

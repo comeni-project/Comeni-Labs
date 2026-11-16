@@ -209,7 +209,7 @@ type Series = { curves: Curve[]; from_ms: number; to_ms: number; open: boolean }
  *  tasks reserved, and how many ran at once — drawn over the run's time. While it runs, the card is
  *  *Now*, with the machine's free cores and memory beside it (counting every program on it); once
  *  it is over, it is *What it used*: the same curves as the run's history, with its peaks. */
-function MachineCard({ runId, rows, live, nameOf }: {
+export function MachineCard({ runId, rows, live, nameOf }: {
   runId: string; rows: ProcessRow[]; live: boolean; nameOf: (process: string) => string;
 }) {
   const machine = useQuery({
@@ -226,6 +226,9 @@ function MachineCard({ runId, rows, live, nameOf }: {
   const m = machine.data;
   const curve = (name: string) => series.data?.curves?.find((c) => c.name === name)?.points ?? [];
   const cores = curve("cpu reserved");
+  // Cores used: each task's mean %cpu over its run, so it arrives as each task ends (#532).
+  const used = curve("cpu used");
+  const cpus = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
   const memory = curve("memory reserved");
   const tasks = curve("attempts in flight");
   const peak = (pts: { value: number }[]) => pts.reduce((n, p) => Math.max(n, p.value), 0);
@@ -242,8 +245,8 @@ function MachineCard({ runId, rows, live, nameOf }: {
   };
   const read = moved("read"), written = moved("written");
   const span = series.data ? Math.max(1, (series.data.open ? Date.now() : series.data.to_ms) - series.data.from_ms) : 1;
-  const chart = (pts: { at_ms: number; value: number }[], top: number) => (
-    <Spark points={pts} from={series.data?.from_ms ?? 0} span={span} top={Math.max(top, peak(pts), 1)} />
+  const chart = (pts: { at_ms: number; value: number }[], top: number, over?: { at_ms: number; value: number }[]) => (
+    <Spark points={pts} over={over} from={series.data?.from_ms ?? 0} span={span} top={Math.max(top, peak(pts), 1)} />
   );
   return (
     <Panel title={live ? "Now" : "What it used"} actions={
@@ -252,8 +255,10 @@ function MachineCard({ runId, rows, live, nameOf }: {
       <div className="flex flex-col gap-3 px-5 pb-4">
         {series.data && cores.length > 0 ? (
           <>
-            <Usage label="Cores reserved" value={live ? `${last(cores)} now` : `peak ${peak(cores)}`}
-                   of={m ? `of ${m.cpus}` : ""} chart={chart(cores, m?.cpus ?? 0)} />
+            <Usage testId="usage-cores" label="Cores"
+                   value={live ? `${last(cores)} reserved now${used.length ? ` · ${cpus(peak(used))} used at most` : ""}`
+                     : `peak ${peak(cores)} reserved${used.length ? ` · ${cpus(peak(used))} used` : ""}`}
+                   of={m ? `of ${m.cpus}` : ""} chart={chart(cores, m?.cpus ?? 0, used)} />
             <Usage label="Memory reserved" value={live ? `${gb(last(memory))} now` : `peak ${gb(peak(memory))}`}
                    of={m ? `of ${Math.round(m.memory_gb)} GB` : ""} chart={chart(memory, (m?.memory_gb ?? 0) * 2 ** 30)} />
             <dl data-testid="machine-run" className="m-0 grid grid-cols-2 gap-2">
@@ -284,9 +289,11 @@ function MachineCard({ runId, rows, live, nameOf }: {
   );
 }
 
-function Usage({ label, value, of, chart }: { label: string; value: string; of: string; chart: React.ReactNode }) {
+function Usage({ label, value, of, chart, testId }: {
+  label: string; value: string; of: string; chart: React.ReactNode; testId?: string;
+}) {
   return (
-    <div className="flex flex-col gap-[4px]">
+    <div data-testid={testId} className="flex flex-col gap-[4px]">
       <div className="flex items-baseline gap-2 text-[12.5px]">
         <span className="text-ink-2">{label}</span>
         <span className="ml-auto font-data text-ink">{value}</span>
@@ -309,19 +316,28 @@ function Stat({ label, value, detail }: { label: string; value: string; detail: 
 }
 
 /** A step curve over the run's time, filled under: what was reserved, moment by moment. */
-function Spark({ points, from, span, top }: { points: { at_ms: number; value: number }[]; from: number; span: number; top: number }) {
+/** A stepped chart: what was reserved, filled; what was used, if known, as a line over it. */
+function Spark({ points, over, from, span, top }: {
+  points: { at_ms: number; value: number }[]; over?: { at_ms: number; value: number }[];
+  from: number; span: number; top: number;
+}) {
   const W = 320, H = 40;
   const x = (ms: number) => ((ms - from) / span) * W;
   const y = (v: number) => H - (v / top) * (H - 2);
-  let line = `M0 ${y(0).toFixed(1)}`;
-  let prev = 0;
-  for (const p of points) { line += ` H${x(p.at_ms).toFixed(1)} V${y(p.value).toFixed(1)}`; prev = p.value; }
-  line += ` H${W}`;
-  void prev;
+  const stepped = (pts: { at_ms: number; value: number }[]) => {
+    let line = `M0 ${y(0).toFixed(1)}`;
+    for (const p of pts) line += ` H${x(p.at_ms).toFixed(1)} V${y(p.value).toFixed(1)}`;
+    return `${line} H${W}`;
+  };
+  const line = stepped(points);
   return (
     <svg aria-hidden viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-[40px] rounded-xs bg-surface-2">
       <path d={`${line} V${H} H0 Z`} fill="var(--now-soft)" />
       <path d={line} fill="none" stroke="var(--now-mid)" strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
+      {over && over.length > 0 && (
+        <path data-curve="used" d={stepped(over)} fill="none" stroke="var(--done)" strokeWidth={1.75}
+              vectorEffect="non-scaling-stroke" />
+      )}
     </svg>
   );
 }

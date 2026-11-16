@@ -254,6 +254,8 @@ class DataView(EgressPayload):
     rule_by: RuleBy = RuleBy.RULE
     rule_confirmed: bool = False
     checks: list[DataCheckLine] = Field(default_factory=list)
+    references: list[TypeId] = Field(default_factory=list)
+    """The references set on Data → References, by kind (#531)."""
 
 
 class FiredLine(EgressPayload):

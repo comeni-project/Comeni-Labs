@@ -4,8 +4,7 @@ it."""
 
 import pytest
 from mendel_api.agent.data import ApplyFixArgs, RuleArgs, apply_fix, read_data, set_reading_rule
-from mendel_api.agent.read import Nothing
-from mendel_api.agent.tools import TOOLS, ToolContext
+from mendel_api.agent.tools import TOOLS, Nothing, ToolContext
 from mendel_api.services.data import scan as scanning
 from mendel_api_tests.building import clean as clean  # noqa: F401
 from mendel_api_tests.data import PAIR, draft, pairs, tick, view
@@ -54,3 +53,18 @@ def test_apply_fix_records_ai_with_reason(clean, client, root):
                                 because="same stem, read 2"))
     [fix] = view(client, d)["fixes"]
     assert (fix["by"], fix["reason"]) == ("ai", "same stem, read 2")
+
+
+def test_read_data_names_the_references_by_kind(clean, client, root):
+    """#531 (walk 2026-11-16): the genome and annotation were set, and the agent said the Data
+    page 'shows only the five assemblies'. References reach it by kind, never by path."""
+    d, ctx = demo(client, root)
+    ref = root / "ref"
+    ref.mkdir()
+    (ref / "genome.fasta").write_text(">chrI\nACGT\n")
+    added = client.post(f"/api/data/{d}/references",
+                        json={"path": str(ref / "genome.fasta"), "type_id": "genome.fasta"})
+    assert added.status_code == 200
+    got = read_data(ctx, Nothing())
+    assert got.references == ["genome.fasta"]
+    assert str(root) not in got.model_dump_json()

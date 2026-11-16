@@ -80,20 +80,13 @@ def test_a_claude_model_is_asked_to_cache_the_system_prompt():
     assert _cacheable("chatgpt/gpt-6.1-sol", messages) is messages
 
 
-def test_a_reached_usage_limit_says_so_and_when_it_resets(monkeypatch):
+def test_a_reached_usage_limit_says_so_and_when_it_resets():
     """Walk 2026-11-16: a subscription's usage limit came back as MA0007 "rejected, or could not
-    be reached", and the builder offered a Retry that could not work for hours."""
-    import litellm
-    from comeni_ai.client import LiteLLMTransport, ModelUnavailableError
+    be reached", and the builder offered a Retry that could not work for hours. The provider's
+    body names when the window resets; the message says that time."""
+    from comeni_ai.client import _limited
 
-    body = ('{"error":{"type":"usage_limit_reached","message":"The usage limit has been reached",'
-            '"resets_at":1794868080,"resets_in_seconds":10510}}')
-
-    def limited(**_):
-        raise litellm.RateLimitError(message=body, llm_provider="chatgpt", model="gpt")
-
-    monkeypatch.setattr(litellm, "completion", limited)
-    with pytest.raises(ModelUnavailableError) as caught:
-        LiteLLMTransport().converse(ACCESS, [{"role": "user", "content": "hi"}], [ADD])
-    said = str(caught.value)
-    assert said.startswith("MA0010") and "usage limit" in said and "22:28 UTC" in said
+    body = ('RateLimitError: {"error":{"type":"usage_limit_reached","message":"The usage limit '
+            'has been reached","resets_at":1794868080,"resets_in_seconds":10510}}')
+    assert _limited(Exception(body)) == "the model's usage limit is reached; it resets at 22:28 UTC"
+    assert _limited(Exception("429 Too Many Requests")) == "the model's usage limit is reached"

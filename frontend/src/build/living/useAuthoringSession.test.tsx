@@ -177,3 +177,24 @@ describe("coming back to the page (issue 230)", () => {
     await waitFor(() => expect(sessionReads()).toBe(2));
   });
 });
+
+describe("the analyses list (issue 530)", () => {
+  it("is asked again once a turn ends with a new revision, so the rail shows the new name", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const answers = [view("pending"), view("answered", { revision: 3 })];
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith("/preview") ? ok({ revision: 0, text: "" })
+        : url.endsWith("/vocabulary") ? ok({ types: {} })
+        : ok(answers.shift() ?? view("answered", { revision: 3 })),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const client = fresh();
+    client.setQueryData(["drafts"], { drafts: [] });
+    const { result } = renderHook(() => useAuthoringSession("s1", { pollMs: 100 }), { wrapper: wrap(client) });
+    await waitFor(() => expect(result.current.session?.working).toBe(true));
+    expect(client.getQueryState(["drafts"])?.isInvalidated).toBe(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    await waitFor(() => expect(result.current.session?.working).toBe(false));
+    await waitFor(() => expect(client.getQueryState(["drafts"])?.isInvalidated).toBe(true));
+  });
+});

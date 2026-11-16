@@ -98,6 +98,11 @@ def scan(draft_id: str, *, who: str, revision: int | None = None) -> None:
         return
 
 
+# Folders whose files are the study's references, not samples (walk 2026-11-16).
+REFERENCE_FOLDERS = frozenset({"reference", "references", "ref", "refs", "genome", "genomes",
+                               "annotation", "annotations"})
+
+
 def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Rule,
          fixes: list[Fix], references: set[str] = frozenset()) -> None:
     try:
@@ -114,11 +119,13 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
         examples: list[tuple[str, str, str | None]] = []
         for listed in groups:
             # A file named as a reference is the study's, not a sample (#511).
-            paths = [p for p in listed if str(p) not in references]
+            paths = [p for p in listed if str(p) not in references
+                     and p.parent.name.lower() not in REFERENCE_FOLDERS]
             for p in listed:
-                if str(p) in references:
-                    files.append(ScannedFile(path=str(p), name=p.name, size=p.stat().st_size,
-                                             used_as="reference"))
+                if str(p) in references or p.parent.name.lower() in REFERENCE_FOLDERS:
+                    files.append(ScannedFile(
+                        path=str(p), name=p.name, size=p.stat().st_size,
+                        used_as="reference" if str(p) in references else "candidate"))
                     done += 1
             grouped = rule.group([p.name for p in paths], reading, fixes, taken)
             examples += grouped.examples[:3 - len(examples)]
@@ -140,6 +147,13 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
                     continue  # gone, or not a regular file any more: not a sample
                 found = inspect.inspect_sample(heads, stack, None, sizes=sizes)
                 del heads
+                if found.type_id is None:
+                    # Nothing reads it: listed with the other unread files, not a sample.
+                    unfit += [p.name for p in chosen]
+                    files += [ScannedFile(path=str(p), name=p.name, size=s)
+                              for p, s in zip(chosen, sizes, strict=True)]
+                    done += len(chosen)
+                    continue
                 samples.append(DataSample(
                     name=name, files=[str(p) for p in chosen], outcome=found.outcome,
                     type_id=found.type_id, left_out=name in left_out,

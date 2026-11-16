@@ -145,8 +145,8 @@ def test_paths_never_reach_the_draft(clean, client, root):
 
 def test_read_facts_lists_samples_from_the_data_table(clean, client, root):
     from mendel_api.agent import loop
-    from mendel_api.agent.read import Nothing, read_facts
-    from mendel_api.agent.tools import ToolContext
+    from mendel_api.agent.read import read_facts
+    from mendel_api.agent.tools import Nothing, ToolContext
 
     d = draft(client)
     tick(client, d, pairs(root / "liver", "L01", "L02"))
@@ -301,6 +301,32 @@ def test_a_finished_scan_answers_the_agents_data_question(clean, client, root, m
     assert "/" not in text, "no path in the agent's words"
 
 
+def test_the_agent_hears_the_references_too(clean, client, root, monkeypatch):
+    """#531: the notice named samples only, so the agent thought no reference was set."""
+    import asyncio
+
+    from mendel_api.agent import chat
+
+    said = []
+
+    async def say(session_id, text):
+        said.append(text)
+        return 0, True
+
+    monkeypatch.setattr(chat, "say", say)
+    d = draft(client)
+    _asks_for_data(d)
+    tick(client, d, pairs(root / "liver", "L01"))
+    (root / "ref").mkdir()
+    (root / "ref" / "genome.fasta").write_text(">chrI\nACGT\n")
+    client.post(f"/api/data/{d}/references",
+                json={"path": str(root / "ref" / "genome.fasta"), "type_id": "genome.fasta"})
+    scanning.scan(d, who="ana")
+    asyncio.run(chat.data_scanned(d))
+    [text] = said
+    assert "references: genome.fasta" in text and "/" not in text.replace("references:", "")
+
+
 def test_a_scan_with_no_open_data_question_says_nothing(clean, client, root, monkeypatch):
     import asyncio
 
@@ -364,3 +390,33 @@ def test_a_scan_a_worker_lost_is_failed_at_startup(clean, client, root):
     assert scanning.sweep_interrupted() == 1
     got = view(client, d)["scan"]
     assert got["state"] == "failed" and "Read again" in got["error"]
+
+
+def test_files_in_a_reference_folder_are_offered_as_references_not_samples(clean, client, root):
+    """Walk 2026-11-16: ticking demo-staph/reference made genome.fna and genes.gff two more
+    samples. A folder named for references holds candidates for Data → References."""
+    d = draft(client)
+    reads = pairs(root / "reads", "L01")
+    ref = root / "reference"
+    ref.mkdir()
+    (ref / "genome.fasta").write_text(">chrI\nACGTACGT\n")
+    (ref / "genes.gtf").write_text("chrI\tx\tgene\t1\t8\t.\t+\t.\tgene_id \"g1\";\n")
+    tick(client, d, reads, ref)
+    scanning.scan(d, who="ana")
+    got = view(client, d)
+    assert [s["name"] for s in got["samples"]] == ["L01"]
+    files = {f["name"]: f for f in client.get(f"/api/data/{d}/files").json()["files"]}
+    assert files["genome.fasta"]["used_as"] == "candidate"
+    assert files["genome.fasta"]["sample"] is None
+    assert files["genes.gtf"]["used_as"] == "candidate"
+
+
+def test_a_file_nothing_reads_is_not_a_sample(clean, client, root):
+    d = draft(client)
+    folder = pairs(root / "reads", "L01")
+    (folder / "notes.gff").write_text("not data\n")
+    tick(client, d, folder)
+    scanning.scan(d, who="ana")
+    got = view(client, d)
+    assert [s["name"] for s in got["samples"]] == ["L01"]
+    assert got["rule_result"]["unfit"] == 1

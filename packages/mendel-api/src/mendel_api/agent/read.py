@@ -29,13 +29,9 @@ from comeni_core.egress.agent import (
 from mendel_authoring.brief import tool_of
 from pydantic import BaseModel, Field
 
-from mendel_api.agent.tools import Tool, ToolContext, register
+from mendel_api.agent.tools import Nothing, Tool, ToolContext, register
 from mendel_api.authoring.types import FactKind
 from mendel_api.services import authoring_decisions, decisions, explain, gaps, registry
-
-
-class Nothing(BaseModel):
-    """No arguments."""
 
 
 class StepArgs(BaseModel):

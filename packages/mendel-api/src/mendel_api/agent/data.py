@@ -8,8 +8,7 @@ from typing import Literal
 from comeni_core.egress.agent import DataCheckLine, DataView, TextView
 from pydantic import BaseModel, Field
 
-from mendel_api.agent.read import Nothing
-from mendel_api.agent.tools import Tool, ToolContext, register
+from mendel_api.agent.tools import Nothing, Tool, ToolContext, register
 from mendel_api.db import session_scope
 from mendel_api.models import AnalysisData
 from mendel_api.services.data import rule, scan
@@ -32,6 +31,7 @@ def read_data(ctx: ToolContext, _: Nothing) -> DataView:
         reading = Rule(**row.rule) if row.rule else Rule()
         unfit = list(row.unfit or [])
         fixes = list(row.fixes or [])
+        references = sorted(r["type_id"] for r in (row.references or []))
     found = rule.checks(samples, unfit, [Fix(**f) for f in fixes])
     return DataView(
         samples=[s["name"] for s in samples],
@@ -41,7 +41,8 @@ def read_data(ctx: ToolContext, _: Nothing) -> DataView:
         rule_confirmed=reading.confirmed,  # a rule the AI set is AI until the person keeps it
         checks=[DataCheckLine(sample=c.sample, kind=c.kind, measurement=c.measurement,
                               file=next((f.file for f in c.fixes if f.file), None))
-                for c in found])
+                for c in found],
+        references=references)
 
 
 def _rescan(ctx: ToolContext, change) -> int:

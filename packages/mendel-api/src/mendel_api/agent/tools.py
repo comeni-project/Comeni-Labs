@@ -24,6 +24,12 @@ class ToolContext:
     expected_revision: int
 
 
+# Here, not in `read`, so every tool module can take it without importing `read` while `read` is
+# still loading `tools`. Its docstring is sent to the model with every tool that takes it.
+class Nothing(BaseModel):
+    """No arguments."""
+
+
 @dataclass(frozen=True)
 class Tool:
     """One engine operation: its name, what it is for, its input, and what runs it."""

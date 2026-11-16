@@ -211,7 +211,8 @@ def test_a_reached_usage_limit_says_so_rather_than_did_not_answer(clean, monkeyp
     loop.run_turn(session_id, seq, transport=Limited())
     notice = _turn(session_id, seq).blocks[-1]
     assert notice["code"] == "MA0010"
-    assert notice["text"] == "The model's usage limit is reached; it resets at 22:28 UTC. Try again then."
+    assert notice["text"] == (
+        "The model's usage limit is reached; it resets at 22:28 UTC. Try again then.")
 
 
 def test_asking_ends_the_turn_with_the_question(clean, monkeypatch):
