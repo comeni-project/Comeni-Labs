@@ -113,7 +113,7 @@ function RunView({ draftId, runId, n, sub, base }: {
         )}
         {sub === "steps" ? <Steps draftId={draftId} runId={runId} live={run.live} />
           : sub === "outputs" ? <Outputs draftId={draftId} runId={runId} live={run.live} />
-          : sub === "console" ? <ConsolePage runId={runId} phase={state.phase} />
+          : sub === "console" ? <ConsolePage draftId={draftId} runId={runId} phase={state.phase} />
           : <Overview draftId={draftId} runId={runId} base={base} state={state} live={run.live}
                       stop={run.live ? <Cancel runId={runId} /> : null} />}
       </div>

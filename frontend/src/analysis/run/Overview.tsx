@@ -6,7 +6,7 @@ import { get } from "../../api/client";
 import type { components } from "../../api/schema";
 import { Panel } from "../../ui/Panel";
 import { get as fromWiener } from "../../wiener/api/client";
-import { overAsked, progressOf, retryWhy, samplesOf, type RunNode, type Task } from "./model";
+import { overAsked, progressOf, retryWhy, samplesOf, type ProcessRow, type RunNode, type Task } from "./model";
 import { Measured } from "./Measured";
 import { RunCanvas } from "./RunCanvas";
 import { bytes } from "./units";
@@ -120,7 +120,7 @@ export function Overview({ draftId, runId, base, state, live, stop }: {
             ]}
           />
           <ResultsSoFar runId={runId} base={base} nodes={nodes} facts={facts} samples={samples.length} live={live} />
-          <MachineCard />
+          <MachineCard rows={rows} live={live} />
         </div>
       </div>
       {/* What the run measured beside what it was built on (issue 465): a disagreement flags the
@@ -202,7 +202,11 @@ function ResultsSoFar({ runId, base, nodes, facts, samples, live }: {
 }
 
 /** *This machine · now*: what a run here has to work with. */
-function MachineCard() {
+/** *This machine* (#511): what **this run** is using now — its running tasks and what they asked
+ *  for — beside what the whole machine has free. The machine's numbers count every program on it,
+ *  and say so; when nothing of the run is running, the card says that rather than showing a load
+ *  that is someone else's. */
+function MachineCard({ rows, live }: { rows: ProcessRow[]; live: boolean }) {
   const machine = useQuery({
     queryKey: ["machine"],
     queryFn: () => get<Machine>("/data/machine"),
@@ -210,27 +214,42 @@ function MachineCard() {
     retry: false,
   });
   const m = machine.data;
-  if (!m) return null;
-  const used = Math.max(0, Math.round(m.memory_gb - m.memory_free_gb));
-  const busy = Math.min(m.cpus, Math.round(m.load));
+  const running = rows.reduce((n, r) => n + r.running, 0);
+  const cores = rows.reduce((n, r) => n + r.running * (r.cpus_asked ?? 0), 0);
+  const asked = rows.reduce((n, r) => n + r.running * (r.memory_asked_bytes ?? 0), 0) / 2 ** 30;
+  const status = !live ? "The run is over: it uses nothing now."
+    : running === 0 ? "Between tasks: nothing of this run is running this moment."
+    : `${running} ${running === 1 ? "task" : "tasks"} running, asking ${cores} ${cores === 1 ? "core" : "cores"} and ${asked.toFixed(asked < 10 ? 1 : 0)} GB.`;
   return (
     <Panel title="This machine" actions={<span className="text-[12.5px] text-ink-3">now</span>}>
       <div className="flex flex-col gap-[10px] px-5 pb-4">
-        <Meter label="CPU" share={busy / (m.cpus || 1)} value={`${busy} of ${m.cpus} cores`} />
-        <Meter label="Memory" share={used / (m.memory_gb || 1)} value={`${used} of ${Math.round(m.memory_gb)} GB`} />
+        <p data-testid="machine-run" className="m-0 text-[12.5px] text-ink">{status}</p>
+        {m && (
+          <>
+            <Meter label="Cores" total={m.cpus} run={live ? cores : 0} busy={Math.min(m.cpus, m.load)}
+                   value={`${Math.max(0, Math.round(m.cpus - m.load))} of ${m.cpus} free`} />
+            <Meter label="Memory" total={m.memory_gb} run={live ? asked : 0} busy={m.memory_gb - m.memory_free_gb}
+                   value={`${Math.round(m.memory_free_gb)} of ${Math.round(m.memory_gb)} GB free`} />
+            <p className="m-0 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-ink-3">
+              <span className="flex items-center gap-[6px]"><span aria-hidden className="w-2 h-2 rounded-full bg-now-mid" />this run asked</span>
+              <span className="flex items-center gap-[6px]"><span aria-hidden className="w-2 h-2 rounded-full bg-line-2" />in use by everything on the machine</span>
+            </p>
+          </>
+        )}
       </div>
     </Panel>
   );
 }
 
-function Meter({ label, share, value }: { label: string; share: number; value: string }) {
-  const pct = Math.round(Math.min(1, Math.max(0, share)) * 100);
+function Meter({ label, total, run, busy, value }: { label: string; total: number; run: number; busy: number; value: string }) {
+  const share = (n: number) => Math.round(Math.min(1, Math.max(0, n / (total || 1))) * 100);
   return (
     <div className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 text-[12.5px] text-ink-2">
       {label}
-      <div role="meter" aria-label={label} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
-           className="h-[6px] rounded-full bg-line-soft overflow-hidden">
-        <div className="h-full bg-now-mid" style={{ width: `${pct}%` }} />
+      <div role="meter" aria-label={`${label} in use`} aria-valuenow={share(busy)} aria-valuemin={0} aria-valuemax={100}
+           className="relative h-[6px] rounded-full bg-line-soft overflow-hidden">
+        <div className="absolute inset-y-0 left-0 bg-line-2" style={{ width: `${share(busy)}%` }} />
+        <div className="absolute inset-y-0 left-0 bg-now-mid" style={{ width: `${share(Math.min(run, total))}%` }} />
       </div>
       <span className="font-data text-ink">{value}</span>
     </div>

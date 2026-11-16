@@ -122,7 +122,7 @@ def call(ctx: ToolContext, name: str, arguments: dict) -> AgentToolResult:
 
 
 def _load() -> None:
-    from mendel_api.agent import ask, build, change, data, read  # noqa: F401  (register their tools)
+    from mendel_api.agent import ask, build, change, console, data, read  # noqa: F401  (register their tools)
 
 
 _load()

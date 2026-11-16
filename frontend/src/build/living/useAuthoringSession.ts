@@ -5,6 +5,9 @@ import type { components } from "../../api/schema";
 import type { AnswerValue } from "./AgentQuestion";
 
 import { get, post, put, Refused } from "../../api/client";
+
+/** What Run → Console carries with the person's words: the run, and its last lines. */
+export type ConsoleContext = { run: string; console: string; shell: string };
 import type {
   AuthoringEdited,
   AuthoringPreview,
@@ -98,17 +101,17 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
   });
 
   const say = useMutation({
-    mutationFn: (text: string) =>
-      post<AuthoringSaid>(`/pipeline/authoring/${sessionId}/messages`, { text }),
-    onMutate: (text) => {
+    mutationFn: ({ text, console }: { text: string; console?: ConsoleContext }) =>
+      post<AuthoringSaid>(`/pipeline/authoring/${sessionId}/messages`, console ? { text, console } : { text }),
+    onMutate: ({ text }) => {
       setSending((list) => [...list, text]);
       compose("");
     },
-    onSuccess: async (_said, text) => {
+    onSuccess: async (_said, { text }) => {
       await refresh();
       unsend(text);
     },
-    onError: (error, text) => {
+    onError: (error, { text }) => {
       unsend(text);
       compose(text);
       setNotice(noticeFrom(error));
@@ -166,7 +169,9 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     sending,
     notice,
     dismiss: () => setNotice(null),
-    say: (text: string) => say.mutate(text),
+    say: (text: string) => say.mutate({ text }),
+    /** Words from Run → Console, with what the console showed (#511). */
+    sayWith: (text: string, console: ConsoleContext) => say.mutate({ text, console }),
     answer: (questionId: string, value: AnswerValue) => answer.mutate({ questionId, value }),
     retry: (seq: number) => retry.mutate(seq),
     review: (node: string) => reviewed.mutate([node]),

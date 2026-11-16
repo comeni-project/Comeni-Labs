@@ -94,6 +94,8 @@ class BlockKind(StrEnum):
     MESSAGE = "message"
     TOOL = "tool"
     ASK = "ask"
+    COMMAND = "command"
+    CONSOLE = "console"
 
 
 class NoticeKind(StrEnum):
@@ -258,11 +260,32 @@ class AgentAsk(_Block):
     type_id: str | None = Field(default=None, max_length=128)
 
 
+class AgentCommand(_Block):
+    """A command the agent suggests for the run's shell (#511). A read-only one the Console runs on
+    the agent's behalf; any other only the person runs."""
+
+    kind: Literal[BlockKind.COMMAND] = BlockKind.COMMAND
+    command: str = Field(max_length=500)
+    read_only: bool
+    because: Prose
+
+
+class PersonConsole(_Block):
+    """What the person saw on Run → Console when they wrote (#511), beside their words."""
+
+    kind: Literal[BlockKind.CONSOLE] = BlockKind.CONSOLE
+    run: str = Field(max_length=64)
+    console: str = Field(max_length=12000)
+    shell: str = Field(default="", max_length=6000)
+
+
 Block = Annotated[
     Notice
     | AgentMessage
     | ToolLine
-    | AgentAsk,
+    | AgentAsk
+    | AgentCommand
+    | PersonConsole,
     Field(discriminator="kind"),
 ]
 """Every block, discriminated on `kind`.

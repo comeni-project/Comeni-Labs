@@ -45,6 +45,7 @@ class ViewKind(StrEnum):
     ASKED = "asked"
     VOCABULARY = "vocabulary"
     DATA = "data"
+    COMMAND = "command"
 
 
 class TypeLine(EgressPayload):
@@ -320,9 +321,30 @@ class VocabularyView(EgressPayload):
     measurements: list[MeasureLine] = Field(default_factory=list)
 
 
+class CommandView(EgressPayload):
+    """A command the agent suggests for the run's shell (#511): run by the person, or, when it only
+    reads, by the page on the agent's behalf, its output coming back as the next turn."""
+
+    kind: Literal[ViewKind.COMMAND] = ViewKind.COMMAND
+    command: Line
+    read_only: bool
+    because: Line
+
+
+class ConsoleView(EgressPayload):
+    """What the person saw on Run → Console when they wrote (#511): the last lines Nextflow
+    printed and the shell's, carried by the page. Paths are shortened to their last parts before
+    they are stored."""
+
+    run: Line
+    console: Text
+    shell: Text = ""
+
+
 AgentView = Annotated[
     TextView | SamplesView | GoalView | PipelineView | StepView | ToolsView | RulesView
-    | FactsView | NeedsView | ResolvedView | CompiledView | AskedView | VocabularyView | DataView,
+    | FactsView | NeedsView | ResolvedView | CompiledView | AskedView | VocabularyView | DataView
+    | CommandView,
     Field(discriminator="kind"),
 ]
 """Every view a tool may return. Each tool's own view joins this union."""
@@ -349,6 +371,8 @@ class AgentTurn(EgressPayload):
 
     speaker: Speaker
     content: Text
+    console: ConsoleView | None = None
+    """The Console's output beside the person's words, when they wrote from Run → Console."""
 
 
 class AgentRequest(EgressPayload):

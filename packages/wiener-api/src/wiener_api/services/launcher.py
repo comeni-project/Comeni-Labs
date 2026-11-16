@@ -8,13 +8,18 @@ on screen would explain.
 """
 
 import csv
+import fcntl
 import json
 import logging
 import os
 import pathlib
+import pty
 import shutil
 import socket
+import struct
 import subprocess
+import termios
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -158,11 +163,50 @@ def process_started_at(pid: int) -> float | None:
         return None
 
 
+CONSOLE = "console.log"
+"""Everything Nextflow printed, in the run's folder: Run → Console replays and follows it (#511)."""
+
+CONSOLE_SIZE = (40, 160)
+"""The terminal Nextflow is given, rows and columns: wide enough for its progress lines."""
+
+
+def console_path(run_id: str) -> Path:
+    return work_dir(run_id) / CONSOLE
+
+
+def _tee(master: int, path: Path) -> None:
+    """Copy what Nextflow prints into `console.log` until its terminal closes."""
+    with path.open("ab") as out:
+        while True:
+            try:
+                data = os.read(master, 65536)
+            except OSError:  # the child closed its side: the run is over
+                break
+            if not data:
+                break
+            out.write(data)
+            out.flush()
+    os.close(master)
+
+
 def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
     """The subprocess seam, so a test can stand in for Nextflow — the same reason
     `mendel_api.services.gates._run` exists: CI has no Nextflow and a rule only a developer
-    machine can check is a rule nobody checks."""
-    return subprocess.Popen(argv, cwd=cwd)
+    machine can check is a rule nobody checks.
+
+    **Under a pseudo-terminal** (#511): Nextflow draws its live progress only for a terminal, and
+    Run → Console shows exactly what it drew. Its output is copied into the run's `console.log`
+    by a thread that lasts as long as the terminal does."""
+    master, slave = pty.openpty()
+    rows, cols = CONSOLE_SIZE
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+    env = {**os.environ, "TERM": "xterm-256color", "COLUMNS": str(cols), "LINES": str(rows)}
+    spawned = subprocess.Popen(argv, cwd=cwd, stdin=slave, stdout=slave, stderr=slave, env=env,
+                               start_new_session=True)
+    os.close(slave)
+    threading.Thread(target=_tee, args=(master, Path(cwd) / CONSOLE), daemon=True,
+                     name=f"console-{Path(cwd).name}").start()
+    return spawned
 
 
 def _suffix(path: str) -> str:

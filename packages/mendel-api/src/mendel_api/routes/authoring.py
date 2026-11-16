@@ -27,6 +27,7 @@ from starlette.concurrency import run_in_threadpool
 
 from mendel_api import identity
 from mendel_api.agent import chat, direct, view
+from mendel_api.agent.console import ConsoleContext
 from mendel_api.authoring.canvas import CanvasFrame
 from mendel_api.authoring.types import Block, Fact, Prose, TurnState
 from mendel_api.db import session_scope
@@ -58,6 +59,8 @@ class SayToAuthoring(BaseModel):
     model_config = _FROZEN
 
     text: Prose = Field(min_length=1)
+    console: ConsoleContext | None = None
+    """What the person saw on Run → Console, carried by the page with their words (#511)."""
 
 
 class AnswerQuestion(BaseModel):
@@ -381,7 +384,7 @@ def list_calls(session_id: str) -> list[AuthoringCallView]:
     responses=REFUSES,
 )
 async def say(session_id: str, body: SayToAuthoring) -> AuthoringSaid:
-    seq, queued = await chat.say(session_id, body.text)
+    seq, queued = await chat.say(session_id, body.text, body.console)
     return AuthoringSaid(seq=seq, queued=queued)
 
 

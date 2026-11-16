@@ -1840,6 +1840,26 @@ export interface components {
             type_id?: string | null;
         };
         /**
+         * AgentCommand
+         * @description A command the agent suggests for the run's shell (#511). A read-only one the Console runs on
+         *     the agent's behalf; any other only the person runs.
+         */
+        AgentCommand: {
+            /** Id */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "command";
+            /** Command */
+            command: string;
+            /** Read Only */
+            read_only: boolean;
+            /** Because */
+            because: string;
+        };
+        /**
          * AgentMessage
          * @description What the builder agent says, in its own words (#463). `narration` is what it said beside a
          *     tool call, while working (#504): drawn with its trail, not as its answer.
@@ -2295,7 +2315,7 @@ export interface components {
             /** Text */
             text: string;
             /** Blocks */
-            blocks: (components["schemas"]["Notice"] | components["schemas"]["AgentMessage"] | components["schemas"]["ToolLine"] | components["schemas"]["AgentAsk"])[];
+            blocks: (components["schemas"]["Notice"] | components["schemas"]["AgentMessage"] | components["schemas"]["ToolLine"] | components["schemas"]["AgentAsk"] | components["schemas"]["AgentCommand"] | components["schemas"]["PersonConsole"])[];
             /** Base Revision */
             base_revision: number;
             /**
@@ -2694,6 +2714,24 @@ export interface components {
             name: string;
             /** Version */
             version: string;
+        };
+        /**
+         * ConsoleContext
+         * @description What the page carries from Run → Console with the person's words.
+         */
+        ConsoleContext: {
+            /** Run */
+            run: string;
+            /**
+             * Console
+             * @default
+             */
+            console: string;
+            /**
+             * Shell
+             * @default
+             */
+            shell: string;
         };
         /**
          * Constraints
@@ -4300,6 +4338,28 @@ export interface components {
             pattern: string | null;
         };
         /**
+         * PersonConsole
+         * @description What the person saw on Run → Console when they wrote (#511), beside their words.
+         */
+        PersonConsole: {
+            /** Id */
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "console";
+            /** Run */
+            run: string;
+            /** Console */
+            console: string;
+            /**
+             * Shell
+             * @default
+             */
+            shell: string;
+        };
+        /**
          * Pinned
          * @description A value in `.env` beats every layer. The variable is named so a person knows where to go.
          */
@@ -4990,6 +5050,7 @@ export interface components {
         SayToAuthoring: {
             /** Text */
             text: string;
+            console?: components["schemas"]["ConsoleContext"] | null;
         };
         /** Scan */
         Scan: {

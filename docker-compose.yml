@@ -322,6 +322,31 @@ services:
     group_add: ["${DOCKER_GID_SOCK:-957}"]
     command: arq wiener_api.worker.WorkerSettings
 
+  # Run → Console's terminals (#511): Nextflow's own output and shells in a run's folder, with the
+  # worker's mounts so a shell sees what the run saw. Host-level control behind the Wiener token
+  # (#525): a local tool's choice, revisited before any hosted use.
+  wiener-term:
+    build: *python-build
+    container_name: ${WIENER_TERM_CONTAINER_NAME:-wiener-term}
+    restart: unless-stopped
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      wiener-api: {condition: service_healthy}
+    environment:
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:${WIENER_DB_PASSWORD:-wiener}@postgres:5432/wiener
+      WIENER_REDIS_URL: redis://redis:6379/1
+      WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
+      WIENER_WORK_ROOT: ${PWD}/.run/wiener/work
+      WIENER_CONTAINER_PROFILE: docker
+      WIENER_API_TOKEN: ${WIENER_API_TOKEN:-}
+      WIENER_DATA_ROOTS: '["${COMENI_DATA_ROOT:-${PWD}/.run/data}"]'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}/.run/wiener:${PWD}/.run/wiener
+      - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
+    group_add: ["${DOCKER_GID_SOCK:-957}"]
+    command: uvicorn wiener_api.terminal:create_app --factory --host 0.0.0.0 --port 8002
+
   # Serve run submission, monitoring, artifact uploads, and execution settings.
   wiener-api:
     build: *python-build

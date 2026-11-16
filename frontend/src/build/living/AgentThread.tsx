@@ -1,9 +1,13 @@
-import { Fragment, useRef, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useRef, type ReactNode } from "react";
 
 import type { AuthoringTurn } from "../../api/types";
 import { AgentQuestion, type AnswerValue } from "./AgentQuestion";
 import { Secondary } from "./blocks/parts";
 import { ToolTrail, type TrailStep } from "./ToolTrail";
+
+/** **The shell a suggested command goes to** (#511): Run → Console provides it, so the agent's
+ *  *Suggested command* cards can be run or inserted there; anywhere else they show the command. */
+export const ShellContext = createContext<{ run: (command: string) => void; insert: (command: string) => void } | null>(null);
 
 /** **The conversation with the builder agent** (#463): the person's words, and each of the
  *  agent's turns as what it did (its working trail), what it said, and what it asks. Nothing here
@@ -33,7 +37,7 @@ export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, o
       {turns.map((turn) => (
         <li key={turn.seq} className={`list-none flex flex-col${arriving(turn)}`}>
           {turn.role === "person"
-            ? <Said text={turn.text} />
+            ? <Said text={turn.text} console={turn.blocks.some((b) => b.kind === "console")} />
             : <AgentTurn turn={turn} answerable={turn.seq > lastPerson && !working}
                          onAnswer={onAnswer} onRetry={onRetry} onStep={onStep} />}
         </li>
@@ -47,11 +51,42 @@ export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, o
   );
 }
 
-function Said({ text, pending = false }: { text: string; pending?: boolean }) {
+function Said({ text, pending = false, console = false }: { text: string; pending?: boolean; console?: boolean }) {
   return (
-    <div className="self-end max-w-[85%] px-3 py-2 rounded-panel text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap"
-         style={{ background: "var(--now-soft)", opacity: pending ? 0.7 : undefined }}>
-      {text}
+    <div className="self-end max-w-[85%] flex flex-col items-end gap-[3px]">
+      <div className="px-3 py-2 rounded-panel text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap"
+           style={{ background: "var(--now-soft)", opacity: pending ? 0.7 : undefined }}>
+        {text}
+      </div>
+      {console && <span className="text-[11px] text-ink-3">with what the console showed</span>}
+    </div>
+  );
+}
+
+/** A command the agent suggests: run in the shell or inserted there; a read-only one the Console
+ *  has already run for it. Marked AI, like everything the agent chooses. */
+function CommandCard({ command, readOnly, because }: { command: string; readOnly: boolean; because: string }) {
+  const shell = useContext(ShellContext);
+  return (
+    <div data-testid="suggested-command" className="flex flex-col gap-2 px-3 py-[10px] rounded-panel border border-ai-line bg-surface">
+      <span className="flex items-center gap-[6px]">
+        <span className="px-[5px] rounded-xs bg-ai-soft text-ai text-[10.5px] font-semibold leading-[16px]">AI</span>
+        <span className="text-[12.5px] font-semibold text-ink">{readOnly ? "Looked with" : "Suggested command"}</span>
+      </span>
+      <code className="block px-[10px] py-2 rounded-control bg-surface-2 font-data text-[11.5px] text-ink whitespace-pre-wrap break-all">{command}</code>
+      <span className="text-[12px] text-ink-2">{because}</span>
+      {shell && !readOnly && (
+        <span className="flex gap-[6px]">
+          <button type="button" onClick={() => shell.run(command)}
+                  className="h-[30px] px-3 rounded-control border-0 bg-action text-on-action shadow-raise text-[12px] font-semibold cursor-pointer">
+            Run in the shell
+          </button>
+          <button type="button" onClick={() => shell.insert(command)}
+                  className="h-[30px] px-[10px] rounded-control border border-line-2 bg-surface text-[12px] font-semibold text-ink-2 cursor-pointer">
+            Insert
+          </button>
+        </span>
+      )}
     </div>
   );
 }
@@ -83,6 +118,8 @@ function AgentTurn({ turn, answerable, onAnswer, onRetry, onStep }: {
                 {block.code && <span className="ml-2 font-data text-[10px] text-ink-3">{block.code}</span>}
               </p>
             );
+          case "command":
+            return <CommandCard key={block.id} command={block.command} readOnly={block.read_only} because={block.because} />;
           case "ask":
             return answerable
               ? <AgentQuestion key={block.id} question={block} onAnswer={onAnswer} />

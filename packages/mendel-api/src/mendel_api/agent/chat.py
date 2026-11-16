@@ -41,8 +41,8 @@ async def start(prompt: str, who: str) -> tuple[str, bool]:
     return session_id, await _queue(session_id, seq)
 
 
-async def say(session_id: str, text: str) -> tuple[int, bool]:
-    seq = loop.add_person_turn(session_id, text)
+async def say(session_id: str, text: str, console=None) -> tuple[int, bool]:
+    seq = loop.add_person_turn(session_id, text, console)
     return seq, await _queue(session_id, seq)
 
 

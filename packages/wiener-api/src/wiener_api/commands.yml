@@ -1,0 +1,78 @@
+# The Console's Commands list (#511): what a person can run in a run's shell, found by search.
+# Each: what it is called, what it does in a sentence, the command, its group, and whether it only
+# reads. `{run}` is the run's id (Nextflow names the run `wiener-{run}`). A `tool` command shows only
+# when that Nextflow process is in the run; tools' own commands move beside their contracts later.
+commands:
+  - name: How each step went
+    does: Every task's step, sample, status and exit code, in the order they ran.
+    command: nextflow log wiener-{run} -f process,tag,status,exit
+    group: This run
+    read_only: true
+  - name: Which steps used the most memory
+    does: Each task's peak memory beside what it asked for, worst first.
+    command: nextflow log wiener-{run} -f process,tag,peak_rss,memory -s peak_rss
+    group: This run
+    read_only: true
+  - name: Nextflow's own log, last lines
+    does: The last lines of Nextflow's detailed log, where a failure's cause is spelled out.
+    command: tail -n 60 .nextflow.log
+    group: This run
+    read_only: true
+  - name: What this run was given
+    does: The parameters the run started with, as Data answered them.
+    command: cat params.json
+    group: This run
+    read_only: true
+  - name: Resume the run
+    does: Starts the run again from where it stopped; finished tasks are kept.
+    command: nextflow run . -resume -c site.config -params-file params.json
+    group: This run
+    read_only: false
+  - name: The exact command a task ran
+    does: The script Nextflow ran for this task, in its folder.
+    command: cat .command.sh
+    group: A step's task
+    read_only: true
+  - name: A task's errors
+    does: The last lines the task wrote to its error output.
+    command: tail -n 40 .command.err
+    group: A step's task
+    read_only: true
+  - name: Run this task again, alone
+    does: Runs the task's script again in its folder, with its container.
+    command: bash .command.run
+    group: A step's task
+    read_only: false
+  - name: Space the working files take
+    does: How much disk the run's working files use.
+    command: du -sh work
+    group: Disk and machine
+    read_only: true
+  - name: Memory free on this machine
+    does: How much memory is in use now, and how much is left.
+    command: free -h
+    group: Disk and machine
+    read_only: true
+  - name: Disk free where the run is
+    does: How much space is left on the disk that holds this run.
+    command: df -h .
+    group: Disk and machine
+    read_only: true
+  - name: STAR's mapping summary
+    does: Each sample's share of reads uniquely mapped, from STAR's final logs.
+    command: grep -H "Uniquely mapped reads %" results/star_align/*.Log.final.out
+    group: From this pipeline's tools
+    tool: STAR_ALIGN
+    read_only: true
+  - name: featureCounts' assignment summary
+    does: How many reads were assigned to genes, and why the rest were not.
+    command: cat results/subread_featurecounts/*.summary
+    group: From this pipeline's tools
+    tool: SUBREAD_FEATURECOUNTS
+    read_only: true
+  - name: QUAST's summary table
+    does: Each assembly's contigs, length, N50 and more, side by side.
+    command: cat results/quast/*/report.tsv
+    group: From this pipeline's tools
+    tool: QUAST
+    read_only: true

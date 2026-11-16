@@ -18,13 +18,14 @@ from secrets import token_hex
 
 from comeni_ai.agent import AgentTransport
 from comeni_ai.client import LiteLLMTransport
-from comeni_core.egress.agent import AgentRequest, AgentTurn, Speaker
+from comeni_core.egress.agent import AgentRequest, AgentTurn, ConsoleView, Speaker
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from mendel_api.agent.tools import TOOLS, ToolContext, call, printable, spec_of
 from mendel_api.authoring.types import (
     AgentAsk,
+    AgentCommand,
     AgentMessage,
     Notice,
     NoticeKind,
@@ -87,7 +88,7 @@ def start_session(draft_id: str, *, who: str) -> str:
     return session_id
 
 
-def add_person_turn(session_id: str, text: str) -> int:
+def add_person_turn(session_id: str, text: str, console=None) -> int:
     """The person's words, and the agent's turn waiting to answer them: its `seq`."""
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id, with_for_update=True)
@@ -98,7 +99,8 @@ def add_person_turn(session_id: str, text: str) -> int:
         seq = -1 if last is None else last
         revision = decisions.revision(row.draft_id)
         db.add(PipelineAuthoringTurn(session_id=session_id, seq=seq + 1, role=TurnRole.PERSON,
-                                     state=TurnState.ANSWERED, blocks=[], text=text,
+                                     state=TurnState.ANSWERED,
+                                     blocks=[console.block(seq + 1)] if console else [], text=text,
                                      base_revision=revision, at=_now()))
         db.add(PipelineAuthoringTurn(session_id=session_id, seq=seq + 2,
                                      role=TurnRole.ASSISTANT, state=TurnState.PENDING,
@@ -118,7 +120,10 @@ def conversation(session_id: str, before: int) -> AgentRequest:
         out = []
         for turn in turns:
             if turn.role == TurnRole.PERSON.value:
-                out.append(AgentTurn(speaker=Speaker.PERSON, content=turn.text))
+                seen = next((b for b in turn.blocks or [] if b.get("kind") == "console"), None)
+                out.append(AgentTurn(speaker=Speaker.PERSON, content=turn.text, console=ConsoleView(
+                    run=seen["run"], console=seen["console"], shell=seen.get("shell", ""))
+                    if seen else None))
             else:
                 said = [b.get("text", "") for b in turn.blocks if b.get("kind") == "message"]
                 said += [f"(I asked: {b['question']})" for b in turn.blocks
@@ -131,7 +136,13 @@ def conversation(session_id: str, before: int) -> AgentRequest:
 def _history(session_id: str, before: int) -> list[dict]:
     """The conversation in the provider's message shape."""
     role = {Speaker.PERSON: "user", Speaker.AGENT: "assistant"}
-    return [{"role": role[t.speaker], "content": t.content}
+    def content(t: AgentTurn) -> str:
+        if t.console is None:
+            return t.content
+        shell = f"\n\nThe run's shell, last lines:\n{t.console.shell}" if t.console.shell else ""
+        return (f"{t.content}\n\n(On Run → Console, run {t.console.run}. What Nextflow printed, "
+                f"last lines:\n{t.console.console}{shell})")
+    return [{"role": role[t.speaker], "content": content(t)}
             for t in conversation(session_id, before).turns]
 
 
@@ -338,6 +349,11 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
                 .model_dump(mode="json", exclude_none=True)
             messages.append({"role": "tool", "tool_call_id": made.id,
                              "content": result.model_dump_json(exclude_none=True)})
+            if made.name == "suggest_command" and result.ok:
+                offered = result.view
+                blocks.append(AgentCommand(id=f"command-{seq}-{len(blocks)}", command=offered.command,
+                                           read_only=offered.read_only, because=offered.because)
+                              .model_dump(mode="json"))
             if made.name == "ask" and result.ok:
                 asked = result.view
                 blocks.append(AgentAsk(id=f"ask-{seq}", question_id=asked.id,
