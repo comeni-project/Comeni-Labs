@@ -32,6 +32,8 @@ export function LivingNode({
   onSelect,
   perItem = false,
   takes,
+  samples,
+  version,
   className,
   delay,
   onAnimationEnd,
@@ -59,6 +61,10 @@ export function LivingNode({
   /** The samples this step takes, when each sample's tool is chosen per sample and only some come
    *  here (issue 466); the node says *some samples* and the sentence is its title. */
   takes?: string;
+  /** How many samples the analysis keeps: a per-sample step reads ×N, a fan-in port *all N*. */
+  samples?: number;
+  /** The tool's version, from its contract id. */
+  version?: string;
   /** A motion class for a domain event (`motion.ts`), and the callback when it has played. */
   className?: string;
   /** When this step's reveal starts, for Spawn's staged arrival. */
@@ -126,14 +132,15 @@ export function LivingNode({
               key={`mark-${side}-${port.name}`}
               aria-hidden
               data-port-mark={gather ? "gather" : perItem ? "many" : "one"}
+              data-optional={side === "in" && port.optional ? "true" : undefined}
               className="absolute"
               style={{
                 left: side === "in" ? -Math.ceil(wide / 2) - 1 : NODE_W - Math.floor(wide / 2) - 2,
                 top: portOffset(index) - tall / 2 - 1,
                 width: wide,
                 height: tall,
-                background: selected ? "var(--now)" : "var(--node)",
-                // An optional input (issue 460) is dashed, as `Port` draws it.
+                // An optional input (issue 460) is hollow and dashed, as `Port` draws it.
+                background: side === "in" && port.optional ? "transparent" : selected ? "var(--now)" : "var(--node)",
                 border: `1px ${side === "in" && port.optional ? "dashed" : "solid"} ${selected ? "var(--now)" : "var(--port-line)"}`,
               }}
             />
@@ -147,6 +154,10 @@ export function LivingNode({
         <span className="font-data text-[11px] font-semibold text-ink truncate" data-testid={`node-name-${id}`}>
           {processName(id)}
         </span>
+        {version && <span className="font-data text-[10px] text-ink-3 shrink-0">{version}</span>}
+        {perItem && samples !== undefined && (
+          <span className="font-data text-[10px] font-semibold text-now-ink shrink-0">×{samples}</span>
+        )}
         {aiChoice && (
           <span data-testid={`node-ai-${id}`} title="Chosen by the AI and not reviewed yet: open the step to review it"
                 className="shrink-0 px-[4px] rounded-control text-[9.5px] font-semibold leading-[15px]"
@@ -173,6 +184,8 @@ export function LivingNode({
               style={{ top: portOffset(i) - PORT_GAP / 2, height: PORT_GAP }}>
           <span className="min-w-0 truncate text-ink" title={input ? `${input.type_id}${spelledStates(input.states)}` : undefined}>
             {input && <><span className="text-ink-3">{"< "}</span>{input.name}</>}
+            {input?.gathers && samples !== undefined && <span className="text-ink-3"> · <span>all {samples}</span></span>}
+            {input?.optional && !input.met && <span className="text-now-ink"> · <span>connect</span></span>}
           </span>
           <span className="min-w-0 truncate text-ink-2 text-right" title={output ? `${output.type_id}${spelledStates(output.states)}` : undefined}>
             {output && <>{output.name}<span className="text-ink-3">{" >"}</span></>}

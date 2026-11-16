@@ -2,8 +2,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { makeClient } from "../app/queryClient";
-import { Browse } from "./Browse";
+import { makeClient } from "../../app/queryClient";
+import { AddStep } from "./AddStep";
 
 /** Find a tool, over the canvas, without a mouse. */
 
@@ -17,14 +17,14 @@ const MODULES = [
     roles: ["alignment"], needs: ["fastq.reads"], makes: ["alignment.bam"], container: "y" },
 ];
 
-function at(props: Partial<Parameters<typeof Browse>[0]> = {}) {
+function at(props: Partial<Parameters<typeof AddStep>[0]> = {}) {
   vi.stubGlobal("fetch", vi.fn(async () => ({
     ok: true, status: 200, json: async () => MODULES,
   })));
   const onAdd = props.onAdd ?? vi.fn();
   render(
     <QueryClientProvider client={makeClient()}>
-      <Browse onAdd={onAdd} onClose={props.onClose ?? vi.fn()} accepts={props.accepts} />
+      <AddStep onAdd={onAdd} onClose={props.onClose ?? vi.fn()} accepts={props.accepts} />
     </QueryClientProvider>,
   );
   return onAdd;
@@ -40,8 +40,8 @@ describe("the browse overlay", () => {
     at();
     await screen.findAllByTestId("browse-card");
 
-    expect(screen.getByText(/^trimming · 1$/)).toBeTruthy();
-    expect(screen.getByText(/^qc per sample · 1$/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Trimming · 1" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Qc per sample · 1" })).toBeTruthy();
 
     const trimgalore = screen.getAllByTestId("browse-card")
       .filter((c) => c.textContent?.includes("TRIMGALORE"));
@@ -57,7 +57,7 @@ describe("the browse overlay", () => {
     const cards = await screen.findAllByTestId("browse-card");
     const star = cards.find((c) => c.textContent?.includes("STAR_ALIGN"))!;
 
-    expect(star.textContent).toContain("fastq.reads → alignment.bam");
+    expect(star.textContent).toContain("takes fastq.reads → makes alignment.bam");
     expect(star.textContent).toContain("nf-core/star/align@2.7.11b");
     // Nothing sentence-shaped: no full stop outside the contract id's version.
     expect(star.textContent).not.toMatch(/[a-z]{4,}\s[a-z]{4,}\s[a-z]{4,}\./);
@@ -83,7 +83,7 @@ describe("the browse overlay", () => {
   it("searches by tool, process and role", async () => {
     at();
     await screen.findAllByTestId("browse-card");
-    fireEvent.change(screen.getByLabelText("search tools"), { target: { value: "alignment" } });
+    fireEvent.change(screen.getByLabelText("Search tools"), { target: { value: "alignment" } });
     await waitFor(() =>
       expect(screen.getAllByTestId("browse-card").every(
         (c) => c.textContent?.includes("STAR_ALIGN"))).toBe(true));
@@ -95,5 +95,20 @@ describe("the browse overlay", () => {
     fireEvent.keyDown(screen.getByTestId("browse"), { key: "ArrowDown" });
     fireEvent.keyDown(screen.getByTestId("browse"), { key: "Enter" });
     expect(onAdd).toHaveBeenCalled();
+  });
+});
+
+describe("Add step", () => {
+  it("add step searches tools grouped by job and shows takes → makes", async () => {
+    at();
+    const dialog = await screen.findByRole("dialog", { name: "Add step" });
+    await screen.findAllByTestId("browse-card");
+    expect(screen.getByRole("heading", { name: /^Alignment/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /^Trimming/ })).toBeTruthy();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search tools" }), { target: { value: "align" } });
+    const cards = screen.getAllByTestId("browse-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0].textContent).toContain("takes fastq.reads → makes alignment.bam");
+    expect(dialog).toBeTruthy();
   });
 });

@@ -1,4 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+
+import { get } from "../../api/client";
 
 import { processName } from "./format";
 import { StepCard, hasInputs, type CardKind } from "./StepCard";
@@ -6,7 +9,7 @@ import { StepMenu, type MenuItem } from "./StepMenu";
 
 import type { AuthoringSession, DraftGraph } from "../../api/types";
 import type { components } from "../../api/schema";
-import { Browse } from "../Browse";
+import { AddStep } from "../../analysis/build/AddStep";
 import type { Positions } from "../geometry";
 import { type AnsweredStep, withTypedValues } from "../useBuilder";
 import type { AnswerValue } from "./AgentQuestion";
@@ -72,6 +75,13 @@ export function LivingSurface({
   const [browsing, setBrowsing] = useState(false);
   const [pane, setPane] = useState<"chat" | "canvas">("chat");
   const [tab, setTab] = useState<SideTab>(selected ? "step" : "assistant");
+  // The analysis's kept samples: a per-sample step reads ×N, a fan-in port *all N*.
+  const data = useQuery({
+    queryKey: ["analysis-data", session.draft_id],
+    queryFn: () => get<{ samples?: { left_out?: boolean }[] }>(`/data/${encodeURIComponent(session.draft_id)}`),
+    retry: false,
+  });
+  const kept = data.data?.samples?.filter((s) => !s.left_out).length;
 
   // **The server's frame, whole**: the visible graph, each step's recorded metadata, and the
   // channels that really enter. Nothing here re-derives or guesses any of it.
@@ -277,6 +287,8 @@ export function LivingSurface({
               onEdit={session.retired ? undefined : onEdit}
               onMenu={session.retired ? undefined : (node) => { setCardFor(null); setMenuFor(node); }}
               beside={beside}
+              samples={kept || undefined}
+              onAddHere={session.retired ? undefined : () => setBrowsing(true)}
               footer={
                 <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}
                         className="px-[14px] py-[6px] rounded-button border border-line-2 bg-surface text-[13px]
@@ -288,7 +300,7 @@ export function LivingSurface({
             />
           </div>
           {browsing && (
-            <Browse onAdd={(contract) => { onAddStep(contract); setBrowsing(false); }}
+            <AddStep onAdd={(contract) => { onAddStep(contract); setBrowsing(false); }}
                     onClose={() => setBrowsing(false)} />
           )}
         </section>

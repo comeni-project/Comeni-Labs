@@ -15,6 +15,7 @@ import { Flowline, flowLabel, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "
 import { valuesOf } from "./values";
 import type { Author } from "./format";
 import { LivingNode, type ReviewState } from "./LivingNode";
+import { StepMenu } from "./StepMenu";
 
 type Channel = components["schemas"]["ChannelView"];
 
@@ -60,6 +61,8 @@ export function LivingCanvas({
   shown,
   onMenu,
   beside = null,
+  samples,
+  onAddHere,
 }: {
   graph: DraftGraph;
   positions: Positions;
@@ -90,7 +93,12 @@ export function LivingCanvas({
   /** What opens beside a step — its menu or its card (#499) — placed next to it on screen, so it
    *  moves with pan and zoom without scaling; on a phone a sheet from the bottom (`.step-beside`). */
   beside?: { node: string; content: React.ReactNode } | null;
+  /** The analysis's kept samples, for ×N and *all N*. */
+  samples?: number;
+  /** Right-click on the empty canvas: *Add step here*. */
+  onAddHere?: () => void;
 }) {
+  const [here, setHere] = useState<{ x: number; y: number } | null>(null);
   const view = useView();
   const probe = useRef<HTMLSpanElement>(null);
   const [moved, setMoved] = useState<Positions>({});
@@ -290,6 +298,12 @@ export function LivingCanvas({
         moving(e); view.onPointerDown(e);
       }}
       dots
+      onContextMenu={onAddHere && !readOnly ? (e) => {
+        if ((e.target as HTMLElement).closest("[data-node], .step-beside")) return;
+        e.preventDefault();
+        const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        setHere({ x: e.clientX - box.left, y: e.clientY - box.top });
+      } : undefined}
       onClick={(e) => {
         // A click on the empty canvas lets go of the step; one inside its menu or card does not.
         const target = e.target as HTMLElement;
@@ -298,6 +312,12 @@ export function LivingCanvas({
       footer={
         <>
           <span ref={probe} hidden />
+          {here && onAddHere && (
+            <div className="step-beside absolute z-20" style={{ left: here.x, top: here.y }}>
+              <StepMenu label="canvas menu" items={[{ id: "add", label: "Add step here" }]}
+                        onChoose={() => { setHere(null); onAddHere(); }} onClose={() => setHere(null)} />
+            </div>
+          )}
           {beside && at[beside.node] && (
             // Beside the step on screen, kept inside the frame by CSS alone (no measuring).
             <div className="step-beside absolute z-10 overflow-auto select-text cursor-auto"
@@ -454,6 +474,8 @@ export function LivingCanvas({
             aiChoice={aiChosen.includes(id)}
             perItem={steps[id]?.runs === "per_item"}
             takes={steps[id]?.takes_samples?.samples}
+            samples={samples}
+            version={steps[id]?.contract_id.split("@")[1]}
             selected={selected === id}
             onSelect={() => {
               if (!readOnly && !drag.current?.travelled) onSelect(id);

@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { get } from "../api/client";
-import type { components } from "../api/schema";
-import { Failed, Loading } from "../ui/States";
+import { get } from "../../api/client";
+import type { components } from "../../api/schema";
+import { Failed, Loading } from "../../ui/States";
 
 type ModuleView = components["schemas"]["ModuleView"];
 
@@ -31,7 +31,7 @@ type ModuleView = components["schemas"]["ModuleView"];
  * have to be written by somebody, and a plausible invented one is worse than none on a screen
  * whose whole claim is that nothing was guessed.
  */
-export function Browse({ accepts, onAdd, onClose }: {
+export function AddStep({ accepts, onAdd, onClose }: {
   /** When opened from a port, what a candidate must connect to — `{type_id, contract_ids}`.
    *  `undefined` when opened from empty canvas, and then nothing is marked as not fitting:
    *  without a port there is nothing for a tool to fail to fit. */
@@ -94,7 +94,7 @@ export function Browse({ accepts, onAdd, onClose }: {
         ref={box}
         data-testid="browse"
         role="dialog"
-        aria-label="find a tool"
+        aria-label="Add step"
         className="w-[min(900px,92vw)] max-h-[76vh] flex flex-col bg-surface border border-line-2
                    rounded-control shadow-e3 overflow-hidden settle"
         onKeyDown={(e) => {
@@ -111,9 +111,10 @@ export function Browse({ accepts, onAdd, onClose }: {
         <div className="flex items-baseline gap-3 px-5 py-4 border-b border-line">
           <span aria-hidden className="text-ink-3 font-data">›</span>
           <input
-            aria-label="search tools"
+            type="search"
+            aria-label="Search tools"
             value={query}
-            placeholder="search"
+            placeholder="Search tools by name or job"
             onChange={(e) => setQuery(e.target.value)}
             className="grow bg-transparent border-0 outline-none text-heading text-ink
                        placeholder:text-ink-3"
@@ -153,9 +154,9 @@ export function Browse({ accepts, onAdd, onClose }: {
 
           {byRole.map(([role, ms]) => (
             <div key={role} className="mb-6">
-              <p className="text-label text-ink-3 m-0 mb-2">
-                {role.replace(/_/g, " ")} · {ms.length}
-              </p>
+              <h3 className="text-label text-ink-2 font-semibold m-0 mb-2">
+                {job(role)} <span className="font-normal text-ink-3">· {ms.length}</span>
+              </h3>
               <div className="band">
                 {ms.map((m) => {
                   const n = order.findIndex((o) => o.role === role && o.m.contract_id === m.contract_id);
@@ -184,7 +185,7 @@ export function Browse({ accepts, onAdd, onClose }: {
                       </span>
                       {/* **The type signature IS the description** — #78. No prose slot. */}
                       <span className="block font-data text-secondary text-now-ink mt-1">
-                        {m.needs.join(", ") || "—"} → {m.makes.join(", ") || "—"}
+                        takes {m.needs.join(", ") || "nothing"} → makes {m.makes.join(", ") || "nothing"}
                       </span>
                       <span className="block font-data text-label text-ink-3 mt-1 truncate">
                         {m.contract_id} · {m.roles.join(", ")}
@@ -206,4 +207,10 @@ export function Browse({ accepts, onAdd, onClose }: {
       </div>
     </div>
   );
+}
+
+/** A role id as a job a person names: `qc_per_sample` → *Qc per sample*. */
+function job(role: string): string {
+  const words = role.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
