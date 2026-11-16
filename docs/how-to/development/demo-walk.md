@@ -85,10 +85,10 @@ instead.*
 
 ### 5. The reference
 
-**Do:** open **References**, choose **From a file**, and pick `reference/genome.fasta`, then
-`reference/genes.gtf`.
+**Do:** in **Folders**, tick `reference` too. Open **References**, and under **From a file**
+add `genome.fasta` as `genome.fasta`, then `genes.gtf` as `annotation.gtf`.
 
-**See:** both listed with what was recognised and measured.
+**See:** both listed with their kinds. On **Files** they say *reference*, and they are not samples.
 
 ### 6. Build
 

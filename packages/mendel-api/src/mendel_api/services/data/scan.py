@@ -91,13 +91,14 @@ def scan(draft_id: str, *, who: str, revision: int | None = None) -> None:
             revision = row.revision if revision is None else revision
             reading = Rule(**row.rule) if row.rule else Rule()
             fixes = [Fix(**f) for f in row.fixes or []]
-        _run(draft_id, folders, revision, who, reading, fixes)
+            references = {r["path"] for r in row.references or []}
+        _run(draft_id, folders, revision, who, reading, fixes, references)
     except _Stale:
         return
 
 
 def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Rule,
-         fixes: list[Fix]) -> None:
+         fixes: list[Fix], references: set[str] = frozenset()) -> None:
     try:
         groups = _files(folders)
         total = sum(len(g) for g in groups)
@@ -110,7 +111,14 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
         left_out = {f.sample for f in fixes if f.kind == "leave_out"}
         done = 0
         examples: list[tuple[str, str, str | None]] = []
-        for paths in groups:
+        for listed in groups:
+            # A file named as a reference is the study's, not a sample (#511).
+            paths = [p for p in listed if str(p) not in references]
+            for p in listed:
+                if str(p) in references:
+                    files.append(ScannedFile(path=str(p), name=p.name, size=p.stat().st_size,
+                                             used_as="reference"))
+                    done += 1
             grouped = rule.group([p.name for p in paths], reading, fixes, taken)
             examples += grouped.examples[:3 - len(examples)]
             for index in grouped.unfit:

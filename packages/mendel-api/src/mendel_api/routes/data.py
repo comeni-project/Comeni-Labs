@@ -42,6 +42,17 @@ def read_tree(path: str | None = None) -> roots.FolderListing:
     return roots.list_folder(path, settings.data_roots)
 
 
+@router.get("/reference-types", operation_id="readReferenceTypes",
+            summary="The kinds of file a reference can be", responses=REFUSES)
+def reference_types() -> list[str]:
+    """Every declared type that is one file for the whole study (a genome, an annotation, an
+    index), which is what a reference is."""
+    from mendel_api.services import registry
+
+    return sorted(t for t, grain in registry.stack().vocabulary.grains.items()
+                  if str(grain) == "study")
+
+
 def _view(draft_id: str, row: AnalysisData | None) -> AnalysisDataView:
     if row is None:
         return AnalysisDataView(draft_id=draft_id)
@@ -98,6 +109,10 @@ async def _rescan(draft_id: str, change) -> AnalysisDataView:
         row.revision = (row.revision or 0) + 1
         row.scan = Scan(state="scanning").model_dump()
         revision = row.revision
+    from mendel_api.services import decisions
+
+    # What the data says may have moved already (a reference is an input at once).
+    decisions.data_changed(draft_id)
     try:
         await jobs.enqueue("scan_analysis_data", draft_id, identity.default_author(), revision,
                            job_id=jobs.job_id_for("scan", draft_id, str(revision)))
@@ -194,7 +209,7 @@ class NamedFile(BaseModel):
 
 @router.post("/{draft_id}/references", operation_id="addReference",
              summary="Add a study-wide file, such as a genome, with its type", responses=REFUSES)
-def add_reference(draft_id: str, body: NamedFile) -> AnalysisDataView:
+async def add_reference(draft_id: str, body: NamedFile) -> AnalysisDataView:
     """The file is checked against the data roots and its type against the vocabulary, then its
     head is measured like a sample's. It becomes an input the analysis has."""
     from mendel_api.authoring.types import SampleFact
@@ -215,18 +230,19 @@ def add_reference(draft_id: str, body: NamedFile) -> AnalysisDataView:
 
     def keep(row):
         row.references = [*(row.references or []), made.model_dump(mode="json")]
-    return _change(draft_id, keep)
+    # Scanned again: a file named as a reference is not a sample any more.
+    return await _rescan(draft_id, keep)
 
 
 @router.delete("/{draft_id}/references/{index}", operation_id="removeReference",
                summary="Remove a study-wide file", responses=REFUSES)
-def remove_reference(draft_id: str, index: int) -> AnalysisDataView:
+async def remove_reference(draft_id: str, index: int) -> AnalysisDataView:
     def drop(row):
         kept = list(row.references or [])
         if not 0 <= index < len(kept):
             raise HTTPException(status_code=404, detail=f"no reference {index}")
         row.references = kept[:index] + kept[index + 1:]
-    return _change(draft_id, drop)
+    return await _rescan(draft_id, drop)
 
 
 class Column(BaseModel):
@@ -274,3 +290,14 @@ def read_bindings(draft_id: str) -> Bindings:
     pipeline = (Pipeline.model_validate(yaml_strict.load(path))
                 if path is not None and path.is_file() else None)
     return bind(pipeline, samples, references, columns)
+
+
+@router.delete("/{draft_id}/fixes/{index}", operation_id="undoDataFix",
+               summary="Undo a fix, and scan again", responses=REFUSES)
+async def undo_fix(draft_id: str, index: int) -> AnalysisDataView:
+    def drop(row):
+        kept = list(row.fixes or [])
+        if not 0 <= index < len(kept):
+            raise HTTPException(status_code=404, detail=f"no fix {index}")
+        row.fixes = kept[:index] + kept[index + 1:]
+    return await _rescan(draft_id, drop)

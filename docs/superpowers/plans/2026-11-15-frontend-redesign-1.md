@@ -542,7 +542,7 @@ Board: `Main.dc.html` with `dpage:'samples' | 'refs' | 'files'`.
   - A search box.
   - Flagged rows are highlighted.
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `reading rule shows three examples and the sample and unfit counts`
   - `looks right confirms; change the rule submits a pattern`
   - `an AI rule is tagged AI until confirmed`
@@ -552,12 +552,12 @@ Board: `Main.dc.html` with `dpage:'samples' | 'refs' | 'files'`.
   - `add column prompts for a name and stores values`
   - `references: standard is shown as later; from a file opens the tree and posts the path`
   - `files lists recognised-as and used-as, paged`
-- [ ] **Step 2:** Run `npx vitest run src/analysis/data`. Expected: FAIL.
-- [ ] **Step 3:** Implement against the board.
-- [ ] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
-- [ ] **Step 5:** Walk it in the browser, including at 390 px. At that width the table scrolls inside its panel,
+- [x] **Step 2:** Run `npx vitest run src/analysis/data`. Expected: FAIL.
+- [x] **Step 3:** Implement against the board.
+- [x] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
+- [x] **Step 5:** Walk it in the browser, including at 390 px. At that width the table scrolls inside its panel,
   never the page.
-- [ ] **Step 6:** Commit: `feat(frontend): Data samples, references and files (#511)`.
+- [x] **Step 6:** Commit: `feat(frontend): Data samples, references and files (#511)`.
 
 ### Task 10: The assistant overlay, and the agent's data tools
 

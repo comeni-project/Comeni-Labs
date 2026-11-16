@@ -83,3 +83,31 @@ def test_a_fix_queues_a_scan(clean, client, root):
     client.queued.clear()
     client.post(f"/api/data/{d}/fixes", json={"kind": "leave_out", "sample": "Y1"})
     assert [name for name, _, _ in client.queued] == ["scan_analysis_data"]
+
+
+def test_a_fix_can_be_undone(clean, client, root):
+    d = draft(client)
+    tick(client, d, pairs(root / "a", "Y1", "Y2"))
+    client.post(f"/api/data/{d}/fixes", json={"kind": "leave_out", "sample": "Y1"})
+    scanning.scan(d, who="ana")
+    assert [s["left_out"] for s in view(client, d)["samples"]] == [True, False]
+    undone = client.delete(f"/api/data/{d}/fixes/0")
+    assert undone.status_code == 200, undone.text and undone.json()["fixes"] == []
+    scanning.scan(d, who="ana")
+    assert [s["left_out"] for s in view(client, d)["samples"]] == [False, False]
+
+
+def test_a_file_named_as_a_reference_is_not_a_sample(clean, client, root):
+    d = draft(client)
+    folder = pairs(root / "a", "Y1")
+    (folder / "genome.fasta").write_text(">chrI\nACGT\n")
+    tick(client, d, folder)
+    scanning.scan(d, who="ana")
+    assert "genome" in [s["name"] for s in view(client, d)["samples"]]
+    client.post(f"/api/data/{d}/references",
+                json={"path": str(folder / "genome.fasta"), "type_id": "genome.fasta"})
+    scanning.scan(d, who="ana")
+    after = view(client, d)
+    assert [s["name"] for s in after["samples"]] == ["Y1"]
+    files = {f["name"]: f for f in client.get(f"/api/data/{d}/files").json()["files"]}
+    assert files["genome.fasta"]["used_as"] == "reference"

@@ -156,3 +156,9 @@ def test_a_units_change_on_the_datas_input_is_the_persons(clean, client, root):
     changes.apply(d, DecisionChange(kind="units", subject="fastq.reads", value=True), who="ana")
     [reads] = [i for i in decisions.read(d).inputs if i.type_id == "fastq.reads"]
     assert reads.units is True and reads.origin.value == "person_said"
+
+
+def test_reference_types_are_the_study_wide_ones(clean, client):
+    got = client.get("/api/data/reference-types").json()
+    assert "genome.fasta" in got and "annotation.gtf" in got and "fastq.reads" not in got
+    assert got == sorted(got)

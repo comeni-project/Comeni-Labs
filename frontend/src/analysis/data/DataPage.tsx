@@ -4,7 +4,10 @@ import { useAnalysis } from "../../app/AnalysisFrame";
 import { RailControls } from "../../app/rail/RailContext";
 import { Failed, Loading } from "../../ui/States";
 import { FolderTree } from "./FolderTree";
+import { Files } from "./Files";
 import { Overview } from "./Overview";
+import { References } from "./References";
+import { Samples } from "./Samples";
 import { useAnalysisData } from "./useAnalysisData";
 
 const TITLES: Record<string, string> = { samples: "Samples", references: "References", files: "Files" };
@@ -39,7 +42,12 @@ export function DataPage() {
         </header>
         {data.loading ? <Loading what="your data" />
           : data.error && !data.data ? <Failed error={data.error} />
-          : data.data && (sub ? <p className="m-0 text-ink-3">This page comes next.</p>
+          : data.data && (
+            sub === "samples" ? <Samples data={data.data} setRule={data.setRule} confirmRule={data.confirmRule}
+                                         undoFix={data.undoFix} setColumn={data.setColumn} />
+            : sub === "references" ? <References data={data.data} onAdd={data.addReference}
+                                                 onRemove={data.removeReference} />
+            : sub === "files" ? <Files draftId={draftId} />
             : <Overview data={data.data} onFix={data.fix} />)}
       </div>
     </div>
