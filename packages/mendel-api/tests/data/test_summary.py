@@ -162,3 +162,20 @@ def test_reference_types_are_the_study_wide_ones(clean, client):
     got = client.get("/api/data/reference-types").json()
     assert "genome.fasta" in got and "annotation.gtf" in got and "fastq.reads" not in got
     assert got == sorted(got)
+
+
+def test_drafts_page_rows_carry_data_summary(clean, client, root):
+    d = draft(client)
+    tick(client, d, pairs(root / "a", "Y1", "Y2"))
+    scanning.scan(d, who="ana")
+    rows = {r["id"]: r for r in client.get("/api/pipeline/drafts").json()["drafts"]}
+    assert rows[d]["data"] == {"samples": 2, "checks": 0, "scan": "done", "folders": 1}
+    other = draft(client)
+    rows = {r["id"]: r for r in client.get("/api/pipeline/drafts").json()["drafts"]}
+    assert rows[other]["data"] is None
+
+
+def test_this_machine_says_cpus_memory_and_disk(clean, client, root):
+    got = client.get("/api/data/machine").json()
+    assert got["cpus"] >= 1 and got["memory_gb"] > 0 and got["disk_free_gb"] >= 0
+    assert got["load"] >= 0

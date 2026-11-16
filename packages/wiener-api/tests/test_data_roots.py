@@ -166,8 +166,11 @@ def test_a_run_cannot_name_another_runs_files(client, tmp_path, monkeypatch):
 
     (tmp_path / "data").mkdir()
     monkeypatch.setattr(settings, "data_roots", [tmp_path / "data"])
-    first = client.post("/api/artifacts", files={"bundle": ("a.zip", _bundle_with(["fasta"]))}).json()
-    second = client.post("/api/artifacts", files={"bundle": ("b.zip", _bundle_with(["fasta"]))}).json()
+    def upload(name):
+        bundle = {"bundle": (name, _bundle_with(["fasta"]))}
+        return client.post("/api/artifacts", files=bundle).json()
+
+    first, second = upload("a.zip"), upload("b.zip")
     other = str(settings.artifact_root / first["artifact_id"] / "main.nf")
     refused = client.post("/api/runs", json={"artifact_id": second["artifact_id"],
                                              "params": {"fasta": other}})

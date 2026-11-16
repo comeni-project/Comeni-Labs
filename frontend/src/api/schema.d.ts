@@ -945,6 +945,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data/machine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This machine: CPUs, memory, disk */
+        get: operations["readMachine"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data/reference-types": {
         parameters: {
             query?: never;
@@ -2855,6 +2872,20 @@ export interface components {
             left_out: boolean;
         };
         /**
+         * DataSummary
+         * @description An analysis's data at a glance, for its card on Home (#511).
+         */
+        DataSummary: {
+            /** Samples */
+            samples: number;
+            /** Checks */
+            checks: number;
+            /** Scan */
+            scan: string;
+            /** Folders */
+            folders: number;
+        };
+        /**
          * DecisionChange
          * @description One change to intent or facts, from any caller — the person's click or edit, the chat
          *     model's reply, a stage's own handler (Part I.0 spec §5.1). `heard` is the person's words it
@@ -3055,6 +3086,7 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            data?: components["schemas"]["DataSummary"] | null;
             /** Who */
             who: string;
             /**
@@ -3699,6 +3731,19 @@ export interface components {
          * @enum {string}
          */
         Level: "illegal" | "unmet" | "advisory";
+        /** Machine */
+        Machine: {
+            /** Cpus */
+            cpus: number;
+            /** Load */
+            load: number;
+            /** Memory Gb */
+            memory_gb: number;
+            /** Memory Free Gb */
+            memory_free_gb: number;
+            /** Disk Free Gb */
+            disk_free_gb: number;
+        };
         /**
          * Measured
          * @description One measurement and where its value came from.
@@ -7206,6 +7251,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FolderListing"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readMachine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Machine"];
                 };
             };
             /** @description The id in the path names nothing. */

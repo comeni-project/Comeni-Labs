@@ -43,6 +43,42 @@ def read_tree(path: str | None = None) -> roots.FolderListing:
     return roots.list_folder(path, settings.data_roots)
 
 
+class Machine(BaseModel):
+    cpus: int
+    load: float
+    """Processes waiting or running, over the last minute."""
+    memory_gb: float
+    memory_free_gb: float
+    disk_free_gb: float
+    """Free space where the data is, or where this server runs when no data folder is set."""
+
+
+@router.get("/machine", operation_id="readMachine", summary="This machine: CPUs, memory, disk",
+            responses=REFUSES)
+def machine() -> Machine:
+    import os
+    import shutil
+
+    def meminfo(key: str) -> float:
+        try:
+            with open("/proc/meminfo") as handle:
+                for line in handle:
+                    if line.startswith(key + ":"):
+                        return int(line.split()[1]) / 2**20
+        except OSError:
+            pass
+        return 0.0
+
+    where = settings.data_roots[0] if settings.data_roots else "."
+    try:
+        free = shutil.disk_usage(where).free / 2**30
+    except OSError:
+        free = 0.0
+    return Machine(cpus=os.cpu_count() or 1, load=round(os.getloadavg()[0], 1),
+                   memory_gb=round(meminfo("MemTotal"), 1),
+                   memory_free_gb=round(meminfo("MemAvailable"), 1), disk_free_gb=round(free, 1))
+
+
 @router.get("/reference-types", operation_id="readReferenceTypes",
             summary="The kinds of file a reference can be", responses=REFUSES)
 def reference_types() -> list[str]:

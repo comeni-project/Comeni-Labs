@@ -125,6 +125,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/health/registry", "get"): "registryHealth",
         ("/api/data/tree", "get"): "readDataTree",
         ("/api/data/reference-types", "get"): "readReferenceTypes",
+        ("/api/data/machine", "get"): "readMachine",
         ("/api/data/{draft_id}", "get"): "readAnalysisData",
         ("/api/data/{draft_id}/files", "get"): "readAnalysisFiles",
         ("/api/data/{draft_id}/folders", "put"): "tickDataFolders",

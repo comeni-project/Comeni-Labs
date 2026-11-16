@@ -103,6 +103,15 @@ class OpenValue(BaseModel):
     setting: PortName
 
 
+class DataSummary(BaseModel):
+    """An analysis's data at a glance, for its card on Home (#511)."""
+
+    samples: int
+    checks: int
+    scan: str
+    folders: int
+
+
 class DraftRow(BaseModel):
     """One pipeline on the front door's *by pipeline* table.
 
@@ -115,6 +124,8 @@ class DraftRow(BaseModel):
 
     id: str
     name: str
+    data: DataSummary | None = None
+    """What the analysis's data holds; `None` before any folder is ticked."""
     who: str
     """ATTRIBUTION, not authentication — `PipelineDraft.who`, from `identity.default_author()`.
 
@@ -262,6 +273,22 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
              row.kept_at is not None, row.kept_graph, row.kept_digest)
             for row in rows
         ]
+        # Each listed analysis's data, without its file list (#511).
+        from mendel_api.models import AnalysisData
+        from mendel_api.services.data.rule import Fix, checks
+
+        data = {
+            draft_id: DataSummary(
+                samples=sum(1 for s in samples or [] if not s.get("left_out")),
+                checks=len(checks(list(samples or []), list(unfit or []),
+                                  [Fix(**f) for f in fixes or []])),
+                scan=(scan or {}).get("state", "idle"), folders=len(folders or []))
+            for draft_id, samples, unfit, fixes, scan, folders in session.query(
+                AnalysisData.draft_id, AnalysisData.samples, AnalysisData.unfit,
+                AnalysisData.fixes, AnalysisData.scan, AnalysisData.folders)
+            .filter(AnalysisData.draft_id.in_([row.id for row in rows])).all()
+            if folders
+        }
         # The newest conversation on each listed draft; later rows win.
         conversations = dict(
             session.query(PipelineAuthoringSession.draft_id, PipelineAuthoringSession.id)
@@ -273,7 +300,8 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
     out: list[DraftRow] = []
     for draft_id, name, who, updated_at, graph, was_kept, kept_graph, digest in listed:
         row = DraftRow(id=draft_id, name=name, who=who, updated_at=updated_at,
-                       steps=len(graph.nodes), kept=False, session=conversations.get(draft_id))
+                       steps=len(graph.nodes), kept=False, session=conversations.get(draft_id),
+                       data=data.get(draft_id))
         artifact = _output_root() / draft_id / "pipeline.yml"
         if was_kept and artifact.is_file():
             kept = pipeline_file.load(artifact)
