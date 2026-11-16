@@ -80,13 +80,28 @@ def test_no_request_body_accepts_a_filesystem_path():
     # person ticks (`tickDataFolders`), never uploaded. That body names folders under the data
     # roots, each resolved and checked (`MI0221`); the recorded level-0 exception to invariant 15.
     assert not any("multipart" in where for where in bodies), "a body carries a file again"
+    # **The two bodies that name a person's files, by the operator's decision (#511).** Each is
+    # resolved and checked against the data roots before anything is read (`MI0221`); the level-0
+    # exception to invariant 15 is recorded there. Any other body naming a path fails here.
+    allowed = {
+        ("PUT /api/data/{draft_id}/folders (application/json)", "folders"),
+        ("POST /api/data/{draft_id}/references (application/json)", "path"),
+        # Not a path at all: a file's bare name, matched within a ticked folder (`rule.validate`).
+        ("POST /api/data/{draft_id}/fixes (application/json)", "file"),
+        # A module's path inside a catalogue source (nf-core/modules), not on this machine.
+        ("POST /api/forge/adaptations (application/json)", "path"),
+    }
     offenders = [
         f"{where} {field}"
         for where, fields in bodies.items()
         for field in fields
-        if field.endswith("_root") or field.endswith("_path")
+        if (field in {"path", "paths", "folder", "folders", "file", "files"}
+            or field.endswith("_root") or field.endswith("_path"))
+        and (where, field) not in allowed
     ]
     assert offenders == [], f"a request body takes a filesystem path: {offenders}"
+    for where, field in allowed:
+        assert field in bodies.get(where, []), f"the allowed body {where} {field} moved: update it"
 
 
 def test_no_mcp_tool_takes_a_filesystem_path():

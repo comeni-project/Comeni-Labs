@@ -16,6 +16,8 @@ class Folder(BaseModel):
     name: str
     path: str
     files: int
+    folders: int = 0
+    """How many subfolders it has: none, and the tree shows nothing to open."""
 
 
 class FolderListing(BaseModel):
@@ -55,11 +57,17 @@ def _visible(entries):
 
 
 def _count_files(folder: Path) -> int:
+    return _count(folder)[0]
+
+
+def _count(folder: Path) -> tuple[int, int]:
+    """Files and subfolders, hidden ones left out."""
     try:
         with os.scandir(folder) as entries:
-            return sum(1 for e in _visible(entries) if e.is_file())
+            visible = _visible(entries)
+            return (sum(1 for e in visible if e.is_file()), sum(1 for e in visible if e.is_dir()))
     except OSError:
-        return 0
+        return (0, 0)
 
 
 def list_folder(path: Path | str | None, roots: list[Path]) -> FolderListing:
@@ -70,7 +78,8 @@ def list_folder(path: Path | str | None, roots: list[Path]) -> FolderListing:
             raise ValueError(coded("MI0222", "no data folders are configured on this installation"))
         found = [r.resolve() for r in roots if r.is_dir()]
         return FolderListing(path=None, files=0, folders=[
-            Folder(name=r.name or str(r), path=str(r), files=_count_files(r)) for r in found])
+            Folder(name=r.name or str(r), path=str(r), files=_count(r)[0], folders=_count(r)[1])
+            for r in found])
     folder = inside_folder(path, roots)
     try:
         with os.scandir(folder) as entries:
@@ -83,7 +92,9 @@ def list_folder(path: Path | str | None, roots: list[Path]) -> FolderListing:
                     inside = inside_folder(e.path, roots)
                 except ValueError:
                     continue
-                subs.append(Folder(name=e.name, path=str(inside), files=_count_files(inside)))
+                files_in, folders_in = _count(inside)
+                subs.append(Folder(name=e.name, path=str(inside), files=files_in,
+                                   folders=folders_in))
     except PermissionError:
         raise ValueError(coded("MI0221", f"{path} is not a folder Comeni can read")) from None
     return FolderListing(path=str(folder), files=files,

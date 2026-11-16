@@ -87,3 +87,9 @@ def test_a_symlinked_folder_out_of_the_root_is_not_listed(root, tmp_path):
 def test_listing_a_file_is_refused_not_a_crash(root):
     with pytest.raises(ValueError, match="MI0221"):
         roots.list_folder(root / "liver" / "L01_R1.fastq.gz", [root])
+
+
+def test_a_folder_says_how_many_subfolders_it_has(root):
+    listing = roots.list_folder(root, [root])
+    by_name = {f.name: f for f in listing.folders}
+    assert by_name["liver"].folders == 1 and by_name["assemblies"].folders == 0

@@ -180,3 +180,13 @@ def test_a_fact_nothing_measured_comes_from_the_persons_column(tmp_path):
                {"strandedness": {"A": "reverse", "B": "forward"}})
     assert got.missing == []
     assert [r["strandedness"] for r in got.params["input"]] == ["reverse", "forward"]
+
+
+def test_two_references_of_one_kind_ask_which(tmp_path):
+    y1 = files(tmp_path, "Y1_R1.fq", "Y1_R2.fq")
+    a, b, gtf = files(tmp_path, "a.fasta", "b.fasta", "genes.gtf")
+    refs = [reference(a, "genome.fasta"), reference(b, "genome.fasta"),
+            reference(gtf, "annotation.gtf")]
+    got = bind(RNASEQ, [sample("Y1", y1)], refs)
+    [which] = got.missing
+    assert which.channel == "fasta" and "a.fasta" in which.why and "b.fasta" in which.why

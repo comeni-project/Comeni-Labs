@@ -406,11 +406,13 @@ def _with_data(db, draft_id, decided):
     from mendel_api.models import AnalysisData
     from mendel_api.services.data.facts import merge
 
-    data = db.get(AnalysisData, draft_id)
-    if data is None or not (data.samples or data.references):
+    # Only the two columns facts come from: the file list of a large analysis is not read here.
+    found = db.execute(select(AnalysisData.samples, AnalysisData.references)
+                       .where(AnalysisData.draft_id == draft_id)).first()
+    if found is None or not (found.samples or found.references):
         return decided
-    facts, inputs = merge(decided.facts, decided.inputs, list(data.samples),
-                          list(data.references or []))
+    facts, inputs = merge(decided.facts, decided.inputs, list(found.samples or []),
+                          list(found.references or []))
     return decided.model_copy(update={"facts": facts, "inputs": inputs})
 
 

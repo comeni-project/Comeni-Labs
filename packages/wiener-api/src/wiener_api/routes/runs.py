@@ -308,12 +308,13 @@ async def submit(body: SubmitRequest) -> RunAccepted:
                 "missing": sorted(holes - supplied),
             })
         # **A run reads only from the data folders** (#508): every path a value names resolves
-        # inside them, or the run's own folders. Unconfigured, there is nothing to check against.
+        # inside them, or this run's own pipeline, never another run's. Unconfigured, there is
+        # nothing to check against.
         if settings.data_roots:
             given = {k: v.model_dump() if isinstance(v, Staged) else v
                      for k, v in body.params.items()}
             outside = launcher.paths_outside(
-                given, [*settings.data_roots, settings.artifact_root, settings.work_root])
+                given, [*settings.data_roots, settings.artifact_root / body.artifact_id])
             if outside:
                 raise HTTPException(status_code=422, detail=coded(
                     "MW0103", f"{outside[0]} is outside the folders runs read from"))

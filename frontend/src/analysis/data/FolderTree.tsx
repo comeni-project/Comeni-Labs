@@ -14,11 +14,26 @@ const tree = (path: string | null) =>
  *  subfolders are ticked on their own. Opened lazily, one level at a time. */
 export function FolderTree({ ticked, onTick }: { ticked: string[]; onTick: (folders: string[]) => void }) {
   const roots = useQuery({ queryKey: ["data-tree", null], queryFn: () => get<Listing>(tree(null)) });
+  // Up and Down move between the folders in sight; Right opens one, Left closes it.
+  const move = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const ticks = Array.from(event.currentTarget.querySelectorAll("[data-tick]")) as HTMLButtonElement[];
+    const at = ticks.indexOf(document.activeElement as HTMLButtonElement);
+    if (at < 0) return;
+    const step = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+    if (step) {
+      event.preventDefault();
+      ticks[Math.max(0, Math.min(ticks.length - 1, at + step))]?.focus();
+    } else if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      const caret = ticks[at].parentElement?.querySelector("[data-caret]") as HTMLButtonElement | null;
+      const open = caret?.getAttribute("aria-label")?.startsWith("Close");
+      if (caret && (event.key === "ArrowRight") !== open) { event.preventDefault(); caret.click(); }
+    }
+  };
   const flip = (path: string) =>
     onTick(ticked.includes(path) ? ticked.filter((p) => p !== path) : [...ticked, path].sort());
   return (
     <div className="flex flex-col">
-      <div role="tree" aria-label="folders" className="flex flex-col">
+      <div role="tree" aria-label="folders" className="flex flex-col" onKeyDown={move}>
         {roots.error && <p className="m-0 px-[10px] text-[12.5px] text-needs-you-ink">No data folder is set up.</p>}
         {(roots.data?.folders ?? []).map((folder) => (
           <Node key={folder.path} folder={folder} depth={0} ticked={ticked} onFlip={flip} />
@@ -51,14 +66,17 @@ function Node({ folder, depth, ticked, onFlip }: {
   });
   const on = ticked.includes(folder.path);
   return (
-    <div role="treeitem" aria-expanded={open} aria-selected={on}>
+    <div role="treeitem" aria-expanded={folder.folders > 0 ? open : undefined}>
       <div className={`flex items-center gap-[2px] rounded-control pr-[6px] ${on ? "bg-now-soft" : "hover:bg-surface-2"}`}
            style={{ paddingLeft: depth * 14 }}>
-        <button type="button" onClick={() => setOpen(!open)} aria-label={`${open ? "Close" : "Open"} ${folder.name}`}
-                className="w-5 h-7 shrink-0 border-0 bg-transparent text-ink-3 cursor-pointer text-[10px] p-0">
-          {open ? "▾" : "▸"}
-        </button>
-        <button type="button" onClick={() => onFlip(folder.path)} aria-pressed={on}
+        {folder.folders > 0 ? (
+          <button type="button" data-caret onClick={() => setOpen(!open)} tabIndex={-1}
+                  aria-label={`${open ? "Close" : "Open"} ${folder.name}`}
+                  className="w-5 h-7 shrink-0 border-0 bg-transparent text-ink-3 cursor-pointer text-[10px] p-0">
+            {open ? "▾" : "▸"}
+          </button>
+        ) : <span className="w-5 shrink-0" aria-hidden="true" />}
+        <button type="button" data-tick onClick={() => onFlip(folder.path)} aria-pressed={on}
                 aria-label={`${folder.name}, ${folder.files} ${folder.files === 1 ? "file" : "files"}`}
                 className="flex items-center gap-2 flex-1 min-w-0 h-[30px] border-0 bg-transparent cursor-pointer
                            text-[13px] text-ink-2 text-left px-[2px]">
@@ -75,9 +93,13 @@ function Node({ folder, depth, ticked, onFlip }: {
           {folder.files > 0 && <span className="ml-auto pl-[6px] text-[11.5px] text-ink-3">{folder.files}</span>}
         </button>
       </div>
-      {open && (children.data?.folders ?? []).map((child) => (
-        <Node key={child.path} folder={child} depth={depth + 1} ticked={ticked} onFlip={onFlip} />
-      ))}
+      {open && (
+        <div role="group">
+          {(children.data?.folders ?? []).map((child) => (
+            <Node key={child.path} folder={child} depth={depth + 1} ticked={ticked} onFlip={onFlip} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -5,8 +5,9 @@ import { afterEach, expect, it, vi } from "vitest";
 import { FolderTree } from "./FolderTree";
 
 const listing = (path: string | null) => path === null
-  ? { path: null, files: 0, folders: [{ name: "data", path: "/data", files: 0 }] }
-  : { path, files: 0, folders: [{ name: "liver", path: "/data/liver", files: 48 }] };
+  ? { path: null, files: 0, folders: [{ name: "data", path: "/data", files: 0, folders: 1 }] }
+  : { path, files: 0, folders: [{ name: "liver", path: "/data/liver", files: 48, folders: 0 },
+                                { name: "spleen", path: "/data/spleen", files: 12, folders: 0 }] };
 
 vi.mock("../../api/client", () => ({
   get: vi.fn(async (url: string) => listing(url.includes("path=") ? decodeURIComponent(url.split("path=")[1]) : null)),
@@ -48,4 +49,21 @@ it("cloud storage is shown and disabled", async () => {
 it("opens down to a ticked folder, so it is in sight", async () => {
   tree(["/data/liver"]);
   expect((await screen.findByRole("button", { name: /^liver,/ })).getAttribute("aria-pressed")).toBe("true");
+});
+
+it("a folder with no subfolders has nothing to open", async () => {
+  tree(["/data/liver"]);
+  await screen.findByRole("button", { name: /^liver,/ });
+  expect(screen.queryByRole("button", { name: "Open liver" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Close data" })).toBeTruthy();
+});
+
+it("arrow keys move between folders", async () => {
+  tree(["/data/liver"]);
+  const liver = await screen.findByRole("button", { name: /^liver,/ });
+  liver.focus();
+  fireEvent.keyDown(liver, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: /^spleen,/ }));
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowUp" });
+  expect(document.activeElement).toBe(liver);
 });

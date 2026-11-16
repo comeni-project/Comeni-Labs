@@ -146,3 +146,29 @@ def test_the_csv_header_is_every_rows_columns_in_first_seen_order(tmp_path):
     lines = (tmp_path / "input.csv").read_text().splitlines()
     assert written["input"] == str(tmp_path / "input.csv")
     assert lines == ["sample,reads_1,reads_2", "a,/d/a.fq,", "b,/d/b1.fq,/d/b2.fq"]
+
+
+def test_a_media_type_or_a_number_is_not_a_path(tmp_path):
+    assert paths_outside({"format": "text/plain", "ratio": ".5", "x": "a-b"}, [tmp_path]) == []
+
+
+def test_a_climb_out_inside_a_relative_value_is_refused(tmp_path):
+    assert paths_outside({"x": "data/../../etc/passwd"}, [tmp_path]) == ["data/../../etc/passwd"]
+
+
+def test_nested_values_are_checked(tmp_path):
+    (tmp_path / "data").mkdir()
+    assert paths_outside({"x": {"inner": ["/etc/passwd"]}}, [tmp_path / "data"]) == ["/etc/passwd"]
+
+
+def test_a_run_cannot_name_another_runs_files(client, tmp_path, monkeypatch):
+    from wiener_api.settings import settings
+
+    (tmp_path / "data").mkdir()
+    monkeypatch.setattr(settings, "data_roots", [tmp_path / "data"])
+    first = client.post("/api/artifacts", files={"bundle": ("a.zip", _bundle_with(["fasta"]))}).json()
+    second = client.post("/api/artifacts", files={"bundle": ("b.zip", _bundle_with(["fasta"]))}).json()
+    other = str(settings.artifact_root / first["artifact_id"] / "main.nf")
+    refused = client.post("/api/runs", json={"artifact_id": second["artifact_id"],
+                                             "params": {"fasta": other}})
+    assert refused.status_code == 422 and "MW0103" in refused.text

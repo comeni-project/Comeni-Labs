@@ -106,7 +106,18 @@ async def follow_registry_releases(ctx: dict) -> str:
     return await asyncio.to_thread(registry_releases.follow) or ""
 
 
+async def startup(ctx: dict) -> None:
+    """Scans a lost worker left 'scanning' say they were interrupted (a queued one still runs,
+    and writes over this when it finishes)."""
+    from mendel_api.services.data import scan
+
+    swept = await asyncio.to_thread(scan.sweep_interrupted)
+    if swept:
+        logging.getLogger(__name__).warning("%d interrupted scans marked failed", swept)
+
+
 class WorkerSettings:
+    on_startup = startup
     functions = [
         # **Its own limit, and one try** (issue 278). arq's default (300s) cancelled the stub
         # and test gates. A retry would re-run an hour-long gate unasked, into the directory the

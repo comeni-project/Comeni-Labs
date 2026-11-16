@@ -354,3 +354,13 @@ def test_the_persons_word_stands_over_what_the_data_measured(clean, client, root
     facts = {f.subject: f for f in decisions.read(d).facts}
     assert facts["read_length"].origin.value == "person_said"
     assert facts["quality_encoding"].origin.value == "measured"
+
+
+def test_a_scan_a_worker_lost_is_failed_at_startup(clean, client, root):
+    """A worker restarted mid-scan leaves it 'scanning' for ever; startup says what happened."""
+    d = draft(client)
+    tick(client, d, pairs(root / "a", "Y1"))
+    assert view(client, d)["scan"]["state"] == "scanning"
+    assert scanning.sweep_interrupted() == 1
+    got = view(client, d)["scan"]
+    assert got["state"] == "failed" and "Read again" in got["error"]

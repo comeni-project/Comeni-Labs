@@ -89,7 +89,13 @@ def bind(pipeline: Pipeline | None, samples: list[dict], references: list[dict],
                 params[channel.param] = {"stage": [{"sample": s["name"], "files": s["files"]}
                                                    for s in mine]}
             continue
-        ref = next((r for r in references if r["type_id"] == channel.type_id), None)
+        of_kind = [r for r in references if r["type_id"] == channel.type_id]
+        if len(of_kind) > 1:
+            missing.append(Missing(channel=channel.name, type_id=channel.type_id,
+                                   why=f"two references are {channel.type_id} "
+                                       f"({', '.join(r['name'] for r in of_kind)}): remove one"))
+            continue
+        ref = of_kind[0] if of_kind else None
         if ref is not None:
             if _gone([ref["path"]]):
                 missing.append(Missing(channel=channel.name, type_id=channel.type_id,

@@ -121,3 +121,4 @@ def test_a_missing_mate_is_one_check_not_three():
                     sample("Y3", ["Y3_R1.fq", "Y3_R2.fq"], paired=True, read_length=50),
                     y4r1, y42], [])
     assert [(c.sample, c.kind) for c in found] == [("Y4_R1", "missing_mate"), ("Y3", "odd_fact")]
+

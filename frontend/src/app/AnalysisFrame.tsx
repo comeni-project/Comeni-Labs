@@ -120,7 +120,7 @@ export function LegacyRun({ fallback }: { fallback: React.ReactNode }) {
   // A run's own view does not carry its digest; its row in the list does.
   const runs = useQuery({
     queryKey: ["runs", "digests"],
-    queryFn: () => fromWiener<RunsPage>("/api/runs?limit=200"),
+    queryFn: () => fromWiener<RunsPage>("/api/runs?limit=1000"),
     retry: false,
   });
   const drafts = useQuery({ queryKey: ["drafts"], queryFn: () => get<DraftsPage>("/pipeline/drafts") });

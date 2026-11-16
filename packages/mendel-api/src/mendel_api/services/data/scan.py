@@ -171,3 +171,15 @@ def finished(draft_id: str, revision: int) -> bool:
     with session_scope() as db:
         row = db.get(AnalysisData, draft_id)
         return bool(row and row.revision == revision and (row.scan or {}).get("state") == "done")
+
+
+def sweep_interrupted() -> int:
+    """Scans a worker lost (restarted, or timed out) say so, rather than reading for ever. Run when
+    the worker starts: no scan of its own is running yet. Returns how many."""
+    with session_scope() as db:
+        rows = [r for r in db.query(AnalysisData).all()
+                if (r.scan or {}).get("state") == "scanning"]
+        for row in rows:
+            row.scan = Scan(state="failed",
+                            error="the scan was interrupted; press Read again").model_dump()
+        return len(rows)

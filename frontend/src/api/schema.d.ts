@@ -3416,6 +3416,11 @@ export interface components {
             path: string;
             /** Files */
             files: number;
+            /**
+             * Folders
+             * @default 0
+             */
+            folders: number;
         };
         /** FolderListing */
         FolderListing: {

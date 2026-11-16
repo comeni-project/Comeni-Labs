@@ -188,9 +188,11 @@ def _stage(name: str, samples: list[dict], workdir: pathlib.Path) -> str:
 
 
 def _looks_like_a_path(text: str) -> bool:
-    """A value that names a file: absolute, relative (`a/b`, `../x`), or a URL. A plain word
-    (`reverse`, `true`, a sample's name) is not one."""
-    return "/" in text or "://" in text or text.startswith(".")
+    """A value that could reach a file outside the run: absolute, a URL, a home path, or one that
+    climbs (`..`). A word, a number or a media type (`text/plain`) is not one, and a plain
+    relative name stays inside the run's own folder, where Nextflow starts."""
+    return (text.startswith(("/", "~", "file:")) or "://" in text
+            or ".." in text.replace("\\", "/").split("/"))
 
 
 def _paths(value: object) -> list[str]:
@@ -201,13 +203,9 @@ def _paths(value: object) -> list[str]:
     if isinstance(value, dict) and isinstance(value.get("stage"), list):
         return [f for s in value["stage"] for f in s.get("files", []) if isinstance(f, str)]
     if isinstance(value, list):
-        out = []
-        for item in value:
-            if isinstance(item, dict):
-                out += [c for c in item.values() if isinstance(c, str) and _looks_like_a_path(c)]
-            elif isinstance(item, str) and _looks_like_a_path(item):
-                out.append(item)
-        return out
+        return [p for item in value for p in _paths(item)]
+    if isinstance(value, dict):
+        return [p for item in value.values() for p in _paths(item)]
     return []
 
 
@@ -222,7 +220,7 @@ def paths_outside(params: dict[str, object], roots: list[pathlib.Path]) -> list[
     for value in params.values():
         for path in _paths(value):
             local = path[len("file://"):] if path.startswith("file://") else path
-            if "://" in local or not local.startswith("/"):
+            if "://" in local or not local.startswith("/") or local.startswith("~"):
                 outside.append(path)
                 continue
             target = pathlib.Path(local).resolve()
