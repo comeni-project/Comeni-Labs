@@ -32,8 +32,13 @@
   --scrim: rgba(21, 24, 29, .38);
 }
 
+/* Native controls (checkboxes, selects, scrollbars) follow the palette, not the system: a light
+   page on a dark system drew its checkboxes black (walk 2026-11-16). */
+:root { color-scheme: light; }
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --paper: #12141B; --paper-2: #1A1D27; --surface: #1A1D27; --surface-2: #161820;
     --canvas: #161820;
     --line: #282C3A; --line-2: #3A3F52; --line-soft: #232736;
@@ -54,6 +59,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --paper: #12141B; --paper-2: #1A1D27; --surface: #1A1D27; --surface-2: #161820;
   --canvas: #161820;
   --line: #282C3A; --line-2: #3A3F52; --line-soft: #232736;

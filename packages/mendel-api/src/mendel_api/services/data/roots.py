@@ -12,12 +12,21 @@ from comeni_core.diagnostics import coded
 from pydantic import BaseModel
 
 
+class Looks(BaseModel):
+    """How many of a folder's files are of one kind, by extension (`kinds.looks_like`)."""
+
+    type_id: str
+    count: int
+
+
 class Folder(BaseModel):
     name: str
     path: str
     files: int
     folders: int = 0
     """How many subfolders it has: none, and the tree shows nothing to open."""
+    looks_like: list[Looks] = []
+    """Its files counted by kind (`kinds.looks_like`), filled by the route."""
 
 
 class FolderListing(BaseModel):

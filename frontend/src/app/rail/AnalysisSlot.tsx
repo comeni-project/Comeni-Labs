@@ -14,11 +14,10 @@ export type AnalysisPage = "data" | "build" | "run";
 
 /** The sub-pages each analysis page has, in rail order. Build has none: its rail holds controls. */
 export const SUB_PAGES: Record<AnalysisPage, { sub: string | null; label: string }[]> = {
+  // Data itself is the samples (board 2026-11-16).
   data: [
-    { sub: null, label: "Overview" },
-    { sub: "samples", label: "Samples" },
     { sub: "references", label: "References" },
-    { sub: "files", label: "Files" },
+    { sub: "files", label: "All files" },
   ],
   build: [],
   run: [

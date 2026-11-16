@@ -46,12 +46,13 @@ describe("the rail", () => {
   });
 
   it("inside an analysis the active page's sub-pages are indented under it", async () => {
-    at("/a/d1/data/samples", <RailSlot><AnalysisSlot draftId="d1" page="data" /></RailSlot>);
+    // Data itself is the samples (board 2026-11-16): its sub-pages are References and All files.
+    at("/a/d1/data/references", <RailSlot><AnalysisSlot draftId="d1" page="data" /></RailSlot>);
     expect(within(rail()).queryByText("Open an analysis…")).toBeNull();
     const data = within(rail()).getByRole("list", { name: "Data pages" });
     expect(within(data).getAllByRole("link").map((a) => a.getAttribute("aria-label"))).toEqual(
-      ["Overview", "Samples", "References", "Files"]);
-    expect(within(data).getByRole("link", { name: "Samples" }).getAttribute("aria-current")).toBe("page");
+      ["References", "All files"]);
+    expect(within(data).getByRole("link", { name: "References" }).getAttribute("aria-current")).toBe("page");
     expect(within(rail()).getByRole("link", { name: /Build/ })).toBeTruthy();
     expect(within(rail()).getByRole("link", { name: /Run/ })).toBeTruthy();
     expect(await within(rail()).findByText("Liver RNA-seq counts")).toBeTruthy();

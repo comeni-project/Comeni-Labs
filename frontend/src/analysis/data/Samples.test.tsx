@@ -1,7 +1,12 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 import { analysis } from "./fixtures";
+
+vi.mock("../../api/client", () => ({
+  get: vi.fn(async () => ({ names: { "fastq.reads": "sequencing reads (FASTQ)", "assembly.fasta": "Assembly sequences (FASTA)" } })),
+}));
 import { Samples } from "./Samples";
 import type { AnalysisData } from "./types";
 
@@ -11,7 +16,7 @@ function actions() {
 }
 
 function samples(data: AnalysisData = analysis(), act = actions()) {
-  render(<Samples data={data} {...act} />);
+  render(<QueryClientProvider client={new QueryClient()}><Samples data={data} {...act} /></QueryClientProvider>);
   return act;
 }
 
@@ -118,6 +123,35 @@ it("assemblies: lengths read in Mb by their unit, counts with separators, one sa
   expect(screen.getByText("2.84 Mb")).toBeTruthy();
   expect(screen.getByText("85 kb")).toBeTruthy();
   expect(screen.getByText("12,065")).toBeTruthy();
-  expect(screen.getByText(/One sample per file/)).toBeTruthy();
-  expect(screen.queryByText(/Paired by name/)).toBeNull();
+  expect(screen.getByText("one file each, named by the file")).toBeTruthy();
+  expect(screen.queryByText(/read 1 and 2/)).toBeNull();
+});
+
+it("a number column draws a bar, amber only where that measurement is flagged (board 2026-11-16)", () => {
+  const fact = (measurement: string, value: number) => ({ measurement, value, coverage: "all" as const, pieces: [] });
+  const asm = (name: string, contigs: number, length: number) => ({
+    name, files: [`/d/${name}.fna`], outcome: "measured" as const, type_id: "assembly.fasta", left_out: false,
+    facts: [fact("contigs", contigs), fact("assembly_length", length)] });
+  samples(analysis({
+    samples: [asm("N315", 2, 2839469), asm("BAC47", 65, 2837243)],
+    checks: [{ sample: "BAC47", kind: "odd_fact", measurement: "contigs", detail: "Contigs is 65; the median is 4", fixes: [] }],
+    rule_result: { samples: 2, unfit: 0, examples: [] },
+  }));
+  const amber = screen.getAllByTestId("fact-bar").filter((b) => b.className.includes("bg-measured"));
+  expect(amber).toHaveLength(1);
+  expect(amber[0].closest("[role='row']")).toHaveTextContent("BAC47");
+});
+
+it("two kinds of data get one tab each, with that kind's columns", async () => {
+  const base = analysis();
+  samples(analysis({
+    samples: [...base.samples, { name: "ASM1", files: ["/d/ASM1.fna"], outcome: "measured", type_id: "assembly.fasta", left_out: false,
+                                 facts: [{ measurement: "contigs", value: 3, coverage: "all", pieces: [] }] }],
+  }));
+  const tabs = await screen.findByRole("group", { name: "Kind of data" });
+  expect(within(tabs).getAllByRole("button")).toHaveLength(2);
+  expect(screen.queryByText("ASM1")).toBeNull();
+  fireEvent.click(await within(tabs).findByRole("button", { name: /Assembly/ }));
+  expect(screen.getByText("ASM1")).toBeTruthy();
+  expect(screen.getByRole("columnheader", { name: "Contigs" })).toBeTruthy();
 });

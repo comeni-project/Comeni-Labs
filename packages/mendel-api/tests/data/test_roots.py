@@ -93,3 +93,35 @@ def test_a_folder_says_how_many_subfolders_it_has(root):
     listing = roots.list_folder(root, [root])
     by_name = {f.name: f for f in listing.folders}
     assert by_name["liver"].folders == 1 and by_name["assemblies"].folders == 0
+
+
+def test_each_folder_says_what_it_looks_like_by_its_files_kinds(root, monkeypatch):
+    """The Data page's folder picker (board 2026-11-16): before anything is ticked, a folder says
+    '2 sequencing read files' or 'a genome, an annotation', from its files' extensions as the
+    registry's readers and study-wide types name them. A reference folder's FASTA is a genome."""
+    (root / "reference").mkdir()
+    (root / "reference" / "genome.fna").write_text(">c\nA\n")
+    (root / "reference" / "genes.gtf").write_text("x\n")
+    (root / "assemblies" / "BAC47.fna").write_text(">c\nA\n")
+    (root / "notes").mkdir()
+    (root / "notes" / "readme.txt").write_text("x\n")
+    monkeypatch.setattr(settings, "data_roots", [root])
+    client = TestClient(create_app())
+    body = client.get("/api/data/tree", params={"path": str(root)}).json()
+    looks = {f["name"]: f["looks_like"] for f in body["folders"]}
+    assert looks["liver"] == [{"type_id": "fastq.reads", "count": 2}]
+    assert looks["assemblies"] == [{"type_id": "assembly.fasta", "count": 1}]
+    assert looks["reference"] == [{"type_id": "annotation.gtf", "count": 1},
+                                  {"type_id": "genome.fasta", "count": 1}]
+    assert looks["notes"] == []
+
+
+def test_readers_say_what_they_read_and_measure(monkeypatch):
+    client = TestClient(create_app())
+    readers = {r["id"]: r for r in client.get("/api/data/readers").json()}
+    assert readers, "the registry declares format readers"
+    fastq = readers["fastq"]
+    assert fastq["type_id"] == "fastq.reads" and ".fastq" in fastq["extensions"]
+    assert ".gz" in fastq["compressed"]
+    assert "read_length" in fastq["measures"]
+    assert {"contigs", "n50"} <= set(readers["fasta"]["measures"])

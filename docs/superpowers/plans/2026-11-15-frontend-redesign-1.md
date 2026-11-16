@@ -753,10 +753,33 @@ Board: `Run.dc.html`.
 - [x] **Step 2:** Run `npx vitest run src/analysis/run`. Expected: FAIL.
 - [x] **Step 3:** Implement against the board.
 - [x] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
-- [ ] **Step 5:** Walk `docs/how-to/development/demo-walk.md` in the browser on the dev stack, beats 1–8, after
+- [x] **Step 5:** Walk `docs/how-to/development/demo-walk.md` in the browser on the dev stack, beats 1–8, after
   `python3 tools/demo_data.py`. This is the spec's success path from end to end, and the demo's rehearsal. Fix
   the script where the product is right and the script is wrong; file an issue where the product is wrong.
 - [x] **Step 6:** Commit: `feat(frontend): Run in the analysis frame, inputs from Data (#511, #508)`.
+
+### Task 14b: Data and References, reworked to the walk's board
+
+Board: claude.ai/artifact/QS7zEVF1dfe8ncpZ4dPjFn (approved 2026-11-16). Added after the walk of
+Task 14 step 5; the walk's findings are #526–#532.
+
+**Files:** `routes/data.py` and `services/data/roots.py` (each folder says what it looks like;
+`GET /data/readers`); `frontend/src/analysis/data/` (DataPage, a new `Start.tsx` and
+`References.tsx` rewritten, Overview reduced to the checks and the side cards, Samples on the
+Data page); `app/rail/AnalysisSlot.tsx` (Data's sub-pages: Samples, References, All files).
+
+- [x] **Step 1:** Tests first: a folder's `looks_like` counts files by the kind a reader or a
+  study-wide type names, a reference folder's FASTA as a genome; `/data/readers` lists each
+  format reader with its extensions and what it measures; Data with nothing ticked shows the
+  folder picker on the page and "Read these folders" ticks what was chosen; checks are grouped
+  one row a sample; a fact column draws a bar, amber only where that measurement is flagged;
+  References shows one slot a study-wide input of Build's canvas, offers files from the
+  folders ranked by kind, and "Use as" adds the reference.
+- [x] **Step 2:** Run them. Expected: FAIL.
+- [x] **Step 3:** Implement against the board.
+- [x] **Step 4:** Run the data tests, `npx vitest run`, `npx tsc -b`. Expected: PASS.
+- [x] **Step 5:** Look at both demo analyses in the browser at desktop and phone width. (Desktop done; the window would not shrink to phone width here: carried to Task 15 step 4.)
+- [x] **Step 6:** Commit: `feat: Data and References to the board (#511)`.
 
 **→ Checkpoint D.**
 

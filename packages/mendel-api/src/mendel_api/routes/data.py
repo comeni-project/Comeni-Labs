@@ -15,6 +15,7 @@ from mendel_api.models import AnalysisData, PipelineDraft
 from mendel_api.refusals import REFUSES
 from mendel_api.services.data import roots, rule
 from mendel_api.services.data.bindings import Bindings, bind
+from mendel_api.services.data.kinds import Reader
 from mendel_api.services.data.rule import Fix, Rule
 from mendel_api.services.data.summary import summary
 from mendel_api.services.data.types import (
@@ -39,8 +40,25 @@ class Folders(BaseModel):
 @router.get("/tree", operation_id="readDataTree", summary="A folder under the data roots",
             responses=REFUSES)
 def read_tree(path: str | None = None) -> roots.FolderListing:
-    """The folder's subfolders and file count; no `path` lists the roots themselves."""
-    return roots.list_folder(path, settings.data_roots)
+    """The folder's subfolders and file count, each saying what it looks like; no `path` lists
+    the roots themselves."""
+    from pathlib import Path
+
+    from mendel_api.services.data import kinds
+
+    listing = roots.list_folder(path, settings.data_roots)
+    for folder in listing.folders:
+        folder.looks_like = kinds.looks_like(Path(folder.path))
+    return listing
+
+
+@router.get("/readers", operation_id="readDataReaders",
+            summary="The kinds of data Comeni reads, from which files, and what it measures",
+            responses=REFUSES)
+def read_readers() -> list[Reader]:
+    from mendel_api.services.data import kinds
+
+    return kinds.readers()
 
 
 class Machine(BaseModel):

@@ -954,9 +954,27 @@ export interface paths {
         };
         /**
          * A folder under the data roots
-         * @description The folder's subfolders and file count; no `path` lists the roots themselves.
+         * @description The folder's subfolders and file count, each saying what it looks like; no `path` lists
+         *     the roots themselves.
          */
         get: operations["readDataTree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/readers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The kinds of data Comeni reads, from which files, and what it measures */
+        get: operations["readDataReaders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3511,6 +3529,11 @@ export interface components {
              * @default 0
              */
             folders: number;
+            /**
+             * Looks Like
+             * @default []
+             */
+            looks_like: components["schemas"]["Looks"][];
         };
         /** FolderListing */
         FolderListing: {
@@ -3826,6 +3849,16 @@ export interface components {
          * @enum {string}
          */
         Level: "illegal" | "unmet" | "advisory";
+        /**
+         * Looks
+         * @description How many of a folder's files are of one kind, by extension (`kinds.looks_like`).
+         */
+        Looks: {
+            /** Type Id */
+            type_id: string;
+            /** Count */
+            count: number;
+        };
         /** Machine */
         Machine: {
             /** Cpus */
@@ -4733,6 +4766,22 @@ export interface components {
             why: string;
             /** Says */
             readonly says: string;
+        };
+        /**
+         * Reader
+         * @description A format reader: what it reads, from which extensions, and what it measures there.
+         */
+        Reader: {
+            /** Id */
+            id: string;
+            /** Type Id */
+            type_id: string;
+            /** Extensions */
+            extensions: string[];
+            /** Compressed */
+            compressed: string[];
+            /** Measures */
+            measures: string[];
         };
         /**
          * Reference
@@ -7426,6 +7475,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FolderListing"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readDataReaders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reader"][];
                 };
             };
             /** @description The id in the path names nothing. */

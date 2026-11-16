@@ -1,51 +1,64 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { expect, it, vi } from "vitest";
 
 import { analysis } from "./fixtures";
-import { References } from "./References";
 
 vi.mock("../../api/client", () => ({
-  get: vi.fn(async (url: string) => url.endsWith("/reference-types") ? ["annotation.gtf", "genome.fasta"]
-    : url.endsWith("/vocabulary") ? { names: { "annotation.gtf": "Gene annotation (GTF)", "genome.fasta": "Genome sequence" } }
-    : { total: 2, files: [{ path: "/d/genome.fasta", name: "genome.fasta", size: 10, sample: "genome", recognised: null, used_as: null },
-                          { path: "/d/L01_R1.fq.gz", name: "L01_R1.fq.gz", size: 10, sample: "L01", recognised: "fastq.reads", used_as: null }] }),
+  get: vi.fn(async (url: string) => {
+    if (url.endsWith("/reference-types")) return ["annotation.gff", "annotation.gtf", "genome.fasta"];
+    if (url.endsWith("/vocabulary")) return { names: { "annotation.gff": "Reference annotation (GFF)", "genome.fasta": "reference genome (FASTA)" } };
+    if (url === "/data/readers") return [{ id: "fasta", type_id: "assembly.fasta", extensions: [".fasta", ".fna"], compressed: [".gz"], measures: [] }];
+    if (url.startsWith("/pipeline/authoring/")) return { canvas: { channels: [
+      { name: "genome", grain: "study", type_id: "genome.fasta", param: "genome", ports: [], states: [] },
+      { name: "gff", grain: "study", type_id: "annotation.gff", param: "gff", ports: [], states: [] },
+      { name: "asm", grain: "sample", type_id: "assembly.fasta", param: "asm", ports: [], states: [] }] } };
+    return { total: 4, files: [
+      { path: "/d/ref/genome.fna", name: "genome.fna", size: 2856716, sample: null, recognised: null, used_as: "reference" },
+      { path: "/d/ref/genes.gff", name: "genes.gff", size: 1407171, sample: null, recognised: null, used_as: "candidate" },
+      { path: "/d/notes.txt", name: "notes.txt", size: 10, sample: null, recognised: null, used_as: null },
+      { path: "/d/asm/BAC47.fna", name: "BAC47.fna", size: 10, sample: "BAC47", recognised: "assembly.fasta", used_as: null }] };
+  }),
+  post: vi.fn(async () => ({ session_id: "s1" })),
 }));
+
+import { References } from "./References";
 
 function refs(data = analysis(), add = vi.fn(), remove = vi.fn()) {
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <References data={data} onAdd={add} onRemove={remove} />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <References data={data} onAdd={add} onRemove={remove} />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
   return { add, remove };
 }
 
-it("references: standard is shown as later; from a file names the file and its type", async () => {
-  const { add } = refs();
-  expect(screen.getByText(/Standard references/)).toBeTruthy();
-  expect(screen.getByText("later")).toBeTruthy();
-  await screen.findByRole("option", { name: "Gene annotation (GTF)" });
-  expect(await screen.findByRole("option", { name: "genome.fasta" })).toBeTruthy();
-  fireEvent.change(screen.getByRole("combobox", { name: "File" }), { target: { value: "/d/genome.fasta" } });
-  fireEvent.change(screen.getByRole("combobox", { name: "Kind" }), { target: { value: "genome.fasta" } });
-  fireEvent.click(screen.getByRole("button", { name: "Add reference" }));
-  expect(add).toHaveBeenCalledWith("/d/genome.fasta", "genome.fasta");
-});
+const withGenome = () => analysis({ references: [{ path: "/d/ref/genome.fna", name: "genome.fna", type_id: "genome.fasta",
+                                                   origin: "you", facts: [] }] });
 
-it("a reference is listed with its kind and can be removed", () => {
-  const { remove } = refs(analysis({ references: [{ path: "/d/genes.gtf", name: "genes.gtf", type_id: "annotation.gtf",
-                                                    origin: "you", facts: [] }] }));
-  expect(screen.getByText("genes.gtf")).toBeTruthy();
-  expect(screen.getByText("annotation.gtf")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Remove genes.gtf" }));
+it("one slot a study-wide input of the pipeline: set ones say their file, open ones offer files by kind (board 2026-11-16)", async () => {
+  const { add, remove } = refs(withGenome());
+  const genome = await screen.findByRole("region", { name: "Genome" });
+  expect(within(genome).getByText("genome.fna")).toBeTruthy();
+  fireEvent.click(within(genome).getByRole("button", { name: "Change genome.fna" }));
   expect(remove).toHaveBeenCalledWith(0);
+  const gff = screen.getByRole("region", { name: "Annotation" });
+  // The GFF in the reference folder comes first; a sample's file is never offered.
+  const offered = await within(gff).findAllByTestId("candidate");
+  expect(offered[0]).toHaveTextContent("genes.gff");
+  expect(within(gff).queryByText("BAC47.fna")).toBeNull();
+  fireEvent.click(within(offered[0]).getByRole("button", { name: /Use as/ }));
+  expect(add).toHaveBeenCalledWith("/d/ref/genes.gff", "annotation.gff");
 });
 
-it("kinds are offered and listed by their names, not their ids (issue 527)", async () => {
-  refs(analysis({ references: [{ path: "/d/genes.gtf", name: "genes.gtf", type_id: "annotation.gtf",
-                                origin: "you", facts: [] }] }));
-  expect(await screen.findByRole("option", { name: "Genome sequence" })).toBeTruthy();
-  expect(await screen.findAllByText("Gene annotation (GTF)")).not.toHaveLength(0);
+it("another file can be found by name, and standard references are later", async () => {
+  refs(withGenome());
+  const gff = await screen.findByRole("region", { name: "Annotation" });
+  fireEvent.change(within(gff).getByRole("textbox", { name: /Find another file/ }), { target: { value: "notes" } });
+  expect(await within(gff).findByText("notes.txt")).toBeTruthy();
+  expect(screen.getByText(/downloaded once and kept/)).toBeTruthy();
   expect(screen.queryByText("one file each, for the whole analysis")).toBeNull();
 });

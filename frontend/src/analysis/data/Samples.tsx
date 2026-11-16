@@ -4,6 +4,7 @@ import { DataTable, type Column } from "../../ui/DataTable";
 import { Panel } from "../../ui/Panel";
 import { Segmented } from "../../ui/Segmented";
 import { SourceTag } from "../../ui/SourceTag";
+import { useTypeNames } from "../../build/living/useTypeNames";
 import type { AnalysisData } from "./types";
 import { plain } from "./values";
 
@@ -22,16 +23,34 @@ export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColum
   setCell: (column: string, sample: string, value: string) => void;
   addColumn: (name: string) => void;
 }) {
+  const typeName = useTypeNames();
   const [filter, setFilter] = useState<"all" | "check">("all");
   const [find, setFind] = useState("");
   const [adding, setAdding] = useState(false);
+  const [showRule, setShowRule] = useState(false);
   const flagged = useMemo(() => new Set(data.checks.map((c) => c.sample)), [data.checks]);
-  const rows = data.samples.filter((s) => (filter === "all" || flagged.has(s.name))
+  // Flagged for one measurement, so only that column's bar is amber (an assembly odd in its
+  // contigs is not odd in its length).
+  const odd = useMemo(() => new Set(data.checks.map((c) => `${c.sample}|${c.measurement ?? ""}`)), [data.checks]);
+  // **One tab a kind of data** (board 2026-11-16): reads and assemblies have different columns.
+  const kinds = [...new Set(data.samples.map((s) => s.type_id).filter((t): t is string => !!t))].sort();
+  const [picked, setKind] = useState<string | null>(null);
+  const count = (k: string) => data.samples.filter((s) => s.type_id === k).length;
+  const most = [...kinds].sort((a, b) => count(b) - count(a))[0] ?? null;
+  const kind = picked && kinds.includes(picked) ? picked : most;
+  const ofKind = kinds.length > 1 ? data.samples.filter((s) => s.type_id === kind) : data.samples;
+  const rows = ofKind.filter((s) => (filter === "all" || flagged.has(s.name))
     && s.name.toLowerCase().includes(find.trim().toLowerCase()));
 
-  const paired = data.samples.filter((s) => s.files.length === 2).length > data.samples.length / 2;
-  const facts = [...new Set(data.samples.flatMap((s) => s.facts.map((f) => f.measurement)))].sort();
+  const paired = ofKind.filter((s) => s.files.length === 2).length > ofKind.length / 2;
+  const facts = [...new Set(ofKind.flatMap((s) => s.facts.map((f) => f.measurement)))].sort();
   const units = Object.fromEntries(data.summary.compare_by.map((c) => [c.measurement, c.unit]));
+  const top = Object.fromEntries(facts.map((m) => [m, Math.max(0, ...ofKind.map((s) => {
+    const v = s.facts.find((f) => f.measurement === m)?.value;
+    return typeof v === "number" ? v : 0;
+  }))]));
+  // The rule shows itself while the AI's pattern waits for you, or files did not fit it.
+  const ruleOpen = showRule || (data.rule.origin === "ai" && !data.rule.confirmed) || data.rule_result.unfit > 0;
   const columns: Column<Sample>[] = [
     { id: "name", header: "Sample", width: "minmax(140px,1.2fr)", cell: (s) => (
       <span className="flex items-center gap-2 min-w-0">
@@ -43,9 +62,20 @@ export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColum
       ? [{ id: "r1", header: "Read 1", cell: (s: Sample) => <Mono>{base(s.files[0] ?? "")}</Mono> },
          { id: "r2", header: "Read 2", cell: (s: Sample) => <Mono>{s.files[1] ? base(s.files[1]) : "—"}</Mono> }]
       : [{ id: "file", header: "File", cell: (s: Sample) => <Mono>{s.files.map(base).join(", ")}</Mono> }]),
-    ...facts.map((m) => ({ id: `fact-${m}`, header: words(m), width: "110px", cell: (s: Sample) => (
-      <Mono>{plain(s.facts.find((f) => f.measurement === m)?.value, units[m])}</Mono>
-    ) })),
+    ...facts.map((m) => ({ id: `fact-${m}`, header: words(m), width: top[m] > 0 ? "170px" : "110px", cell: (s: Sample) => {
+      const value = s.facts.find((f) => f.measurement === m)?.value;
+      if (typeof value !== "number" || top[m] <= 0) return <Mono>{plain(value, units[m])}</Mono>;
+      const amber = odd.has(`${s.name}|${m}`);
+      return (
+        <span className="flex items-center gap-2 min-w-0">
+          <span aria-hidden="true" className="shrink-0 w-[72px] h-[6px] rounded-full bg-surface-2 flex overflow-hidden">
+            <span data-testid="fact-bar" className={`rounded-full ${amber ? "bg-measured" : "bg-now-mid"}`}
+                  style={{ width: `${Math.max(4, (100 * value) / top[m])}%` }} />
+          </span>
+          <Mono>{plain(value, units[m])}</Mono>
+        </span>
+      );
+    } })),
     ...Object.entries(data.columns).map(([name, values]) => ({ id: `col-${name}`, header: name, width: "130px",
       cell: (s: Sample) => (
         <input aria-label={`${name} for ${s.name}`} defaultValue={values[s.name] ?? ""}
@@ -57,9 +87,22 @@ export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColum
 
   return (
     <div className="flex flex-col gap-4">
-      <ReadingRule data={data} setRule={setRule} confirmRule={confirmRule} />
-      <Panel title="Samples" actions={
+      {ruleOpen && <ReadingRule data={data} setRule={setRule} confirmRule={confirmRule} />}
+      <Panel title="Samples" hint={
         <span className="flex items-center gap-2 flex-wrap">
+          {kinds.length === 1 && <span className="px-2 py-[1px] rounded-xs border border-line bg-surface-2 text-[12px] text-ink-2">{typeName(kinds[0])}</span>}
+          <span>{data.rule.pattern ? `by the rule ${data.rule.pattern}` : paired ? "read 1 and 2 from the file names" : "one file each, named by the file"}</span>
+          {!ruleOpen && (
+            <button type="button" onClick={() => setShowRule(true)}
+                    className="border-0 bg-transparent p-0 text-[12.5px] font-semibold text-now-ink cursor-pointer">How</button>
+          )}
+        </span>
+      } actions={
+        <span className="flex items-center gap-2 flex-wrap">
+          {kinds.length > 1 && (
+            <Segmented<string> label="Kind of data" value={kind ?? ""} onChange={setKind}
+                               options={kinds.map((k) => ({ id: k, label: `${typeName(k)} · ${count(k)}` }))} />
+          )}
           <Segmented<"all" | "check"> label="Show" value={filter} onChange={setFilter}
                                      options={[{ id: "all", label: "All" }, { id: "check", label: `To check · ${flagged.size}` }]} />
           <input aria-label="Find a sample" placeholder="Find a sample" value={find} onChange={(e) => setFind(e.target.value)}

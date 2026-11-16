@@ -9,7 +9,7 @@ export function Applied({ data, onKeep, onUndo }: {
 }) {
   if (data.fixes.length === 0) return null;
   return (
-    <Panel title="Applied" hint="fixes to how the files are read, kept on every scan">
+    <Panel title="Changes" hint="yours and the AI's, kept on every scan">
       {data.fixes.map((fix, index) => {
         const said = describe(fix);
         return (

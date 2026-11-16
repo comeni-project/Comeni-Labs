@@ -15,3 +15,12 @@ export const withUnit = (value: number, unit?: string | null) => {
   const shown = plain(value, unit);
   return unit && !/ [kM]b$/.test(shown) ? `${shown} ${unit}` : shown;
 };
+
+/** A file's size: *1.4 MB*, *2.7 MB*, *980 KB*. */
+export const bytes = (n: number) => {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1; }
+  return i === 0 ? `${v} B` : `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+};
