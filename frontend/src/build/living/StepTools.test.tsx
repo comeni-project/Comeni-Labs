@@ -7,6 +7,7 @@ import { makeClient } from "../../app/queryClient";
 import { FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { LivingSurface } from "./LivingSurface";
 import { framed } from "./frame";
+import { withParam } from "../graphOps";
 
 /** Changing a step that is already on the canvas — Task 14's *preserve swapping and settings*.
  *
@@ -84,7 +85,7 @@ function living(selected: string | null, graph: DraftGraph = RESTED.graph) {
         onReviewed={vi.fn()}
         onAddStep={vi.fn()}
         onDismiss={vi.fn()}
-        onSetParam={vi.fn()}
+        onSetParam={(node, setting, value, why) => onEdit(withParam(graph, node, setting, value, why))}
         onEdit={onEdit}
       />
     </QueryClientProvider>,
@@ -93,18 +94,19 @@ function living(selected: string | null, graph: DraftGraph = RESTED.graph) {
 }
 
 /** The step's card, beside it on the canvas (#499). */
-const stepTab = () => screen.getByRole("region", { name: /^step card / });
+const stepTab = () => screen.getByRole("tabpanel", { name: "Step" });
 
 describe("a selected step's tools", () => {
-  it("opens beside the step, with its other tools a click away", () => {
+  it("opens in the Step tab, with its other tools a click away", () => {
     living("star_align");
-    expect(within(stepTab()).getByRole("button", { name: "Swap tool…" })).toBeInTheDocument();
-    expect(within(stepTab()).getByRole("button", { name: "Edit values" })).toBeInTheDocument();
+    expect(within(stepTab()).getByRole("button", { name: "Swap tool" })).toBeInTheDocument();
+    expect(within(stepTab()).getByRole("button", { name: "Remove" })).toBeInTheDocument();
   });
 
   it("is offered for nothing when nothing is selected", () => {
     living(null);
-    expect(screen.queryByRole("region", { name: /^step card / })).toBeNull();
+    expect(document.querySelector('[role="tabpanel"][aria-label="Step"]'))
+      .toHaveTextContent("Pick a step on the canvas to see its settings.");
   });
 
   it("is offered for a step added by hand, which no decision in the log created", () => {
@@ -113,7 +115,7 @@ describe("a selected step's tools", () => {
       nodes: [...RESTED.graph.nodes, { id: "fastqc_1", contract_id: "nf-core/fastqc@0.12.1", params: [] }],
     };
     living("fastqc_1", graph);
-    expect(stepTab()).toHaveAccessibleName("step card FASTQC_1");
+    expect(within(stepTab()).getByRole("heading", { name: "FASTQC_1" })).toBeInTheDocument();
   });
 });
 
@@ -140,17 +142,16 @@ describe("changing a step goes through the session's edit", () => {
     expect(onEdit).not.toHaveBeenCalled();
   });
 
-  it("stages typed values and sends them as one edit — never one per keystroke", async () => {
+  it("sends a typed value as one edit when the field is left — never one per keystroke", () => {
     // A receipt per character is `set STAR_ALIGN.seq_platform to I`, then `to IL`, … in the log
     // and a revision per key, each staling whatever step is on offer.
     const onEdit = living("star_align");
-    fireEvent.click(screen.getByRole("button", { name: "Edit values" }));
-    const field = await screen.findByTestId("setting-field");
+    const field = within(stepTab()).getByRole("textbox", { name: "seq_platform" });
     fireEvent.change(field, { target: { value: "ILL" } });
     fireEvent.change(field, { target: { value: "ILLUMINA" } });
     expect(onEdit).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Use these values" }));
+    fireEvent.blur(field);
     expect(onEdit).toHaveBeenCalledOnce();
     const sent: DraftGraph = onEdit.mock.calls[0][0];
     expect(sent.nodes.find((n) => n.id === "star_align")?.params).toEqual([
@@ -160,7 +161,7 @@ describe("changing a step goes through the session's edit", () => {
 
   it("swaps a step's contract, keeping its id and so its wires", async () => {
     const onEdit = living("star_align");
-    fireEvent.click(screen.getByRole("button", { name: "Swap tool…" }));
+    fireEvent.click(within(stepTab()).getByRole("button", { name: "Swap tool" }));
     const [hisat] = await screen.findAllByTestId("swap-option");
     fireEvent.click(hisat);
     const apply = await screen.findByTestId("apply-swap");

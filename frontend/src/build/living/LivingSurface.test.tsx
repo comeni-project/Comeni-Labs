@@ -51,7 +51,8 @@ describe("the two surfaces", () => {
   it("has a canvas, one conversation, one header strip and a composer", () => {
     surface();
     expect(screen.getByRole("region", { name: "pipeline canvas" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "build panel" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Step and assistant" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "the conversation" })).toBeInTheDocument();
     expect(screen.getByTestId("living-header")).toHaveTextContent("rnaseq-counts");
     expect(screen.getByRole("form", { name: "say something" })).toBeInTheDocument();
     expect(screen.getByRole("log", { name: "conversation" })).toHaveTextContent("I picked STAR over HISAT2");
@@ -72,7 +73,7 @@ describe("the two surfaces", () => {
     surface();
     const regions = screen.getAllByRole("region");
     expect(regions[0]).toHaveAccessibleName("pipeline canvas");
-    expect(regions.findIndex((r) => r.getAttribute("aria-label") === "build panel")).toBeGreaterThan(0);
+    expect(regions.findIndex((r) => r.getAttribute("aria-label") === "the conversation")).toBeGreaterThan(0);
   });
 
   it("marks on the canvas the step the AI chose and nobody reviewed", () => {
@@ -81,9 +82,9 @@ describe("the two surfaces", () => {
     expect(screen.queryByTestId("node-ai-trimgalore")).toBeNull();
   });
 
-  it("opens a step beside it on the canvas, with what the AI chose there and Looks right", () => {
+  it("opens a step in the Step tab, with what the AI chose there and Looks right", () => {
     const props = surface(FAKE_SESSION, { selected: "star_align" });
-    const sheet = screen.getByRole("region", { name: "step card STAR_ALIGN" });
+    const sheet = screen.getByRole("tabpanel", { name: "Step" });
     expect(within(sheet).getByRole("region", { name: "What the AI chose" }))
       .toHaveTextContent("chose nf-core/star/align@2.7.11b");
     fireEvent.click(within(sheet).getByRole("button", { name: "Looks right" }));
@@ -154,5 +155,32 @@ describe("the pipeline file", () => {
     fireEvent.click(screen.getByTestId("living-view-canvas"));
     expect(screen.queryByTestId("pipeline-file")).toBeNull();
     expect(screen.getByTestId("build-canvas").closest(".living")).not.toHaveStyle({ display: "none" });
+  });
+});
+
+describe("the rail's Review list", () => {
+  it("lists what the AI chose and what needs you, and a click opens that step", async () => {
+    const { MemoryRouter } = await import("react-router");
+    const { RailProvider } = await import("../../app/rail/RailContext");
+    const { Rail } = await import("../../app/rail/Rail");
+    const onSelect = vi.fn();
+    const props = {
+      session: framed(FAKE_SESSION, FAKE_STEPS, FAKE_CHANNELS), graph: FAKE_SESSION.graph, preview: null,
+      selected: null, onSelect, composer: "", onCompose: vi.fn(), sending: [], onSay: vi.fn(), onAnswer: vi.fn(),
+      onRetry: vi.fn(), onReviewed: vi.fn(), onDismiss: vi.fn(), onAddStep: vi.fn(), onSetParam: vi.fn(), onEdit: vi.fn(),
+    };
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <RailProvider><Rail /><LivingSurface {...props} /></RailProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    const review = await screen.findByRole("group", { name: "Review" });
+    const items = within(review).getAllByRole("button");
+    expect(items.length).toBeGreaterThan(0);
+    expect(within(review).getByRole("button", { name: /STAR_ALIGN/ })).toHaveTextContent("AI");
+    fireEvent.click(within(review).getByRole("button", { name: /STAR_ALIGN/ }));
+    expect(onSelect).toHaveBeenCalledWith("star_align");
   });
 });

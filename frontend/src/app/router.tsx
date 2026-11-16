@@ -1,5 +1,6 @@
 import { Navigate, type RouteObject } from "react-router";
 
+import { BuildPage } from "../analysis/build/BuildPage";
 import { DataPage } from "../analysis/data/DataPage";
 import { Home } from "../home/Home";
 import { Catalogue } from "../registry/Catalogue";
@@ -10,7 +11,7 @@ import { Releases } from "../registry/Releases";
 import { Tool } from "../registry/Tool";
 import { Run } from "../runs/Run";
 import {
-  AnalysisFrame, AnalysisIndex, BuildPage, LegacyBuild, LegacyRun, Pending,
+  AnalysisFrame, AnalysisIndex, LegacyBuild, LegacyRun, Pending,
 } from "./AnalysisFrame";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { SettingsLink } from "./SettingsLink";

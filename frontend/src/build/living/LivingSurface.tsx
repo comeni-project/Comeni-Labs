@@ -17,6 +17,10 @@ import type { ReviewState } from "./LivingNode";
 import { PipelineFile } from "./PipelineFile";
 import type { ServerNotice } from "./useAuthoringSession";
 import { useFocus } from "./useFocus";
+import { SidePanel, type SideTab } from "../../analysis/build/SidePanel";
+import { RailControls } from "../../app/rail/RailContext";
+import { open as isOpen } from "../useBuilder";
+import { type InputFrom, ToolForm } from "../../analysis/build/ToolForm";
 import { valuesOf } from "./values";
 
 /** The builder's composition (#463): **wires state and callbacks, draws nothing itself.**
@@ -67,6 +71,7 @@ export function LivingSurface({
   const [view, setView] = useState<"canvas" | "artifact">("canvas");
   const [browsing, setBrowsing] = useState(false);
   const [pane, setPane] = useState<"chat" | "canvas">("chat");
+  const [tab, setTab] = useState<SideTab>(selected ? "step" : "assistant");
 
   // **The server's frame, whole**: the visible graph, each step's recorded metadata, and the
   // channels that really enter. Nothing here re-derives or guesses any of it.
@@ -98,12 +103,16 @@ export function LivingSurface({
   const [was, setWas] = useState(selected);
   if (selected !== was) { setWas(selected); setCardFor(selected); }
   const carded = present(cardFor) ? cardFor : null;
-  const pick = (node: string | null) => { setMenuFor(null); setCardFor(node); setKind("settings"); onSelect(node); };
+  const pick = (node: string | null) => {
+    setMenuFor(null); setCardFor(node); setKind("settings"); onSelect(node);
+    if (node) setTab("step");
+  };
   // Focus goes back to the step the menu or card belonged to; it is still drawn when they close.
   const backTo = (node: string) => document.querySelector<HTMLElement>(`[data-node="${node}"]`)?.focus();
   const closeMenu = (node: string) => { setMenuFor(null); backTo(node); };
   const openCard = (node: string, next: CardKind) => {
     setMenuFor(null); setCardFor(node); setKind(next); onSelect(node);
+    if (next === "settings") setTab("step");
   };
   const closeCard = () => { const at = carded; pick(null); if (at) backTo(at); };
   const aiAt = (node: string) => session.ai_unreviewed.filter((c) => c.node === node)
@@ -124,7 +133,7 @@ export function LivingSurface({
       return;
     }
     closeMenu(node);
-    if (item === "ask") { setPane("chat"); onCompose(`About ${processName(node)}: `); }
+    if (item === "ask") { setPane("chat"); setTab("assistant"); onCompose(`About ${processName(node)}: `); }
     else if (item === "file") { setFileStep(node); setView("artifact"); }
     else if (item === "reviewed") onReviewed(node);
     else if (item === "whole" && steps[node]?.parts) onWhole?.(steps[node].contract_id, steps[node].parts!.on);
@@ -133,7 +142,7 @@ export function LivingSurface({
     node: menuFor,
     content: <StepMenu label={`${processName(menuFor)} menu`} items={menuItems(menuFor)}
                        onChoose={(item) => choose(menuFor, item)} onClose={() => closeMenu(menuFor)} />,
-  } : carded ? {
+  } : carded && kind !== "settings" ? {
     node: carded,
     content: (
       <div className="px-4 py-3 rounded-panel border shadow-raise"
@@ -175,10 +184,40 @@ export function LivingSurface({
   );
 
   const talk = { session, sending, composer, onCompose, onSay, onAnswer, onRetry, notices: null };
+  const chosen = carded ?? (present(selected) ? selected : null);
   const runnable = run !== null && !session.retired;
+
+  // **Review**, in the rail: each step the AI chose for and nobody reviewed, and each value that
+  // still needs the person. A click opens that step.
+  const review = [
+    ...aiChosen.map((node) => ({ node, tag: "AI", what: aiAt(node).map((c) => c.what).join("; ") })),
+    ...answered.flatMap((step) => step.settings.filter(isOpen)
+      .map((s) => ({ node: step.id, tag: "needs you", what: s.name }))),
+  ];
 
   return (
     <div className="grid grid-rows-[auto_1fr] h-full overflow-hidden" data-testid="living">
+      {review.length > 0 && (
+        <RailControls label="Review">
+          <ul className="list-none m-0 p-0 flex flex-col">
+            {review.map((r) => (
+              <li key={`${r.tag}-${r.node}-${r.what}`}>
+                <button type="button" onClick={() => pick(r.node)}
+                        className="w-full flex items-baseline gap-2 px-[10px] py-[5px] border-0 bg-transparent rounded-control
+                                   text-left cursor-pointer hover:bg-surface-2">
+                  <span className={`shrink-0 text-[10.5px] font-bold ${r.tag === "AI" ? "text-ai" : "text-needs-you-ink"}`}>
+                    {r.tag === "AI" ? "AI" : "!"}
+                  </span>
+                  <span className="min-w-0 flex flex-col">
+                    <span className="font-data text-[12px] font-medium text-ink truncate">{processName(r.node)}</span>
+                    <span className="text-[11.5px] text-ink-3 truncate">{r.what}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </RailControls>
+      )}
       <LivingHeader
         session={session}
         view={view}
@@ -254,11 +293,76 @@ export function LivingSurface({
           )}
         </section>
 
-        <ChatPanel {...talk} notices={notices}
-                   onStep={(node) => { setPane("canvas"); pick(node); }} />
+        <SidePanel tab={tab} onTab={setTab}
+                   step={chosen && steps[chosen] ? (
+                     <>
+                       <header className="flex flex-col gap-2 px-5 pt-4 pb-3">
+                         <h2 className="m-0 font-data text-[14px] font-semibold text-ink">{processName(chosen)}</h2>
+                         <span className="text-[12px] text-ink-3">
+                           {steps[chosen].runs === "per_item" ? "once per sample" : "once"}
+                         </span>
+                         {!session.retired && (
+                           <div className="flex gap-2">
+                             {(["swap", "remove"] as const).map((k) => (
+                               <button key={k} type="button" onClick={() => openCard(chosen, k)}
+                                       className="px-3 py-[4px] rounded-button border border-line bg-surface text-[12.5px]
+                                                  text-ink cursor-pointer hover:bg-hover">
+                                 {k === "swap" ? "Swap tool" : "Remove"}
+                               </button>
+                             ))}
+                           </div>
+                         )}
+                       </header>
+                       {aiAt(chosen).some((c) => !c.what.startsWith("set ")) && (
+                         <section aria-label="What the AI chose"
+                                  className="mx-5 mb-3 px-3 py-2 rounded-control border border-ai-line bg-ai-soft flex flex-col gap-1">
+                           {aiAt(chosen).filter((c) => !c.what.startsWith("set ")).map((c) => (
+                             <p key={c.what} className="m-0 text-[12.5px] text-ink">
+                               <span className="font-semibold text-ai">AI</span> {c.what}
+                               {c.because && <span className="block text-ink-2">{c.because}</span>}
+                             </p>
+                           ))}
+                           <button type="button" onClick={() => onReviewed(chosen)}
+                                   className="self-start px-3 py-[3px] rounded-button border border-line bg-surface text-[12px]
+                                              font-medium cursor-pointer">
+                             Looks right
+                           </button>
+                         </section>
+                       )}
+                       <ToolForm step={steps[chosen]} aiChoices={aiAt(chosen)}
+                                 inputs={inputsOf(chosen, steps, frame, session.draft_id)}
+                                 onSet={(setting, value) => onSetParam(chosen, setting, value)}
+                                 onAsk={(setting) => {
+                                   setTab("assistant"); setPane("chat");
+                                   onSay(`About ${processName(chosen)}, the setting ${setting}: what should it be, and why?`);
+                                 }}
+                                 onAccept={() => onReviewed(chosen)} />
+                     </>
+                   ) : (
+                     <p className="m-0 px-5 py-6 text-[13px] text-ink-3">Pick a step on the canvas to see its settings.</p>
+                   )}
+                   assistant={<ChatPanel {...talk} notices={notices} embedded
+                                         onStep={(node) => { setPane("canvas"); pick(node); }} />} />
       </div>
     </div>
   );
 }
 
 const PANE_WORDS = { chat: "Chat", canvas: "Canvas" } as const;
+
+/** Where each of a step's inputs comes from: a Data table (an entry channel), another step, or
+ *  nothing yet. Never a path. */
+function inputsOf(node: string, steps: Record<string, AnsweredStep>,
+                  frame: AuthoringSession["canvas"] | null, draftId: string): InputFrom[] {
+  const data = `/a/${encodeURIComponent(draftId)}/data`;
+  return (steps[node]?.ports ?? []).filter((p) => p.side === "in").map((p) => {
+    const channel = (frame?.channels ?? []).find((c) => c.ports.includes(`${node}.${p.name}`));
+    if (channel) {
+      return channel.grain === "sample"
+        ? { port: p.name, from: { data: "Samples", count: channel.count, href: `${data}/samples` } }
+        : { port: p.name, from: { data: "References", href: `${data}/references` } };
+    }
+    const edge = (frame?.graph.edges ?? []).find((e) => e.to_node === node && e.to_port === p.name);
+    return edge ? { port: p.name, from: { step: processName(edge.from_node) } } : { port: p.name, from: { none: true as const } };
+  });
+}

@@ -6,6 +6,7 @@ import type { AuthoringSession } from "../../api/types";
 import { makeClient } from "../../app/queryClient";
 import { FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS } from "./fake";
 import { framed } from "./frame";
+import { MemoryRouter } from "react-router";
 import { LivingSurface } from "./LivingSurface";
 
 /** A step's tools open from the step itself (#499): a menu, and one card beside the step, while
@@ -23,9 +24,9 @@ function surface(session: AuthoringSession = idle, selected: string | null = nul
     onAnswer: vi.fn(), onRetry: vi.fn(), onReviewed: vi.fn(), onDismiss: vi.fn(), onAddStep: vi.fn(),
     onSetParam: vi.fn(), onEdit: vi.fn(),
   };
-  const view = render(<QueryClientProvider client={makeClient()}><LivingSurface {...props} /></QueryClientProvider>);
+  const view = render(<MemoryRouter><QueryClientProvider client={makeClient()}><LivingSurface {...props} /></QueryClientProvider></MemoryRouter>);
   const again = (next: Partial<typeof props>) =>
-    view.rerender(<QueryClientProvider client={makeClient()}><LivingSurface {...props} {...next} /></QueryClientProvider>);
+    view.rerender(<MemoryRouter><QueryClientProvider client={makeClient()}><LivingSurface {...props} {...next} /></QueryClientProvider></MemoryRouter>);
   return { props, again };
 }
 
@@ -95,7 +96,8 @@ describe("the menu and the card together (plan 2 review)", () => {
     fireEvent.contextMenu(node("star_align"));
     fireEvent.click(node("trimgalore"));
     expect(screen.queryByRole("menu")).toBeNull();
-    expect(screen.getByRole("region", { name: "step card TRIMGALORE" })).toBeInTheDocument();
+    expect(within(screen.getByRole("tabpanel", { name: "Step" })).getByRole("heading", { name: "TRIMGALORE" }))
+      .toBeInTheDocument();
   });
 
   it("closes the menu on a click on the empty canvas", () => {
@@ -105,37 +107,23 @@ describe("the menu and the card together (plan 2 review)", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
-  it("puts focus in the card it opens, so Esc closes it from the keyboard", () => {
+  it("Settings… opens the step in the Step tab", () => {
     surface();
     node("star_align").focus();
     fireEvent.keyDown(node("star_align"), { key: "F10", shiftKey: true });
     fireEvent.click(screen.getByRole("menuitem", { name: "Settings…" }));
-    const card = screen.getByRole("region", { name: "step card STAR_ALIGN" });
-    expect(card.contains(document.activeElement)).toBe(true);
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
-    expect(screen.queryByRole("region", { name: "step card STAR_ALIGN" })).toBeNull();
-    expect(document.activeElement).toBe(node("star_align"));
-  });
-
-  it("keeps the card inside the canvas, and a wheel over it does not zoom the canvas", () => {
-    surface(idle, "star_align");
-    const beside = screen.getByRole("region", { name: "step card STAR_ALIGN" }).closest<HTMLElement>(".step-beside")!;
-    expect(beside.style.getPropertyValue("--card-x")).toMatch(/px$/);
-    expect(beside.style.getPropertyValue("--card-y")).toMatch(/px$/);
-    const layer = () => screen.getByTestId("canvas").querySelector<HTMLElement>("[style*='translate']")!.style.transform;
-    const before = layer();
-    fireEvent.wheel(beside, { deltaY: 200 });
-    expect(layer()).toBe(before);
+    expect(screen.getByRole("tab", { name: "Step" })).toHaveAttribute("aria-selected", "true");
+    expect(within(screen.getByRole("tabpanel", { name: "Step" })).getByRole("heading", { name: "STAR_ALIGN" }))
+      .toBeInTheDocument();
   });
 });
 
 describe("a step's card", () => {
-  it("opens beside the step on a click, and the conversation stays", () => {
+  it("opens in the Step tab on a click, and the conversation stays mounted", () => {
     surface(idle, "star_align");
-    const card = screen.getByRole("region", { name: "step card STAR_ALIGN" });
+    const card = screen.getByRole("tabpanel", { name: "Step" });
     expect(within(card).getByRole("region", { name: "What the AI chose" })).toBeInTheDocument();
-    expect(screen.getByRole("log", { name: "conversation" })).toBeInTheDocument();
-    expect(card.closest("[aria-label='pipeline canvas']")).not.toBeNull();
+    expect(screen.getByRole("log", { name: "conversation", hidden: true })).toBeInTheDocument();
   });
 
   it("closes when its step is no longer in the pipeline", () => {

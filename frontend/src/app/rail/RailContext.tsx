@@ -85,8 +85,10 @@ export function RailSlot({ children }: { children: ReactNode }) {
 
 /** This page's controls, below the divider, under their label. */
 export function RailControls({ label, children }: { label: string; children: ReactNode }) {
-  const { controls, mini } = useRail();
-  if (!controls) return null;
+  // Outside the shell (a component drawn on its own, as in its tests) there is no rail to fill.
+  const rail = useContext(RailContext);
+  if (!rail?.controls) return null;
+  const { controls, mini } = rail;
   // **Hidden, not unmounted, while the rail is collapsed**: a folder tree keeps what is open.
   return createPortal(
     <div className={mini ? "hidden" : "contents"}>
