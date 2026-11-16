@@ -1,14 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
-import { post } from "../../api/client";
-import type { AuthoringSession, Built, DraftGraph } from "../../api/types";
+import type { AuthoringSession, DraftGraph } from "../../api/types";
 import { idFor, withNode, withParam } from "../graphOps";
 import { COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_FILE, FAKE_SESSION, FAKE_STEPS, PORTS_SESSION, PORTS_STEPS } from "./fake";
-import { RunSheet } from "../RunSheet";
-import { entryChannels } from "../Sources";
-import { withTypedValues } from "../useBuilder";
 import { useGate } from "../useGate";
 import { useKeep } from "../useKeep";
 import { useRun } from "../useRun";
@@ -22,16 +17,14 @@ const EMPTY_GRAPH: DraftGraph = { nodes: [], edges: [] };
  *  pipeline opens at `/a/:draft/build` (`LiveLiving`, from `BuildPage`).
  *
  * `?fake=1` opens a static session carrying every state
- * the agent's thread can be in, for looking at the page without a server; `?fake=collect`,
- * `?fake=sheet` and `?fake=question` open the collection shapes, the run sheet and a step with an
- * open value. Anything else says what to add rather than opening a default pipeline.
+ * the agent's thread can be in, for looking at the page without a server; `?fake=collect` and
+ * `?fake=question` open the collection shapes and a step with an open value. Anything else says what to add rather than opening a default pipeline.
  */
 export function LivingBuilder() {
   const [params] = useSearchParams();
   const fake = params.get("fake");
   if (fake === "collect") return <FakeLiving session={COLLECT_SESSION} steps={COLLECT_STEPS} channels={COLLECT_CHANNELS} />;
   if (fake === "ports") return <FakeLiving session={PORTS_SESSION} steps={PORTS_STEPS} channels={[]} />;
-  if (fake === "sheet") return <FakeLiving sheet />;
   if (fake === "question") return <FakeLiving steps={QUESTION_STEPS} selected="star_align" />;
   if (fake) return <FakeLiving />;
   return (
@@ -43,15 +36,8 @@ export function LivingBuilder() {
 
 export function LiveLiving({ sessionId }: { sessionId: string }) {
   const living = useAuthoringSession(sessionId);
-  const [sheet, setSheet] = useState(false);
-  // **The run sheet reads the saved draft**, never the frame's preview metadata, and is asked
-  // only when it opens: the canvas itself never calls the draw endpoint.
+  const navigate = useNavigate();
   const saved = living.session?.graph ?? EMPTY_GRAPH;
-  const sheetView = useQuery({
-    queryKey: ["living-run-sheet", living.session?.id, living.session?.revision],
-    queryFn: () => post<Built>("/pipeline/draw", saved),
-    enabled: sheet && saved.nodes.length > 0,
-  });
   // **The session's own draft**, so Keep neither creates a second one nor re-saves the graph.
   const keeper = useKeep(saved, living.session ? { draftId: living.session.draft_id } : null);
   const gate = useGate(living.session?.draft_id ?? null);
@@ -59,7 +45,9 @@ export function LiveLiving({ sessionId }: { sessionId: string }) {
     keep: keeper.keepAsync,
     lint: () => gate.start("lint"),
     gatePassed: gate.passed,
-    openSheet: () => setSheet(true),
+    // **Run opens Run** (#508, #511): the pipeline is kept, and the analysis's Run page sends it
+    // with its inputs answered from Data. There is no run sheet.
+    openSheet: () => { if (living.session) navigate(`/a/${encodeURIComponent(living.session.draft_id)}/run?new`); },
   });
 
   if (living.loading) {
@@ -84,19 +72,7 @@ export function LiveLiving({ sessionId }: { sessionId: string }) {
         stage: runner.stage,
         error: runner.error ?? keeper.error,
         kept: keeper.keptAt !== null,
-        sheet: sheet && sheetView.data ? (
-          <RunSheet inline
-            name={living.session.name || "this pipeline"}
-            // **Open human decisions come first on the sheet** — it counts what nobody answered
-            // before it asks where the data is, which is the order Build's Run has always had.
-            steps={sheetView.data.steps.map((step) => withTypedValues(step, graph))}
-            sources={entryChannels(sheetView.data)}
-            draftId={living.session.draft_id}
-            blocked={keeper.blocked}
-            gated={gate.passed}
-            onClose={() => setSheet(false)}
-          />
-        ) : null,
+        sheet: null,
       }}
       preview={living.preview}
       selected={living.selected}
@@ -133,11 +109,10 @@ const QUESTION_STEPS = { ...FAKE_STEPS, star_align: { ...FAKE_STEPS.star_align, 
     domain: { kind: "enum", values: ["None", "intronMotif"] } },
 ] } };
 
-/** A static session: what is said is drawn as sending, and nothing else moves. `?fake=sheet` opens
- *  the run sheet over it, since a fake never keeps or lints. */
-function FakeLiving({ session: given = FAKE_SESSION, sheet = false, steps = FAKE_STEPS,
+/** A static session: what is said is drawn as sending, and nothing else moves. */
+function FakeLiving({ session: given = FAKE_SESSION, steps = FAKE_STEPS,
   channels = FAKE_CHANNELS, selected: first = null }: {
-  session?: AuthoringSession; sheet?: boolean; steps?: typeof FAKE_STEPS;
+  session?: AuthoringSession; steps?: typeof FAKE_STEPS;
   channels?: typeof FAKE_CHANNELS; selected?: string | null;
 }) {
   const session = framed(given, steps, channels);
@@ -164,12 +139,6 @@ function FakeLiving({ session: given = FAKE_SESSION, sheet = false, steps = FAKE
       onAddStep={nothing}
       onSetParam={nothing}
       onEdit={nothing}
-      run={sheet ? {
-        onRun: nothing, busy: false, stage: null, error: null, kept: false,
-        sheet: <RunSheet inline name={session.name} steps={Object.values(FAKE_STEPS)}
-                         sources={entryChannels({ channels: FAKE_CHANNELS } as unknown as Built)}
-                         draftId={null} gated={false} onClose={nothing} />,
-      } : null}
     />
   );
 }

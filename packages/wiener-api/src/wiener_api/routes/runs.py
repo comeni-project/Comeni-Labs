@@ -11,6 +11,7 @@ from typing import Annotated, Literal
 
 from comeni_core.diagnostics import coded
 from fastapi import APIRouter, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from wiener_core.events import EventKind, RunEvent, TaskStatus
 from wiener_core.measured import DecidedValue, MeasuredView
@@ -916,6 +917,23 @@ def run_results(run_id: str, after: int = 0, limit: int = 200) -> ResultsOut:
         total=len(found),
         published=True,
     )
+
+
+@router.get("/runs/{run_id}/results/file", operation_id="readResultFile",
+            summary="One file a run published", response_class=FileResponse)
+def run_result_file(run_id: str, process: str, name: str) -> FileResponse:
+    """**Open**, on Run's Outputs (#511): a file under this run's results, as `results` lists it.
+
+    Resolved and checked to stay under the run's own results folder, so a name that climbs out
+    (`..`, an absolute path, a link) is not served. `lab_id` scopes it as the list does."""
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+    root = launcher.results_dir(run_id).resolve()
+    path = (root / process / name).resolve()
+    if not path.is_relative_to(root) or path.parent == root.parent or not path.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(path, filename=path.name, content_disposition_type="inline")
 
 
 TERMINAL = {"succeeded", "failed", "cancelled", "lost"}

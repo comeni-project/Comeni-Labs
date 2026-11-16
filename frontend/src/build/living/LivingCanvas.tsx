@@ -14,7 +14,7 @@ import { useView } from "../useView";
 import { Flowline, flowLabel, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "./CollectionChannel";
 import { valuesOf } from "./values";
 import type { Author } from "./format";
-import { LivingNode, type ReviewState } from "./LivingNode";
+import { LivingNode, type ReviewState, type StepProgress } from "./LivingNode";
 import { StepMenu } from "./StepMenu";
 
 type Channel = components["schemas"]["ChannelView"];
@@ -40,6 +40,10 @@ const CONTROL = "px-[14px] py-[6px] rounded-button border border-line-2 bg-surfa
 /** What the canvas's colours mean, as the boards' legend says it. */
 const LEGEND: [string, string][] = [
   ["settled", "var(--line-2)"], ["measured", "var(--measured)"], ["needs you", "var(--needs-you)"],
+];
+/** On Run, what a step's colour says about how far it has got. */
+const RUN_LEGEND: [string, string][] = [
+  ["done", "var(--done)"], ["running", "var(--now)"], ["waiting", "var(--line-2)"], ["failed", "var(--needs-you)"],
 ];
 
 /** How far a shared input runs as one line before its branches split off. */
@@ -68,6 +72,8 @@ export function LivingCanvas({
   onAddHere,
   connect = null,
   onConnected,
+  progress,
+  fitOnOpen = false,
 }: {
   graph: DraftGraph;
   positions: Positions;
@@ -105,6 +111,10 @@ export function LivingCanvas({
   /** Open the port picker on this step's input (Connect, from the Step tab). */
   connect?: { node: string; port: string } | null;
   onConnected?: () => void;
+  /** **On Run**: each step's progress in the run, drawn on its node in place of its values. */
+  progress?: Record<string, StepProgress>;
+  /** Fit the drawing to the frame when it first has steps (Run's panels, which open small). */
+  fitOnOpen?: boolean;
 }) {
   const [here, setHere] = useState<{ x: number; y: number } | null>(null);
   const view = useView();
@@ -258,6 +268,12 @@ export function LivingCanvas({
     if (shown === firstShown.current || touched.current) return;
     fitLatest.current();
   }, [shown]);
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!fitOnOpen || opened.current || drawn === 0) return;
+    opened.current = true;
+    requestAnimationFrame(() => fitLatest.current());
+  }, [fitOnOpen, drawn]);
   // **Tidy fits the drawing** once the server's layout is back, the next frame.
   const tidied = useRef(false);
   useEffect(() => {
@@ -369,12 +385,12 @@ export function LivingCanvas({
           </div>
           {/* **The minimap, above the legend** (issue 389): the whole graph, each step marked in the
               colour of what it needs, so where the open value is reads without panning. */}
-          <Minimap place="right-4 bottom-[64px]" offsets={{}}
+          {!progress && <Minimap place="right-4 bottom-[64px]" offsets={{}}
                    nodes={ids.map((id) => {
                      const counted = steps[id] ? valuesOf([steps[id]]) : null;
                      return { id, x: at[id]?.x ?? 0, y: at[id]?.y ?? 0,
                               tier: counted?.open ? 4 : counted?.measured ? 3 : 1 };
-                   })} />
+                   })} />}
           {/* One wrapping row: where the legend cannot sit beside the controls it goes above them. */}
           <div className="absolute left-4 right-4 bottom-4 flex flex-wrap-reverse items-end gap-2 pointer-events-none
                           [&>*]:pointer-events-auto">
@@ -391,7 +407,7 @@ export function LivingCanvas({
             )}
             <ul aria-label="legend" className="ml-auto m-0 flex items-center gap-3 px-3 py-[6px]
                                                rounded-button border border-line bg-surface text-[12.5px] text-ink-2">
-              {LEGEND.map(([word, colour]) => (
+              {(progress ? RUN_LEGEND : LEGEND).map(([word, colour]) => (
                 <li key={word} className="list-none flex items-center gap-[6px]">
                   <span aria-hidden className="w-[10px] h-[5px] rounded-full" style={{ background: colour }} />
                   {word}
@@ -510,6 +526,7 @@ export function LivingCanvas({
             samples={samples}
             version={steps[id]?.contract_id.split("@")[1]}
             does={(steps[id] as { does?: string | null } | undefined)?.does}
+            progress={progress?.[id]}
             selected={selected === id}
             onSelect={() => {
               if (!readOnly && !drag.current?.travelled) onSelect(id);

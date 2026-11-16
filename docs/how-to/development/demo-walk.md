@@ -14,8 +14,11 @@ built and approved, a run with no form. It is also the closing check of the rede
 (`docs/superpowers/plans/2026-11-15-frontend-redesign-1.md`, Tasks 14 and 15). Walk it before
 every presentation, and record anything that breaks in an issue, not around it.
 
-The data is yeast RNA-seq from nf-core's test datasets. It is small, so a run finishes while you
-talk. It is test data, not a laboratory's.
+There are two examples, each on real public test data, small enough that a run finishes while you
+talk: yeast RNA-seq gene counts (nf-core's test samples, wild type and a RAP1 knockdown) and the
+quality of five S. aureus genome assemblies against their reference (NCBI RefSeq). It is test
+data, not a laboratory's. The script below walks the yeast example; the assemblies walk the same
+beats with *Check the quality of my S. aureus assemblies* and the `demo-staph` folder.
 
 ## Before you start
 
@@ -23,15 +26,17 @@ You need the local stack (`make dev`) and a model reached by your subscription o
 **Settings → Models**. Without a model, every beat except the assistant's still works; see
 [If something goes wrong](#if-something-goes-wrong).
 
-Build the demo folder from the test data the stack keeps:
+Build the demo folders. The first run downloads the data (about 40 MB) into `.run/cache/demo`:
 
 ```bash
 python3 tools/demo_data.py
 ```
 
-This writes `.run/data/demo-yeast/` with `reads/` and `reference/`. Four samples (Y1 to Y4) are
-paired-end reads; Y3 is cut to 50 bases, and Y4's read 2 is named `Y4_2.fq.gz`, which the default
-reading rule does not pair. Those two faults are what *Check these* shows.
+This writes `.run/data/demo-yeast/` (`reads/`, `reference/`) and `.run/data/demo-staph/`
+(`assemblies/`, `reference/`). In the yeast reads, WT_REP1, WT_REP2 and RAP1_IAA_REP1 are paired
+as published; WT_REP3's read 2 is named `WT_REP3_2.fq.gz`, which the default reading rule does not
+pair, and RAP1_IAA_REP2 is a copy cut to 50 bases. Those two planted faults are what *Check these*
+shows.
 
 Start from a clean screen: open a private window at `http://localhost:5173/`, light theme, rail
 expanded, browser at 1440 × 900.
@@ -52,8 +57,8 @@ Each beat lists what you do, what the audience should see, and the one sentence 
 
 **Do:** in the rail's **Folders**, open `data`, then `demo-yeast`. Tick `reads`.
 
-**See:** the scan counts up, then the Overview fills in. It shows tiles for 5 samples, 1 kind of
-data and 8 files, and *What was measured*: paired reads, Phred+33, read length.
+**See:** the scan counts up, then the Overview fills in: tiles for 6 samples, 1 kind of data and
+10 files, and *What was measured*: paired reads, Phred+33, read length.
 
 **Say:** *Comeni reads the files where they are, only the first few megabytes of each, and keeps
 what it measured. Nothing is copied.*
@@ -63,12 +68,13 @@ what it measured. Nothing is copied.*
 **Do:** point at *Check these*.
 
 **See:** two items:
-- Y3's read length is 50, while the other samples have 101.
-- Y4_R1 has no read 2, and `Y4_2.fq.gz` looks like it.
+- RAP1_IAA_REP2's read length is 50, while the other samples have 101.
+- WT_REP3_R1 has no read 2, and `WT_REP3_2.fq.gz` looks like it.
 
-**Do:** press **Use Y4_2.fq.gz** on the second item, then **Leave out** on Y3.
+**Do:** press **Use WT_REP3_2.fq.gz** on the second item, then **Leave out** on RAP1_IAA_REP2.
 
-**See:** Y4 becomes one paired sample. Y3 stays listed but greyed. Both changes are tagged YOU.
+**See:** WT_REP3 becomes one paired sample. RAP1_IAA_REP2 stays listed but greyed. Both changes
+are tagged YOU.
 
 **Say:** *The rule that pairs files is shown, and every exception comes with its fix. Nothing
 fails silently.*
@@ -77,7 +83,7 @@ fails silently.*
 
 **Do:** open **Samples**.
 
-**See:** the reading rule as examples (*Y1_R1.fastq.gz → sample Y1, read 1*), then the table, with
+**See:** the reading rule as examples (*WT_REP1_R1.fastq.gz → sample WT_REP1, read 1*), then the table, with
 read 1, read 2 and the measured facts as columns.
 
 **Say:** *The columns follow the data. A folder of assemblies would show one file and its N50
@@ -95,7 +101,7 @@ add `genome.fasta` as `genome.fasta`, then `genes.gtf` as `annotation.gtf`.
 **Do:** open **Build**.
 
 **See:** the agent builds the pipeline in the Assistant tab: trimming, alignment, counting. The
-canvas draws it, with per-sample steps marked ×3 and the reference shared.
+canvas draws it, with per-sample steps marked ×4 and the reference shared.
 
 **Do:** click the alignment step. In the **Step** tab, open *Advanced*, then press **Ask AI** on
 one setting and accept the suggestion.
@@ -110,7 +116,7 @@ it makes is marked for you to review.*
 
 **Do:** open **Run** and press **Run**.
 
-**See:** no inputs form: the summary reads *3 samples, 1 reference*. The run starts, and
+**See:** no inputs form: the summary reads *4 samples, 2 references*. The run starts, and
 **Overview** shows N of M samples and the live pipeline.
 
 **Say:** *Build connected the pipeline's inputs to the Data tables by type. No path was typed
@@ -121,7 +127,7 @@ anywhere.*
 **Do:** open **Steps**. Click the alignment step in the **Graph**, then switch to **Timeline**.
 
 **See:** the step stays selected, and its tasks are listed under either view, one per sample.
-When the run finishes, **Outputs** lists the count matrix and the QC report.
+When the run finishes, **Outputs** lists what each step published, and **Open** shows a file.
 
 **Say:** *Two views of the same steps: how they connect and when they ran.*
 

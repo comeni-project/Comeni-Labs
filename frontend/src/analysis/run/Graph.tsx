@@ -3,11 +3,11 @@ import { useRef, useState } from "react";
 
 import { Menu, copy, useContextMenu } from "./Menu";
 
-import { Canvas } from "../build/Canvas";
-import { useView } from "../build/useView";
+import { Canvas } from "../../build/Canvas";
+import { useView } from "../../build/useView";
 
-import { Empty, Failed, Loading } from "../ui/States";
-import { get } from "../wiener/api/client";
+import { Empty, Failed, Loading } from "../../ui/States";
+import { get } from "../../wiener/api/client";
 
 type Placed = {
   id: string; process: string;

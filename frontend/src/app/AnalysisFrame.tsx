@@ -8,6 +8,8 @@ import { LivingBuilder } from "../build/living/LivingBuilder";
 import { Failed, Loading } from "../ui/States";
 import { get as fromWiener } from "../wiener/api/client";
 import type { components as wiener } from "../wiener/api/schema";
+import { phaseWords } from "../analysis/run/model";
+import { useAnalysisRuns } from "../analysis/run/useRuns";
 import { analysisAddress } from "./address";
 import { AnalysisSlot, type AnalysisPage } from "./rail/AnalysisSlot";
 import { RailSlot } from "./rail/RailContext";
@@ -45,11 +47,13 @@ export function AnalysisFrame() {
   const kept = (data.data?.samples ?? []).filter((s) => !s.left_out).length;
   const checks = data.data?.checks.length ?? 0;
   const steps = draft.data?.graph.nodes.length ?? 0;
+  const latest = useAnalysisRuns(draftId).list[0];
   const status = {
     data: !data.data?.folders.length ? "No data yet"
       : data.data.scan.state === "scanning" ? "Reading…"
       : `${kept} samples${checks ? ` · ${checks} to check` : ""}`,
     build: steps ? `${steps} ${steps === 1 ? "step" : "steps"}` : "Not built",
+    run: latest ? `Run ${latest.n} · ${phaseWords(latest.run.phase).toLowerCase()}` : "Not run yet",
   };
   const counts = data.data
     ? { samples: data.data.samples.length, references: data.data.references.length, files: data.data.files }
@@ -115,15 +119,4 @@ export function LegacyRun({ fallback }: { fallback: React.ReactNode }) {
 /** `/a/:draft` alone opens its Data. */
 export function AnalysisIndex() {
   return <Navigate to="data" replace />;
-}
-
-/** A page of the frame not built yet (Data is plan Task 8; the run list Task 14). */
-export function Pending({ title }: { title: string }) {
-  return (
-    <div className="overflow-auto">
-      <div className="gutter pt-7 pb-10">
-        <h1 className="m-0 text-title font-semibold tracking-[-.02em] text-ink">{title}</h1>
-      </div>
-    </div>
-  );
 }

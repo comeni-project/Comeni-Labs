@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 
-import { makeClient } from "../app/queryClient";
+import { makeClient } from "../../app/queryClient";
 import { Cancel } from "./Cancel";
 
 /** **The first control in Wiener that changes anything**, so these are about restraint rather

@@ -330,6 +330,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/results/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One file a run published
+         * @description **Open**, on Run's Outputs (#511): a file under this run's results, as `results` lists it.
+         *
+         *     Resolved and checked to stay under the run's own results folder, so a name that climbs out
+         *     (`..`, an absolute path, a link) is not served. `lab_id` scopes it as the list does.
+         */
+        get: operations["readResultFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/wiener/settings": {
         parameters: {
             query?: never;
@@ -1926,6 +1949,38 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ResultsOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readResultFile: {
+        parameters: {
+            query: {
+                process: string;
+                name: string;
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { post } from "../wiener/api/client";
+import { post } from "../../wiener/api/client";
 
 /** Stop a run — **the first thing in Wiener that changes anything**, Plan 6 phase 1.
  *

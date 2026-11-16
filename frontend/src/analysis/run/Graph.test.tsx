@@ -1,10 +1,10 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 
-import { makeClient } from "../app/queryClient";
-import { routes } from "../app/router";
+import { makeClient } from "../../app/queryClient";
+import { Graph } from "./Graph";
 
 const STATE = {
   run_id: "4c1e9a07b2f1de40", phase: "running",
@@ -46,12 +46,10 @@ function at(graph: unknown = GRAPH) {
         : STATE;
     return Promise.resolve({ ok: true, json: async () => body });
   }));
-  const router = createMemoryRouter(routes, {
-    initialEntries: ["/runs/4c1e9a07b2f1de40?board=graph"],
-  });
+  // **Drawn on its own**: Run draws a run of a pipeline the analysis no longer keeps with it.
   return render(
     <QueryClientProvider client={makeClient()}>
-      <RouterProvider router={router} />
+      <MemoryRouter><Graph runId="4c1e9a07b2f1de40" /></MemoryRouter>
     </QueryClientProvider>,
   );
 }

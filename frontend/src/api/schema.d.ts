@@ -5180,6 +5180,11 @@ export interface components {
             /** Does */
             does?: string | null;
             /**
+             * Measures
+             * @default false
+             */
+            measures: boolean;
+            /**
              * Runs
              * @default once
              * @enum {string}

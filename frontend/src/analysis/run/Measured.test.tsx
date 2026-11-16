@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { makeClient } from "../app/queryClient";
+import { makeClient } from "../../app/queryClient";
 import { Measured } from "./Measured";
 
 function show(body: unknown) {

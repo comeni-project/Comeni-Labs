@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { get } from "../wiener/api/client";
-import type { components } from "../wiener/api/schema";
+import { get } from "../../wiener/api/client";
+import type { components } from "../../wiener/api/schema";
 
 type MeasuredOut = components["schemas"]["MeasuredOut"];
 type Fact = components["schemas"]["MeasuredView"];

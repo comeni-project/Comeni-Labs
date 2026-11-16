@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
-import { remove } from "../wiener/api/client";
+import { remove } from "../../wiener/api/client";
 
 const FINISHED = new Set(["succeeded", "failed", "cancelled", "lost"]);
 

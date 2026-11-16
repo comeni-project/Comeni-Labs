@@ -42,6 +42,7 @@ export function LivingNode({
   onPointerMove,
   onPointerUp,
   onMenu,
+  progress,
 }: {
   id: string;
   at: { x: number; y: number };
@@ -78,6 +79,9 @@ export function LivingNode({
   onPointerUp?: (e: React.PointerEvent) => void;
   /** Open the step's menu (#499): a right-click, or Shift+F10 and the menu key. */
   onMenu?: () => void;
+  /** **On Run**: how far this step has got, drawn in place of the value counts (the board's
+   *  bar and *14 of 24 · 2 running*). */
+  progress?: StepProgress;
 }) {
   // **Every port, each on its own row at its anchor** (#494): input *i* on the left and output
   // *i* on the right of row *i*, where both their marks sit; the node grows to hold them.
@@ -205,7 +209,24 @@ export function LivingNode({
           </span>
         </span>
       ))}
-      {counts && (
+      {progress && (
+        <span
+          data-testid={`node-progress-${id}`}
+          data-state={progress.state}
+          className="absolute left-0 right-0 bottom-0 h-[22px] flex items-center gap-2 px-[10px] text-[10.5px] whitespace-pre overflow-hidden"
+          style={{ borderTop: "1px solid var(--node-rule)" }}
+        >
+          <span aria-hidden className="w-[7px] h-[7px] rounded-full shrink-0" style={{ background: PROGRESS_INK[progress.state] }} />
+          <span className={progress.state === "failed" ? "font-semibold text-needs-you-ink" : "text-ink-2"}>{progress.label}</span>
+          {progress.of > 1 && (
+            <span aria-hidden className="ml-auto flex h-[4px] w-[48px] rounded-full overflow-hidden bg-line-soft shrink-0">
+              <span style={{ width: `${(100 * progress.done) / progress.of}%`, background: "var(--done)" }} />
+              <span style={{ width: `${(100 * progress.running) / progress.of}%`, background: "var(--now-mid)" }} />
+            </span>
+          )}
+        </span>
+      )}
+      {counts && !progress && (
         <span
           data-testid={`node-footer-${id}`}
           className="absolute left-0 right-0 bottom-0 h-[22px] flex items-center px-[10px] text-[10.5px] whitespace-pre overflow-hidden"
@@ -217,6 +238,19 @@ export function LivingNode({
     </button>
   );
 }
+
+/** How far a step has got in a run: *done*, *running*, *waiting* or *failed*, with its words. */
+export type StepProgress = {
+  state: "done" | "running" | "waiting" | "failed";
+  done: number;
+  running: number;
+  of: number;
+  label: string;
+};
+
+const PROGRESS_INK: Record<StepProgress["state"], string> = {
+  done: "var(--done)", running: "var(--now)", waiting: "var(--line-2)", failed: "var(--needs-you)",
+};
 
 /** *1 needs you · 3 measured · 1 optional · 13 settled*, each in its meaning's ink; a zero is not said. */
 function CountWords({ counts }: { counts: Counts }) {

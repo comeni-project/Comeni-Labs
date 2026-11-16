@@ -45,6 +45,7 @@ const STEP = {
   reason: "a rule matched",
   ports: [],
   checked_per_sample: [] as string[],
+  measures: false,
   settings: [
     setting("seq_platform", 4, null),
     setting("star_ignore_sjdbgtf", 2, "False"),

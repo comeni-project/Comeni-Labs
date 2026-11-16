@@ -5,7 +5,7 @@ import { useNavigate } from "react-router";
 
 import { get } from "../api/client";
 import type { components } from "../api/schema";
-import { inkOf, isPhase } from "../runs/phases";
+import { inkOf, isPhase } from "../analysis/run/phases";
 import { get as fromWiener } from "../wiener/api/client";
 import type { components as wiener } from "../wiener/api/schema";
 import { jumpTargets, type Target } from "./jump";

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { get } from "../wiener/api/client";
+import { get } from "../../wiener/api/client";
 
 /** One run's events: page the record, then tail the stream.
  *

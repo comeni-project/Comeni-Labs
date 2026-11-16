@@ -102,3 +102,27 @@ def test_a_name_is_relative_and_never_a_path_on_this_machine(client, a_run):
     for entry in body["files"]:
         assert not entry["name"].startswith("/")
         assert str(launcher.results_dir(a_run.id)) not in entry["name"]
+
+
+def test_a_published_file_is_served(client, a_run):
+    """**Open** on Run's Outputs (#511): the QC report, read from where the run published it."""
+    _publish(a_run.id, {"multiqc/multiqc_report.html": "<html>report</html>"})
+
+    served = client.get(f"/api/runs/{a_run.id}/results/file",
+                        params={"process": "multiqc", "name": "multiqc_report.html"})
+
+    assert served.status_code == 200
+    assert served.text == "<html>report</html>"
+    assert served.headers["content-type"].startswith("text/html")
+
+
+def test_a_path_outside_the_results_is_refused(client, a_run):
+    """A name that climbs out of the run's results is not a file of this run."""
+    _publish(a_run.id, {"multiqc/multiqc_report.html": "x"})
+    launcher.results_dir(a_run.id).parent.joinpath("secret.txt").write_text("no")
+
+    for process, name in (("multiqc", "../../secret.txt"), ("..", "secret.txt"),
+                          ("multiqc", "/etc/passwd"), ("multiqc", "missing.html")):
+        served = client.get(f"/api/runs/{a_run.id}/results/file",
+                            params={"process": process, "name": name})
+        assert served.status_code == 404, (process, name)
