@@ -76,7 +76,10 @@ def test_no_request_body_accepts_a_filesystem_path():
                 bodies[f"{verb.upper()} {path} ({kind})"] = list(fields)
 
     assert len(bodies) >= 7, f"the scan found {len(bodies)} request bodies — it is not scanning"
-    assert any("multipart" in where for where in bodies), "the upload body was not scanned"
+    # **No body carries a file since #511**: samples are read where they are, from the folders a
+    # person ticks (`tickDataFolders`), never uploaded. That body names folders under the data
+    # roots, each resolved and checked (`MI0221`); the recorded level-0 exception to invariant 15.
+    assert not any("multipart" in where for where in bodies), "a body carries a file again"
     offenders = [
         f"{where} {field}"
         for where, fields in bodies.items()

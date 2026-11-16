@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 VERSIONS: dict[str, int] = {
     "ai_invocation": 1,
+    "analysis_data": 1,
     "catalogue_module": 2,
     "forge_adaptation": 1,
     "forge_step": 1,
@@ -19,7 +20,7 @@ VERSIONS: dict[str, int] = {
     "forge_revision": 2,
     "installation_setting": 1,
     "pipeline_authoring_session": 3,
-    "pipeline_authoring_turn": 12,
+    "pipeline_authoring_turn": 13,
     "pipeline_decision_migration": 1,
     "pipeline_draft": 4,
     "pipeline_exclusion_revision": 1,

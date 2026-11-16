@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { components } from "../../api/schema";
 import type { AnswerValue } from "./AgentQuestion";
 
-import { get, post, postForm, put, Refused } from "../../api/client";
+import { get, post, put, Refused } from "../../api/client";
 import type {
   AuthoringEdited,
   AuthoringPreview,
@@ -12,7 +12,6 @@ import type {
   AuthoringSession,
   AuthoringVocabulary,
   DraftGraph,
-  SampleInspected,
 } from "../../api/types";
 
 type Changed = components["schemas"]["AuthoringChanged"];
@@ -25,8 +24,6 @@ export const POLL_MS = 1500;
 /** How long the preview waits after the revision moves before asking for the new text. */
 export const PREVIEW_DEBOUNCE_MS = 300;
 
-/** What the server reads of each uploaded file (`mendel_api.services.inspect.HEAD_BYTES`). */
-export const HEAD_BYTES = 4 * 2 ** 20;
 
 const key = (sessionId: string) => ["authoring", sessionId] as const;
 
@@ -154,20 +151,6 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     onError: refused,
   });
 
-  const upload = useMutation({
-    mutationFn: (input: { questionId: string | null; files: File[] }) => {
-      const form = new FormData();
-      if (input.questionId) form.append("question_id", input.questionId);
-      // **Only the head leaves the browser**: the server reads the first 4 MB and no more.
-      for (const file of input.files) {
-        form.append("files", new File([file.slice(0, HEAD_BYTES)], file.name, { type: file.type }));
-      }
-      // Each file's real size, so the server can tell a whole small file from a head (#465).
-      form.append("sizes", JSON.stringify(input.files.map((file) => file.size)));
-      return postForm<SampleInspected>(`/pipeline/authoring/${sessionId}/samples`, form);
-    },
-    onSettled: () => void refresh(),
-  });
 
   return {
     session: session.data ?? null,
@@ -187,8 +170,6 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     answer: (questionId: string, value: AnswerValue) => answer.mutate({ questionId, value }),
     retry: (seq: number) => retry.mutate(seq),
     review: (node: string) => reviewed.mutate([node]),
-    /** Samples measured by this server, as an answer to the agent's question or on their own. */
-    upload: (questionId: string | null, files: File[]) => upload.mutateAsync({ questionId, files }),
     /** A hand edit: the server reads it as the person's changes (#395). */
     edit: (graph: DraftGraph) => edit.mutate(graph),
     rename: (name: string) => void put(`/pipeline/drafts/${session.data?.draft_id}`, {

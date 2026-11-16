@@ -8,7 +8,7 @@ import { ToolTrail, type TrailStep } from "./ToolTrail";
 /** **The conversation with the builder agent** (#463): the person's words, and each of the
  *  agent's turns as what it did (its working trail), what it said, and what it asks. Nothing here
  *  is a stage or a form the person must get through; the canvas beside it is the pipeline. */
-export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, onUpload, onStep }: {
+export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, onStep }: {
   turns: AuthoringTurn[];
   /** Whether the agent is working on a turn now. */
   working: boolean;
@@ -16,7 +16,6 @@ export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, o
   sending?: string[];
   onAnswer: (questionId: string, value: AnswerValue) => void;
   onRetry: (seq: number) => void;
-  onUpload?: (questionId: string, files: File[]) => Promise<unknown>;
   /** Show a step an answer used: on the canvas, or in the pipeline file. */
   onStep?: (node: string) => void;
 }) {
@@ -36,7 +35,7 @@ export function AgentThread({ turns, working, sending = [], onAnswer, onRetry, o
           {turn.role === "person"
             ? <Said text={turn.text} />
             : <AgentTurn turn={turn} answerable={turn.seq > lastPerson && !working}
-                         onAnswer={onAnswer} onRetry={onRetry} onUpload={onUpload} onStep={onStep} />}
+                         onAnswer={onAnswer} onRetry={onRetry} onStep={onStep} />}
         </li>
       ))}
       {sending.map((text, i) => (
@@ -57,12 +56,11 @@ function Said({ text, pending = false }: { text: string; pending?: boolean }) {
   );
 }
 
-function AgentTurn({ turn, answerable, onAnswer, onRetry, onUpload, onStep }: {
+function AgentTurn({ turn, answerable, onAnswer, onRetry, onStep }: {
   turn: AuthoringTurn;
   answerable: boolean;
   onAnswer: (questionId: string, value: AnswerValue) => void;
   onRetry: (seq: number) => void;
-  onUpload?: (questionId: string, files: File[]) => Promise<unknown>;
   onStep?: (node: string) => void;
 }) {
   // **The trail is the working; the rest is the answer** (#504): tools and what the agent said
@@ -87,7 +85,7 @@ function AgentTurn({ turn, answerable, onAnswer, onRetry, onUpload, onStep }: {
             );
           case "ask":
             return answerable
-              ? <AgentQuestion key={block.id} question={block} onAnswer={onAnswer} onUpload={onUpload} />
+              ? <AgentQuestion key={block.id} question={block} onAnswer={onAnswer} />
               : <p key={block.id} className="m-0 text-[12.5px] text-ink-3">Asked: {block.question}</p>;
           default:
             return null;

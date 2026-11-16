@@ -1,6 +1,7 @@
 """May this cross? The protection level, asked at every crossing (spec §8, consultant spec §6).
 
-**Only level 0's row is implemented.** Level 0 lets a sample be uploaded and a model read it;
+**Only level 0's row is implemented.** Level 0 lets a sample's head be read here and a model
+read it;
 every other level refuses each crossing with MI0213, so tightening is filling in a row, never a
 crossing that forgot to ask.
 """
@@ -16,8 +17,9 @@ from mendel_api.services.installation import installation
 
 
 class Crossing(StrEnum):
-    UPLOAD = "upload"
-    """A sample's head reaches this server (14.7.6)."""
+    SAMPLE_HEAD = "sample_head"
+    """A sample's head reaches this server: read from a ticked folder to be measured (14.7.6,
+    #511)."""
     CHARACTERISE = "characterise"
     """A model reads a sample's head (14.7.7)."""
     DOOR_6 = "door_6"

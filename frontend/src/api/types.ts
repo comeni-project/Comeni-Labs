@@ -54,9 +54,6 @@ export type BeginAuthoring = S["BeginAuthoring"];
 export type AuthoringVocabulary = S["AuthoringVocabulary"];
 export type AuthoringCall = S["AuthoringCallView"];
 export type AuthoringEdited = S["AuthoringEdited"];
-/** What one uploaded sample measured, and what that settled (issue 134). */
-export type SampleInspected = S["SampleInspected"];
-export type InspectedFact = S["InspectedFactView"];
 /** Whether this installation can reach a model at all — the no-AI lane is `configured: false`. */
 export type AiHealth = S["AiHealth"];
 export type AiConfigured = S["AiConfigured"];

@@ -36,12 +36,17 @@ def _shapes() -> tuple[Shape, ...]:
     from comeni_core.spell.marks import ParamValue
     from mendel_forge.model import UpstreamModule
 
-    from mendel_api.authoring.types import Block, UploadedSample
+    from mendel_api.authoring.types import Block
     from mendel_api.migration_data.decisions_v1 import Snapshot
+    from mendel_api.services.data.types import DataSample, Scan, ScannedFile
 
     loose = dict[str, JsonValue]
     return (
         Shape("ai_invocation", "input_digests", dict[str, str]),
+        Shape("analysis_data", "folders", list[str]),
+        Shape("analysis_data", "scan", Scan),
+        Shape("analysis_data", "files", list[ScannedFile]),
+        Shape("analysis_data", "samples", list[DataSample]),
         Shape("catalogue_module", "document", UpstreamModule),
         Shape("forge_adaptation", "depends_on", list[str]),
         Shape("forge_step", "data", loose),
@@ -50,7 +55,6 @@ def _shapes() -> tuple[Shape, ...]:
         Shape("forge_revision", "value", JsonValue),
         Shape("installation_setting", "value", JsonValue),
         Shape("pipeline_authoring_session", "blueprint", loose),
-        Shape("pipeline_authoring_session", "samples", list[UploadedSample] | None),
         Shape("pipeline_authoring_turn", "blocks", list[Block]),
         Shape("pipeline_decision_migration", "snapshot", Snapshot),
         Shape("pipeline_draft", "graph", DraftGraph),

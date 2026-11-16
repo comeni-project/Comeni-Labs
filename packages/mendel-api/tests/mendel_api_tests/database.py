@@ -49,7 +49,8 @@ def truncate(statement: str):
         tables.update(
             name
             for name in inspect(engine).get_table_names()
-            if name.startswith("pipeline_") and not name.startswith("pipeline_authoring_")
+            if (name.startswith("pipeline_") and not name.startswith("pipeline_authoring_"))
+            or name == "analysis_data"  # an analysis's data references its draft (#511)
         )
     return text(prefix + ", ".join(sorted(tables)))
 

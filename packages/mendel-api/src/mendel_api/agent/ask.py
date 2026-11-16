@@ -14,12 +14,12 @@ from mendel_api.agent.tools import Tool, ToolContext, register
 class AskArgs(BaseModel):
     question: str = Field(min_length=1, max_length=400,
                           description="The question, plainly")
-    shape: Literal["options", "number", "yes_no", "upload", "text"] = Field(
+    shape: Literal["options", "number", "yes_no", "data", "text"] = Field(
         description="Answer shape")
     options: list[str] = Field(default_factory=list, max_length=8,
                                description="For options: the choices")
     unit: str = Field(default="", max_length=20, description="For a number: its unit, e.g. bp")
-    type_id: str | None = Field(default=None, description="For upload: the file type")
+    type_id: str | None = Field(default=None, description="For data: the file type needed")
 
 
 def ask(ctx: ToolContext, a: AskArgs) -> AskedView:

@@ -11,7 +11,7 @@ import { Composer } from "./Composer";
  *  **The rail's height is the layout's, never its content's** (`--rail-h` in `main.css`): the
  *  thread scrolls inside it, so a reply landing does not push the page or the canvas around. */
 export function ChatPanel({
-  session, sending, composer, onCompose, onSay, onAnswer, onRetry, onUpload, notices, onStep, embedded = false,
+  session, sending, composer, onCompose, onSay, onAnswer, onRetry, notices, onStep, embedded = false,
 }: {
   session: AuthoringSession;
   sending: string[];
@@ -20,7 +20,6 @@ export function ChatPanel({
   onSay: (text: string) => void;
   onAnswer: (questionId: string, value: AnswerValue) => void;
   onRetry: (seq: number) => void;
-  onUpload?: (questionId: string, files: File[]) => Promise<unknown>;
   notices: React.ReactNode;
   /** Show a step an answer used. */
   onStep?: (node: string) => void;
@@ -56,7 +55,7 @@ export function ChatPanel({
           </p>
         ) : (
           <AgentThread turns={session.turns} working={session.working} sending={sending}
-                       onAnswer={onAnswer} onRetry={onRetry} onUpload={onUpload} onStep={onStep} />
+                       onAnswer={onAnswer} onRetry={onRetry} onStep={onStep} />
         )}
       </div>
       <div className="px-[16px] pt-[8px] pb-[16px] border-t" style={{ borderColor: "var(--line)" }}>

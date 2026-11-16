@@ -834,28 +834,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/pipeline/authoring/{session_id}/samples": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload samples: each measured here, the agent told what they showed
-         * @description **Only the first 4 MB of each file is kept**, in memory, and nothing is written to disk.
-         *     The protection level is asked before a byte is read. What was measured is recorded as the
-         *     person's data, and the agent is told in the person's next turn.
-         */
-        post: operations["uploadAuthoringSample"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/settings/retention/last": {
         parameters: {
             query?: never;
@@ -960,6 +938,61 @@ export interface paths {
          */
         get: operations["readDataTree"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An analysis's data: its folders, samples and scan */
+        get: operations["readAnalysisData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/{draft_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A page of the files in an analysis's folders */
+        get: operations["readAnalysisFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/{draft_id}/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Tick the folders an analysis reads, and scan them
+         * @description Each folder is checked against the data roots, then the scan is queued: the page polls
+         *     `readAnalysisData` while it runs.
+         */
+        put: operations["tickDataFolders"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1520,7 +1553,7 @@ export interface components {
              * Shape
              * @enum {string}
              */
-            shape: "options" | "number" | "yes_no" | "upload" | "text";
+            shape: "options" | "number" | "yes_no" | "data" | "text";
             /**
              * Options
              * @default []
@@ -1626,6 +1659,43 @@ export interface components {
          * @enum {string}
          */
         Alignment: "same" | "differs" | "yours-only" | "mendel-only";
+        /**
+         * AnalysisDataView
+         * @description An analysis's data as the Data pages read it: everything but the file list, which is paged
+         *     (`files` is its count).
+         */
+        AnalysisDataView: {
+            /** Draft Id */
+            draft_id: string;
+            /**
+             * Folders
+             * @default []
+             */
+            folders: string[];
+            /**
+             * @default {
+             *       "state": "idle",
+             *       "done": 0,
+             *       "total": 0
+             *     }
+             */
+            scan: components["schemas"]["Scan"];
+            /**
+             * Samples
+             * @default []
+             */
+            samples: components["schemas"]["DataSample"][];
+            /**
+             * Files
+             * @default 0
+             */
+            files: number;
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+        };
         /**
          * AnswerQuestion
          * @description The person's answer to the agent's question.
@@ -1818,11 +1888,6 @@ export interface components {
              * @default []
              */
             facts: components["schemas"]["Fact"][];
-            /**
-             * Samples
-             * @default []
-             */
-            samples: components["schemas"]["UploadedSample"][];
             /**
              * Inputs
              * @default []
@@ -2420,6 +2485,30 @@ export interface components {
             measurements?: components["schemas"]["Measured"][];
         };
         /**
+         * DataSample
+         * @description One sample: its files (paths, read 1 first) and what was measured on it.
+         */
+        DataSample: {
+            /** Name */
+            name: string;
+            /** Files */
+            files: string[];
+            /** Outcome */
+            outcome: string;
+            /** Type Id */
+            type_id?: string | null;
+            /**
+             * Facts
+             * @default []
+             */
+            facts: components["schemas"]["SampleFact"][];
+            /**
+             * Left Out
+             * @default false
+             */
+            left_out: boolean;
+        };
+        /**
          * DecisionChange
          * @description One change to intent or facts, from any caller — the person's click or edit, the chat
          *     model's reply, a stage's own handler (Part I.0 spec §5.1). `heard` is the person's words it
@@ -2870,6 +2959,13 @@ export interface components {
          * @enum {string}
          */
         FactSource: "measured" | "model_read" | "person_said" | "open" | "varies";
+        /** FilesPage */
+        FilesPage: {
+            /** Files */
+            files: components["schemas"]["ScannedFile"][];
+            /** Total */
+            total: number;
+        };
         /**
          * Finding
          * @description One declared diagnostic with optional node, port, and edge-endpoint context.
@@ -2947,6 +3043,11 @@ export interface components {
             folders: components["schemas"]["Folder"][];
             /** Files */
             files: number;
+        };
+        /** Folders */
+        Folders: {
+            /** Folders */
+            folders: string[];
         };
         /** FormatLink */
         FormatLink: {
@@ -3157,29 +3258,6 @@ export interface components {
          * @enum {string}
          */
         InputState: "off" | "optional" | "required";
-        /** InspectedFactView */
-        InspectedFactView: {
-            /** Measurement */
-            measurement: string;
-            /** Value */
-            value?: number | boolean | string | null | (number | boolean | string | null)[];
-            /** Undetermined */
-            undetermined?: string | null;
-            /**
-             * Pieces
-             * @default []
-             */
-            pieces: string[];
-            /**
-             * Evidence
-             * @default {}
-             */
-            evidence: {
-                [key: string]: number | boolean | string;
-            };
-            /** Coverage */
-            coverage?: ("head" | "all") | null;
-        };
         /** ItemView */
         ItemView: {
             /** Key */
@@ -4310,37 +4388,49 @@ export interface components {
             coverage?: ("head" | "all") | null;
         };
         /**
-         * SampleInspected
-         * @description What an upload measured, what it recorded, and the agent's turn it starts.
-         */
-        SampleInspected: {
-            /**
-             * Outcome
-             * @enum {string}
-             */
-            outcome: "measured" | "unreadable" | "no_inspector" | "tie";
-            /** Type Id */
-            type_id: string | null;
-            /** Samples */
-            samples: number;
-            /** Facts */
-            facts: components["schemas"]["InspectedFactView"][];
-            /** Reason */
-            reason: string | null;
-            /** Steps */
-            steps: string[];
-            /** Recorded */
-            recorded: string[];
-            /** Seq */
-            seq: number;
-        };
-        /**
          * SayToAuthoring
          * @description Words to the agent. **No revision**: saying something changes nothing by itself.
          */
         SayToAuthoring: {
             /** Text */
             text: string;
+        };
+        /** Scan */
+        Scan: {
+            /**
+             * State
+             * @default idle
+             * @enum {string}
+             */
+            state: "idle" | "scanning" | "done" | "failed";
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * ScannedFile
+         * @description One file in a ticked folder, and what it turned out to be.
+         */
+        ScannedFile: {
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Size */
+            size: number;
+            /** Sample */
+            sample?: string | null;
+            /** Recognised */
+            recognised?: string | null;
         };
         /** Setting */
         Setting: {
@@ -4735,28 +4825,6 @@ export interface components {
              * @default []
              */
             fragments: components["schemas"]["Fragment"][];
-        };
-        /**
-         * UploadedSample
-         * @description One sample of an upload, kept with the session: its name and files, and what was
-         *     measured on it (#466). Session state only: a sample's name never reaches a goal, a
-         *     pipeline, a model or a log (operator, 11-12).
-         */
-        UploadedSample: {
-            /** Name */
-            name: string;
-            /**
-             * Files
-             * @default []
-             */
-            files: string[];
-            /** Outcome */
-            outcome: string;
-            /**
-             * Facts
-             * @default []
-             */
-            facts: components["schemas"]["SampleFact"][];
         };
         /** Upstream */
         Upstream: {
@@ -6431,60 +6499,6 @@ export interface operations {
             };
         };
     };
-    uploadAuthoringSample: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    question_id?: string;
-                    files: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SampleInspected"];
-                };
-            };
-            /** @description `MI0213`: the protection level refuses it. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The id in the path names nothing. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Refusal"];
-                };
-            };
-            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Refusal"];
-                };
-            };
-        };
-    };
     readLastRetentionSweep: {
         parameters: {
             query?: never;
@@ -6658,6 +6672,133 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FolderListing"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readAnalysisData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    readAnalysisFiles: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilesPage"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    tickDataFolders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Folders"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
                 };
             };
             /** @description The id in the path names nothing. */

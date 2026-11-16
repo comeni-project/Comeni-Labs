@@ -1,5 +1,51 @@
 {
   "$defs": {
+    "DataSample": {
+      "properties": {
+        "facts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SampleFact"
+          },
+          "type": "array"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "left_out": {
+          "default": false,
+          "type": "boolean"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "type_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name",
+        "files",
+        "outcome"
+      ],
+      "type": "object"
+    },
     "SampleFact": {
       "additionalProperties": false,
       "properties": {
@@ -48,51 +94,10 @@
         "measurement"
       ],
       "type": "object"
-    },
-    "UploadedSample": {
-      "additionalProperties": false,
-      "properties": {
-        "facts": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/SampleFact"
-          },
-          "type": "array"
-        },
-        "files": {
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "name": {
-          "maxLength": 256,
-          "minLength": 1,
-          "type": "string"
-        },
-        "outcome": {
-          "maxLength": 32,
-          "minLength": 1,
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "outcome"
-      ],
-      "type": "object"
     }
   },
-  "anyOf": [
-    {
-      "items": {
-        "$ref": "#/$defs/UploadedSample"
-      },
-      "type": "array"
-    },
-    {
-      "type": "null"
-    }
-  ]
+  "items": {
+    "$ref": "#/$defs/DataSample"
+  },
+  "type": "array"
 }

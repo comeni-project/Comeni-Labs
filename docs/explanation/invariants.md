@@ -268,16 +268,23 @@ the guard moved rather than weakened: `MeasurementRegistry.profile()` is the onl
 constructor, `tests/guards/test_construction.py` enforces that nothing else builds a `DataProfile`,
 and `mendel build` re-routes every goal's profile through it. Delete that one call and
 `profile: {sample_name: ...}` builds cleanly — which is how it was watched failing.
-**Protection level 0 loosens this three times, all recorded:**
-- since 14.7.6, an uploaded sample's first 4 MB is held in memory and measured on this
-  server, and only the measured facts are kept;
+**Protection level 0 loosens this four times, all recorded:**
+- since 14.7.6, a sample's first 4 MB is held in memory and measured on this server (since
+  #511, read from a folder the person ticked rather than uploaded), and only the measured facts
+  are kept;
+- since #511, an analysis's data (`analysis_data`) keeps the folders a person ticked, every
+  file in them by path, the samples they pair into by name and each sample's measured facts, so
+  a run is bound to the data without anyone typing a path. Files are read in place under the
+  installation's data roots and never copied; the row is deleted with its draft. The paths
+  never reach a goal, a pipeline or a log, and a run's params are built from them only when it
+  is sent;
 - since 14.7.7, when nothing reads its type, up to 8 KB of its text goes to a model through
   door 6, waiting in the AI queue until the worker takes it (and in Redis's snapshot on
   disk, which level 0 allows, #281). Only the ids it admits become
   facts; the model's reply, with the lines it quoted from the file, is kept whole (#238).
   Nothing calls it since #463, until it is wired to the agent;
-- since #463, the builder agent's model may read the names of a person's uploaded samples,
-  so it can talk about them. The names are kept with the session and deleted with it.
+- since #463, the builder agent's model may read the names of a person's samples, so it can
+  talk about them. The names are kept with the analysis's data and deleted with it.
 
 `guarded` and `sealed` will hold the invariant (#71).
 

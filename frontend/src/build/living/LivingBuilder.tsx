@@ -107,7 +107,6 @@ export function LiveLiving({ sessionId }: { sessionId: string }) {
       onSay={living.say}
       onAnswer={living.answer}
       onRetry={living.retry}
-      onUpload={living.upload}
       onReviewed={living.review}
       notice={living.notice}
       onDismiss={living.dismiss}

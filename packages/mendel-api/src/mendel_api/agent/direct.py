@@ -1,5 +1,5 @@
 """What the person does directly, beside the agent (#463): a change, a corrected fact, a tool
-released, an edit on the canvas, a sample uploaded. Each is the person's, through the same
+released, an edit on the canvas. Each is the person's, through the same
 writer the agent's tools use, and the pipeline is built again so the canvas follows at once.
 A write against a revision that moved is refused (`MI0201`), so the person and the agent never
 overwrite each other unseen."""
@@ -7,7 +7,6 @@ overwrite each other unseen."""
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph
 from mendel_authoring.blueprint import Blueprint
-from mendel_authoring.decisions import FactOrigin
 from mendel_authoring.intent import read_edit
 from mendel_authoring.payloads import DecisionChange
 
@@ -90,35 +89,3 @@ def edit(session_id: str, graph: DraftGraph, *, who: str, expected_revision: int
         _rebuild(session_id, draft_id, who)
     with session_scope() as db:
         return db.get(PipelineDraft, draft_id).revision
-
-
-def upload(session_id: str, files: list[tuple[str, bytes]], sizes: tuple[int, ...],
-           *, who: str) -> dict:
-    """Samples measured by this server's inspectors (#134, #466): kept on the session, and each
-    fact every sample agrees on recorded as measured, unless the person already said it — their
-    word stands. Returns what was read, for the person's next message to the agent."""
-    from mendel_api.agent.samples import _agreed, _keep_samples
-    from mendel_api.services import inspect
-    from mendel_api.services.sample_upload import samples_of
-
-    draft_id = _draft_of(session_id)
-    grouped = samples_of(list(files), tuple(sizes))
-    inspections = [inspect.inspect_sample(list(s.files), registry.stack(), None, sizes=s.sizes)
-                   for s in grouped]
-    _keep_samples(session_id, grouped, inspections)
-    agreed = inspections[0] if len(inspections) == 1 else _agreed(inspections)
-    said = {f.subject for f in decisions.read(draft_id).facts
-            if f.origin is FactOrigin.PERSON_SAID}
-    recorded = []
-    for fact in agreed.facts:
-        if fact.undetermined is not None or fact.value is None or fact.measurement in said:
-            continue
-        decisions.observe(draft_id, fact.measurement, fact.value, origin=FactOrigin.MEASURED,
-                          pieces=fact.pieces)
-        recorded.append(fact.measurement)
-    if agreed.type_id:
-        changes.apply(draft_id, DecisionChange(kind="input", subject=agreed.type_id, value=True),
-                      who=who)
-    return {"outcome": agreed.outcome, "type_id": agreed.type_id, "samples": len(grouped),
-            "recorded": recorded, "facts": [f.model_dump() for f in agreed.facts],
-            "reason": agreed.reason, "steps": list(agreed.steps)}

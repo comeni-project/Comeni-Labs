@@ -34,7 +34,8 @@ _SUBJECTS = ("pipeline_input", "pipeline_want", "pipeline_fact", "pipeline_produ
 subject, both `RESTRICT`, which Postgres checks at the end of each statement even where the
 constraint is deferrable: so a subject and its revisions go in one statement."""
 
-_AFTER = ("pipeline_evidence_access", "pipeline_observation", "pipeline_decision_migration")
+_AFTER = ("pipeline_evidence_access", "pipeline_observation", "pipeline_decision_migration",
+          "analysis_data")
 """What the revisions reference, after them."""
 
 

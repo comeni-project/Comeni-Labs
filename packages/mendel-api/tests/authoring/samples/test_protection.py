@@ -10,14 +10,14 @@ def test_level_0_allows_every_crossing(monkeypatch):
 
 def test_any_other_level_refuses_with_a_code(monkeypatch):
     monkeypatch.setattr(protection, "level", lambda: "sealed")
-    assert not protection.allows(protection.Crossing.UPLOAD)
-    assert "MI0213" in protection.refuse(protection.Crossing.UPLOAD)
+    assert not protection.allows(protection.Crossing.SAMPLE_HEAD)
+    assert "MI0213" in protection.refuse(protection.Crossing.SAMPLE_HEAD)
 
 
 def test_a_designed_level_says_it_is_not_built(monkeypatch):
     """Issue 226: `COMENI_PROTECTION_LEVEL=open` failed every crossing with an opaque MI0213."""
     monkeypatch.setattr(protection, "level", lambda: "open")
-    said = protection.refuse(protection.Crossing.UPLOAD)
+    said = protection.refuse(protection.Crossing.SAMPLE_HEAD)
     assert "MI0213" in said and "designed, not built" in said
 
 

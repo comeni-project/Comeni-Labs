@@ -16,10 +16,9 @@ from typing import Literal
 
 from comeni_core.artifact.pipeline import AiProvenance
 from comeni_core.declared.measurement import Measurement
-from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
 from comeni_core.spell.marks import HumanParamValue
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, status
 from mendel_authoring.decisions import ActorKind, InputDecision
 from mendel_authoring.payloads import DecisionChange
 from mendel_resolver.goal import Goal
@@ -29,7 +28,7 @@ from starlette.concurrency import run_in_threadpool
 from mendel_api import identity
 from mendel_api.agent import chat, direct, view
 from mendel_api.authoring.canvas import CanvasFrame
-from mendel_api.authoring.types import Block, Fact, Prose, TurnState, UploadedSample
+from mendel_api.authoring.types import Block, Fact, Prose, TurnState
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
 from mendel_api.refusals import REFUSES
@@ -180,7 +179,6 @@ class AuthoringSessionView(BaseModel):
     name: str
     goal: Goal | None
     facts: list[Fact] = []
-    samples: list[UploadedSample] = []
     inputs: list[InputDecision] = []
     fact_subjects: list[str] = []
     decision_revision: int = 0
@@ -300,33 +298,6 @@ class FactHistoryView(BaseModel):
     model_config = _FROZEN
     subject: str
     entries: list[FactHistoryEntry]
-
-
-class InspectedFactView(BaseModel):
-    model_config = _FROZEN
-
-    measurement: str
-    value: HumanParamValue | list[HumanParamValue] | None = None
-    undetermined: str | None = None
-    pieces: list[str] = []
-    evidence: dict[str, int | float | bool | str] = {}
-    coverage: Literal["head", "all"] | None = None
-
-
-class SampleInspected(BaseModel):
-    """What an upload measured, what it recorded, and the agent's turn it starts."""
-
-    model_config = _FROZEN
-
-    outcome: Literal["measured", "unreadable", "no_inspector", "tie"]
-    type_id: str | None
-    samples: int
-    facts: list[InspectedFactView]
-    reason: str | None
-    steps: list[str]
-    recorded: list[str]
-    seq: int
-    """The agent's turn the upload starts."""
 
 
 # ── operations ────────────────────────────────────────────────────────────────────────────
@@ -526,64 +497,6 @@ def preview(session_id: str) -> AuthoringPreview:
     return AuthoringPreview(
         revision=shown.revision, state=shown.state, text=shown.text, findings=shown.findings
     )
-
-
-_UPLOAD_BODY = {
-    "requestBody": {
-        "required": True,
-        "content": {
-            "multipart/form-data": {
-                "schema": {
-                    "type": "object",
-                    "required": ["files"],
-                    "properties": {
-                        "question_id": {"type": "string"},
-                        "files": {
-                            "type": "array",
-                            "items": {"type": "string", "format": "binary"},
-                            "minItems": 1,
-                        },
-                    },
-                }
-            }
-        },
-    }
-}
-
-
-@router.post(
-    "/{session_id}/samples",
-    operation_id="uploadAuthoringSample",
-    summary="Upload samples: each measured here, the agent told what they showed",
-    responses={**REFUSES, 403: {"description": "`MI0213`: the protection level refuses it."}},
-    openapi_extra=_UPLOAD_BODY,
-)
-async def upload_sample(session_id: str, request: Request) -> SampleInspected:
-    """**Only the first 4 MB of each file is kept**, in memory, and nothing is written to disk.
-    The protection level is asked before a byte is read. What was measured is recorded as the
-    person's data, and the agent is told in the person's next turn."""
-    from mendel_api.services import inspect, protection, sample_upload
-
-    if not protection.allows(protection.Crossing.UPLOAD):
-        raise HTTPException(status.HTTP_403_FORBIDDEN,
-                            protection.refuse(protection.Crossing.UPLOAD))
-    try:
-        heads = await sample_upload.read_heads(request, head=inspect.HEAD_BYTES)
-    except ValueError as refused:
-        raise ValueError(coded("MI0214", str(refused))) from None
-    if heads.count < 1:
-        raise ValueError(coded("MI0214", "no files: upload one or more samples"))
-    sizes = sample_upload.sizes_of(heads.fields.get("sizes"), len(heads.files))
-    who = identity.default_author()
-    found = await run_in_threadpool(direct.upload, session_id, list(heads.files), sizes, who=who)
-    said = (f"I uploaded {found['samples']} sample(s)"
-            + (f"; measured {', '.join(found['recorded'])}" if found["recorded"] else "")
-            + (f" ({found['reason']})" if found["reason"] else "") + ".")
-    seq, _ = await chat.say(session_id, said)
-    return SampleInspected(
-        outcome=found["outcome"], type_id=found["type_id"], samples=found["samples"],
-        facts=[InspectedFactView(**f) for f in found["facts"]], reason=found["reason"],
-        steps=found["steps"], recorded=found["recorded"], seq=seq)
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────────────────

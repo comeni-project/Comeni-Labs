@@ -61,19 +61,3 @@ def test_a_value_typed_on_the_canvas_is_the_persons(clean, started):
     assert edited.status_code == 200, edited.text
     [value] = [p for p in decisions.read(session["draft_id"]).parameters if p.name == "min_mqs"]
     assert value.value == 20
-
-
-def test_an_upload_records_what_it_measured_and_tells_the_agent(clean, started):
-    client, session = started
-    files = [("files", (p.name, p.read_bytes())) for p in sorted((FIX / "pair_150").iterdir())
-             if p.name != "expected.json"]
-    uploaded = client.post(f"{BASE}/{session['id']}/samples", files=files)
-    assert uploaded.status_code == 200, uploaded.text
-    body = uploaded.json()
-    assert body["outcome"] == "measured" and body["samples"] == 1
-    assert body["recorded"], "something new was measured"
-    # The goal already says the read length: the person's word stands over the measurement.
-    assert "read_length" not in body["recorded"]
-    turns = client.get(f"{BASE}/{session['id']}").json()["turns"]
-    assert turns[-2]["role"] == "person" and "uploaded 1 sample" in turns[-2]["text"]
-    assert turns[-1]["state"] == "pending"

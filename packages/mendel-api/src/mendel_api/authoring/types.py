@@ -261,7 +261,7 @@ class AgentAsk(_Block):
     kind: Literal[BlockKind.ASK] = BlockKind.ASK
     question_id: str = Field(max_length=32)
     question: Prose
-    shape: Literal["options", "number", "yes_no", "upload", "text"]
+    shape: Literal["options", "number", "yes_no", "data", "text"]
     options: list[Prose] = []
     unit: str = Field(default="", max_length=20)
     type_id: str | None = Field(default=None, max_length=128)

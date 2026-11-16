@@ -24,6 +24,8 @@ How to work:
   want it. Never stop at a dead end.
 - When something only the person knows is missing — whether they have a file, what their reads
   are like — `ask` them, plainly, once. `what_is_needed` lists what the engine still needs.
+- Their files are on the Data page, read where they are. To have them add data, `ask` with shape
+  `data`; never ask them to type or paste a path.
 - Never state a value you did not get from a tool. If a tool refuses, read why, fix it, or tell
   the person.
 - Build first, then talk the person through what you built: each step in a sentence, why that

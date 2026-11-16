@@ -361,7 +361,7 @@ class PipelineAuthoringSession(Base):
     `test_the_registry_is_not_in_the_database`); a credential of any kind (the provider key
     lives in the environment and reaches `comeni_ai.access` and nothing else); a provider's own
     error text (`failure_code` on `ai_invocation` carries a declared code instead); and any
-    runtime sample data, which is invariant 15 and is Wiener's anyway.
+    runtime sample data, which is invariant 15: an analysis's samples are `AnalysisData`'s.
 
     `blueprint` is what the **resolver** produced when the pipeline was last built, stored
     whole, so the canvas draws one resolution rather than a fresh one per read.
@@ -372,9 +372,6 @@ class PipelineAuthoringSession(Base):
 
     __tablename__ = "pipeline_authoring_session"
     shape_version: Mapped[int] = stamp("pipeline_authoring_session")
-    samples: Mapped[Any] = mapped_column(Json, nullable=True)
-    """Every sample of the last upload, with its name, its files and its measurements (#466).
-    Deleted with the session; never copied into a goal, a pipeline or a model's payload."""
 
     retired: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     retirement_reason: Mapped[str | None] = mapped_column(
@@ -801,3 +798,30 @@ class RuleProposal(Base):
     decided_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class AnalysisData(Base):
+    """An analysis's data (#511): the folders a person ticked, every file in them, the samples
+    they pair into and what was measured on each. **One row per draft**, because an analysis is
+    a draft; deleted with it (`deletion.delete_draft`), never cascaded.
+
+    **The level-0 exception to invariant 15, recorded in `invariants.md`:** these columns hold
+    paths and sample names on this server, so that a run can be bound to the data without a
+    person typing a path. They never reach a goal, a pipeline, a log, or a column of any other
+    table; a run's params are built from them when it is sent (`bindings`) and kept by Wiener.
+    """
+
+    __tablename__ = "analysis_data"
+    shape_version: Mapped[int] = stamp("analysis_data")
+
+    draft_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True)
+    folders: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    scan: Mapped[Any] = mapped_column(Json, nullable=False, default=dict)
+    files: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    samples: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0,
+                                          server_default=text("0"))
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC))

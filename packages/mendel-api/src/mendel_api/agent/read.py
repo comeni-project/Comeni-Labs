@@ -213,13 +213,15 @@ def read_rules(ctx: ToolContext, args: RoleArgs) -> RulesView:
 def read_facts(ctx: ToolContext, _: Nothing) -> FactsView:
     current = decisions.read(ctx.draft_id)
     samples: list[str] = []
-    if ctx.session_id and protection.allows(protection.Crossing.AGENT):
+    if protection.allows(protection.Crossing.AGENT):
         from mendel_api.db import session_scope
-        from mendel_api.models import PipelineAuthoringSession
+        from mendel_api.models import AnalysisData
 
+        # The analysis's samples, from its data (#511): the one place samples live.
         with session_scope() as db:
-            row = db.get(PipelineAuthoringSession, ctx.session_id)
-            samples = [str(s.get("name")) for s in (row.samples or []) if s.get("name")]
+            row = db.get(AnalysisData, ctx.draft_id)
+            kept = row.samples if row else []
+            samples = [str(s["name"]) for s in kept if not s.get("left_out")]
     return FactsView(
         facts=[FactLine(measurement=f.subject, value=f.value, source=f.origin.value)
                for f in current.facts],

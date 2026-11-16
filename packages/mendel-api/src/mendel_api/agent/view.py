@@ -68,7 +68,6 @@ def read(session_id: str) -> dict:
             "goal": (authoring_decisions.goal(row).model_dump(mode="json")
                      if any(w.present for w in selected.wants) else None),
             "facts": [f.model_dump(mode="json") for f in authoring_decisions.facts(row.draft_id)],
-            "samples": list(row.samples or []),
             "inputs": [i.model_dump(mode="json") for i in selected.inputs],
             "fact_subjects": sorted(set(evidence_subjects)
                                     | {f.subject for f in selected.facts}),

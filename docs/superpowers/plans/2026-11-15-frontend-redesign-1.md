@@ -309,7 +309,7 @@ Board: every screen. Compare how each piece repeats across `Main`, `Build`, `Run
     except the file list, plus counts.
   - `GET /api/data/{draft_id}/files?offset=&limit=`. It returns a page of `ScannedFile`, without `inspection`.
 
-- [ ] **Step 1:** Write the failing tests. The fixtures are a `tmp_path` root holding paired FASTQ heads copied
+- [x] **Step 1:** Write the failing tests. The fixtures are a `tmp_path` root holding paired FASTQ heads copied
   from `packages/mendel-api/tests/authoring/samples/`.
   - `test_ticking_a_folder_outside_the_roots_is_refused`
   - `test_scan_pairs_r1_r2_into_samples_and_keeps_every_file`
@@ -327,16 +327,16 @@ Board: every screen. Compare how each piece repeats across `Main`, `Build`, `Run
     scanned path.
   - `test_read_facts_lists_samples_from_the_data_table`
   - `test_upload_route_is_gone`: the route answers 404 or 405.
-- [ ] **Step 2:** Run `… uv run pytest packages/mendel-api/tests/data/test_scan.py -v`. Expected: FAIL.
-- [ ] **Step 3:** Implement the model, the migration, `record`, the scan, the routes, the job and the move. Then
+- [x] **Step 2:** Run `… uv run pytest packages/mendel-api/tests/data/test_scan.py -v`. Expected: FAIL.
+- [x] **Step 3:** Implement the model, the migration, `record`, the scan, the routes, the job and the move. Then
   run `make client` and commit the regenerated `frontend/src/api/`.
-- [ ] **Step 4:** Run `tests/data/` and `packages/mendel-api/tests/agent/`. Expected: PASS.
-- [ ] **Step 5:** Fix the frontend the move breaks:
+- [x] **Step 4:** Run `tests/data/` and `packages/mendel-api/tests/agent/`. Expected: PASS.
+- [x] **Step 5:** Fix the frontend the move breaks:
   - `useAuthoringSession.upload` and `AgentQuestion`'s upload shape go.
   - The `"data"` shape renders a link to `/a/:draft/data`.
 
   Run `npx vitest run src/build && npx tsc -b`. Expected: PASS.
-- [ ] **Step 6:** Commit:
+- [x] **Step 6:** Commit:
   `feat: an analysis's data, scanned where it is; samples live only there (#511)`.
 
 **→ Checkpoint A.**

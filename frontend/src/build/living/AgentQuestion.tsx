@@ -1,22 +1,23 @@
-import { useId, useState } from "react";
+import { useState } from "react";
+import { Link, useParams } from "react-router";
 
 import type { AuthoringBlock } from "../../api/types";
+import { analysisAddress } from "../../app/address";
 import { Primary, Secondary } from "./blocks/parts";
 
 type Ask = Extract<AuthoringBlock, { kind: "ask" }>;
 export type AnswerValue = string | number | boolean;
 
 /** **A question the agent put to the person** (#463), drawn in the shape of answer it takes:
- *  options as buttons, a number with its unit, yes or no, an upload, or words. Answering sends
+ *  options as buttons, a number with its unit, yes or no, a pointer to Data, or words. Answering sends
  *  the answer as the person's next turn; typing in the composer instead is always fine too. */
-export function AgentQuestion({ question, onAnswer, onUpload, disabled = false }: {
+export function AgentQuestion({ question, onAnswer, disabled = false }: {
   question: Ask;
   onAnswer: (questionId: string, value: AnswerValue) => void;
-  /** Sends the picked files' heads; absent where nothing can be uploaded. */
-  onUpload?: (questionId: string, files: File[]) => Promise<unknown>;
   disabled?: boolean;
 }) {
   const answer = (value: AnswerValue) => onAnswer(question.question_id, value);
+  const { draft } = useParams();
   return (
     <fieldset aria-label={question.question} disabled={disabled}
               className="m-0 px-[14px] py-[12px] rounded-panel border flex flex-col gap-[10px] min-w-0"
@@ -38,8 +39,13 @@ export function AgentQuestion({ question, onAnswer, onUpload, disabled = false }
       )}
       {question.shape === "number" && <NumberAnswer unit={question.unit} onAnswer={answer} />}
       {question.shape === "text" && <TextAnswer onAnswer={answer} />}
-      {question.shape === "upload" && onUpload && (
-        <UploadAnswer onUpload={(files) => onUpload(question.question_id, files)} />
+      {/* **Data is where samples come from** (#511): ticked in its folders, never uploaded here. */}
+      {question.shape === "data" && draft && (
+        <Link to={analysisAddress(draft, "data")}
+              className="self-start px-[14px] py-[7px] text-[12.5px] font-semibold rounded-button no-underline
+                         text-now-ink bg-now-soft border border-now-line">
+          Open Data
+        </Link>
       )}
     </fieldset>
   );
@@ -70,49 +76,5 @@ function TextAnswer({ onAnswer }: { onAnswer: (value: string) => void }) {
              className={`${FIELD} flex-1`} style={{ borderColor: "var(--line-2)" }} />
       <Primary type="submit" disabled={!text.trim()}>Answer</Primary>
     </form>
-  );
-}
-
-/** Any number of files: a study's every sample at once; the server pairs the mates. **Nothing
- *  leaves before Measure**, and then only each file's head (`useAuthoringSession.upload`). */
-function UploadAnswer({ onUpload }: { onUpload: (files: File[]) => Promise<unknown> }) {
-  const field = useId();
-  const [files, setFiles] = useState<File[]>([]);
-  const [state, setState] = useState<"picking" | "measuring" | "failed">("picking");
-  const measure = async () => {
-    setState("measuring");
-    try {
-      await onUpload(files);
-      setFiles([]);
-      setState("picking");
-    } catch {
-      setState("failed");
-    }
-  };
-  return (
-    <div className="flex flex-col gap-2">
-      <label htmlFor={field}
-             onDragOver={(e) => e.preventDefault()}
-             onDrop={(e) => { e.preventDefault(); setFiles(Array.from(e.dataTransfer.files)); }}
-             className="self-start px-[14px] py-[7px] text-[12.5px] font-semibold border border-dashed rounded-button
-                        text-now-ink cursor-pointer has-[:focus-visible]:shadow-[var(--ring)]"
-             style={{ borderColor: "var(--now)", background: "var(--now-soft)" }}>
-        Choose files
-        <input id={field} type="file" multiple className="sr-only"
-               onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
-      </label>
-      {files.length > 0 && (
-        <p className="m-0 text-[12px] text-ink-2 break-all">
-          {files.length === 1 ? files[0].name : `${files.length} files`}
-        </p>
-      )}
-      {state === "failed" && <p role="alert" className="m-0 text-[12px] text-needs-you-ink">The files could not be sent. Try again.</p>}
-      <span className="self-start">
-        <Primary disabled={files.length === 0 || state === "measuring"} onClick={() => void measure()}>
-          {state === "measuring" ? "Measuring…" : "Measure"}
-        </Primary>
-      </span>
-      <p className="m-0 text-[11.5px] text-ink-3">Only the start of each file is read.</p>
-    </div>
   );
 }

@@ -57,6 +57,8 @@ def test_the_registry_is_not_in_the_database():
         "ai_invocation",
         "pipeline_authoring_session",
         "pipeline_authoring_turn",
+        # #511: an analysis's data — workflow state about a person's files, not the registry.
+        "analysis_data",
         "installation_setting",
         "pipeline_input",
         "pipeline_input_revision",
@@ -239,12 +241,14 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
             # Part F: retired workflow status.
             "retired",
             "retirement_reason",
-            # #466: every uploaded sample, with its name and its files' names, and what was
-            # measured on it. **The one exception to invariant 15 here, by the operator's
-            # decision (11-12):** a study of hundreds of samples is sorted, filtered and split
-            # by sample, so the names are kept with the session and deleted with it. At level 0 the
-            # builder agent may read them (#463, `SampleName`); never a goal, a pipeline or a log.
-            "samples",
+        },
+        # #511: an analysis's data. **The level-0 exception to invariant 15, by the operator's
+        # decision (11-12 for sample names, 11-15 for paths):** the folders a person ticked, every
+        # file in them by path, the samples they pair into by name and what was measured on each,
+        # so a run is bound to the data without a path being typed. Deleted with the draft. At
+        # level 0 the builder agent may read sample names; never a goal, a pipeline or a log.
+        "analysis_data": {
+            "draft_id", "folders", "scan", "files", "samples", "revision", "updated_at",
         },
         "pipeline_authoring_turn": {
             "id",

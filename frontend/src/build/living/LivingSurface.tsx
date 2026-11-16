@@ -29,7 +29,7 @@ import { valuesOf } from "./values";
  */
 export function LivingSurface({
   session, graph, preview, selected, onSelect, composer, onCompose, sending, onSay, onAnswer, onRetry,
-  onUpload, onReviewed, notice = null, onDismiss, onSetParam, onSwitchInput, onWhole, onEdit, onAddStep,
+  onReviewed, notice = null, onDismiss, onSetParam, onSwitchInput, onWhole, onEdit, onAddStep,
   onRename, run = null,
 }: {
   session: AuthoringSession;
@@ -44,7 +44,6 @@ export function LivingSurface({
   onSay: (text: string) => void;
   onAnswer: (questionId: string, value: AnswerValue) => void;
   onRetry: (seq: number) => void;
-  onUpload?: (questionId: string, files: File[]) => Promise<unknown>;
   onReviewed: (node: string) => void;
   notice?: ServerNotice | null;
   onDismiss: () => void;
@@ -175,7 +174,7 @@ export function LivingSurface({
     </>
   );
 
-  const talk = { session, sending, composer, onCompose, onSay, onAnswer, onRetry, onUpload, notices: null };
+  const talk = { session, sending, composer, onCompose, onSay, onAnswer, onRetry, notices: null };
   const runnable = run !== null && !session.retired;
 
   return (
