@@ -75,8 +75,8 @@ export function LivingHeader({
 
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-[28px] pt-[22px] pb-[14px]" data-testid="living-header">
-      <h1 className="m-0 text-[25px] leading-tight font-semibold tracking-[-.02em] text-ink">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 sm:px-6 pt-4 pb-3" data-testid="living-header">
+      <h1 className="m-0 text-[22px] leading-tight font-semibold tracking-[-.015em] text-ink">
         {onRename ? (
           <input aria-label="pipeline name" defaultValue={session.name} placeholder="Untitled analysis"
                  key={session.name}

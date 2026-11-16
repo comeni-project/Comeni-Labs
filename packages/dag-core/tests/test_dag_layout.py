@@ -55,10 +55,10 @@ def test_a_tall_step_grows_and_its_siblings_make_room():
     many = Node("quast", inputs=tuple(f"in{i}" for i in range(6)), outputs=("report",))
     laid = of(Graph(nodes=(many, Node("other"))))
     quast, other = (next(n for n in laid.nodes if n.id == i) for i in ("quast", "other"))
-    assert quast.height == node_height(6) == 101 + 22 * 5
+    assert quast.height == node_height(6) == 64 + 18 * 5
     assert other.height == NODE_H
     top, below = sorted((quast, other), key=lambda n: n.y)
-    assert below.y >= top.y + top.height + 58
+    assert below.y >= top.y + top.height + (SIBLING_PITCH - NODE_H)
 
 
 def test_a_measuring_step_hangs_under_the_step_it_reads():

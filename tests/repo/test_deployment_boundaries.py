@@ -120,7 +120,8 @@ def test_production_refuses_to_serve_mcp_without_a_token(tmp_path):
 def test_the_proxy_prefers_the_browsers_own_token_and_adds_its_own_otherwise():
     conf = (ROOT / "ops/nginx/default.conf.template").read_text()
     assert '"" "${WIENER_PROXY_AUTHORIZATION}";' in conf
-    assert conf.count("proxy_set_header Authorization $wiener_authorization;") == 3
+    # The API, artifacts, settings, and Run → Console's terminals (#511).
+    assert conf.count("proxy_set_header Authorization $wiener_authorization;") == 4
 
 
 @pytest.mark.slow

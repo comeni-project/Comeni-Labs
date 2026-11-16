@@ -58,7 +58,7 @@ describe("the live canvas", () => {
     const fetch = open(live());
     await screen.findByTestId("living-node-star_align");
     expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/pipeline/draw"))).toBe(false);
-    expect(screen.getByTestId("node-footer-star_align")).toHaveTextContent("1 measured · 2 settled");
+    expect(screen.getByTestId("node-name-star_align")).toBeInTheDocument();
   });
 
   it("says no count for a step the frame carries no metadata for", async () => {

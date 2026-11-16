@@ -33,10 +33,10 @@ export function DataPage() {
       <RailControls label="Folders">
         <FolderTree ticked={folders} onTick={data.tick} />
       </RailControls>
-      <div className="max-w-[1140px] mx-auto px-4 sm:px-9 pt-7 pb-24 flex flex-col gap-4">
+      <div className="page">
         <header className="flex flex-wrap items-end gap-[14px]">
           <div className="flex flex-col gap-1 min-w-0">
-            <h1 className="m-0 text-[24px] font-semibold tracking-[-.015em] text-ink">{sub ? TITLES[sub] : "Data"}</h1>
+            <h1 className="m-0 text-[22px] font-semibold tracking-[-.015em] text-ink">{sub ? TITLES[sub] : "Data"}</h1>
             {where && (
               <span className="text-[13.5px] text-ink-2">
                 <span className="font-data text-[12.5px] break-all">{where}</span>

@@ -65,7 +65,7 @@ export function AnalysisSlot({ draftId, page, run, status = {}, counts = {} }: {
             <Link to={`${base}/${p}`} title={label} aria-label={mini ? label : undefined}
                   aria-current={on && subs.length === 0 ? "page" : undefined}
                   className={`flex items-center gap-[11px] rounded-control no-underline
-                              ${mini ? "justify-center py-[10px]" : "px-[10px] py-[9px]"}
+                              ${mini ? "w-10 h-10 mx-auto justify-center" : "px-[10px] py-[9px]"}
                               ${on ? "bg-now-soft text-now-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}>
               <Icon name={icon} />
               {!mini && (
@@ -132,7 +132,7 @@ function Switcher({ draftId, name }: { draftId: string; name: string }) {
   };
 
   return (
-    <div ref={box} className="relative mb-2 mr-[42px]">
+    <div ref={box} className="relative mb-2">
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="listbox"
               className="w-full flex items-center justify-between gap-2 px-[10px] py-[9px] rounded-control border
                          border-line bg-surface cursor-pointer text-left">

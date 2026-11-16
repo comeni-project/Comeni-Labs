@@ -221,7 +221,7 @@ def _two_nodes():
     )
 
 
-def test_every_symbol_is_the_same_size(spine):
+def test_every_symbol_is_the_same_width_and_grows_only_for_its_ports(spine):
     """**The opposite of what this file used to assert**, and the change is deliberate.
 
     A node used to be sized from its declared port count, so the symbol advertised a fact about
@@ -231,12 +231,19 @@ def test_every_symbol_is_the_same_size(spine):
     > main chain dead straight — variable heights put a jog between every pair and the whole thing
     > reads sloppy again.
 
-    Ports are spread ALONG the edge instead, which is what `_port_offset` does.
+    Ports are spread ALONG the edge instead, which is what `_port_offset` does. Since #494 a step
+    with more ports than the card holds grows by one port gap a row, and only then (the board's
+    compact card, #511).
     """
     from dag_core import layout as dag_layout
 
-    for node in layout.of(spine).nodes:
-        assert (node.width, node.height) == (dag_layout.NODE_W, dag_layout.NODE_H), node.id
+    placed = layout.of(spine).nodes
+    assert placed, "the spine laid out to nothing"
+    for node in placed:
+        assert node.width == dag_layout.NODE_W, node.id
+        assert node.height >= dag_layout.NODE_H, node.id
+        assert (node.height - dag_layout.ROW_FIRST) % dag_layout.PORT_GAP == 0 or \
+            node.height == dag_layout.NODE_H, node.id
 
 
 def test_producers_are_ordered_to_match_the_ports_they_feed(spine):

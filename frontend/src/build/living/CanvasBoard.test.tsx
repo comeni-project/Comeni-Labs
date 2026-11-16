@@ -56,39 +56,34 @@ describe("a step with many ports (issue 494)", () => {
                         positions={{ quast: { x: 0, y: 0 } }} steps={{ quast }} authors={{}}
                         selected={null} onSelect={vi.fn()} />);
     const node = screen.getByTestId("living-node-quast");
-    expect(node.style.height).toBe("211px");
+    // Six inputs: the compact card grows by one port gap a row (#511): 64 + 18 × 5.
+    expect(node.style.height).toBe("154px");
     const marks = Array.from(node.querySelectorAll<HTMLElement>("[data-port-mark]"));
     expect(marks).toHaveLength(9);
     for (const mark of marks) {
       const top = parseFloat(mark.style.top);
-      expect(top).toBeGreaterThan(28);
-      expect(top + parseFloat(mark.style.height)).toBeLessThan(199);
+      expect(top).toBeGreaterThan(40);
+      expect(top).toBeLessThan(154);
     }
-    const rows = Array.from(node.querySelectorAll<HTMLElement>("[data-port-row]"));
-    expect(rows).toHaveLength(6);
-    expect(rows[0]).toHaveTextContent(/consensus.*results/);
-    expect(rows[2]).toHaveTextContent(/gff.*report/);
-    expect(rows[5]).toHaveTextContent(/^\s*<\s*reads\s*$/);
-    // Each row is centred on its own ports' anchor: 68 + 22 × index.
-    expect(rows.map((r) => parseFloat(r.style.top) + parseFloat(r.style.height) / 2))
-      .toEqual([68, 90, 112, 134, 156, 178]);
+    // Names show where a side has several: one label a port, centred on its anchor, 50 + 18 × index.
+    const labels = Array.from(node.querySelectorAll<HTMLElement>("[data-port-row]"));
+    expect(labels).toHaveLength(9);
+    expect(labels.slice(0, 6).map((l) => l.textContent)).toEqual(["consensus", "fasta", "gff", "bam", "bai", "reads"]);
+    expect(labels.slice(0, 6).map((l) => parseFloat(l.style.top) + 7)).toEqual([50, 68, 86, 104, 122, 140]);
   });
 });
 
 describe("a step on the canvas", () => {
-  it("counts its values by how they were decided, measured first", () => {
-    fake();
-    expect(screen.getByTestId("node-footer-star_align")).toHaveTextContent(/^1 measured · 2 settled$/);
-  });
-
-  it("marks what it reads with < and what it makes with >", () => {
+  it("draws inputs as circles and outputs as triangles, named where a side has several", () => {
     fake();
     const node = screen.getByTestId("living-node-star_align");
+    expect(node.querySelectorAll('[data-shape="circle"]').length).toBeGreaterThan(1);
+    expect(node.querySelectorAll('[data-shape="triangle"]').length).toBeGreaterThan(0);
     const [first, second] = Array.from(node.querySelectorAll<HTMLElement>("[data-port-row]"));
-    // A row is a port's name; its type and states are its title (issue 494).
-    expect(first).toHaveTextContent(/<\s*reads\s*bam\s*>/);
-    expect(second).toHaveTextContent(/<\s*index/);
-    expect(within(first).getByText("reads").closest("[title]")).toHaveAttribute("title", "fastq.reads::trimmed");
+    // A label is a port's name; its type and states are its title (issue 494).
+    expect(first).toHaveTextContent("reads");
+    expect(second).toHaveTextContent("index");
+    expect(first).toHaveAttribute("title", "fastq.reads::trimmed");
   });
 
   it("marks a step with a value that needs the person", () => {
@@ -97,20 +92,18 @@ describe("a step on the canvas", () => {
       { name: "strandedness", value: null, via: "ext", tier: 4, reason: "", because: "", axis_reason: "", optional: false, premise: [] },
     ] } as Step;
     fake({ steps: { ...FAKE_STEPS, star_align: open } });
-    expect(screen.getByTestId("node-open-star_align")).toBeInTheDocument();
-    expect(screen.getByTestId("node-footer-star_align")).toHaveTextContent("1 needs you");
+    expect(screen.getByTestId("node-open-star_align")).toHaveTextContent("1 open");
     expect(screen.queryByTestId("node-open-trimgalore")).toBeNull();
   });
 });
 
 describe("an input on the canvas", () => {
-  it("says Input, its name, its type and how it is read", () => {
+  it("says what it is and what answers it: how many samples, or the file Data gave", () => {
     collect();
     const reads = screen.getByTestId("living-source-reads");
-    expect(reads).toHaveTextContent("Input");
-    expect(reads).toHaveTextContent("reads");
-    expect(reads).toHaveTextContent("× 12 samples");
-    expect(screen.getByTestId("living-source-reference")).toHaveTextContent("read once per task");
+    expect(reads).toHaveTextContent("12 samples");
+    expect(reads.getAttribute("title")).toContain("params.reads");
+    expect(screen.getByTestId("living-source-reference")).toHaveTextContent("not given yet");
   });
 
   it("writes nothing on the wires until a step is selected", () => {
@@ -218,7 +211,7 @@ describe("a step that measures a fact for another (walk 2026-11-15)", () => {
     expect(within(link).getByText("genome_length → sa_index_nbases")).toBeInTheDocument();
     // Out of the measuring step's side, into the decided step's top: never through a step.
     const d = link.querySelector("path")!.getAttribute("d")!;
-    expect(d).toMatch(/^M 224 /);
+    expect(d).toMatch(/^M 369 /);
     expect(d).toMatch(/V 200$/);
   });
 });

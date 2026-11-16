@@ -351,7 +351,8 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
                              "content": result.model_dump_json(exclude_none=True)})
             if made.name == "suggest_command" and result.ok:
                 offered = result.view
-                blocks.append(AgentCommand(id=f"command-{seq}-{len(blocks)}", command=offered.command,
+                blocks.append(AgentCommand(id=f"command-{seq}-{len(blocks)}",
+                                           command=offered.command,
                                            read_only=offered.read_only, because=offered.because)
                               .model_dump(mode="json"))
             if made.name == "ask" and result.ok:

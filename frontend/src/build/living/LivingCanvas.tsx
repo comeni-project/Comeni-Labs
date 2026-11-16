@@ -553,7 +553,9 @@ export function LivingCanvas({
           // **Out of the measuring step's output**, always: from its triangle's tip, a short run
           // along the flow, then down (or up) to the gap above the decided step, along it, and in.
           const out = portsOf(from, "out")[0];
-          const start = out ? tipOut(from, out.name) : null;
+          // A measuring step with no declared output still says its fact from its right edge.
+          const start = out ? tipOut(from, out.name)
+            : { x: a.x + widthOf(from), y: a.y + anchorOf(measuring(from), 0) };
           if (!start) return null;
           const gx = start.x + 14;
           const leftward = b.x + NODE_W / 2 < gx;

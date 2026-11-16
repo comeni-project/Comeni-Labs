@@ -152,7 +152,7 @@ export function SourceNode({
         top: at.y,
         width: SOURCE_W,
         height: SOURCE_H,
-        borderRadius: 9,
+        borderRadius: "var(--radius-control)",
         background: "var(--now-soft)",
         border: "1px dashed var(--now-line)",
         boxShadow: grain === "sample" ? "4px 4px 0 -1px var(--surface), 4px 4px 0 0 var(--now-line)" : undefined,
@@ -170,7 +170,7 @@ export function ResultNode({ at, name, detail, testId }: { at: Point; name: stri
   return (
     <div data-testid={testId}
          className="absolute box-border flex flex-col justify-center gap-[1px] px-[10px] pointer-events-none"
-         style={{ left: at.x, top: at.y, width: SOURCE_W, height: SOURCE_H, borderRadius: 9,
+         style={{ left: at.x, top: at.y, width: SOURCE_W, height: SOURCE_H, borderRadius: "var(--radius-control)",
                   background: "var(--done-soft)", border: "1px solid var(--done-line)" }}>
       <span className="text-[12px] font-semibold text-done-ink truncate">{name}</span>
       <span className="font-data text-[10.5px] text-done-ink truncate">{detail}</span>

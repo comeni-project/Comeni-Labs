@@ -16,7 +16,7 @@ export function SidePanel({ tab, onTab, step, assistant }: {
   return (
     // `living-rail`: the builder's grid places it, and on a phone shows it or the canvas.
     <aside aria-label="Step and assistant" style={{ height: "var(--rail-h)" }}
-           className="living-rail flex flex-col min-h-0 min-w-0 ml-[8px] mr-[28px] mt-[4px] mb-[24px] rounded-panel
+           className="living-rail flex flex-col min-h-0 min-w-0 ml-0 mr-4 sm:mr-6 mb-6 rounded-panel
                       border border-line bg-surface overflow-hidden">
       <div className="px-3 pt-2 border-b border-line-soft">
         <Tabs label="Panel" value={tab} onChange={onTab}

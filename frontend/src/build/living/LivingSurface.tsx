@@ -290,7 +290,7 @@ export function LivingSurface({
            inert={view === "artifact" || run?.sheet ? true : undefined}
            style={{ display: view === "artifact" || run?.sheet ? "none" : undefined }}>
         <section aria-label="pipeline canvas"
-                 className="living-canvas relative flex flex-col min-h-0 ml-[28px] mr-[8px] mt-[4px] mb-[24px] rounded-panel border border-line overflow-hidden">
+                 className="living-canvas relative flex flex-col min-h-0 ml-4 sm:ml-6 mr-3 mb-6 rounded-panel border border-line overflow-hidden">
           <div className="relative flex-1 min-h-0 flex flex-col" data-testid="build-canvas">
             <LivingCanvas
               shown={`${pane}:${view}`}

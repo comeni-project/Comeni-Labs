@@ -134,7 +134,8 @@ def test_the_builder_agent_door_is_the_conversation_and_one_typed_result_per_too
 
     door = egress.PAYLOADS["builder_agent"]
     assert list(door.model_fields) == ["turns", "results"]
-    assert list(AgentTurn.model_fields) == ["speaker", "content"]
+    # The words, and on Run → Console what the console showed beside them (#511).
+    assert list(AgentTurn.model_fields) == ["speaker", "content", "console"]
     assert list(AgentToolResult.model_fields) == ["tool", "ok", "view", "refusal"]
     assert egress.FLOWS["builder_agent"] is egress.BoundaryFlow.PIPELINE
 

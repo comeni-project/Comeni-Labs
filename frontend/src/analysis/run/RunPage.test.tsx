@@ -23,18 +23,22 @@ it("run is disabled while bindings report missing, and each links to data", asyn
     { channel: "fasta", type_id: "genome.fasta", why: "no reference is genome.fasta" },
   ] } });
   at("/a/d1/run");
-  const missing = await screen.findByRole("list", { name: "Missing before it can run" });
-  expect(within(missing).getByText("no kept sample is fastq.reads")).toBeTruthy();
-  expect(within(missing).getByRole("link", { name: "Open Samples" }).getAttribute("href")).toBe("/a/d1/data/samples");
-  expect(within(missing).getByRole("link", { name: "Open References" }).getAttribute("href")).toBe("/a/d1/data/references");
-  expect((screen.getByRole("button", { name: "Run" }) as HTMLButtonElement).disabled).toBe(true);
+  const checks = await screen.findByRole("list", { name: "Pre-flight checks" });
+  const reads = within(checks).getByTestId("check-missing-0");
+  expect(reads.dataset.state).toBe("fail");
+  expect(within(reads).getByText("no kept sample is fastq.reads")).toBeTruthy();
+  expect(within(reads).getByRole("link", { name: "Open Samples" }).getAttribute("href")).toBe("/a/d1/data/samples");
+  expect(within(checks).getByTestId("check-missing-1").querySelector("a")?.getAttribute("href")).toBe("/a/d1/data/references");
+  expect((screen.getByRole("button", { name: "Run on this machine" }) as HTMLButtonElement).disabled).toBe(true);
 });
 
 it("run is offered with the bindings' summary when nothing is missing", async () => {
   stubRunServers({ runs: [], bindings: { params: { reads: "x" }, summary: "3 samples, 1 reference", missing: [] } });
   at("/a/d1/run");
-  expect((await screen.findByTestId("run-summary")).textContent).toBe("3 samples, 1 reference");
-  expect((screen.getByRole("button", { name: "Run" }) as HTMLButtonElement).disabled).toBe(false);
+  const inputs = await screen.findByTestId("check-inputs");
+  expect(inputs.dataset.state).toBe("ok");
+  expect(inputs.textContent).toContain("3 samples, 1 reference");
+  expect((screen.getByRole("button", { name: "Run on this machine" }) as HTMLButtonElement).disabled).toBe(false);
   expect(screen.queryByRole("textbox")).toBeNull();
 });
 
@@ -55,9 +59,12 @@ it("the rail lists only this analysis's runs", async () => {
   expect(within(rail).getByRole("link", { name: "+ New run" })).toBeTruthy();
 });
 
-it("an analysis with runs opens its latest", async () => {
-  stubRunServers({ runs: [RUN("r1", DIGEST, "2026-11-16T09:00:00Z"), RUN("r2", DIGEST, "2026-11-16T10:00:00Z")] });
+it("run opens a new run, with the earlier runs in the rail", async () => {
+  stubRunServers({ runs: [RUN("r1", DIGEST, "2026-11-16T09:00:00Z")],
+                   bindings: { params: { reads: "x" }, summary: "3 samples", missing: [] } });
   const router = at("/a/d1/run");
-  await screen.findByRole("heading", { name: "Run 2" });
-  expect(router.state.location.pathname).toBe("/a/d1/run/r2");
+  await screen.findByRole("heading", { name: "New run" });
+  expect(router.state.location.pathname).toBe("/a/d1/run");
+  const rail = await screen.findByRole("list", { name: "Runs of this analysis" });
+  expect(within(rail).getByRole("link", { name: /^Run 1/ }).getAttribute("href")).toBe("/a/d1/run/r1");
 });

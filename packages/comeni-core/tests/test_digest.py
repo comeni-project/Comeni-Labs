@@ -355,11 +355,13 @@ def test_the_file_tag_separates_entry_kinds():
 # Computed on 2026-11-06, before contracts gained constraints (#460), and again on 2026-11-11, when
 # `grain` replaced `cardinality` (#466): the old field was always written, so every digest moved
 # once. A contract that declares none of the newer fields must keep the digest a lockfile pins.
+# hisat2/align moved once more on 2026-11-16: its settings gained an `explain` line (#511), a change
+# of content, not of serialisation.
 _PINNED = {
     "registry/tools/nf-core/fastqc/contract.yml":
         "sha256:fef99c535dfd5a2e8d711315a35ba3a95772eb24e6fa082df2bbfe7825592556",
     "registry/tools/nf-core/hisat2/align/contract.yml":
-        "sha256:efba5fcf6546c07fe9976bda71c6537b54bfb1108c7dd0fb6a2c3f2b762c8eef",
+        "sha256:b954830d1e69659f7d571c3dbb24d9e4a3060f9ef408e776b9b6a95b4287feea",
     "registry/tools/nf-core/hisat2/build/contract.yml":
         "sha256:22408b423aeb4f4fced40a2de34e9ec94928b114fcbbcccbb0f20eb699d3ec4a",
 }
@@ -383,7 +385,9 @@ def test_contracts_without_constraints_keep_their_digest():
 
 def test_a_scalar_join_keeps_its_digest():
     """featureCounts in the released registry writes `join: broadcast`; the per-port join map
-    (#464) must not change that contract's digest, or every lockfile pinning it goes dirty."""
+    (#464) must not change that contract's digest, or every lockfile pinning it goes dirty. Repinned
+    on 2026-11-16 when its setting gained an `explain` line (#511): a content change. An empty
+    `explain` is not written, so a contract without one keeps its digest."""
     import yaml
     from support.paths import ROOT
 
@@ -391,4 +395,4 @@ def test_a_scalar_join_keeps_its_digest():
                           .read_text())
     data.pop("declares", None)
     assert digest_of(ModuleContract.model_validate(data)) == (
-        "sha256:7c46f2bd2d608742a16408f8451ba6bb7f839fd2315ce826f7bea7053cc67c54")
+        "sha256:e174ff7222fe1dbbd28cd4ca4b1b45e2021bc6f6fd14d30f404404adac9f4d97")

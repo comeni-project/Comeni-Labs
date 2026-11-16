@@ -206,7 +206,7 @@ export function LivingNode({
         width,
         height,
         background: measures ? "var(--measured-soft)" : "var(--surface)",
-        borderRadius: measures ? 20 : 10,
+        borderRadius: measures ? "calc(var(--radius-panel) * 2)" : "var(--radius-button)",
         // Four longhands, never `border`: React cannot redraw a shorthand next to its own longhand.
         borderTop: `1px solid ${edge}`,
         borderRight: `1px solid ${edge}`,
@@ -251,13 +251,12 @@ export function LivingNode({
             <span key={`mark-${side}-${port.name}`} aria-hidden data-shape="circle"
                   data-port-mark={gather ? "gather" : perItem ? "many" : "one"}
                   data-optional={optional ? "true" : undefined}
-                  className="absolute box-border"
+                  className="absolute box-border rounded-full"
                   style={{
                     left: side === "in" ? -5 : width - 4,
                     top: anchorOf(measures, index) - tall / 2,
                     width: 8,
                     height: tall,
-                    borderRadius: 4,
                     background: selected ? "var(--now)" : "var(--surface)",
                     border: `1.6px ${optional ? "dashed" : "solid"} ${selected ? "var(--now)" : "var(--mark)"}`,
                   }} />

@@ -64,7 +64,7 @@ export function Home() {
           ))}
         </ul>
       </RailControls>
-      <div className="gutter pt-8 pb-10 flex flex-col gap-5 max-w-[1160px]">
+      <div className="page">
         <h1 className="sr-only">Home</h1>
         <Ask starters={STARTERS} />
         <div className="grid gap-4 items-start [grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr))] empty:hidden">

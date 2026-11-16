@@ -145,7 +145,8 @@ function useFailure(draftId: string, runId: string, enabled: boolean) {
     enabled,
   });
   const task = failed.data?.tasks?.[0];
-  if (!enabled || !task) return null;
+  // A failure we cannot read is no banner: the console below still shows Nextflow's error.
+  if (!enabled || !task || failed.isError) return null;
   const node = (run.graph.data?.nodes ?? []).find((n) => n.process === task.process);
   const dir = /Work dir:\s*\n\s*(\S+)/.exec(text.data?.text ?? "")?.[1];
   return {

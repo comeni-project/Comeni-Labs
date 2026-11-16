@@ -58,8 +58,8 @@ describe("the three collection shapes", () => {
     expect(flowTag("gather")).toBe("collect all");
     expect(flowLabel("many", null)).toBe("×N items · once per item");
     collect();
-    expect(screen.getByTestId("living-source-reads")).toHaveTextContent("× 12 samples");
-    expect(screen.getByTestId("living-source-reference")).not.toHaveTextContent("×");
+    expect(screen.getByTestId("living-source-reads")).toHaveTextContent("12 samples");
+    expect(screen.getByTestId("living-source-reference")).not.toHaveTextContent("samples");
   });
 
   it("says each step runs once or per item, from the server's answer", () => {

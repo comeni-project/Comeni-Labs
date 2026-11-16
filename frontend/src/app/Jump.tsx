@@ -67,7 +67,7 @@ export function Jump({ mini = false }: { mini?: boolean }) {
         title={mini ? `Jump to a pipeline or run (${SHORTCUT})` : undefined}
         className={`flex items-center gap-[11px] w-full rounded-control border-0 bg-transparent text-ink-2
                     text-[13px] cursor-pointer hover:bg-surface-2 hover:text-ink transition-colors
-                    ${mini ? "justify-center py-[9px]" : "px-[10px] py-[7px]"}`}
+                    ${mini ? "w-10 h-10 mx-auto justify-center" : "px-[10px] py-[7px]"}`}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor"
              strokeWidth="1.6" strokeLinecap="round" className="shrink-0">

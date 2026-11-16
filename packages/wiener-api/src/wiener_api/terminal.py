@@ -96,7 +96,7 @@ class Ran(BaseModel):
 def read_only(command: str) -> list[str] | None:
     """The command as argv when it only reads, else `None`: one command, no pipes, redirection or
     substitution, from `READ_ONLY`, and `nextflow` only as `nextflow log`."""
-    if re.search(r"[|;&<>`$\\n]", command):
+    if re.search(r"[|;&<>`$\n\\]", command):
         return None
     try:
         argv = shlex.split(command)
@@ -147,7 +147,8 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404)
         argv = read_only(body.command)
         if argv is None:
-            raise HTTPException(status_code=422, detail="only a single read-only command is run here")
+            raise HTTPException(status_code=422,
+                                detail="only a single read-only command is run here")
         try:
             done = subprocess.run(argv, cwd=_under(root, body.cwd), capture_output=True, timeout=15)
         except subprocess.TimeoutExpired:
@@ -195,7 +196,8 @@ def create_app() -> FastAPI:
         pid, fd = pty.fork()
         if pid == 0:  # the shell
             os.chdir(where)
-            os.environ.update(TERM="xterm-256color", PS1=r"\[\e[1;32m\]\W\[\e[0m\] \[\e[34m\]$\[\e[0m\] ")
+            prompt = r"\[\e[1;32m\]\W\[\e[0m\] \[\e[34m\]$\[\e[0m\] "
+            os.environ.update(TERM="xterm-256color", PS1=prompt)
             os.execvp("bash", ["bash", "--norc", "-i"])
         loop = asyncio.get_running_loop()
         out: asyncio.Queue[bytes] = asyncio.Queue()

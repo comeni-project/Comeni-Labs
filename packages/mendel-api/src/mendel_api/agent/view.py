@@ -26,8 +26,8 @@ def _placement(blueprint: dict | None, graph: dict | None) -> dict:
 
 
 def tidy(session_id: str) -> None:
-    """**Tidy** (#511): the drawing laid out again with the canvas's current geometry, and kept, so a
-    pipeline built before a geometry change takes the new spacing. Layout only: nothing the
+    """**Tidy** (#511): the drawing laid out again with the canvas's current geometry, and kept,
+    so a pipeline built before a geometry change takes the new spacing. Layout only: nothing the
     pipeline is changes."""
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)
@@ -46,8 +46,8 @@ def tidy(session_id: str) -> None:
             current=draft.projection_current, placement={}, layers=registry.stack())
         if frame is None:
             return
-        row.blueprint = {**row.blueprint,
-                         "placed": {node: [at["x"], at["y"]] for node, at in sorted(frame.placement.items())}}
+        placed = {node: [at["x"], at["y"]] for node, at in sorted(frame.placement.items())}
+        row.blueprint = {**row.blueprint, "placed": placed}
 
 
 def read(session_id: str) -> dict:

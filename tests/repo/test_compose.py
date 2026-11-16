@@ -111,6 +111,8 @@ def test_the_default_stack_has_the_expected_services(base):
         "web",
         "wiener-api",
         "wiener-ingest",
+        # Run → Console's terminals (#511): the worker's mounts, behind the Wiener token (#525).
+        "wiener-term",
         "wiener-worker",
         "wiki",
     ]

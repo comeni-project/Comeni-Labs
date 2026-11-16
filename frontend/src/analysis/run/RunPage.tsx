@@ -1,4 +1,4 @@
-import { Link, Navigate, NavLink, useParams, useSearchParams } from "react-router";
+import { Link, NavLink, useParams } from "react-router";
 
 import { useAnalysis } from "../../app/AnalysisFrame";
 import { RailControls } from "../../app/rail/RailContext";
@@ -18,21 +18,18 @@ import { useAnalysisRuns, useRun } from "./useRuns";
 const SUBS = new Set(["steps", "outputs", "console"]);
 
 /** Run (#511), at `/a/:draft/run[/:id[/:sub]]`: the analysis's runs, in its frame. Without a run
- *  open, the latest one opens; with none yet, or `?new`, the page that sends one. */
+ *  open, the page that sends a new one; each run is in the rail. */
 export function RunPage() {
   const { draftId } = useAnalysis();
   const { id, sub } = useParams();
-  const [params] = useSearchParams();
   const runs = useAnalysisRuns(draftId);
   const base = `/a/${encodeURIComponent(draftId)}/run`;
   const rail = <RunsRail base={base} runs={runs.list} open={id} />;
 
+  // **Run opens a new run** (#511): past runs are one click away in the rail.
   if (!id) {
-    if (params.has("new") || (!runs.loading && runs.list.length === 0)) {
-      return <>{rail}<Send draftId={draftId} kept={!!runs.row?.kept && !runs.row.changed_since_kept} /></>;
-    }
     if (runs.loading) return <Loading what="the runs" />;
-    return <Navigate to={`${base}/${encodeURIComponent(runs.list[0].run.id)}`} replace />;
+    return <>{rail}<Send draftId={draftId} kept={!!runs.row?.kept && !runs.row.changed_since_kept} /></>;
   }
   const n = runs.list.find(({ run }) => run.id === id)?.n;
   return <>{rail}<RunView key={id} draftId={draftId} runId={id} n={n}
@@ -89,7 +86,7 @@ function RunView({ draftId, runId, n, sub, base }: {
 
   return (
     <div className="overflow-y-auto h-full">
-      <div className="px-4 sm:px-6 pt-4 pb-10 flex flex-col gap-3 min-h-full">
+      <div className="page min-h-full">
         <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h1 className="m-0 text-[22px] font-semibold tracking-[-.015em] text-ink">{title}</h1>
           <span data-testid="run-phase" className="flex items-center gap-[6px] px-2 py-[3px] rounded-control text-[12px] font-semibold"

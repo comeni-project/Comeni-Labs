@@ -714,3 +714,17 @@ body {
 .option-more:hover { background: var(--hover); color: var(--ink); }
 /* On a phone the two likeliest options show; the rest fold under "N more". */
 @media (max-width: 639px) { .option-card.is-folded { display: none; } }
+
+/* Run → Console's terminals (#511): xterm paints its scroll area black; follow the theme instead. */
+.xterm .xterm-viewport {
+  background-color: var(--surface) !important;
+  scrollbar-color: var(--line-2) var(--surface);
+  scrollbar-width: thin;
+}
+.xterm .xterm-viewport::-webkit-scrollbar { width: 10px; background: var(--surface); }
+.xterm .xterm-viewport::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 5px; border: 2px solid var(--surface); }
+
+/* **One page frame** (#511): every page in the analysis frame and Home uses the whole width, with
+   the same gutters and the same space above, so nothing sits in a narrow column or drifts. */
+.page { display: flex; flex-direction: column; gap: 12px; padding: 16px 16px 32px; min-width: 0; }
+@media (min-width: 760px) { .page { padding: 16px 24px 32px; } }

@@ -9,7 +9,7 @@ import { get as fromWiener } from "../../wiener/api/client";
 import { overAsked, progressOf, retryWhy, samplesOf, type ProcessRow, type RunNode, type Task } from "./model";
 import { Measured } from "./Measured";
 import { RunCanvas } from "./RunCanvas";
-import { bytes } from "./units";
+import { bytes, seconds } from "./units";
 import { factsOf, useAnalysisRuns, useBuildCanvas, useRun, useSamples, type RunState } from "./useRuns";
 
 type Machine = components["schemas"]["Machine"];
@@ -120,7 +120,7 @@ export function Overview({ draftId, runId, base, state, live, stop }: {
             ]}
           />
           <ResultsSoFar runId={runId} base={base} nodes={nodes} facts={facts} samples={samples.length} live={live} />
-          <MachineCard rows={rows} live={live} />
+          <MachineCard runId={runId} rows={rows} live={live} nameOf={nameOf} />
         </div>
       </div>
       {/* What the run measured beside what it was built on (issue 465): a disagreement flags the
@@ -183,7 +183,7 @@ function ResultsSoFar({ runId, base, nodes, facts, samples, live }: {
   const read = new Set((wires.data ?? []).map((w) => w.from_node));
   const ends = nodes.filter((n) => !read.has(n.id) && !/^measure_/.test(n.id));
   return (
-    <Panel title="Results so far" actions={
+    <Panel title={live ? "Results so far" : "Results"} actions={
       <Link to={`${base}/outputs`} className="h-[28px] px-3 inline-flex items-center rounded-control border border-line-2 bg-surface text-[12.5px] font-semibold text-ink no-underline hover:bg-surface-2">Outputs</Link>
     }>
       <ul aria-label="Results so far" className="list-none m-0 p-0">
@@ -202,56 +202,127 @@ function ResultsSoFar({ runId, base, nodes, facts, samples, live }: {
 }
 
 /** *This machine · now*: what a run here has to work with. */
-/** *This machine* (#511): what **this run** is using now — its running tasks and what they asked
- *  for — beside what the whole machine has free. The machine's numbers count every program on it,
- *  and say so; when nothing of the run is running, the card says that rather than showing a load
- *  that is someone else's. */
-function MachineCard({ rows, live }: { rows: ProcessRow[]; live: boolean }) {
+type Curve = { name: string; unit: string; points: { at_ms: number; value: number }[] };
+type Series = { curves: Curve[]; from_ms: number; to_ms: number; open: boolean };
+
+/** **What the run uses** (#511), from what Wiener recorded over its life: cores and memory its
+ *  tasks reserved, and how many ran at once — drawn over the run's time. While it runs, the card is
+ *  *Now*, with the machine's free cores and memory beside it (counting every program on it); once
+ *  it is over, it is *What it used*: the same curves as the run's history, with its peaks. */
+function MachineCard({ runId, rows, live, nameOf }: {
+  runId: string; rows: ProcessRow[]; live: boolean; nameOf: (process: string) => string;
+}) {
   const machine = useQuery({
     queryKey: ["machine"],
     queryFn: () => get<Machine>("/data/machine"),
-    refetchInterval: 10_000,
+    refetchInterval: live ? 10_000 : false,
     retry: false,
   });
+  const series = useQuery({
+    queryKey: ["series", runId],
+    queryFn: () => fromWiener<Series>(`/api/runs/${runId}/series`),
+    refetchInterval: live ? 5_000 : false,
+  });
   const m = machine.data;
-  const running = rows.reduce((n, r) => n + r.running, 0);
-  const cores = rows.reduce((n, r) => n + r.running * (r.cpus_asked ?? 0), 0);
-  const asked = rows.reduce((n, r) => n + r.running * (r.memory_asked_bytes ?? 0), 0) / 2 ** 30;
-  const status = !live ? "The run is over: it uses nothing now."
-    : running === 0 ? "Between tasks: nothing of this run is running this moment."
-    : `${running} ${running === 1 ? "task" : "tasks"} running, asking ${cores} ${cores === 1 ? "core" : "cores"} and ${asked.toFixed(asked < 10 ? 1 : 0)} GB.`;
+  const curve = (name: string) => series.data?.curves?.find((c) => c.name === name)?.points ?? [];
+  const cores = curve("cpu reserved");
+  const memory = curve("memory reserved");
+  const tasks = curve("attempts in flight");
+  const peak = (pts: { value: number }[]) => pts.reduce((n, p) => Math.max(n, p.value), 0);
+  const last = (pts: { value: number }[]) => (pts.length ? pts[pts.length - 1].value : 0);
+  const gb = (b: number) => (b < 2 ** 30 ? `${Math.round(b / 2 ** 20)} MB` : `${(b / 2 ** 30).toFixed(b < 10 * 2 ** 30 ? 1 : 0)} GB`);
+  const heaviest = [...rows].sort((x, y) => (y.memory_peak_bytes ?? 0) - (x.memory_peak_bytes ?? 0))[0];
+  const longest = [...rows].sort((x, y) => (y.realtime_ms ?? 0) - (x.realtime_ms ?? 0))[0];
+  const moved = (name: string) => {
+    // Bytes per second, binned: the area under the curve is what moved.
+    const pts = curve(name);
+    let total = 0;
+    for (let i = 1; i < pts.length; i += 1) total += pts[i - 1].value * ((pts[i].at_ms - pts[i - 1].at_ms) / 1000);
+    return total;
+  };
+  const read = moved("read"), written = moved("written");
+  const span = series.data ? Math.max(1, (series.data.open ? Date.now() : series.data.to_ms) - series.data.from_ms) : 1;
+  const chart = (pts: { at_ms: number; value: number }[], top: number) => (
+    <Spark points={pts} from={series.data?.from_ms ?? 0} span={span} top={Math.max(top, peak(pts), 1)} />
+  );
   return (
-    <Panel title="This machine" actions={<span className="text-[12.5px] text-ink-3">now</span>}>
-      <div className="flex flex-col gap-[10px] px-5 pb-4">
-        <p data-testid="machine-run" className="m-0 text-[12.5px] text-ink">{status}</p>
-        {m && (
+    <Panel title={live ? "Now" : "What it used"} actions={
+      <span className="text-[12.5px] text-ink-3">{live ? "this run, on this machine" : `over ${seconds(span)}`}</span>
+    }>
+      <div className="flex flex-col gap-3 px-5 pb-4">
+        {series.data && cores.length > 0 ? (
           <>
-            <Meter label="Cores" total={m.cpus} run={live ? cores : 0} busy={Math.min(m.cpus, m.load)}
-                   value={`${Math.max(0, Math.round(m.cpus - m.load))} of ${m.cpus} free`} />
-            <Meter label="Memory" total={m.memory_gb} run={live ? asked : 0} busy={m.memory_gb - m.memory_free_gb}
-                   value={`${Math.round(m.memory_free_gb)} of ${Math.round(m.memory_gb)} GB free`} />
-            <p className="m-0 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-ink-3">
-              <span className="flex items-center gap-[6px]"><span aria-hidden className="w-2 h-2 rounded-full bg-now-mid" />this run asked</span>
-              <span className="flex items-center gap-[6px]"><span aria-hidden className="w-2 h-2 rounded-full bg-line-2" />in use by everything on the machine</span>
-            </p>
+            <Usage label="Cores reserved" value={live ? `${last(cores)} now` : `peak ${peak(cores)}`}
+                   of={m ? `of ${m.cpus}` : ""} chart={chart(cores, m?.cpus ?? 0)} />
+            <Usage label="Memory reserved" value={live ? `${gb(last(memory))} now` : `peak ${gb(peak(memory))}`}
+                   of={m ? `of ${Math.round(m.memory_gb)} GB` : ""} chart={chart(memory, (m?.memory_gb ?? 0) * 2 ** 30)} />
+            <dl data-testid="machine-run" className="m-0 grid grid-cols-2 gap-2">
+              <Stat label={live ? "Tasks running" : "Tasks at once"} value={live ? String(last(tasks)) : `${peak(tasks)} at most`}
+                    detail={`${rows.reduce((n, r) => n + r.done, 0)} finished in all`} />
+              {heaviest?.memory_peak_bytes ? (
+                <Stat label="Most memory used" value={gb(heaviest.memory_peak_bytes)}
+                      detail={`${nameOf(heaviest.process)}${heaviest.memory_asked_bytes ? `, of ${gb(heaviest.memory_asked_bytes)} asked` : ""}`} />
+              ) : null}
+              {longest?.realtime_ms ? (
+                <Stat label="Longest step" value={seconds(longest.realtime_ms)} detail={nameOf(longest.process)} />
+              ) : null}
+              {read + written > 0 && (
+                <Stat label="Data moved" value={`${gb(read)} read`} detail={`${gb(written)} written`} />
+              )}
+            </dl>
+            {live && m && (
+              <p className="m-0 text-[12px] text-ink-3">
+                Free on the machine now: {Math.max(0, Math.round(m.cpus - m.load))} cores, {Math.round(m.memory_free_gb)} GB (every program on it counts).
+              </p>
+            )}
           </>
+        ) : (
+          <p data-testid="machine-run" className="m-0 text-[12.5px] text-ink-3">{live ? "No task has started yet." : "This run recorded no use of the machine."}</p>
         )}
       </div>
     </Panel>
   );
 }
 
-function Meter({ label, total, run, busy, value }: { label: string; total: number; run: number; busy: number; value: string }) {
-  const share = (n: number) => Math.round(Math.min(1, Math.max(0, n / (total || 1))) * 100);
+function Usage({ label, value, of, chart }: { label: string; value: string; of: string; chart: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 text-[12.5px] text-ink-2">
-      {label}
-      <div role="meter" aria-label={`${label} in use`} aria-valuenow={share(busy)} aria-valuemin={0} aria-valuemax={100}
-           className="relative h-[6px] rounded-full bg-line-soft overflow-hidden">
-        <div className="absolute inset-y-0 left-0 bg-line-2" style={{ width: `${share(busy)}%` }} />
-        <div className="absolute inset-y-0 left-0 bg-now-mid" style={{ width: `${share(Math.min(run, total))}%` }} />
+    <div className="flex flex-col gap-[4px]">
+      <div className="flex items-baseline gap-2 text-[12.5px]">
+        <span className="text-ink-2">{label}</span>
+        <span className="ml-auto font-data text-ink">{value}</span>
+        {of && <span className="font-data text-ink-3">{of}</span>}
       </div>
-      <span className="font-data text-ink">{value}</span>
+      {chart}
     </div>
   );
 }
+
+/** One figure about the run, with what it refers to. */
+function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="flex flex-col gap-[2px] px-3 py-2 rounded-control bg-surface-2 min-w-0">
+      <dt className="text-[11.5px] text-ink-3">{label}</dt>
+      <dd className="m-0 text-[14px] font-semibold text-ink tabular-nums">{value}</dd>
+      <dd className="m-0 text-[11.5px] text-ink-2 truncate" title={detail}>{detail}</dd>
+    </div>
+  );
+}
+
+/** A step curve over the run's time, filled under: what was reserved, moment by moment. */
+function Spark({ points, from, span, top }: { points: { at_ms: number; value: number }[]; from: number; span: number; top: number }) {
+  const W = 320, H = 40;
+  const x = (ms: number) => ((ms - from) / span) * W;
+  const y = (v: number) => H - (v / top) * (H - 2);
+  let line = `M0 ${y(0).toFixed(1)}`;
+  let prev = 0;
+  for (const p of points) { line += ` H${x(p.at_ms).toFixed(1)} V${y(p.value).toFixed(1)}`; prev = p.value; }
+  line += ` H${W}`;
+  void prev;
+  return (
+    <svg aria-hidden viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-[40px] rounded-xs bg-surface-2">
+      <path d={`${line} V${H} H0 Z`} fill="var(--now-soft)" />
+      <path d={line} fill="none" stroke="var(--now-mid)" strokeWidth={1.25} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+

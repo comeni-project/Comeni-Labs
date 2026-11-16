@@ -196,6 +196,13 @@ FREE_TEXT_FIELDS = {
     ("AskedView", "shape"),
     ("AskedView", "options"),
     ("AskedView", "unit"),
+    # Run → Console (#511): what the page carries with the person's words (paths shortened before
+    # storing), and a command the agent suggests for the run's shell.
+    ("ConsoleView", "run"),
+    ("ConsoleView", "console"),
+    ("ConsoleView", "shell"),
+    ("CommandView", "command"),
+    ("CommandView", "because"),
     # A setting decided at run time (#217): the decision it compiles, named by its key, and
     # why its fallback is the value it is. Both are written by the resolver from a rule and a
     # contract, the same authors as `reason`; nothing about a sample crosses with them.

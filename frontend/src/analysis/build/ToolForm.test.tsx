@@ -1,12 +1,14 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
+import { makeClient } from "../../app/queryClient";
 import type { AnsweredStep } from "../../build/useBuilder";
 import { type InputFrom, ToolForm } from "./ToolForm";
 
 const setting = (name: string, extra: Record<string, unknown> = {}) => ({
-  name, value: null, via: "ext", tier: 2, reason: "", because: "", axis_reason: "", optional: false,
+  name, value: null, via: "ext", tier: 2, reason: "", because: "", explain: "", axis_reason: "", optional: false,
   premise: [], ...extra,
 });
 
@@ -20,7 +22,7 @@ const STEP = {
   ],
   settings: [
     setting("strandedness", { tier: 4, domain: { kind: "enum", values: ["forward", "reverse", "unstranded"] },
-                              reason: "No rule settles it." }),
+                              reason: "No rule settles it.", explain: "Which strand the reads come from." }),
     setting("sjdbOverhang", { tier: 3, value: "150", evidence: "measured", domain: { kind: "integer", values: [], minimum: 1, maximum: 1000 },
                               reason: "Read length is 151 bp, minus one." }),
     setting("twopassMode", { tier: 2, value: "false", domain: { kind: "boolean", values: [] }, reason: "Off by convention." }),
@@ -39,7 +41,7 @@ function form(over: Partial<Parameters<typeof ToolForm>[0]> = {}) {
     ] as InputFrom[],
     onSet: vi.fn(), onAsk: vi.fn(), onAccept: vi.fn(), onConnect: vi.fn(), ...over,
   };
-  render(<MemoryRouter><ToolForm {...props} /></MemoryRouter>);
+  render(<QueryClientProvider client={makeClient()}><MemoryRouter><ToolForm {...props} /></MemoryRouter></QueryClientProvider>);
   return props;
 }
 
@@ -70,10 +72,14 @@ describe("ToolForm", () => {
     expect(screen.getByRole("textbox", { name: "outSAMattrRGline" })).toBeTruthy();
   });
 
-  it("a row carries its help, its source and Ask AI", () => {
+  it("a row carries what it is behind a (?), its source and Ask AI", () => {
     form();
     const row = screen.getByRole("group", { name: "Basic" }).querySelector('[data-setting="strandedness"]')!;
+    expect(within(row as HTMLElement).getByRole("button", { name: "What is strandedness?" })).toBeTruthy();
+    expect(within(row as HTMLElement).getByRole("tooltip").textContent).toBe("Which strand the reads come from.");
     expect(within(row as HTMLElement).getByText(/cannot run without it/)).toBeTruthy();
+    // The setting's reason is the record's, not the form's (#511).
+    expect((row as HTMLElement).textContent).not.toContain("No rule settles it.");
     expect(row.querySelector("[data-source]")?.getAttribute("data-source")).toBe("not_set");
     fireEvent.click(screen.getByRole("button", { name: /Advanced/ }));
     const measured = document.querySelector('[data-setting="sjdbOverhang"] [data-source]');
@@ -91,7 +97,7 @@ describe("ToolForm", () => {
     const props = form({ aiChoices: [{ what: "set strandedness to reverse", because: "featureCounts said so" }] });
     const row = document.querySelector('[data-setting="strandedness"]') as HTMLElement;
     expect(row.querySelector("[data-source]")?.getAttribute("data-source")).toBe("ai");
-    expect(within(row).getByText("featureCounts said so")).toBeTruthy();
+    expect(within(row).getByText(/The AI chose this: featureCounts said so/)).toBeTruthy();
     fireEvent.click(within(row).getByRole("button", { name: "Accept" }));
     expect(props.onAccept).toHaveBeenCalled();
     fireEvent.click(within(row).getByRole("button", { name: "Ask AI about strandedness" }));
@@ -119,12 +125,12 @@ describe("an open value, in plain words (issue 384)", () => {
     form({ step: { ...STEP, settings: [setting("index_format", {
       tier: 4, reason: "nothing decided 'index_format'; selected the first of 1 candidates without judgement — please review" })] } as AnsweredStep });
     expect(document.body.textContent).not.toMatch(/candidates without judgement/);
-    expect(screen.getByText("No rule or answer decides this, and STAR_ALIGN cannot run without it.")).toBeTruthy();
+    expect(screen.getByText("Needs a value: STAR_ALIGN cannot run without it.")).toBeTruthy();
   });
 
   it("says what an optional value does if it is left", () => {
     form({ step: { ...STEP, settings: [setting("seq_platform", { tier: 4, optional: true })] } as AnsweredStep });
-    expect(screen.getByText("No rule or answer decides this. Left unset, STAR_ALIGN uses its tool's own default.")).toBeTruthy();
+    expect(screen.getByText("Left unset, the tool uses its own default.")).toBeTruthy();
   });
 
   it("a typed value is sent once, when the field is left, never per keystroke", () => {

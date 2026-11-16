@@ -72,7 +72,7 @@ export function Commands({ runId, onInsert, onRun, onClose }: {
           {listed.isError && <p className="m-0 px-5 py-4 text-[13px] text-needs-you-ink">The commands could not be read.</p>}
           {GROUPS.filter((g) => shown.some((c) => c.group === g)).map((g) => (
             <div key={g}>
-              <h3 className="m-0 px-5 pt-3 pb-1 text-[11px] font-semibold tracking-[.07em] uppercase text-ink-3">{g}</h3>
+              <h3 className="m-0 px-5 pt-3 pb-1 text-[12px] font-semibold text-ink-3">{g}</h3>
               <ul className="list-none m-0 p-0">
                 {shown.filter((c) => c.group === g).map((c) => {
                   const on = shown[at] === c;

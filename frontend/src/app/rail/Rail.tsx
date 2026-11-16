@@ -35,7 +35,7 @@ export function Rail() {
     <button type="button" onClick={() => rail.setMini(!mini)}
             aria-label={mini ? "Expand sidebar" : "Collapse sidebar"}
             title={mini ? "Expand sidebar" : "Collapse sidebar"}
-            className="w-9 h-9 shrink-0 rounded-control flex items-center justify-center border-0 bg-transparent
+            className="w-11 h-11 sm:w-9 sm:h-9 shrink-0 rounded-control flex items-center justify-center border-0 bg-transparent
                        text-ink-2 hover:bg-surface-2 hover:text-ink cursor-pointer">
       <Icon name="sidebar" />
     </button>
@@ -49,7 +49,7 @@ export function Rail() {
       <div className="fixed inset-0 z-30 bg-[var(--scrim)]" aria-hidden="true" onClick={() => rail.setMini(true)} />
     )}
     <nav aria-label="Comeni"
-         className={`flex flex-col shrink-0 h-dvh overflow-y-auto bg-surface border-r border-line box-border
+         className={`flex flex-col shrink-0 h-dvh overflow-y-auto overflow-x-hidden bg-surface border-r border-line box-border
                      transition-[flex-basis,width] duration-200 ${mini ? "w-[60px] px-2 py-3" : "w-[244px] px-[10px] py-3"}
                      ${rail.overlay ? "fixed inset-y-0 left-0 z-40 shadow-e3" : ""}`}>
       <ul aria-label="Places" className="list-none m-0 p-0 flex flex-col gap-[2px]">
@@ -61,21 +61,15 @@ export function Rail() {
       </ul>
       <div role="separator" className="h-px bg-line-soft mx-1 my-[10px]" />
 
-      {/* The slot. Expanded, the collapse button shares the switcher's row (the switcher leaves
-          it room); collapsed, it stands above the page icons. */}
-      <div className="relative mb-1 flex flex-col">
-        {(mini || rail.filled === 0) ? (
-          <div className={`flex items-center gap-[6px] ${mini ? "justify-center mb-1" : ""}`}>
-            {!mini && (
-              <Link to="/" className="flex-1 min-w-0 px-[10px] py-[9px] rounded-control border border-dashed
-                                      border-line-2 text-[13px] text-ink-3 no-underline hover:text-ink">
-                Open an analysis…
-              </Link>
-            )}
-            {toggle}
-          </div>
-        ) : <div className="absolute right-0 top-[5px]">{toggle}</div>}
-        <div ref={rail.slotRef} className={rail.filled === 0 ? "hidden" : ""} />
+      {/* The slot: what is open. The collapse button lives with the bottom row, in one place. */}
+      <div className="mb-1 flex flex-col">
+        {rail.filled === 0 && !mini && (
+          <Link to="/" className="px-[10px] py-[9px] rounded-control border border-dashed
+                                  border-line-2 text-[13px] text-ink-3 no-underline hover:text-ink">
+            Open an analysis…
+          </Link>
+        )}
+        <div ref={rail.slotRef} className={`flex flex-col ${mini ? "gap-1" : ""} ${rail.filled === 0 ? "hidden" : ""}`} />
       </div>
 
       <div ref={rail.controlsRef} className="flex flex-col" />
@@ -83,7 +77,8 @@ export function Rail() {
       <div className="mt-auto pt-3 flex flex-col gap-1">
         <Jump mini={mini} />
         <div role="group" aria-label="This machine"
-             className={`flex items-center gap-1 border-t border-line-soft pt-2 ${mini ? "flex-col" : ""}`}>
+             className={`flex items-center border-t border-line-soft pt-2 ${mini ? "flex-col gap-[2px]" : "gap-1"}`}>
+          {toggle}
           <Link to={settings} aria-label="Settings" title="Settings"
                 className="w-11 h-11 sm:w-9 sm:h-9 rounded-control flex items-center justify-center text-ink-2 hover:bg-surface-2
                            hover:text-ink no-underline">
@@ -123,7 +118,7 @@ function Place({ to, icon, label, mini, end = true, not, inside = false }: {
                className={({ isActive }) => {
                  const on = isActive && !excluded;
                  return `flex items-center gap-[11px] rounded-control no-underline text-[14px] font-semibold
-                         ${mini ? "justify-center py-[9px]" : "px-[10px] py-2"}
+                         ${mini ? "w-10 h-10 mx-auto justify-center" : "px-[10px] py-2"}
                          ${on ? "bg-now-soft text-now-ink" : inside ? "text-now-ink hover:bg-surface-2"
                            : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`;
                }}>

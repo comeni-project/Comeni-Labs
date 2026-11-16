@@ -36,12 +36,9 @@ class ConsoleContext(BaseModel):
 
 
 class SuggestArgs(BaseModel):
-    command: str = Field(min_length=1, max_length=500,
-                         description="One shell command, run in the run's folder")
-    read_only: bool = Field(description="True only if it reads and changes nothing (cat, tail, "
-                                        "grep, ls, du, nextflow log)")
-    because: str = Field(min_length=1, max_length=300, description="What it shows or does, in a "
-                                                                    "sentence")
+    command: str = Field(min_length=1, max_length=500)
+    read_only: bool = Field(description="Only reads")
+    because: str = Field(min_length=1, max_length=300)
 
 
 def suggest_command(ctx: ToolContext, a: SuggestArgs) -> CommandView:
@@ -49,7 +46,6 @@ def suggest_command(ctx: ToolContext, a: SuggestArgs) -> CommandView:
                        because=" ".join(a.because.split()))
 
 
-register(Tool("suggest_command", "Suggest one command for the run's shell, on Run → Console. A "
-              "read-only one (it only reads files or `nextflow log`) is run for you and its output "
-              "comes back as the next message; anything else the person runs.",
+register(Tool("suggest_command", "Run → Console: one shell command in the run's folder. "
+              "Read-only ones run and come back; the person runs the rest.",
               SuggestArgs, suggest_command))

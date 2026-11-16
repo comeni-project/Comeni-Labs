@@ -18,21 +18,21 @@ export type TerminalHandle = {
  *  only for meaning — green done, orange errors, amber warnings, blue live. */
 function themeOf(): ITheme {
   const css = getComputedStyle(document.documentElement);
-  const v = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
+  const v = (name: string) => css.getPropertyValue(name).trim();
   return {
-    background: v("--surface", "#FFFFFF"),
-    foreground: v("--ink-2", "#3B424D"),
-    cursor: v("--now-mid", "#6FA0E6"),
-    cursorAccent: v("--surface", "#FFFFFF"),
-    selectionBackground: v("--now-soft", "#EDF3FC"),
-    black: v("--ink", "#15181D"), brightBlack: v("--ink-3", "#5F6773"),
-    red: v("--needs-you-ink", "#A0400B"), brightRed: v("--needs-you", "#C2410C"),
-    green: v("--done-ink", "#1C6B3E"), brightGreen: v("--done", "#2E9A5A"),
-    yellow: v("--measured-ink", "#8A4B0B"), brightYellow: v("--measured", "#C48A1A"),
-    blue: v("--now-ink", "#174C9B"), brightBlue: v("--now", "#1D5FC2"),
-    magenta: v("--ai", "#5A3EAF"), brightMagenta: v("--ai", "#5A3EAF"),
-    cyan: v("--now-ink", "#174C9B"), brightCyan: v("--now", "#1D5FC2"),
-    white: v("--ink-3", "#5F6773"), brightWhite: v("--ink", "#15181D"),
+    background: v("--surface"),
+    foreground: v("--ink-2"),
+    cursor: v("--now-mid"),
+    cursorAccent: v("--surface"),
+    selectionBackground: v("--now-soft"),
+    black: v("--ink"), brightBlack: v("--ink-3"),
+    red: v("--needs-you-ink"), brightRed: v("--needs-you"),
+    green: v("--done-ink"), brightGreen: v("--done"),
+    yellow: v("--measured-ink"), brightYellow: v("--measured"),
+    blue: v("--now-ink"), brightBlue: v("--now"),
+    magenta: v("--ai"), brightMagenta: v("--ai"),
+    cyan: v("--now-ink"), brightCyan: v("--now"),
+    white: v("--ink-3"), brightWhite: v("--ink"),
   };
 }
 

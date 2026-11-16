@@ -32,13 +32,11 @@ function canvas(over: Partial<Parameters<typeof LivingCanvas>[0]> = {}) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("the Build canvas", () => {
-  it("optional ports are dashed with connect", () => {
+  it("an optional input not in use folds into +N optional", () => {
     canvas();
     const node = screen.getByTestId("living-node-star_align");
-    expect(within(node).getByText("connect")).toBeTruthy();
-    const mark = node.querySelector('[data-port-mark][data-optional="true"]') as HTMLElement;
-    expect(mark.style.border).toContain("dashed");
-    expect(mark.style.background).toBe("transparent");
+    expect(within(node).getByTestId("node-folded-star_align")).toHaveTextContent("+1 optional");
+    expect(node.querySelector('[data-port-mark][data-optional="true"]')).toBeNull();
   });
 
   it("a per-sample step shows ×N from the analysis's sample count", () => {
@@ -49,16 +47,17 @@ describe("the Build canvas", () => {
 
   it("a fan-in port reads all N", () => {
     canvas();
-    expect(within(screen.getByTestId("living-node-samtools_sort")).getByText("all 24")).toBeTruthy();
+    expect(screen.getByTestId("living-node-samtools_sort").querySelector('[data-port-mark="gather"]')).not.toBeNull();
   });
 
   it("a step says what it does, then its tool and version", () => {
     canvas();
     const node = screen.getByTestId("living-node-star_align");
-    const does = within(node).getByText("Align reads");
-    const tool = within(node).getByTestId("node-name-star_align");
+    const does = within(node).getByTestId("node-name-star_align");
+    const tool = within(node).getByTestId("node-tool-star_align");
+    expect(does).toHaveTextContent("Align reads");
     expect(does.compareDocumentPosition(tool) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(node).getByText("2.7.11b")).toBeTruthy();
+    expect(tool).toHaveTextContent("star align 2.7.11b");
   });
 
   it("an input several steps read draws as one shared trunk", () => {

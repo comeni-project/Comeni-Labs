@@ -64,7 +64,9 @@ export function OptionalInputs({ step, onSwitch }: {
     const needs = rules.filter((r) => r.kind === "requires" && r.when.includes(p.name));
     const neededBy = rules.filter((r) => r.kind === "requires" && r.names.includes(p.name) && r.when.length > 0);
     const notWith = rules.filter((r) => r.kind === "forbids" && (r.when.includes(p.name) || r.names.includes(p.name)));
-    const broken = rules.filter((r) => r.broken && (r.when.includes(p.name) || r.names.includes(p.name)));
+    // A group says its own broken rule, once, on the group.
+    const broken = rules.filter((r) => r.broken && !(r.kind in GROUP_WORDS)
+      && (r.when.includes(p.name) || r.names.includes(p.name)));
     const atRun = rules.some((r) => r.at_run && (r.when.includes(p.name) || r.names.includes(p.name)));
     const state = (p.state ?? (p.met ? "required" : "off")) as InputState;
     return (

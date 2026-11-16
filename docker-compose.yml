@@ -332,6 +332,7 @@ services:
     user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
     depends_on:
       wiener-api: {condition: service_healthy}
+      postgres: {condition: service_healthy}
     environment:
       WIENER_DATABASE_URL: postgresql+psycopg://wiener:${WIENER_DB_PASSWORD:-wiener}@postgres:5432/wiener
       WIENER_REDIS_URL: redis://redis:6379/1

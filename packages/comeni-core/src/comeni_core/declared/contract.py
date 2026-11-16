@@ -286,7 +286,7 @@ class Param(BaseModel):
     default: Any = None
     because: str = ""
     """Why the declared default is appropriate; empty means no reason was declared."""
-    explain: str = ""
+    explain: str = Field(default="", exclude_if=lambda text: not text)
     """What the setting is, in one plain sentence for the person setting it (*The lowest mapping
     quality a read needs to be counted.*): no reasons, defaults or caveats — `because` keeps those,
     and the assistant explains more when asked."""
