@@ -1,4 +1,6 @@
 import { useState } from "react";
+
+import { OptionalInputs, type InputState } from "./OptionalInputs";
 import { Link } from "react-router";
 
 import { type Answered, type AnsweredStep, open, optionalOpen } from "../../build/useBuilder";
@@ -21,7 +23,7 @@ type AiChoice = { what: string; because: string };
  *
  *  Inputs are **bindings, never paths**: an input reads another step's output or a Data table, and
  *  the form says which and links to it (invariant 15). */
-export function ToolForm({ step, aiChoices, inputs, onSet, onAsk, onAccept, onConnect }: {
+export function ToolForm({ step, aiChoices, inputs, onSet, onAsk, onAccept, onConnect, onSwitchInput }: {
   step: AnsweredStep;
   aiChoices: AiChoice[];
   inputs: InputFrom[];
@@ -31,7 +33,13 @@ export function ToolForm({ step, aiChoices, inputs, onSet, onAsk, onAccept, onCo
   onAccept: () => void;
   /** Feed an input nothing feeds: pick a step that makes what it reads. */
   onConnect?: (port: string) => void;
+  /** Switch an optional input off, on for runs that give it, or on for every run. */
+  onSwitchInput?: (port: string, state: InputState) => void;
 }) {
+  // Optional inputs not in use are listed with their rules below, not as bindings here.
+  const unused = new Set(step.ports.filter((p) => p.side === "in" && p.optional
+    && !(p.met || p.state === "optional" || p.state === "required")).map((p) => p.name));
+  const bound = inputs.filter((i) => !unused.has(i.port));
   const [advanced, setAdvanced] = useState(false);
   const aiFor = (name: string) => aiChoices.find((c) => c.what.startsWith(`set ${name} to `));
   const basic = step.settings.filter((s) => isBasic(s, !!aiFor(s.name)));
@@ -43,9 +51,9 @@ export function ToolForm({ step, aiChoices, inputs, onSet, onAsk, onAccept, onCo
 
   return (
     <div className="flex flex-col">
-      {inputs.length > 0 && (
+      {bound.length > 0 && (
         <Section label="Inputs">
-          {inputs.map(({ port, from }) => (
+          {bound.map(({ port, from }) => (
             <div key={port} className="flex items-baseline gap-3 px-5 py-[7px]">
               <span className="font-data text-[12.5px] text-ink">{port}</span>
               {"step" in from ? <span className="text-[12.5px] text-ink-3">from {from.step}</span>
@@ -68,6 +76,7 @@ export function ToolForm({ step, aiChoices, inputs, onSet, onAsk, onAccept, onCo
           ))}
         </Section>
       )}
+      <OptionalInputs step={step} onSwitch={onSwitchInput} />
       {step.settings.length === 0 && <p className="m-0 px-5 py-3 text-[13px] text-ink-3">No settings.</p>}
       {basic.length > 0 && <Section label="Basic">{basic.map(row)}</Section>}
       {rest.length > 0 && (

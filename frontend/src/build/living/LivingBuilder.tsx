@@ -95,6 +95,7 @@ export function LiveLiving({ sessionId }: { sessionId: string }) {
       onWhole={living.keepWhole}
       onEdit={living.edit}
       onRename={living.rename}
+      onTidy={living.tidy}
     />
   );
 }

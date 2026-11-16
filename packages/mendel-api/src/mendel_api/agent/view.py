@@ -25,6 +25,31 @@ def _placement(blueprint: dict | None, graph: dict | None) -> dict:
     return {node: {"x": at[0], "y": at[1]} for node, at in placed.items() if node in visible}
 
 
+def tidy(session_id: str) -> None:
+    """**Tidy** (#511): the drawing laid out again with the canvas's current geometry, and kept, so a
+    pipeline built before a geometry change takes the new spacing. Layout only: nothing the
+    pipeline is changes."""
+    with session_scope() as db:
+        row = db.get(PipelineAuthoringSession, session_id)
+        if row is None:
+            raise KeyError(session_id)
+        if not row.blueprint:
+            return  # drawn by hand: its layout is computed fresh on every read
+        draft = db.get(PipelineDraft, row.draft_id)
+        frame = authoring_canvas.frame_of(
+            blueprint=Blueprint.model_validate(row.blueprint),
+            graph=DraftGraph.model_validate(draft.graph or {}),
+            provenance=DraftProvenance.model_validate(draft.provenance or {}),
+            context=OfferContext(
+                draft_revision=draft.revision, decision_revision=draft.decision_revision,
+                session_version=row.row_version, registry=row.registry_digest or ""),
+            current=draft.projection_current, placement={}, layers=registry.stack())
+        if frame is None:
+            return
+        row.blueprint = {**row.blueprint,
+                         "placed": {node: [at["x"], at["y"]] for node, at in sorted(frame.placement.items())}}
+
+
 def read(session_id: str) -> dict:
     with session_scope() as db:
         row = db.get(PipelineAuthoringSession, session_id)

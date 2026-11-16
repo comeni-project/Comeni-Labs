@@ -172,6 +172,9 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
     review: (node: string) => reviewed.mutate([node]),
     /** A hand edit: the server reads it as the person's changes (#395). */
     edit: (graph: DraftGraph) => edit.mutate(graph),
+    /** **Tidy**: the server lays the drawing out again with the current geometry, and keeps it. */
+    tidy: () => void post<AuthoringSession>(`/pipeline/authoring/${sessionId}/tidy`, {})
+      .then((next) => client.setQueryData(key(sessionId), next), refused),
     rename: (name: string) => void put(`/pipeline/drafts/${session.data?.draft_id}`, {
       name, expected_revision: session.data?.revision }).then(() => refresh(), refused),
     switchInput: (contract: string, port: string, state: "off" | "optional" | "required") =>

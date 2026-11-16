@@ -19,7 +19,13 @@ from functools import lru_cache
 from typing import Literal
 
 from comeni_core.artifact.pipeline import Pipeline
-from comeni_core.declared.constraints import condition_words
+from comeni_core.declared.constraints import (
+    Setup,
+    condition_words,
+    evaluate,
+    group_sentence,
+    sentence,
+)
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.draft import DraftGraph
 from comeni_core.plan.tiers import PremiseOrigin
@@ -344,6 +350,26 @@ class ModuleView(BaseModel):
     container: str
 
 
+class InputRule(BaseModel):
+    """One of the tool's rules between its inputs and settings (#460, #511), said in words, with
+    whether this step as it is set up breaks it — so the Step tab can lay optional inputs out by
+    what they need, block and come in groups of."""
+
+    kind: Literal["requires", "forbids", "one_of", "any_of", "all_or_none"]
+    when: list[str] = []
+    """The inputs or settings the rule is on; none for a rule that always holds."""
+    names: list[str]
+    """What it requires or forbids, or a group's members."""
+    says: str
+    """The rule as a person reads it, with its reason."""
+    applies: bool = False
+    """Its condition holds for this step as it is set up."""
+    broken: bool = False
+    """This setup breaks it at every run: what it needs is off, or what it forbids is on."""
+    at_run: bool = False
+    """Only each run (or each sample) can settle it: an input it reads may be left empty."""
+
+
 class StepView(BaseModel):
     """One step, as a canvas needs it — **not the whole `Step`.**
 
@@ -383,6 +409,8 @@ class StepView(BaseModel):
     """Whether this step runs on parts of each sample, and the switch's state (#466); `None`
     for a step that cannot."""
     settings: list[SettingView]
+    rules: list[InputRule] = []
+    """The tool's rules between its inputs and settings, and how this setup stands with each."""
     """**The parameters themselves, not a count.** A node shows `N settings` from `len()`; the
     card needs the rows, and a second request to fetch them would make opening a card a network
     round trip for data the build already had in hand."""
@@ -502,6 +530,45 @@ def _connected_type(pipeline, layers, step, port) -> str:
     return ""
 
 
+def _plain(said: str) -> str:
+    return said.replace("`", "")
+
+
+def rules_of(step, contract) -> list[InputRule]:
+    """Each of the tool's rows and groups, evaluated alone over this step's setup: required inputs
+    and those switched on are given, an input each run may leave empty is unknown."""
+    if not contract.constraints and not contract.groups:
+        return []
+    states = {r.port: r.state.value for r in step.input_states}
+    setup = Setup(
+        given=frozenset({p.name for p in contract.consumes if p.required}
+                        | {p for p, v in states.items() if v == "required"}),
+        unknown=frozenset(p for p, v in states.items() if v == "optional"),
+        params={x.name: x.value for x in step.settings},
+    )
+    bare = contract.model_copy(update={"constraints": [], "groups": []})
+    base = set(evaluate(bare, setup).missing)
+
+    def judged(**only) -> tuple[bool, bool, bool]:
+        v = evaluate(contract.model_copy(update={"constraints": [], "groups": [], **only}), setup)
+        broken = bool(set(v.missing) - base or v.forbidden)
+        return bool(v.sentences) or broken, broken, bool(v.holds_at_run_time or v.per_sample)
+
+    out = []
+    for row in contract.constraints:
+        applies, broken, at_run = judged(constraints=[row])
+        out.append(InputRule(kind="requires" if row.requires else "forbids",
+                            when=[k.partition(".")[2] for k in row.when],
+                            names=list(row.requires or row.forbids), says=_plain(sentence(row)),
+                            applies=applies, broken=broken, at_run=at_run))
+    for group in contract.groups:
+        applies, broken, at_run = judged(groups=[group])
+        out.append(InputRule(kind=group.kind.value, when=[k.partition(".")[2] for k in group.when],
+                            names=list(group.members), says=_plain(group_sentence(group)),
+                            applies=applies or not group.when, broken=broken, at_run=at_run))
+    return out
+
+
 def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[StepView]:
     """Declared ports and recorded values, shared by resolved and authored canvases."""
     by_id = {step.id: step for step in pipeline.steps}
@@ -552,6 +619,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                  checked_per_sample=[rule.says for rule in step.sample_rules],
                  takes_samples=guard_view(step.guard),
                  parts=parts_view(step.parts),
+                 rules=rules_of(step, layers.routing.get(step.module.contract_id)),
             settings=[
                 SettingView(
                     name=setting.name,

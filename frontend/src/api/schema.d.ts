@@ -817,6 +817,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/authoring/{session_id}/tidy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lay the canvas out again
+         * @description **Tidy**: the drawing laid out afresh with the current geometry, and kept. Layout only.
+         */
+        post: operations["tidyAuthoringCanvas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/authoring/{session_id}/preview": {
         parameters: {
             query?: never;
@@ -3669,6 +3689,43 @@ export interface components {
             table: boolean;
         };
         /**
+         * InputRule
+         * @description One of the tool's rules between its inputs and settings (#460, #511), said in words, with
+         *     whether this step as it is set up breaks it — so the Step tab can lay optional inputs out by
+         *     what they need, block and come in groups of.
+         */
+        InputRule: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "requires" | "forbids" | "one_of" | "any_of" | "all_or_none";
+            /**
+             * When
+             * @default []
+             */
+            when: string[];
+            /** Names */
+            names: string[];
+            /** Says */
+            says: string;
+            /**
+             * Applies
+             * @default false
+             */
+            applies: boolean;
+            /**
+             * Broken
+             * @default false
+             */
+            broken: boolean;
+            /**
+             * At Run
+             * @default false
+             */
+            at_run: boolean;
+        };
+        /**
          * InputState
          * @description Whether a tool's optional input is part of the pipeline (#460).
          *
@@ -5205,6 +5262,11 @@ export interface components {
             parts?: components["schemas"]["PartsView"] | null;
             /** Settings */
             settings: components["schemas"]["SettingView"][];
+            /**
+             * Rules
+             * @default []
+             */
+            rules: components["schemas"]["InputRule"][];
         };
         /**
          * Strip
@@ -7023,6 +7085,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthoringEdited"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    tidyAuthoringCanvas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthoringSessionView"];
                 };
             };
             /** @description The id in the path names nothing. */

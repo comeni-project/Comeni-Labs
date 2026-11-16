@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import type { components } from "../../api/schema";
 import type { DraftEdge, DraftGraph, PortView, Step } from "../../api/types";
 import { Canvas } from "../Canvas";
-import { elbow, MEASURE_W, NODE_W, path, portOffset, RANK_PITCH, type Point, type Positions } from "../geometry";
+import { elbow, MEASURE_W, NODE_W, path, portOffset, type Point, type Positions } from "../geometry";
 import { idFor, withEdge, withNode, withoutEdge, withoutNode } from "../graphOps";
 import { Minimap } from "../Minimap";
 import { Picker } from "../Picker";
@@ -15,10 +15,11 @@ import { chipName, Flowline, flowLabel, ResultNode, SOURCE_H, SOURCE_W, SourceNo
 import { useTypeNames } from "./useTypeNames";
 import { valuesOf } from "./values";
 import type { Author } from "./format";
-import { anchorOf, cardHeight, LivingNode, type ReviewState, type StepProgress } from "./LivingNode";
+import { anchorOf, cardHeight, foldedInputs, LivingNode, OUT_W, shownPorts, type ReviewState, type StepProgress } from "./LivingNode";
 import { StepMenu } from "./StepMenu";
 
 type Channel = components["schemas"]["ChannelView"];
+type Rule = components["schemas"]["InputRule"];
 
 /** The pipeline as it stands, and how its data moves.
  *
@@ -78,6 +79,7 @@ export function LivingCanvas({
   given = {},
   showTool = true,
   showPorts = true,
+  onTidy,
 }: {
   graph: DraftGraph;
   positions: Positions;
@@ -124,8 +126,17 @@ export function LivingCanvas({
   /** The rail's *On the steps*: each step's tool and version, and its port names. */
   showTool?: boolean;
   showPorts?: boolean;
+  /** **Tidy**: the server lays the drawing out again with the current geometry. */
+  onTidy?: () => void;
 }) {
   const [here, setHere] = useState<{ x: number; y: number } | null>(null);
+  /** The step under the pointer, whose details show beside it. */
+  const [hovered, setHovered] = useState<string | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hover = (id: string, on: boolean) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHovered(on ? id : null), on ? 250 : 80);
+  };
   const view = useView();
   const probe = useRef<HTMLSpanElement>(null);
   const [moved, setMoved] = useState<Positions>({});
@@ -186,7 +197,14 @@ export function LivingCanvas({
   };
   /** A step's drawn height: its ports (#494), its measured value's row, Run's progress row. */
   const tall = (id: string) => cardHeight(steps[id]?.ports ?? [],
-    { measures: measuring(id), setRow: !!setRowOf(id), progress: !!progress?.[id] });
+    { measures: measuring(id), setRow: !!setRowOf(id), progress: !!progress?.[id],
+      more: foldedInputs(steps[id]?.ports ?? []) > 0 });
+  /** The tool's rules this step breaks, in a few words for its card's tags. */
+  const brokenOf = (id: string): string[] => ((steps[id] as { rules?: Rule[] } | undefined)?.rules ?? [])
+    .filter((r) => r.broken)
+    .map((r) => r.kind === "requires" ? `needs ${r.names.join(", ")}`
+      : r.kind === "forbids" ? `not with ${r.names.join(", ")}`
+      : r.kind === "one_of" ? "pick one input" : r.kind === "any_of" ? "needs one input" : "both or neither");
   const widthOf = (id: string) => (measuring(id) ? MEASURE_W : NODE_W);
 
   // **The canvas follows the engine**: when the step in focus changes, or the server places it,
@@ -203,7 +221,12 @@ export function LivingCanvas({
   }, [focus, target?.x, target?.y, bringIntoView]);
   const ids = [...new Set(graph.nodes.map((n) => n.id))];
   const visible = new Set(ids);
-  const solid = graph.edges;
+  /** A measuring pill hung under the step it reads (#517) needs no wire: being under it says so. */
+  const hung = (e: DraftEdge) => !!(steps[e.to_node] as { measures?: boolean } | undefined)?.measures
+    && at[e.to_node] !== undefined && at[e.to_node]?.x === at[e.from_node]?.x;
+  /** Each hung pill and the step it hangs under, joined by a short connector instead of a wire. */
+  const hangers = graph.edges.filter((e) => hung(e));
+  const solid = graph.edges.filter((e) => !hung(e));
   /** **A fact one step measures for another** (walk 2026-11-15): genome length, measured in the
    *  run, sets STAR's index size. It travels on the samples' metadata, not a port, so no wire
    *  shows it; a dotted line does, labelled with the fact and the setting it decides. */
@@ -215,8 +238,9 @@ export function LivingCanvas({
     })));
 
   const count = channels.find((c) => c.grain === "sample")?.count ?? null;
+  /** The ports a card draws — the ones its wires reach — in the card's own order. */
   const portsOf = (node: string, side: "in" | "out") =>
-    (steps[node]?.ports ?? []).filter((p) => p.side === side);
+    shownPorts(steps[node]?.ports ?? []).filter((p) => p.side === side);
   const tipIn = (node: string, port: string): Point | null => {
     const box = at[node];
     if (!box) return null;
@@ -227,7 +251,8 @@ export function LivingCanvas({
     const box = at[node];
     if (!box) return null;
     const index = portsOf(node, "out").findIndex((p) => p.name === port);
-    return { x: box.x + widthOf(node), y: box.y + anchorOf(measuring(node), Math.max(0, index)) };
+    // From the output triangle's tip (`OUT_W - 1` past the edge), where the arrow points.
+    return { x: box.x + widthOf(node) + OUT_W - 1, y: box.y + anchorOf(measuring(node), Math.max(0, index)) };
   };
   const gathers = (node: string, port: string) =>
     portsOf(node, "in").some((p) => p.name === port && p.gathers);
@@ -268,7 +293,7 @@ export function LivingCanvas({
 
   /** **Results**: a chip after each step nothing else reads (not a measuring step), named for what
    *  it makes, with how many — or, on Run, how far it has got. */
-  const read = new Set(solid.map((e) => e.from_node));
+  const read = new Set(graph.edges.map((e) => e.from_node));
   const results = ids.filter((id) => at[id] && !read.has(id) && !measuring(id) && portsOf(id, "out").length > 0)
     .map((id) => {
       const out = portsOf(id, "out")[0];
@@ -311,6 +336,14 @@ export function LivingCanvas({
     opened.current = true;
     requestAnimationFrame(() => fitLatest.current());
   }, [fitOnOpen, drawn]);
+  // **Tidy fits the drawing** once the server's new layout is drawn.
+  const placedKey = JSON.stringify(positions);
+  const fitWhenPlaced = useRef(false);
+  useEffect(() => {
+    if (!fitWhenPlaced.current) return;
+    fitWhenPlaced.current = false;
+    requestAnimationFrame(() => fitLatest.current());
+  }, [placedKey]);
   // **Tidy fits the drawing** once the server's layout is back, the next frame.
   const tidied = useRef(false);
   useEffect(() => {
@@ -436,8 +469,9 @@ export function LivingCanvas({
             <button type="button" aria-label="zoom in" onClick={() => { touched.current = true; view.nudge(0.1); }} className={CONTROL}>+</button>
             <button type="button" aria-label="reset the view" onClick={() => { touched.current = true; view.reset(); }} className={CONTROL}>1:1</button>
             {footer}
-            {Object.keys(moved).length > 0 && (
-              <button type="button" data-testid="tidy" onClick={() => { setMoved({}); touched.current = false; tidied.current = true; }}
+            {(onTidy || Object.keys(moved).length > 0) && (
+              <button type="button" data-testid="tidy" title="Lay the steps out again, tidily"
+                      onClick={() => { setMoved({}); touched.current = false; tidied.current = true; fitWhenPlaced.current = !!onTidy; onTidy?.(); }}
                       className={CONTROL}>
                 Tidy
               </button>
@@ -516,13 +550,16 @@ export function LivingCanvas({
         {factLinks.map(({ from, to, label }) => {
           const a = at[from], b = at[to];
           if (!a || !b) return null;
-          const leftward = b.x + NODE_W / 2 < a.x + NODE_W / 2;
-          const sx = leftward ? a.x : a.x + NODE_W;
-          const sy = a.y + tall(from) - 11;
-          const gx = leftward ? a.x - (RANK_PITCH - NODE_W) / 2 : a.x + NODE_W + (RANK_PITCH - NODE_W) / 2;
+          // **Out of the measuring step's output**, always: from its triangle's tip, a short run
+          // along the flow, then down (or up) to the gap above the decided step, along it, and in.
+          const out = portsOf(from, "out")[0];
+          const start = out ? tipOut(from, out.name) : null;
+          if (!start) return null;
+          const gx = start.x + 14;
+          const leftward = b.x + NODE_W / 2 < gx;
           const tx = b.x + NODE_W / 2;
           const ly = b.y - 16;
-          const d = `M ${sx} ${sy} H ${gx} V ${ly} H ${tx} V ${b.y}`;
+          const d = `M ${start.x} ${start.y} H ${gx} V ${ly} H ${tx} V ${b.y}`;
           return (
             <g key={`fact-${from}-${to}-${label}`} data-testid={`fact-link-${from}-${to}`}>
               <path d={d} fill="none" stroke="var(--measured)" strokeWidth={1.25} strokeDasharray="4 4" />
@@ -532,6 +569,16 @@ export function LivingCanvas({
                 {label}
               </text>
             </g>
+          );
+        })}
+        {hangers.map((e) => {
+          const above = at[e.from_node], pill = at[e.to_node];
+          if (!above || !pill) return null;
+          const x = pill.x + MEASURE_W / 2;
+          return (
+            <line key={`hang-${e.from_node}-${e.to_node}`} data-testid={`hang-${e.from_node}-${e.to_node}`}
+                  x1={x} y1={above.y + tall(e.from_node)} x2={x} y2={pill.y}
+                  stroke="var(--measured)" strokeWidth={1.25} />
           );
         })}
         {editable && solid.map((edge) => {
@@ -582,6 +629,8 @@ export function LivingCanvas({
             showTool={showTool}
             showPorts={showPorts}
             progress={progress?.[id]}
+            onHover={(on) => hover(id, on)}
+            broken={brokenOf(id)}
             selected={selected === id}
             onSelect={() => {
               if (!readOnly && !drag.current?.travelled) onSelect(id);
@@ -652,6 +701,10 @@ export function LivingCanvas({
           </Fragment>
         );
       })}
+      {hovered && at[hovered] && steps[hovered] && hovered !== beside?.node && (
+        <HoverCard step={steps[hovered]} at={{ x: at[hovered].x + widthOf(hovered) + 14, y: at[hovered].y }}
+                   samples={samples} measuring={measuring(hovered)} typeName={typeName} />
+      )}
       {picking && editable && (
         <Picker port={picking.port} node={picking.node} at={picking.at}
                 onClose={() => setPicking(null)}
@@ -667,5 +720,44 @@ export function LivingCanvas({
                 }} />
       )}
     </Canvas>
+  );
+}
+
+/** **A step's details on hover** (#511): the tool and version, how often it runs, and what goes in
+ *  and comes out, by type — what the card leaves out to stay small. */
+function HoverCard({ step, at, samples, measuring, typeName }: {
+  step: Step; at: Point; samples?: number; measuring: boolean; typeName: (id: string) => string;
+}) {
+  const [tool, version] = step.contract_id.split("@");
+  const ins = step.ports.filter((p) => p.side === "in");
+  const outs = step.ports.filter((p) => p.side === "out");
+  const does = (step as { does?: string | null }).does;
+  return (
+    <div role="tooltip" data-testid={`hover-${step.id}`}
+         className="absolute z-30 w-[240px] pointer-events-none flex flex-col gap-[6px] px-3 py-[10px] rounded-panel border border-line bg-surface shadow-e2"
+         style={{ left: at.x, top: at.y }}>
+      <span className="text-[13px] font-semibold text-ink">{measuring ? `Measures ${outs[0]?.name.replaceAll("_", " ") ?? "a fact"}` : does ?? step.process}</span>
+      <span className="font-data text-[11px] text-ink-2">{tool.replace(/^[^/]+\//, "").replaceAll("/", " ")} {version}</span>
+      <span className="text-[12px] text-ink-2">
+        {step.runs === "per_item" ? `Runs once per sample${samples ? `, ×${samples}` : ""}` : "Runs once"}
+        {measuring && " · in the run, from the data"}
+      </span>
+      {ins.length > 0 && (
+        <span className="flex flex-col gap-[2px] text-[11.5px]">
+          <span className="font-semibold text-ink-3">In</span>
+          {ins.map((p) => (
+            <span key={p.name} className="text-ink-2"><span className="font-data">{p.name}</span> · {typeName(p.type_id)}{p.optional ? " · optional" : ""}</span>
+          ))}
+        </span>
+      )}
+      {outs.length > 0 && (
+        <span className="flex flex-col gap-[2px] text-[11.5px]">
+          <span className="font-semibold text-ink-3">Out</span>
+          {outs.map((p) => (
+            <span key={p.name} className="text-ink-2"><span className="font-data">{p.name}</span> · {typeName(p.type_id)}</span>
+          ))}
+        </span>
+      )}
+    </div>
   );
 }

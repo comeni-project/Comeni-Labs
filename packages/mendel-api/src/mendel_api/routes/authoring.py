@@ -479,6 +479,18 @@ def edit(session_id: str, body: EditAuthoringDraft) -> AuthoringEdited:
     return AuthoringEdited(revision=revision, session=_view(session_id))
 
 
+@router.post(
+    "/{session_id}/tidy",
+    operation_id="tidyAuthoringCanvas",
+    summary="Lay the canvas out again",
+    responses=REFUSES,
+)
+def tidy(session_id: str) -> AuthoringSessionView:
+    """**Tidy**: the drawing laid out afresh with the current geometry, and kept. Layout only."""
+    view.tidy(session_id)
+    return _view(session_id)
+
+
 @router.get(
     "/{session_id}/preview",
     operation_id="previewAuthoring",

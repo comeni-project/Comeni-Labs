@@ -134,32 +134,32 @@ export function Port({
       // **On the edge, at the one derivation.** `y` is `portOffset(index)` — the caller does not
       // compute it and neither does this component, which is `impl-geom`'s *never write a
       // coordinate twice*. `-4px` centres a 7px square on a 1px border.
-      style={{ top: y - 4, [inbound ? "left" : "right"]: inbound ? -5 : -4 }}
-      className={`absolute w-[8px] h-[8px] p-0 leading-none z-10 transition-transform rounded-full
+      // An input is a circle on the left edge; an output a triangle whose base sits on the right
+      // edge and whose tip points along the flow (the card's marks, `LivingNode`).
+      style={inbound ? { top: y - 4, left: -5 } : { top: y - 5, right: -7 }}
+      className={`absolute ${inbound ? "w-[8px] h-[8px] rounded-full" : "w-[8px] h-[10px]"} p-0 leading-none z-10 transition-transform
                   ${onStartWire || onFinishWire ? "cursor-crosshair" : "cursor-help"}
                   hover:scale-150 focus-visible:scale-150
                   focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--now)]`}
     >
-      <span aria-hidden className="block w-full h-full rounded-full box-border" style={{
-        // `.port` is a filled square with a 1px stroke; `.port.on` swaps both for `--now`. An
-        // unmet input is the one that spends `--needs-you`, because it is the one that needs
-        // somebody — invariant 6, on the smallest element that can carry it.
-        background: verdict === "yes" || verdict === "conventional-no"
-          ? "var(--now-soft)"
-          : "var(--node)",
-        border: `1.6px ${optional ? "dashed" : "solid"} ${
-          verdict === "no"
-            ? "var(--port-line)"
-            : verdict === "conventional-no"
-              ? "var(--measured)"
-              : verdict === "yes"
-                ? "var(--now)"
-                : !unmet
-                  ? "var(--port-line)"
-                  : "var(--needs-you)"
-        }`,
-        opacity: verdict === "no" ? 0.25 : 1,
-      }} />
+      {(() => {
+        // `.port` is a filled mark with a stroke; an unmet input is the one that spends
+        // `--needs-you`, because it is the one that needs somebody — invariant 6.
+        const fill = verdict === "yes" || verdict === "conventional-no" ? "var(--now-soft)" : "var(--node)";
+        const stroke = verdict === "no" ? "var(--port-line)"
+          : verdict === "conventional-no" ? "var(--measured)"
+          : verdict === "yes" ? "var(--now)"
+          : !unmet ? "var(--port-line)" : "var(--needs-you)";
+        const opacity = verdict === "no" ? 0.25 : 1;
+        return inbound ? (
+          <span aria-hidden className="block w-full h-full rounded-full box-border"
+                style={{ background: fill, border: `1.6px ${optional ? "dashed" : "solid"} ${stroke}`, opacity }} />
+        ) : (
+          <svg aria-hidden width="8" height="10" className="block overflow-visible" style={{ opacity }}>
+            <polygon points="0.8,0.8 7.2,5 0.8,9.2" fill={fill} stroke={stroke} strokeWidth={1.6} strokeLinejoin="round" />
+          </svg>
+        );
+      })()}
 
       {over && (
         <span

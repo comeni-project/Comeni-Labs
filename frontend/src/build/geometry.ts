@@ -50,8 +50,8 @@ export const CORNER = 7;
 /** Between a step and the measuring step hung under it (#517). */
 export const HANG_GAP = 24;
 /** A measuring step's pill (#517, the board's *Genome length*): its size, and its ports at its middle. */
-export const MEASURE_W = 140;
-export const MEASURE_H = 42;
+export const MEASURE_W = 132;
+export const MEASURE_H = 30;
 /** How far a hung step's wire runs out before it turns, and in before its port. */
 export const HANG_REACH = 14;
 

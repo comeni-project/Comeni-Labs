@@ -39,7 +39,7 @@ import { valuesOf } from "./values";
 export function LivingSurface({
   session, graph, preview, selected, onSelect, composer, onCompose, sending, onSay, onAnswer, onRetry,
   onReviewed, notice = null, onDismiss, onSetParam, onSwitchInput, onWhole, onEdit, onAddStep,
-  onRename, run = null,
+  onRename, onTidy, run = null,
 }: {
   session: AuthoringSession;
   /** The draft as saved — what an edit changes. The canvas draws the session's frame. */
@@ -63,6 +63,8 @@ export function LivingSurface({
   onEdit: (graph: DraftGraph) => void;
   onAddStep: (contractId: string) => void;
   onRename?: (name: string) => void;
+  /** Lay the canvas out again with the current geometry (Tidy). */
+  onTidy?: () => void;
   /** The Run sequence — keep, lint, run sheet — when the page has one. The fixtures do not. */
   run?: {
     onRun: () => void;
@@ -309,6 +311,7 @@ export function LivingSurface({
               beside={beside}
               samples={kept || undefined}
               given={given}
+              onTidy={session.retired ? undefined : onTidy}
               showTool={tools === "true"}
               showPorts={names === "true"}
               onAddHere={session.retired ? undefined : (at) => { setAddAt(at); setBrowsing(true); }}
@@ -381,6 +384,8 @@ export function LivingSurface({
                                    onSay(`About ${processName(chosen)}, the setting ${setting}: what should it be, and why?`);
                                  }}
                                  onAccept={() => onReviewed(chosen)}
+                                 onSwitchInput={session.retired || !onSwitchInput ? undefined
+                                   : (port, state) => onSwitchInput(steps[chosen].contract_id, port, state)}
                                  onConnect={session.retired ? undefined : (port) => {
                                    setPane("canvas"); setConnect({ node: chosen, port });
                                  }} />
