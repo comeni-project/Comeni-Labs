@@ -1,6 +1,4 @@
-import type { components } from "../../api/schema";
-
-export type AnalysisData = components["schemas"]["AnalysisDataView"];
+import type { AnalysisData } from "./types";
 
 /** A small analysis, as `readAnalysisData` answers it: two paired samples and one without its mate. */
 export function analysis(overrides: Partial<AnalysisData> = {}): AnalysisData {

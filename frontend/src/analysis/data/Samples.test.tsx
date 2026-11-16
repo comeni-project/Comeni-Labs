@@ -3,7 +3,7 @@ import { expect, it, vi } from "vitest";
 
 import { analysis } from "./fixtures";
 import { Samples } from "./Samples";
-import type { AnalysisData } from "./useAnalysisData";
+import type { AnalysisData } from "./types";
 
 function actions() {
   return { setRule: vi.fn(), confirmRule: vi.fn(), undoFix: vi.fn(), setColumn: vi.fn() };

@@ -4,7 +4,7 @@ import { DataTable, type Column } from "../../ui/DataTable";
 import { Panel } from "../../ui/Panel";
 import { Segmented } from "../../ui/Segmented";
 import { SourceTag } from "../../ui/SourceTag";
-import type { AnalysisData } from "./useAnalysisData";
+import type { AnalysisData } from "./types";
 
 type Sample = AnalysisData["samples"][number];
 

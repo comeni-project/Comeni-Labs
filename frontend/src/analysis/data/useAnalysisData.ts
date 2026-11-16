@@ -1,10 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { del, get, post, put } from "../../api/client";
-import type { components } from "../../api/schema";
-
-export type AnalysisData = components["schemas"]["AnalysisDataView"];
-export type DataFix = components["schemas"]["Fix"];
+import type { AnalysisData, DataFix } from "./types";
 
 const base = (draftId: string) => `/data/${encodeURIComponent(draftId)}`;
 

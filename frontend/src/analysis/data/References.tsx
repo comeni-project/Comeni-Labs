@@ -4,7 +4,7 @@ import { useState } from "react";
 import { get } from "../../api/client";
 import type { components } from "../../api/schema";
 import { Panel } from "../../ui/Panel";
-import type { AnalysisData } from "./useAnalysisData";
+import type { AnalysisData } from "./types";
 
 type FilesPage = components["schemas"]["FilesPage"];
 

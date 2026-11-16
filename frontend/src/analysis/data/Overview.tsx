@@ -3,7 +3,7 @@ import { Link } from "react-router";
 
 import { Panel } from "../../ui/Panel";
 import { SourceTag } from "../../ui/SourceTag";
-import type { AnalysisData, DataFix } from "./useAnalysisData";
+import type { AnalysisData, DataFix } from "./types";
 
 const TILE_TO: Record<string, string> = { Samples: "samples", Files: "files" };
 
