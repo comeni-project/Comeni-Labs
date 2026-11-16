@@ -4,6 +4,7 @@ draft's id."""
 
 import logging
 
+from comeni_core.diagnostics import coded
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -13,10 +14,12 @@ from mendel_api.models import AnalysisData, PipelineDraft
 from mendel_api.refusals import REFUSES
 from mendel_api.services.data import roots, rule
 from mendel_api.services.data.rule import Fix, Rule
+from mendel_api.services.data.summary import summary
 from mendel_api.services.data.types import (
     AnalysisDataView,
     DataSample,
     FilesPage,
+    Reference,
     RuleResult,
     Scan,
     ScannedFile,
@@ -50,7 +53,10 @@ def _view(draft_id: str, row: AnalysisData | None) -> AnalysisDataView:
         fixes=[Fix(**f) for f in row.fixes or []],
         rule_result=RuleResult(samples=len(samples), unfit=len(row.unfit or []),
                                examples=scanned.examples),
-        checks=rule.checks(samples, list(row.unfit or [])))
+        checks=rule.checks(samples, list(row.unfit or [])),
+        references=[Reference(**r) for r in row.references or []],
+        columns=dict(row.columns or {}),
+        summary=summary(samples, list(row.files or [])))
 
 
 def _draft(db, draft_id: str) -> None:
@@ -85,8 +91,7 @@ async def _rescan(draft_id: str, change) -> AnalysisDataView:
         _draft(db, draft_id)
         row = db.get(AnalysisData, draft_id)
         if row is None:
-            row = AnalysisData(draft_id=draft_id, folders=[], scan={}, files=[], samples=[],
-                               fixes=[], unfit=[])
+            row = _blank(draft_id)
             db.add(row)
         change(row)
         row.revision = (row.revision or 0) + 1
@@ -151,3 +156,84 @@ async def apply_fix(draft_id: str, body: Fix) -> AnalysisDataView:
     def keep(row):
         row.fixes = [*(row.fixes or []), body.model_dump()]
     return await _rescan(draft_id, keep)
+
+
+def _blank(draft_id: str) -> AnalysisData:
+    return AnalysisData(draft_id=draft_id, folders=[], scan={}, files=[], samples=[], fixes=[],
+                        unfit=[], references=[], columns={})
+
+
+def _change(draft_id: str, change) -> AnalysisDataView:
+    """A change that needs no scan: what a person named or typed."""
+    with session_scope() as db:
+        _draft(db, draft_id)
+        row = db.get(AnalysisData, draft_id)
+        if row is None:
+            row = _blank(draft_id)
+            db.add(row)
+        change(row)
+        db.flush()
+        return _view(draft_id, row)
+
+
+class NamedFile(BaseModel):
+    path: str
+    type_id: str
+
+
+@router.post("/{draft_id}/references", operation_id="addReference",
+             summary="Add a study-wide file, such as a genome, with its type", responses=REFUSES)
+def add_reference(draft_id: str, body: NamedFile) -> AnalysisDataView:
+    """The file is checked against the data roots and its type against the vocabulary, then its
+    head is measured like a sample's. It becomes an input the analysis has."""
+    from mendel_api.authoring.types import SampleFact
+    from mendel_api.services import inspect, registry
+    from mendel_api.services.data.scan import _head
+
+    path = roots.inside_roots(body.path, settings.data_roots)
+    if not path.is_file():
+        raise ValueError(coded("MI0221", f"{body.path} is not a file Comeni can read"))
+    if body.type_id not in registry.stack().vocabulary.types:
+        raise ValueError(coded("MI0224", f"{body.type_id} is not a declared type"))
+    found = inspect.inspect_sample([(path.name, _head(path, inspect.HEAD_BYTES))],
+                                   registry.stack(), None, sizes=(path.stat().st_size,))
+    made = Reference(path=str(path), name=path.name, type_id=body.type_id, facts=[
+        SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage)
+        for f in found.facts if f.undetermined is None])
+
+    def keep(row):
+        row.references = [*(row.references or []), made.model_dump(mode="json")]
+    return _change(draft_id, keep)
+
+
+@router.delete("/{draft_id}/references/{index}", operation_id="removeReference",
+               summary="Remove a study-wide file", responses=REFUSES)
+def remove_reference(draft_id: str, index: int) -> AnalysisDataView:
+    def drop(row):
+        kept = list(row.references or [])
+        if not 0 <= index < len(kept):
+            raise HTTPException(status_code=404, detail=f"no reference {index}")
+        row.references = kept[:index] + kept[index + 1:]
+    return _change(draft_id, drop)
+
+
+class Column(BaseModel):
+    name: str
+    values: dict[str, str]
+
+
+@router.put("/{draft_id}/columns", operation_id="setDataColumn",
+            summary="Set a column of the samples table, such as condition or batch",
+            responses=REFUSES)
+def set_column(draft_id: str, body: Column) -> AnalysisDataView:
+    """A column a person types. One named after a measurement is refused: measured values are
+    the data's own column."""
+    from mendel_api.services import registry
+
+    name = body.name.strip()
+    if not name or name in set(registry.stack().measurements.ids()):
+        raise ValueError(coded("MI0224", f"{body.name!r} names a measurement; choose another"))
+
+    def keep(row):
+        row.columns = {**(row.columns or {}), name: dict(body.values)}
+    return _change(draft_id, keep)

@@ -222,6 +222,7 @@ decline to curate one.
 | `MI0219` | there is no pipeline to compile yet |
 | `MI0220` | the builder's turn did not run to the end |
 | `MI0223` | a reading rule is not a pattern Comeni can read |
+| `MI0224` | a name or type on the analysis's data is not one Comeni can use |
 | `MI0500` | a rule proposal cannot be approved as it stands |
 | `MI0501` | no model is set to propose rules |
 

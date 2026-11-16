@@ -1058,6 +1058,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data/{draft_id}/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a study-wide file, such as a genome, with its type
+         * @description The file is checked against the data roots and its type against the vocabulary, then its
+         *     head is measured like a sample's. It becomes an input the analysis has.
+         */
+        post: operations["addReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/{draft_id}/references/{index}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a study-wide file */
+        delete: operations["removeReference"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/{draft_id}/columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a column of the samples table, such as condition or batch
+         * @description A column a person types. One named after a measurement is refused: measured values are
+         *     the data's own column.
+         */
+        put: operations["setDataColumn"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/forge/catalogue": {
         parameters: {
             query?: never;
@@ -1779,6 +1838,28 @@ export interface components {
              * @default []
              */
             fixes: components["schemas"]["Fix"][];
+            /**
+             * References
+             * @default []
+             */
+            references: components["schemas"]["Reference"][];
+            /**
+             * Columns
+             * @default {}
+             */
+            columns: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+            /**
+             * @default {
+             *       "tiles": [],
+             *       "compare_by": [],
+             *       "measured": []
+             *     }
+             */
+            summary: components["schemas"]["Summary"];
         };
         /**
          * AnswerQuestion
@@ -2353,6 +2434,15 @@ export interface components {
             /** Tools */
             tools: components["schemas"]["ToolChoice"][];
         };
+        /** Column */
+        Column: {
+            /** Name */
+            name: string;
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+        };
         /**
          * CommandBody
          * @description A person's command. **There is no `actor` field**: the route sets it, so a body cannot
@@ -2367,6 +2457,19 @@ export interface components {
             value?: components["schemas"]["JsonValue"];
             /** Because */
             because?: string | null;
+        };
+        /** CompareBy */
+        CompareBy: {
+            /** Measurement */
+            measurement: string;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit?: string | null;
+            /** Values */
+            values: components["schemas"]["SampleValue"][];
+            /** Median */
+            median: number;
         };
         /** CompareIn */
         CompareIn: {
@@ -3449,6 +3552,17 @@ export interface components {
             pieces?: string[];
             evidence?: components["schemas"]["Evidence"] | null;
         };
+        /** MeasuredFact */
+        MeasuredFact: {
+            /** Measurement */
+            measurement: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value?: unknown;
+            /** Origin */
+            origin: string;
+        };
         /**
          * Measurement
          * @description A typed property that a goal may assert or a measurer may measure.
@@ -3758,6 +3872,13 @@ export interface components {
          * @enum {string}
          */
         Move: "draft" | "revise" | "add" | "propose_removal" | "answer" | "write" | "approve" | "change" | "reject" | "remove";
+        /** NamedFile */
+        NamedFile: {
+            /** Path */
+            path: string;
+            /** Type Id */
+            type_id: string;
+        };
         /**
          * Needs
          * @description Something else has to be set first.
@@ -4277,6 +4398,29 @@ export interface components {
             readonly says: string;
         };
         /**
+         * Reference
+         * @description A study-wide file (a genome, an annotation), named with its type by the person.
+         */
+        Reference: {
+            /** Path */
+            path: string;
+            /** Name */
+            name: string;
+            /** Type Id */
+            type_id: string;
+            /**
+             * Origin
+             * @default you
+             * @enum {string}
+             */
+            origin: "you" | "ai";
+            /**
+             * Facts
+             * @default []
+             */
+            facts: components["schemas"]["SampleFact"][];
+        };
+        /**
          * Refusal
          * @description A coded refusal. `detail` is `"<code>: <message>"` — `forge explain <code>` expands it.
          */
@@ -4549,6 +4693,13 @@ export interface components {
             value?: number | boolean | string | null;
             /** Coverage */
             coverage?: ("head" | "all") | null;
+        };
+        /** SampleValue */
+        SampleValue: {
+            /** Sample */
+            sample: string;
+            /** Value */
+            value: number;
         };
         /**
          * SayToAuthoring
@@ -4829,6 +4980,24 @@ export interface components {
             /** Types */
             types: number;
         };
+        /** Summary */
+        Summary: {
+            /**
+             * Tiles
+             * @default []
+             */
+            tiles: components["schemas"]["Tile"][];
+            /**
+             * Compare By
+             * @default []
+             */
+            compare_by: components["schemas"]["CompareBy"][];
+            /**
+             * Measured
+             * @default []
+             */
+            measured: components["schemas"]["MeasuredFact"][];
+        };
         /** SyncQueued */
         SyncQueued: {
             /** Queued */
@@ -4892,6 +5061,15 @@ export interface components {
             what: string;
             /** Colour */
             colour: string;
+        };
+        /** Tile */
+        Tile: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Hint */
+            hint?: string | null;
         };
         /** ToolChoice */
         ToolChoice: {
@@ -7089,6 +7267,135 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Fix"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    addReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NamedFile"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    removeReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    setDataColumn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Column"];
             };
         };
         responses: {

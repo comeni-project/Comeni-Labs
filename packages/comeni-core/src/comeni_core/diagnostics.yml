@@ -3727,6 +3727,18 @@ MI0223:
   explanation: |
     A reading rule says how a folder's file names become samples. It is matched against each
     whole file name; a file it does not fit is listed as not fitting, never dropped silently.
+MI0224:
+  emitted_by: api
+  concern: workflow
+  says: "a name or type on the analysis's data is not one Comeni can use"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Give a reference a type the registry declares, such as `genome.fasta`, and give a column a
+    name that is not a measurement's: measured values are already their own column.
+  explanation: |
+    A reference is bound to a pipeline's inputs by its type, so the type must be declared. A
+    column named after a measurement would sit beside the measured value under the same name.
 MI0300:
   emitted_by: api
   concern: settings

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from mendel_api.authoring.types import SampleFact
 from mendel_api.services.data.rule import Check, Fix, Rule
+from mendel_api.services.data.summary import Summary
 
 
 class ScannedFile(BaseModel):
@@ -42,6 +43,16 @@ class Scan(BaseModel):
     """The first three files the rule fitted: file, sample, read."""
 
 
+class Reference(BaseModel):
+    """A study-wide file (a genome, an annotation), named with its type by the person."""
+
+    path: str
+    name: str
+    type_id: str
+    origin: Literal["you", "ai"] = "you"
+    facts: list[SampleFact] = []
+
+
 class RuleResult(BaseModel):
     samples: int = 0
     unfit: int = 0
@@ -62,6 +73,9 @@ class AnalysisDataView(BaseModel):
     rule_result: RuleResult = RuleResult()
     checks: list[Check] = []
     fixes: list[Fix] = []
+    references: list[Reference] = []
+    columns: dict[str, dict[str, str]] = {}
+    summary: Summary = Summary()
 
 
 class FilesPage(BaseModel):

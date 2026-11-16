@@ -432,7 +432,7 @@ Done, outside the original plan, from Checkpoint A's finding 4 and the operator'
   - **Labels** come from the registry's measurement declarations, the same source `read_facts` uses. They are never
     hard-coded per kind of data.
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `test_reference_from_a_file_is_inspected_and_kept`
   - `test_reference_outside_roots_is_refused`
   - `test_tiles_for_reads_and_for_assemblies_use_the_same_four_labels`
@@ -440,10 +440,10 @@ Done, outside the original plan, from Checkpoint A's finding 4 and the operator'
   - `test_compare_by_is_empty_when_nothing_numeric_was_measured`
   - `test_a_column_is_kept_per_sample`
   - `test_a_column_cannot_shadow_a_measured_fact`
-- [ ] **Step 2:** Run the tests. Expected: FAIL.
-- [ ] **Step 3:** Implement, then run `make client`.
-- [ ] **Step 4:** Run `tests/data/`. Expected: PASS.
-- [ ] **Step 5:** Commit: `feat(mendel-api): references, columns and the data overview (#511)`.
+- [x] **Step 2:** Run the tests. Expected: FAIL.
+- [x] **Step 3:** Implement, then run `make client`.
+- [x] **Step 4:** Run `tests/data/`. Expected: PASS.
+- [x] **Step 5:** Commit: `feat(mendel-api): references, columns and the data overview (#511)`.
 
 ### Task 7: Bindings, and Wiener's data roots
 

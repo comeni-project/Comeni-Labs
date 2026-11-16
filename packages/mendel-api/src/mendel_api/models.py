@@ -812,6 +812,10 @@ class AnalysisData(Base):
     """Fixes applied on every scan, in order (`Fix`): a mate used, a sample left out."""
     unfit: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
     """File names the rule did not fit, from the last scan."""
+    references: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    """Study-wide files the person named, each with its type (`Reference`)."""
+    columns: Mapped[Any] = mapped_column(Json, nullable=False, default=dict)
+    """A person's columns: `{name: {sample: value}}`, such as condition or batch."""
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0,
                                           server_default=text("0"))
     updated_at: Mapped[datetime | None] = mapped_column(

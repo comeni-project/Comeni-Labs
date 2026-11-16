@@ -248,7 +248,8 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
         # so a run is bound to the data without a path being typed. Deleted with the draft. At
         # level 0 the builder agent may read sample names; never a goal, a pipeline or a log.
         "analysis_data": {
-            "draft_id", "folders", "scan", "files", "samples", "rule", "fixes", "unfit", "revision",
+            "draft_id", "folders", "scan", "files", "samples", "rule", "fixes", "unfit",
+            "references", "columns", "revision",
             "updated_at",
         },
         "pipeline_authoring_turn": {

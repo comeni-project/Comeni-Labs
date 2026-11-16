@@ -39,10 +39,14 @@ _SAID = (FactOrigin.PERSON_SAID, FactOrigin.MODEL_READ, FactOrigin.OPEN)
 """What a person (or the AI, for them) said about a fact: it stands over the data's."""
 
 
-def merge(decided_facts, decided_inputs, samples):
+def merge(decided_facts, decided_inputs, samples, references=()):
     """Decided facts and inputs with the data's beside them: a fact someone said stands; one the
     data measured replaces an older measured one; an input decided either way stands."""
     facts, inputs = derive(samples)
+    have = {i.type_id for i in inputs}
+    inputs += [InputDecision(key=r["type_id"], type_id=r["type_id"], present=True,
+                             origin=FactOrigin.MEASURED)
+               for r in references if r["type_id"] not in have and not have.add(r["type_id"])]
     said = {f.subject: f for f in decided_facts if f.origin in _SAID}
     derived = {f.subject: f for f in facts}
     merged = [f for f in decided_facts if f.subject in said or f.subject not in derived]

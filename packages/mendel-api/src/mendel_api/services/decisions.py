@@ -398,9 +398,10 @@ def _with_data(db, draft_id, decided):
     from mendel_api.services.data.facts import merge
 
     data = db.get(AnalysisData, draft_id)
-    if data is None or not data.samples:
+    if data is None or not (data.samples or data.references):
         return decided
-    facts, inputs = merge(decided.facts, decided.inputs, list(data.samples))
+    facts, inputs = merge(decided.facts, decided.inputs, list(data.samples),
+                          list(data.references or []))
     return decided.model_copy(update={"facts": facts, "inputs": inputs})
 
 
