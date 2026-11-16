@@ -668,18 +668,18 @@ Board: `Build.dc.html`: the frame, the right panel and the Step tab.
   - On every row: a one-line help, the source tag, and **Ask AI**. Ask AI sends a chat message scoped to that
     setting, and the value it suggests shows as AI until accepted.
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `step tab and assistant tab switch without losing the chat draft`
   - `tool form splits basic and advanced`
   - `each control type renders from its setting kind`
   - `ask AI marks the suggested value AI until accepted`
   - `a file setting shows its Data binding, never a path input`. Also extend `build/norule.test.ts`'s rule to
     cover `analysis/`.
-- [ ] **Step 2:** Run `npx vitest run src/analysis/build src/build`. Expected: FAIL.
-- [ ] **Step 3:** Implement against the board.
-- [ ] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
-- [ ] **Step 5:** Walk it in the browser: an RNA-seq build started from Home's question box.
-- [ ] **Step 6:** Commit: `feat(frontend): Build's page, panel and tool form (#511)`.
+- [x] **Step 2:** Run `npx vitest run src/analysis/build src/build`. Expected: FAIL.
+- [x] **Step 3:** Implement against the board.
+- [x] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
+- [x] **Step 5:** Walk it in the browser: an RNA-seq build started from Home's question box.
+- [x] **Step 6:** Commit: `feat(frontend): Build's page, panel and tool form (#511)`.
 
 ### Task 13: Build · the canvas and Add step
 
