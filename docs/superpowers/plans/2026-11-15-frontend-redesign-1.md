@@ -631,18 +631,18 @@ Board: `Welcome.dc.html` and `Home.dc.html`.
 
     Absence is absence: an empty band does not render. The rail's controls on Home are labelled "Recent".
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `no drafts renders Welcome without a rail`
   - `add a folder creates a draft and opens its data`
   - `an analysis card shows the data, build and run strip from data_summary`
   - `running now and needs you are absent when empty`
   - `home never renders a contract id`. This keeps the existing guard.
   - `test_drafts_page_rows_carry_data_summary`
-- [ ] **Step 2:** Run `npx vitest run src/home` and the mendel-api test. Expected: FAIL.
-- [ ] **Step 3:** Implement against the board. The faint pipeline drawing is inline SVG that uses the tokens.
-- [ ] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
-- [ ] **Step 5:** Walk it in the browser, on an empty test stack and on a populated one.
-- [ ] **Step 6:** Commit: `feat: Welcome and Home (#511)`.
+- [x] **Step 2:** Run `npx vitest run src/home` and the mendel-api test. Expected: FAIL.
+- [x] **Step 3:** Implement against the board. The faint pipeline drawing is inline SVG that uses the tokens.
+- [x] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
+- [x] **Step 5:** Walk it in the browser, on an empty test stack and on a populated one.
+- [x] **Step 6:** Commit: `feat: Welcome and Home (#511)`.
 
 ### Task 12: Build · the page, its panel and the tool form
 
