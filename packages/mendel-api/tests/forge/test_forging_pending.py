@@ -105,9 +105,9 @@ def test_an_assembled_dependant_of_an_abandoned_draft_goes_back_to_review():
 
 def test_a_new_type_can_depend_on_a_pending_family_and_reopens_when_it_changes():
     a = _earlier(assembled=False)
-    _do(a, Move.WRITE, "vocabulary:family:assembly", {
-        "id": "assembly", "description": "Assembled sequences and assembly products."})
-    _do(a, Move.WRITE, "vocabulary:type:assembly.fasta", {"id": "assembly.fasta", "states": []})
+    _do(a, Move.WRITE, "vocabulary:family:variant", {
+        "id": "variant", "description": "Variant calls and their indexes."})
+    _do(a, Move.WRITE, "vocabulary:type:variant.vcf", {"id": "variant.vcf", "states": []})
     proof = forging.assemble(a)
     assert proof.loaded and proof.conforms, proof.problems
     b = _later()
@@ -123,10 +123,10 @@ def test_a_new_type_can_depend_on_a_pending_family_and_reopens_when_it_changes()
         {"literal": [], "because": "Only family loading is tested"},
         {"literal": False, "because": "Use the default output format"}])
     _do(b, Move.WRITE, "parameters:none", {"because": "Defaults"})
-    assert "assembly" in forging.pending_families(b)
-    assert "assembly" not in forging.pending_ids(b)
-    key = "vocabulary:type:assembly.graph"
-    _do(b, Move.WRITE, key, {"id": "assembly.graph", "states": []})
+    assert "variant" in forging.pending_families(b)
+    assert "variant" not in forging.pending_ids(b)
+    key = "vocabulary:type:variant.bcf"
+    _do(b, Move.WRITE, key, {"id": "variant.bcf", "states": []})
     assert forging.read(b).depends_on == [a]
     _do(b, Move.WRITE, "rules:none", {"because": "No new selection rule"})
     _do(b, Move.WRITE, "tests:test:small", {
@@ -138,11 +138,11 @@ def test_a_new_type_can_depend_on_a_pending_family_and_reopens_when_it_changes()
     forging.abandon(a)
     assert forging.read(b).phase == "reviewing"
     item = forging.load(b).items[key]
-    assert item.status == "reopened" and item.value["id"] == "assembly.graph"
+    assert item.status == "reopened" and item.value["id"] == "variant.bcf"
 
 
 def test_family_key_and_declared_id_must_agree():
     b = _later()
     with pytest.raises(Exception, match="family ID must match"):
-        _do(b, Move.WRITE, "vocabulary:family:assembly", {
+        _do(b, Move.WRITE, "vocabulary:family:variant", {
             "id": "other", "description": "Assembled sequences."})

@@ -63,13 +63,19 @@ class CodecPiece(_Piece):
     """Hex prefixes, `1f8b` for gzip."""
 
 
+RecordShape = Literal["sequence", "contig"]
+"""What a format's records are: `sequence`, reads with qualities (FASTQ); `contig`, assembled
+sequences (FASTA). A measure folds only the shape it declares, so a read length is never taken
+over contigs."""
+
+
 class FormatPiece(_Piece):
     """Turns opened bytes into records: `fastq`."""
 
     reads: list[str] = Field(min_length=1)
     """The type ids this format confirms a file is."""
     extensions: list[str]
-    record: Literal["sequence"]
+    record: RecordShape
     runs: Literal["server", "lab", "browser"] = "server"
     """Where it runs. Only `server` is built; the others are where a heavier one will go."""
     files: str = "1..2"
@@ -104,7 +110,7 @@ class Measurer(_Piece):
     by: Literal["code", "tool"]
     """`code`: an `Accumulator` over a format's records. `tool`: `parse(stream, decided)` over
     the output port `output` of the contract `uses`."""
-    record: Literal["sequence"] | None = None
+    record: RecordShape | None = None
     """For `by: code`, the record shape it reads; formats of that shape feed it."""
     uses: str | None = None
     """For `by: tool`, the contract id of the tool whose output is parsed."""

@@ -43,9 +43,12 @@ def test_the_layer_loads_from_its_new_home():
     assert len(loaded.registry.all()) >= 10
     assert loaded.measurements.ids() == [
         "adapter_content",
+        "assembly_length",
+        "contigs",
         "duplicate_rate",
         "genome_length",
         "library_prep",
+        "n50",
         "n_samples",
         "node_memory_gb",
         "organism",
