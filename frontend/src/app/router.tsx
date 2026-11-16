@@ -1,5 +1,6 @@
 import { Navigate, type RouteObject } from "react-router";
 
+import { DataPage } from "../analysis/data/DataPage";
 import { Home } from "../home/Home";
 import { Catalogue } from "../registry/Catalogue";
 import { Adaptation } from "../registry/forging/Adaptation";
@@ -28,7 +29,7 @@ export const routes: RouteObject[] = [
         element: <AnalysisFrame />,
         children: [
           { index: true, element: <AnalysisIndex /> },
-          { path: "data/:sub?", element: <Pending title="Data" /> },
+          { path: "data/:sub?", element: <DataPage /> },
           { path: "build", element: <BuildPage /> },
           { path: "run", element: <Pending title="Run" /> },
           { path: "run/:id/:sub?", element: <Run /> },

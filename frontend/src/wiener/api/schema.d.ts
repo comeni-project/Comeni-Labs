@@ -1272,6 +1272,21 @@ export interface components {
          * @enum {string}
          */
         Source: "default" | "installation" | "environment" | "reported";
+        /**
+         * Staged
+         * @description Samples whose files the launcher links into the run's own folder (#511).
+         */
+        Staged: {
+            /** Stage */
+            stage: components["schemas"]["StagedSample"][];
+        };
+        /** StagedSample */
+        StagedSample: {
+            /** Sample */
+            sample: string;
+            /** Files */
+            files: string[];
+        };
         /** SubmitRequest */
         SubmitRequest: {
             /** Artifact Id */
@@ -1283,7 +1298,7 @@ export interface components {
             params: {
                 [key: string]: string | string[] | {
                     [key: string]: string;
-                }[];
+                }[] | components["schemas"]["Staged"];
             };
             /**
              * Executor

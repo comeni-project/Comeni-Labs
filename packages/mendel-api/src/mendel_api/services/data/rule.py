@@ -127,6 +127,11 @@ def group(names: list[str], rule: Rule, fixes: list[Fix],
     return Grouped(samples=list(samples.items()), unfit=unfit, examples=found.examples)
 
 
+def _words(measurement: str) -> str:
+    """A measurement's id as words: `read_length` → *Read length*."""
+    return measurement.replace("_", " ").capitalize()
+
+
 def _plain(value: object) -> str:
     """A value as a person reads it: `true`, `101`, `phred33`."""
     return str(value).lower() if isinstance(value, bool) else str(value)
@@ -172,19 +177,26 @@ def checks(samples: list[dict], unfit: list[str]) -> list[Check]:
                                detail=f"{file} has no mate" + (f"; {nearby[0]} looks like it"
                                                                if nearby else ""),
                                fixes=[*fixes, Fix(kind="leave_out", sample=sample)]))
+    # A lone half, and the file suggested as its mate, differ because they are halves: that is the
+    # missing mate, said once, not again as odd facts.
+    flagged = {c.sample for c in found} | {
+        s["name"] for s in kept if len(s["files"]) == 1
+        and any(f.file == _name(s["files"][0]) for c in found for f in c.fixes)}
     measured: dict[str, list[tuple[str, object]]] = {}
     for s in kept:
+        if s["name"] in flagged:
+            continue
         for fact in s.get("facts", []):
             measured.setdefault(fact["measurement"], []).append((s["name"], fact.get("value")))
     for measurement, values in sorted(measured.items()):
         common, count = Counter(_plain(v) for _, v in values).most_common(1)[0]
-        if count <= len(kept) / 2 or count == len(values):
+        if count <= len(values) / 2 or count == len(values):
             continue
         for sample, value in values:
             if _plain(value) != common:
                 found.append(Check(sample=sample, kind="odd_fact",
-                                   detail=f"{measurement} is {_plain(value)}; most samples have "
-                                          f"{common}",
+                                   detail=f"{_words(measurement)} is {_plain(value)}; most "
+                                          f"samples have {common}",
                                    fixes=[Fix(kind="leave_out", sample=sample)]))
     return found
 

@@ -71,7 +71,7 @@ def test_odd_fact_flags_the_half_length_sample():
                     sample("Y2", ["c", "d"], read_length=101),
                     sample("Y3", ["e", "f"], read_length=50)], [])
     [odd] = found
-    assert (odd.kind, odd.sample) == ("odd_fact", "Y3") and "read_length" in odd.detail
+    assert (odd.kind, odd.sample) == ("odd_fact", "Y3") and "Read length" in odd.detail
     assert [f.kind for f in odd.fixes] == ["leave_out"]
 
 
@@ -108,4 +108,16 @@ def test_check_text_says_values_plainly():
     [odd] = checks([sample("a", ["1", "2"], quality_encoding="phred33"),
                     sample("b", ["3", "4"], quality_encoding="phred33"),
                     sample("c", ["5", "6"], quality_encoding="phred64")], [])
-    assert odd.detail == "quality_encoding is phred64; most samples have phred33"
+    assert odd.detail == "Quality encoding is phred64; most samples have phred33"
+
+
+def test_a_missing_mate_is_one_check_not_three():
+    """The demo's folder: the lone halves of Y4 differ in `paired` because they are halves; that
+    is the missing mate, said once, and Y3's short reads are the other check."""
+    y4r1 = sample("Y4_R1", ["Y4_R1.fastq.gz"], paired=False, read_length=101)
+    y42 = sample("Y4_2", ["Y4_2.fq.gz"], paired=False, read_length=101)
+    found = checks([sample("Y1", ["Y1_R1.fq", "Y1_R2.fq"], paired=True, read_length=101),
+                    sample("Y2", ["Y2_R1.fq", "Y2_R2.fq"], paired=True, read_length=101),
+                    sample("Y3", ["Y3_R1.fq", "Y3_R2.fq"], paired=True, read_length=50),
+                    y4r1, y42], [])
+    assert [(c.sample, c.kind) for c in found] == [("Y4_R1", "missing_mate"), ("Y3", "odd_fact")]

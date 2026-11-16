@@ -508,19 +508,19 @@ Board: `Main.dc.html` with `dpage:'overview'`.
   - `FolderTree({ ticked, onTick })`. It lazy-loads the children of each folder.
   - Below the tree, a muted "Cloud storage · later" that cannot be clicked.
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `ticking a folder PUTs the folder list and shows scanning progress`
   - `cloud storage is shown and disabled`
   - `overview tiles render from summary.tiles in order`
   - `compare-by picker lists summary.compare_by and draws one bar per sample`
   - `check these lists checks with their fixes`: clicking a fix posts it.
   - `an empty analysis shows only the folder prompt`
-- [ ] **Step 2:** Run `npx vitest run src/analysis/data`. Expected: FAIL.
-- [ ] **Step 3:** Implement against `Main.dc.html`. The Compare chart takes its layout and colours from the board.
-- [ ] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
-- [ ] **Step 5:** Walk it in the browser. Tick a folder of real test FASTQ files under a configured root, and watch
+- [x] **Step 2:** Run `npx vitest run src/analysis/data`. Expected: FAIL.
+- [x] **Step 3:** Implement against `Main.dc.html`. The Compare chart takes its layout and colours from the board.
+- [x] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
+- [x] **Step 5:** Walk it in the browser. Tick a folder of real test FASTQ files under a configured root, and watch
   the scan finish.
-- [ ] **Step 6:** Commit: `feat(frontend): Data overview and folders (#511)`.
+- [x] **Step 6:** Commit: `feat(frontend): Data overview and folders (#511)`.
 
 ### Task 9: Data · Samples, References, Files
 

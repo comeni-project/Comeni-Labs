@@ -107,6 +107,7 @@
   --color-now-ink: var(--now-ink);
   --color-now-line: var(--now-line);
   --color-now-mid: var(--now-mid);
+  --color-mark: var(--mark);
   --color-ai: var(--ai);
   --color-ai-soft: var(--ai-soft);
   --color-ai-line: var(--ai-line);
