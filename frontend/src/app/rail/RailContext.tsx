@@ -86,9 +86,10 @@ export function RailSlot({ children }: { children: ReactNode }) {
 /** This page's controls, below the divider, under their label. */
 export function RailControls({ label, children }: { label: string; children: ReactNode }) {
   const { controls, mini } = useRail();
-  if (!controls || mini) return null;
+  if (!controls) return null;
+  // **Hidden, not unmounted, while the rail is collapsed**: a folder tree keeps what is open.
   return createPortal(
-    <>
+    <div className={mini ? "hidden" : "contents"}>
       <div role="separator" className="h-px bg-line-soft mx-1 mt-[14px] mb-[10px]" />
       <div role="group" aria-label={label} className="flex flex-col">
         <div className="px-[10px] py-[6px] text-[11px] font-semibold tracking-[.07em] uppercase text-ink-3">
@@ -96,7 +97,7 @@ export function RailControls({ label, children }: { label: string; children: Rea
         </div>
         {children}
       </div>
-    </>,
+    </div>,
     controls,
   );
 }

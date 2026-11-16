@@ -42,6 +42,14 @@ def inside_roots(path: str | Path, roots: list[Path]) -> Path:
     raise ValueError(coded("MI0221", f"{path} is not a folder Comeni can read"))
 
 
+def inside_folder(path: str | Path, roots: list[Path]) -> Path:
+    """`path`, resolved, when it is a folder inside one of `roots`; a file is refused too."""
+    resolved = inside_roots(path, roots)
+    if not resolved.is_dir():
+        raise ValueError(coded("MI0221", f"{path} is not a folder Comeni can read"))
+    return resolved
+
+
 def _visible(entries):
     return [e for e in entries if not e.name.startswith(".")]
 
@@ -63,11 +71,20 @@ def list_folder(path: Path | str | None, roots: list[Path]) -> FolderListing:
         found = [r.resolve() for r in roots if r.is_dir()]
         return FolderListing(path=None, files=0, folders=[
             Folder(name=r.name or str(r), path=str(r), files=_count_files(r)) for r in found])
-    folder = inside_roots(path, roots)
-    with os.scandir(folder) as entries:
-        visible = _visible(entries)
-        subs = sorted((e for e in visible if e.is_dir()), key=lambda e: e.name)
-        files = sum(1 for e in visible if e.is_file())
-    return FolderListing(path=str(folder), files=files, folders=[
-        Folder(name=e.name, path=str(Path(e.path).resolve()), files=_count_files(Path(e.path)))
-        for e in subs])
+    folder = inside_folder(path, roots)
+    try:
+        with os.scandir(folder) as entries:
+            visible = _visible(entries)
+            files = sum(1 for e in visible if e.is_file())
+            subs = []
+            for e in visible:
+                # A subfolder that is a link out of the roots is not listed, nor looked into.
+                try:
+                    inside = inside_folder(e.path, roots)
+                except ValueError:
+                    continue
+                subs.append(Folder(name=e.name, path=str(inside), files=_count_files(inside)))
+    except PermissionError:
+        raise ValueError(coded("MI0221", f"{path} is not a folder Comeni can read")) from None
+    return FolderListing(path=str(folder), files=files,
+                         folders=sorted(subs, key=lambda f: f.name))

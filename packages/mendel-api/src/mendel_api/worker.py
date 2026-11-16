@@ -31,12 +31,16 @@ async def run_gate_job(ctx: dict, run_id: str) -> str:
     return run_id
 
 
-async def scan_analysis_data(ctx: dict, draft_id: str, who: str) -> str:
+async def scan_analysis_data(ctx: dict, draft_id: str, who: str, revision: int) -> str:
     """Scan an analysis's ticked folders (#511): read where the files are, in a thread so the
     worker keeps answering. A scan records its own failure; it never raises."""
     from mendel_api.services.data import scan
 
-    await asyncio.to_thread(scan.scan, draft_id, who=who)
+    await asyncio.to_thread(scan.scan, draft_id, who=who, revision=revision)
+    if scan.finished(draft_id, revision):
+        from mendel_api.agent import chat
+
+        await chat.data_scanned(draft_id)
     return draft_id
 
 

@@ -2,6 +2,8 @@
 ticks, and what was found in them. An analysis is a draft, so its data is addressed by the
 draft's id."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -20,6 +22,7 @@ from mendel_api.services.data.types import (
 from mendel_api.settings import settings
 
 router = APIRouter(prefix="/data", tags=["data"])
+log = logging.getLogger(__name__)
 
 
 class Folders(BaseModel):
@@ -72,7 +75,7 @@ def read_files(draft_id: str, offset: int = 0, limit: int = 200) -> FilesPage:
 async def tick_folders(draft_id: str, body: Folders) -> AnalysisDataView:
     """Each folder is checked against the data roots, then the scan is queued: the page polls
     `readAnalysisData` while it runs."""
-    ticked = sorted({str(roots.inside_roots(f, settings.data_roots)) for f in body.folders})
+    ticked = sorted({str(roots.inside_folder(f, settings.data_roots)) for f in body.folders})
     with session_scope() as db:
         _draft(db, draft_id)
         row = db.get(AnalysisData, draft_id)
@@ -83,7 +86,15 @@ async def tick_folders(draft_id: str, body: Folders) -> AnalysisDataView:
         row.revision = (row.revision or 0) + 1
         row.scan = Scan(state="scanning").model_dump()
         revision = row.revision
-    await jobs.enqueue("scan_analysis_data", draft_id, identity.default_author(),
-                       job_id=jobs.job_id_for("scan", draft_id, str(revision)))
+    try:
+        await jobs.enqueue("scan_analysis_data", draft_id, identity.default_author(), revision,
+                           job_id=jobs.job_id_for("scan", draft_id, str(revision)))
+    except Exception:  # noqa: BLE001 — a scan nobody will run must not say it is scanning
+        log.exception("scan %s:%s could not be queued", draft_id, revision)
+        with session_scope() as db:
+            row = db.get(AnalysisData, draft_id)
+            if row is not None and row.revision == revision:
+                said = "the scan could not start; tick the folder again"
+                row.scan = Scan(state="failed", error=said).model_dump()
     with session_scope() as db:
         return _view(draft_id, db.get(AnalysisData, draft_id))

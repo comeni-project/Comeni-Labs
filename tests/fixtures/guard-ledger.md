@@ -5573,3 +5573,9 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   MI0201), `test_an_mcp_write_after_the_persons_change_is_refused` and
   `test_mcp_answers_only_where_the_protection_level_allows_the_agent` (both answered `ok`),
   `test_a_malformed_authorization_header_is_a_clean_refusal`. All pass after.
+- 2026-11-16, redesign Checkpoint A (#511): each run against the code before its fix, by copy and
+  `git show HEAD:path`. `test_a_symlinked_file_pointing_outside_is_not_read` (the scan read
+  `secret.txt` through `L09_R1.fq`), `test_a_symlinked_folder_out_of_the_root_is_not_listed` and
+  `test_listing_a_file_is_refused_not_a_crash` (both failed on the old `roots.py`), and
+  `test_scan_of_many_samples_holds_one_samples_heads_at_a_time` against a scan that read every head
+  first (peak 62, not 2). All pass after.

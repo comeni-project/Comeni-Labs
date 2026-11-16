@@ -72,3 +72,18 @@ def test_tree_route_without_path_lists_the_roots(root, monkeypatch):
     assert inside["files"] == 2 and [f["name"] for f in inside["folders"]] == ["october"]
     refused = client.get("/api/data/tree", params={"path": "/etc"})
     assert refused.status_code in (400, 422) and "MI0221" in refused.text
+
+
+def test_a_symlinked_folder_out_of_the_root_is_not_listed(root, tmp_path):
+    """Checkpoint A, finding 2: no path or count from outside the roots reaches the tree."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("x")
+    os.symlink(outside, root / "escape")
+    names = [f.name for f in roots.list_folder(root, [root]).folders]
+    assert "escape" not in names
+
+
+def test_listing_a_file_is_refused_not_a_crash(root):
+    with pytest.raises(ValueError, match="MI0221"):
+        roots.list_folder(root / "liver" / "L01_R1.fastq.gz", [root])

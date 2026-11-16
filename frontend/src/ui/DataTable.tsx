@@ -50,9 +50,11 @@ export function DataTable<T>({ rows, columns, rowKey, label, height, highlight, 
             return (
               <div key={rowKey(row)} role="row" aria-rowindex={item.index + 2} data-highlight={marked}
                    onClick={onRow ? () => onRow(row) : undefined}
+                   tabIndex={onRow ? 0 : undefined}
+                   onKeyDown={onRow ? (event) => { if (event.key === "Enter") onRow(row); } : undefined}
                    style={{ gridTemplateColumns: tracks, height: ROW, transform: `translateY(${item.start}px)` }}
                    className={`${cells} absolute left-0 right-0 top-0 border-t border-line-soft
-                               ${marked ? "bg-needs-you-soft" : ""} ${onRow ? "cursor-pointer hover:bg-hover" : ""}`}>
+                               ${marked ? "bg-needs-you-soft" : ""} ${onRow ? "cursor-pointer hover:bg-hover focus-visible:shadow-[var(--ring)] outline-none" : ""}`}>
                 {columns.map((c) => <div key={c.id} role="cell" className="truncate min-w-0">{c.cell(row)}</div>)}
               </div>
             );

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 
 import { DataTable } from "./DataTable";
@@ -24,4 +24,14 @@ it("data table highlights rows the predicate marks", () => {
                     height={400} highlight={(r) => r.name === "S1"} />);
   const marked = screen.getAllByRole("row").filter((row) => row.dataset.highlight === "true");
   expect(marked.map((row) => row.textContent)).toEqual(["S11"]);
+});
+
+it("a clickable row is reachable by keyboard and opens on Enter", () => {
+  const opened: string[] = [];
+  render(<DataTable label="Samples" rows={rows.slice(0, 2)} columns={columns} rowKey={(r) => r.name}
+                    height={400} onRow={(r) => opened.push(r.name)} />);
+  const [, first] = screen.getAllByRole("row");
+  expect(first.tabIndex).toBe(0);
+  fireEvent.keyDown(first, { key: "Enter" });
+  expect(opened).toEqual(["S0"]);
 });

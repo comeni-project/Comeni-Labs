@@ -68,6 +68,42 @@ async def answer(session_id: str, question_id: str, value) -> tuple[int, bool]:
     return await say(session_id, f"{said}{unit}")
 
 
+def _waiting_for_data(draft_id: str) -> str | None:
+    """The draft's session, when its agent's last turn asked for data and nothing was said
+    since; otherwise `None`."""
+    with session_scope() as db:
+        session_id = db.scalar(select(PipelineAuthoringSession.id).where(
+            PipelineAuthoringSession.draft_id == draft_id))
+        if session_id is None:
+            return None
+        last = db.scalar(select(PipelineAuthoringTurn)
+                         .where(PipelineAuthoringTurn.session_id == session_id)
+                         .order_by(PipelineAuthoringTurn.seq.desc()).limit(1))
+    asked = last is not None and last.role == TurnRole.ASSISTANT.value and any(
+        b.get("kind") == "ask" and b.get("shape") == "data" for b in last.blocks or [])
+    return session_id if asked else None
+
+
+async def data_scanned(draft_id: str) -> None:
+    """**A finished scan answers the agent's `data` question** (#511, Checkpoint A): the person
+    ticked folders in Data rather than typing, so what was found is said for them, as the person's
+    answer: how many samples, of what, and what was measured. Counts and measurements only,
+    never a path. Nothing is said when the agent was not waiting for data."""
+    from mendel_api.models import AnalysisData
+
+    session_id = _waiting_for_data(draft_id)
+    if session_id is None:
+        return
+    with session_scope() as db:
+        row = db.get(AnalysisData, draft_id)
+        samples = [s for s in (row.samples if row else []) if not s.get("left_out")]
+    kinds = sorted({s.get("type_id") or "unrecognised" for s in samples})
+    measured = sorted({f["measurement"] for s in samples for f in s.get("facts", [])})
+    words = f"I added data in Data: {len(samples)} samples ({', '.join(kinds) or 'none'})"
+    words += f"; measured {', '.join(measured)}." if measured else "."
+    await say(session_id, words)
+
+
 async def retry(session_id: str, seq: int) -> bool:
     """A failed turn, asked again. Refused for a turn that is not failed (`MI0203`)."""
     with session_scope() as db:

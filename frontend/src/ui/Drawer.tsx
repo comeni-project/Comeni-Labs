@@ -10,18 +10,24 @@ export function Drawer({ open, onClose, label, children }: {
   children: ReactNode;
 }) {
   const panel = useRef<HTMLDivElement>(null);
+  // **Held in a ref, so a page that passes a new `onClose` each render does not reopen the
+  // drawer**: the effect runs on opening and closing only, and focus stays where the person is
+  // typing while replies stream in (Checkpoint A).
+  const close = useRef(onClose);
+  useEffect(() => { close.current = onClose; }, [onClose]);
   useEffect(() => {
     if (!open) return;
     const opener = document.activeElement as HTMLElement | null;
-    const first = panel.current?.querySelector<HTMLElement>("input, textarea, button, [tabindex]");
+    const first = panel.current?.querySelector<HTMLElement>(
+      "input, textarea, button, [tabindex]:not([tabindex='-1'])");
     (first ?? panel.current)?.focus();
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") close.current(); };
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
       if (opener?.isConnected) opener.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   return createPortal(
     <div ref={panel} role="dialog" aria-label={label} tabIndex={-1}

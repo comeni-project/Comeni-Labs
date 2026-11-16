@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -91,4 +91,16 @@ describe("the rail", () => {
     expect(rail().className).toContain("fixed");
     vi.unstubAllGlobals();
   });
+});
+
+it("keeps the page's controls mounted while the rail is collapsed", () => {
+  function Counter() {
+    const [n, setN] = useState(0);
+    return <button type="button" onClick={() => setN(n + 1)}>count {n}</button>;
+  }
+  at("/", <RailControls label="Folders"><Counter /></RailControls>);
+  fireEvent.click(within(rail()).getByRole("button", { name: "count 0" }));
+  fireEvent.click(within(rail()).getByRole("button", { name: "Collapse sidebar" }));
+  fireEvent.click(within(rail()).getByRole("button", { name: "Expand sidebar" }));
+  expect(within(rail()).getByRole("button", { name: "count 1" })).toBeTruthy();
 });

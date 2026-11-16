@@ -157,21 +157,27 @@ def test_scan_reads_at_most_head_bytes_per_file(clean, client, root, monkeypatch
 
 
 def test_scan_of_many_samples_holds_one_samples_heads_at_a_time(clean, client, root, monkeypatch):
+    """Heads read and not yet measured: counted up when read, down when their sample has been
+    inspected. A scan that read every head first would peak at 60 (Checkpoint A, finding 7)."""
     d = draft(client)
-    folder = pairs(root / "many", *[f"s{n:03}" for n in range(30)])
-    alive, peak = [0], [0]
-    real = inspect.inspect_sample
+    pairs(root / "many", *[f"s{n:03}" for n in range(30)])
+    held, peak = [0], [0]
+    read, inspected = scanning._head, inspect.inspect_sample
 
-    def counting(files, stack, claimed=None, sizes=()):
-        alive[0] += len(files)
-        peak[0] = max(peak[0], alive[0])
+    def reading(path, size):
+        held[0] += 1
+        peak[0] = max(peak[0], held[0])
+        return read(path, size)
+
+    def inspecting(files, stack, claimed=None, sizes=()):
         try:
-            return real(files, stack, claimed, sizes=sizes)
+            return inspected(files, stack, claimed, sizes=sizes)
         finally:
-            alive[0] -= len(files)
+            held[0] -= len(files)
 
-    monkeypatch.setattr(inspect, "inspect_sample", counting)
-    tick(client, d, folder)
+    monkeypatch.setattr(scanning, "_head", reading)
+    monkeypatch.setattr(inspect, "inspect_sample", inspecting)
+    tick(client, d, root / "many")
     scanning.scan(d, who="ana")
     assert len(view(client, d)["samples"]) == 30
     assert peak[0] == 2
@@ -243,3 +249,162 @@ def test_deleting_the_draft_deletes_its_data(clean, client, root):
     assert client.delete(f"/api/pipeline/drafts/{d}").status_code == 204
     with session_scope() as db:
         assert db.get(AnalysisData, d) is None
+
+
+def test_a_symlinked_file_pointing_outside_is_not_read(clean, client, root, tmp_path, monkeypatch):
+    """Checkpoint A, finding 1: a link inside a ticked folder must not reach the rest of the
+    machine. The file is skipped, and nothing outside the root is opened."""
+    import os
+
+    secret = tmp_path / "outside" / "secret.txt"
+    secret.parent.mkdir()
+    secret.write_text("TOKEN=abc\n")
+    d = draft(client)
+    folder = pairs(root / "liver", "L01")
+    os.symlink(secret, folder / "L09_R1.fq")
+    opened = []
+    real = scanning._head
+
+    def spy(path, size):
+        opened.append(str(path))
+        return real(path, size)
+
+    monkeypatch.setattr(scanning, "_head", spy)
+    tick(client, d, folder)
+    scanning.scan(d, who="ana")
+    got = view(client, d)
+    assert got["scan"]["state"] == "done"
+    assert [s["name"] for s in got["samples"]] == ["L01"]
+    assert not any("L09" in p or "secret" in p for p in opened)
+
+
+def test_a_fifo_in_a_folder_does_not_hang_the_scan(clean, client, root):
+    import os
+
+    d = draft(client)
+    folder = pairs(root / "liver", "L01")
+    os.mkfifo(folder / "pipe_R1.fq")
+    tick(client, d, folder)
+    scanning.scan(d, who="ana")
+    assert [s["name"] for s in view(client, d)["samples"]] == ["L01"]
+
+
+def test_a_stale_scan_does_not_overwrite_a_newer_one(clean, client, root):
+    """Checkpoint A, finding 3: the person ticks A, then A and B; the first scan finishing last
+    must not write A's samples over A and B's."""
+    d = draft(client)
+    a, b = pairs(root / "a", "SA"), pairs(root / "b", "SB")
+    tick(client, d, a)
+    first = view(client, d)["revision"]
+    tick(client, d, a, b)
+    scanning.scan(d, who="ana")
+    assert [s["name"] for s in view(client, d)["samples"]] == ["SA", "SB"]
+    scanning.scan(d, who="ana", revision=first)
+    got = view(client, d)
+    assert [s["name"] for s in got["samples"]] == ["SA", "SB"] and got["scan"]["state"] == "done"
+
+
+def test_a_failed_scan_does_not_keep_another_selections_samples(clean, client, root, monkeypatch):
+    d = draft(client)
+    tick(client, d, pairs(root / "a", "SA"))
+    scanning.scan(d, who="ana")
+    tick(client, d, pairs(root / "b", "SB"))
+    def broken(*_args, **_kwargs):
+        raise OSError("x")
+
+    monkeypatch.setattr(inspect, "inspect_sample", broken)
+    scanning.scan(d, who="ana")
+    got = view(client, d)
+    assert got["scan"]["state"] == "failed" and got["samples"] == []
+
+
+def test_a_draft_deleted_mid_scan_ends_the_scan_quietly(clean, client, root, monkeypatch):
+    d = draft(client)
+    tick(client, d, pairs(root / "a", "SA"))
+    real = inspect.inspect_sample
+
+    def delete_then_inspect(*args, **kwargs):
+        client.delete(f"/api/pipeline/drafts/{d}")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(inspect, "inspect_sample", delete_then_inspect)
+    scanning.scan(d, who="ana")  # does not raise
+
+
+def test_ticking_a_file_is_refused(clean, client, root):
+    folder = pairs(root / "a", "SA")
+    refused = tick(client, draft(client), folder / "SA_R1.fq.gz")
+    assert refused.status_code in (400, 422) and "MI0221" in refused.text
+
+
+def _asks_for_data(d: str) -> str:
+    """A session whose agent's last turn asked for data, as the agent does with shape `data`."""
+    from mendel_api.agent import loop
+    from mendel_api.authoring.types import TurnState
+    from mendel_api.models import PipelineAuthoringTurn
+    from sqlalchemy import select
+
+    session = loop.start_session(d, who="ana")
+    seq = loop.add_person_turn(session, "count genes")
+    with session_scope() as db:
+        turn = db.scalar(select(PipelineAuthoringTurn).where(
+            PipelineAuthoringTurn.session_id == session, PipelineAuthoringTurn.seq == seq))
+        turn.state = TurnState.ANSWERED.value
+        turn.blocks = [{"kind": "ask", "id": "b1", "question_id": "q1", "shape": "data",
+                        "question": "Which reads?", "options": [], "unit": ""}]
+    return session
+
+
+def test_a_finished_scan_answers_the_agents_data_question(clean, client, root, monkeypatch):
+    """Checkpoint A, finding 5: the person follows "Open Data" and ticks; the agent hears what
+    was found, as the person's answer, once."""
+    import asyncio
+
+    from mendel_api.agent import chat
+
+    said = []
+
+    async def say(session_id, text):
+        said.append((session_id, text))
+        return 0, True
+
+    monkeypatch.setattr(chat, "say", say)
+    d = draft(client)
+    session = _asks_for_data(d)
+    tick(client, d, pairs(root / "liver", "L01", "L02"))
+    scanning.scan(d, who="ana")
+    asyncio.run(chat.data_scanned(d))
+    [(to, text)] = said
+    assert to == session and "2 samples" in text and "paired" in text
+    assert "/" not in text, "no path in the agent's words"
+
+
+def test_a_scan_with_no_open_data_question_says_nothing(clean, client, root, monkeypatch):
+    import asyncio
+
+    from mendel_api.agent import chat, loop
+
+    said = []
+
+    async def say(session_id, text):
+        said.append(text)
+        return 0, True
+
+    monkeypatch.setattr(chat, "say", say)
+    d = draft(client)
+    loop.start_session(d, who="ana")
+    tick(client, d, pairs(root / "liver", "L01"))
+    scanning.scan(d, who="ana")
+    asyncio.run(chat.data_scanned(d))
+    assert said == []
+
+
+def test_a_scan_that_cannot_be_queued_says_so_rather_than_scanning_forever(clean, client, root,
+                                                                            monkeypatch):
+    async def down(*_args, **_kwargs):
+        raise ConnectionError("redis is down")
+
+    monkeypatch.setattr(jobs, "enqueue", down)
+    d = draft(client)
+    got = tick(client, d, pairs(root / "a", "SA")).json()
+    assert got["scan"]["state"] == "failed" and "could not start" in got["scan"]["error"]
