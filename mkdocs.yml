@@ -117,6 +117,7 @@ nav:
           - Configure a model: how-to/development/configure-model.md
           - Walk and investigate behavior: how-to/development/investigate.md
           - Walk the forge live: how-to/development/forge-live-walk.md
+          - Walk the demo: how-to/development/demo-walk.md
           - Release a package: how-to/development/release.md
           - Maintain documentation: how-to/development/documentation.md
   - Reference:

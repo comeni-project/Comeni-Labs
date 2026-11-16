@@ -736,8 +736,9 @@ Board: `Run.dc.html`.
 - [ ] **Step 2:** Run `npx vitest run src/analysis/run`. Expected: FAIL.
 - [ ] **Step 3:** Implement against the board.
 - [ ] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
-- [ ] **Step 5:** Walk it in the browser, on the dev stack: tick a folder under the data root, build, run, and
-  watch Steps in both views. This is the spec's success path from end to end.
+- [ ] **Step 5:** Walk `docs/how-to/development/demo-walk.md` in the browser on the dev stack, beats 1–8, after
+  `python3 tools/demo_data.py`. This is the spec's success path from end to end, and the demo's rehearsal. Fix
+  the script where the product is right and the script is wrong; file an issue where the product is wrong.
 - [ ] **Step 6:** Commit: `feat(frontend): Run in the analysis frame, inputs from Data (#511, #508)`.
 
 **→ Checkpoint D.**
@@ -755,8 +756,8 @@ Board: `Run.dc.html`.
 - [ ] **Step 2:** Run `make guards`. Expected: PASS. If a guard fails, follow the guard-ledger procedure. Never
   loosen a guard to pass.
 - [ ] **Step 3:** Run `cd frontend && npx vitest run && npx tsc -b`. Expected: PASS.
-- [ ] **Step 4:** Walk the whole path again in the browser, at both sizes, in light and dark, and compare every
-  page with its board file.
+- [ ] **Step 4:** Walk `docs/how-to/development/demo-walk.md` again, at both sizes, in light and dark, and compare
+  every page with its board file. The demo is ready when the walk passes with no fallback used.
 - [ ] **Step 5:** Commit: `docs: the redesigned everyday path (#511)`.
 - [ ] **Step 6:** If the walk passed, close #508 and tick the part-1 items on #511.
 
