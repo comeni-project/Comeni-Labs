@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Run console, running</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#174C9B}a:hover{color:#15181D}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F5F6F8; font-family: Inter, system-ui, sans-serif; color: #15181D; overflow: hidden">
+
+  <nav aria-label="Comeni" style="width: 220px; flex-shrink: 0; box-sizing: border-box; padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; background: #FFFFFF; border-right: 1px solid #E2E5EA">
+    <a href="#" style="padding: 7px 10px; font-size: 14px; font-weight: 600; color: #3B424D; text-decoration: none">Home</a>
+    <a href="#" style="padding: 7px 10px; font-size: 14px; font-weight: 600; color: #3B424D; text-decoration: none">Forge</a>
+    <a href="#" style="padding: 7px 10px; font-size: 14px; font-weight: 600; color: #3B424D; text-decoration: none">Registry</a>
+    <div style="height: 1px; background: #EEF0F3; margin: 8px 4px"></div>
+    <div style="padding: 8px 10px; border: 1px solid #E2E5EA; border-radius: 8px; margin-bottom: 6px">
+      <div style="font-size: 11.5px; color: #5F6773">Analysis</div>
+      <div style="font-size: 14px; font-weight: 600">Yeast RNA-seq counts</div>
+    </div>
+    <a href="#" style="display: flex; flex-direction: column; padding: 8px 10px; text-decoration: none; color: #3B424D"><span style="font-size: 14px; font-weight: 600">Data</span><span style="font-size: 12px; color: #5F6773">4 samples · 2 references</span></a>
+    <a href="#" style="display: flex; flex-direction: column; padding: 8px 10px; text-decoration: none; color: #3B424D"><span style="font-size: 14px; font-weight: 600">Build</span><span style="font-size: 12px; color: #5F6773">7 steps</span></a>
+    <a href="#" style="display: flex; flex-direction: column; padding: 8px 10px; border-radius: 8px; text-decoration: none; background: #EDF3FC; color: #174C9B"><span style="font-size: 14px; font-weight: 600">Run</span><span style="font-size: 12px">Run 3 · running</span></a>
+    <a href="#" style="padding: 6px 10px 6px 30px; font-size: 13px; color: #3B424D; text-decoration: none">Overview</a>
+    <a href="#" style="padding: 6px 10px 6px 30px; font-size: 13px; color: #3B424D; text-decoration: none">Steps</a>
+    <a href="#" style="padding: 6px 10px 6px 30px; font-size: 13px; color: #3B424D; text-decoration: none">Outputs</a>
+    <a href="#" aria-current="page" style="padding: 6px 10px 6px 30px; font-size: 13px; font-weight: 600; color: #15181D; text-decoration: none">Console</a>
+    <div style="height: 1px; background: #EEF0F3; margin: 12px 4px 8px"></div>
+    <div style="padding: 4px 10px; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #5F6773">Runs of this analysis</div>
+    <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: #EDF3FC; color: #174C9B; font-size: 13px; font-weight: 600; text-decoration: none"><span style="width: 7px; height: 7px; border-radius: 4px; background: #1D5FC2"></span>Run 3<span style="margin-left: auto; font-size: 11.5px; font-weight: 400; color: #5F6773">now</span></a>
+    <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; color: #3B424D; font-size: 13px; text-decoration: none"><span style="width: 7px; height: 7px; border-radius: 4px; background: #C2410C"></span>Run 2<span style="margin-left: auto; font-size: 11.5px; color: #5F6773">went wrong · 12:40</span></a>
+    <a href="#" style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; color: #3B424D; font-size: 13px; text-decoration: none"><span style="width: 7px; height: 7px; border-radius: 4px; background: #2E9A5A"></span>Run 1<span style="margin-left: auto; font-size: 11.5px; color: #5F6773">done · yesterday</span></a>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; box-sizing: border-box; padding: 16px 24px 20px; display: flex; flex-direction: column; gap: 12px">
+    <header style="display: flex; align-items: center; gap: 12px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.015em">Run 3</h1>
+      <span style="display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 6px; background: #EDF3FC; color: #174C9B; font-size: 12px; font-weight: 600"><span style="width: 6px; height: 6px; border-radius: 3px; background: #1D5FC2"></span>Running</span>
+      <span style="font-size: 13px; color: #3B424D">started 14:02 · 6 min 40 s · this machine</span>
+      <button type="button" style="margin-left: auto; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 13px Inter, sans-serif; cursor: pointer">Assistant</button>
+      <button type="button" style="height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid #F5CDB3; background: #FFFFFF; color: #A0400B; font: 600 13px Inter, sans-serif; cursor: pointer">Stop run</button>
+    </header>
+
+    <section aria-label="Console" style="flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; border: 1px solid #E2E5EA; background: #FFFFFF">
+
+      <div style="display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: #F8F9FB; border-bottom: 1px solid #EEF0F3">
+        <span style="font-size: 13px; font-weight: 600; color: #15181D">Nextflow</span>
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #174C9B"><span style="width: 6px; height: 6px; border-radius: 3px; background: #1D5FC2"></span>live · following</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #5F6773">console.log · 312 lines</span>
+        <span style="margin-left: auto; display: flex; gap: 6px">
+          <button type="button" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 500 12px Inter, sans-serif; cursor: pointer">Copy</button>
+          <button type="button" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 500 12px Inter, sans-serif; cursor: pointer">Download</button>
+        </span>
+      </div>
+      <pre style="margin: 0; flex: 1.05; min-height: 0; overflow: auto; padding: 14px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.65; color: #3B424D; white-space: pre"><span style="color: #1C6B3E; font-weight: 600">N E X T F L O W</span>  ~  version 25.04.6
+Launching `./main.nf` [<span style="color: #15181D; font-weight: 600">focused_curie</span>] DSL2 - revision: <span style="color: #5F6773">1f550d5dbc</span>
+
+executor &gt;  local (19)
+<span style="color: #5F6773">[3f/a91c2e]</span> <span style="color: #15181D; font-weight: 500">TRIMGALORE</span> (RAP1_IAA_REP1)          [100%] 4 of 4 <span style="color: #2E9A5A">✔</span>
+<span style="color: #5F6773">[8b/0d11f4]</span> <span style="color: #15181D; font-weight: 500">SAMTOOLS_FAIDX</span> (genome.fasta)       [100%] 1 of 1 <span style="color: #2E9A5A">✔</span>
+<span style="color: #5F6773">[c2/77e0aa]</span> <span style="color: #15181D; font-weight: 500">MEASURE_GENOME_LENGTH_FAI</span> (genome) [100%] 1 of 1 <span style="color: #2E9A5A">✔</span>
+<span style="color: #5F6773">[5e/19b3c0]</span> <span style="color: #15181D; font-weight: 500">STAR_GENOMEGENERATE</span> (genome)       [100%] 1 of 1 <span style="color: #2E9A5A">✔</span>
+<span style="color: #5F6773">[a4/3e81d2]</span> <span style="color: #15181D; font-weight: 500">STAR_ALIGN</span> (WT_REP3)                [ 75%] 3 of 4
+<span style="color: #5F6773">[d0/6f2b9e]</span> <span style="color: #15181D; font-weight: 500">SAMTOOLS_SORT</span> (WT_REP2)             [ 50%] 2 of 4
+<span style="color: #5F6773">[-        ]</span> <span style="color: #15181D; font-weight: 500">SUBREAD_FEATURECOUNTS</span>               -
+
+<span style="color: #8A4B0B; background: #FFF3DC">WARN: STAR_GENOMEGENERATE asked 46 GB; 1.4 GB was used</span>
+<span style="color: #1D5FC2">▌</span></pre>
+
+      <div style="display: flex; align-items: center; justify-content: center; height: 9px; background: #F8F9FB; border-top: 1px solid #EEF0F3; border-bottom: 1px solid #EEF0F3; cursor: row-resize" aria-hidden="true"><span style="width: 36px; height: 3px; border-radius: 2px; background: #D2D7DE"></span></div>
+
+      <div style="display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: #F8F9FB; border-bottom: 1px solid #EEF0F3">
+        <span style="font-size: 13px; font-weight: 600; color: #15181D">Shell</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #5F6773">in runs/run-3</span>
+        <span title="This shell can use Docker on this machine, which is full control of it" style="padding: 2px 8px; border-radius: 6px; background: #FFF3DC; color: #8A4B0B; font-size: 11.5px; font-weight: 600">full access to this machine</span>
+        <span style="margin-left: auto; display: flex; gap: 6px">
+          <button type="button" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 12px Inter, sans-serif; cursor: pointer; display: flex; align-items: center; gap: 6px"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#3B424D" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg>Commands</button>
+          <button type="button" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 500 12px Inter, sans-serif; cursor: pointer">New shell</button>
+        </span>
+      </div>
+      <pre style="margin: 0; flex: 1; min-height: 0; overflow: auto; padding: 14px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.65; color: #3B424D; white-space: pre"><span style="color: #1C6B3E; font-weight: 600">run-3</span> <span style="color: #1D5FC2">$</span> <span style="color: #15181D">ls</span>
+main.nf  modules  nextflow.config  params.json  pipeline.yml  results  staged  work
+<span style="color: #1C6B3E; font-weight: 600">run-3</span> <span style="color: #1D5FC2">$</span> <span style="color: #15181D">ls staged/reads</span>
+RAP1_IAA_REP1_R1.fastq.gz  WT_REP1_R1.fastq.gz  WT_REP2_R1.fastq.gz  WT_REP3_R1.fastq.gz
+RAP1_IAA_REP1_R2.fastq.gz  WT_REP1_R2.fastq.gz  WT_REP2_R2.fastq.gz  WT_REP3_2.fq.gz
+<span style="color: #1C6B3E; font-weight: 600">run-3</span> <span style="color: #1D5FC2">$</span> <span style="color: #15181D">du -sh work</span>
+1.4G	work
+<span style="color: #1C6B3E; font-weight: 600">run-3</span> <span style="color: #1D5FC2">$</span> <span style="background: #6FA0E6; color: #FFFFFF"> </span></pre>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
