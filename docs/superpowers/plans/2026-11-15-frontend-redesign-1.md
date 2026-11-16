@@ -585,19 +585,19 @@ Board: the assistant drawer in `Main.dc.html`.
     ledger records which.
   - With no model (`useAiConfigured`), the drawer says "Needs a model" and links to `?settings=models`.
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `test_read_data_returns_names_and_facts_not_contents`
   - `test_set_reading_rule_is_ai_and_unconfirmed`
   - `test_apply_fix_records_ai_with_reason`
   - On the frontend:
     - `drawer opens over the page and keeps page state`
     - `without a model the drawer says so and links to settings`
-- [ ] **Step 2:** Run both test files. Expected: FAIL.
-- [ ] **Step 3:** Implement. Add the three tools to the tool list in `prompt.md`, one line each.
-- [ ] **Step 4:** Run the tests and `packages/mendel-api/tests/agent/`. Expected: PASS.
-- [ ] **Step 5:** Walk it in the browser with the ChatGPT-subscription model. Ask "pair these by name" on a folder
+- [x] **Step 2:** Run both test files. Expected: FAIL.
+- [x] **Step 3:** Implement. Add the three tools to the tool list in `prompt.md`, one line each.
+- [x] **Step 4:** Run the tests and `packages/mendel-api/tests/agent/`. Expected: PASS.
+- [x] **Step 5:** Walk it in the browser with the ChatGPT-subscription model. Ask "pair these by name" on a folder
   with an odd naming scheme.
-- [ ] **Step 6:** Commit: `feat: the Data assistant and its tools (#511, #463)`.
+- [x] **Step 6:** Commit: `feat: the Data assistant and its tools (#511, #463)`.
 
 **→ Checkpoint C.**
 

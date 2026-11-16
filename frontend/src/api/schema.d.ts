@@ -2495,6 +2495,8 @@ export interface components {
             detail: string;
             /** Fixes */
             fixes: components["schemas"]["Fix"][];
+            /** Measurement */
+            measurement?: string | null;
         };
         /** ChoiceOption */
         ChoiceOption: {

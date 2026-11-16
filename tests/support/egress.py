@@ -56,6 +56,8 @@ arrives, and it is still a blob — sign the artifact beside the bundle, not ins
 # **`ai_invocation.response` is not here, and should not be** (#182, 2026-09-29): a model's reply
 # is stored, never sent — it crosses no door.
 FREE_TEXT_FIELDS = {
+    # #511: the reading rule's pattern, which a person or the AI typed (`{sample}_R{read}.fq.gz`).
+    ("DataView", "rule"),
     # Declared type/state signatures from registry vocabulary, sent through the forge door.
     ("KnownIds", "signatures"),
     # Forge MVP 3 (#364), door `forge_drafting`: nf-core's public module files, the
@@ -230,6 +232,12 @@ SAMPLE_FIELDS = {
     # this is something of a person's data.
     ("SamplesView", "names"),
     ("FactsView", "samples"),
+    # #511: the analysis's data by name, for the Data assistant: samples, those left out, and
+    # what Check these found (a sample, and the name of the file that looks like its mate).
+    ("DataView", "samples"),
+    ("DataView", "left_out"),
+    ("DataCheckLine", "sample"),
+    ("DataCheckLine", "file"),
 }
 """Every field that may hold data from a person's file. This set is the count."""
 

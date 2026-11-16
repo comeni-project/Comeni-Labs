@@ -50,6 +50,8 @@ class Check(BaseModel):
     kind: Literal["missing_mate", "odd_fact"]
     detail: str
     fixes: list[Fix]
+    measurement: str | None = None
+    """For an odd fact: which measurement differs."""
 
 
 def _compile(pattern: str) -> re.Pattern:
@@ -194,7 +196,7 @@ def checks(samples: list[dict], unfit: list[str]) -> list[Check]:
             continue
         for sample, value in values:
             if _plain(value) != common:
-                found.append(Check(sample=sample, kind="odd_fact",
+                found.append(Check(sample=sample, kind="odd_fact", measurement=measurement,
                                    detail=f"{_words(measurement)} is {_plain(value)}; most "
                                           f"samples have {common}",
                                    fixes=[Fix(kind="leave_out", sample=sample)]))

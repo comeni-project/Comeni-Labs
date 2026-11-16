@@ -18,8 +18,9 @@ export function Drawer({ open, onClose, label, children }: {
   useEffect(() => {
     if (!open) return;
     const opener = document.activeElement as HTMLElement | null;
-    const first = panel.current?.querySelector<HTMLElement>(
-      "input, textarea, button, [tabindex]:not([tabindex='-1'])");
+    // Where the person types, if there is a place to; otherwise the first control.
+    const first = panel.current?.querySelector<HTMLElement>("textarea, input")
+      ?? panel.current?.querySelector<HTMLElement>("button, [tabindex]:not([tabindex='-1'])");
     (first ?? panel.current)?.focus();
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") close.current(); };
     document.addEventListener("keydown", onKey);

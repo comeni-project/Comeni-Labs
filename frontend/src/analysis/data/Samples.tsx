@@ -88,10 +88,13 @@ function BringBack({ sample, data, undoFix }: { sample: string; data: AnalysisDa
   const index = data.fixes.findIndex((f) => f.kind === "leave_out" && f.sample === sample);
   if (index < 0) return null;
   return (
+    <>
+    {data.fixes[index].by === "ai" && <SourceTag source="ai" />}
     <button type="button" onClick={() => undoFix(index)} aria-label={`Bring ${sample} back`}
             className="shrink-0 h-6 px-2 rounded-control border border-line-2 bg-surface text-[11.5px] text-ink-2 cursor-pointer">
       left out · undo
     </button>
+    </>
   );
 }
 

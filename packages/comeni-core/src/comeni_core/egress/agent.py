@@ -44,6 +44,7 @@ class ViewKind(StrEnum):
     COMPILED = "compiled"
     ASKED = "asked"
     VOCABULARY = "vocabulary"
+    DATA = "data"
 
 
 class TypeLine(EgressPayload):
@@ -217,6 +218,43 @@ class SamplesView(EgressPayload):
     names: list[SampleName] = Field(default_factory=list)
 
 
+class CheckKind(StrEnum):
+    MISSING_MATE = "missing_mate"
+    ODD_FACT = "odd_fact"
+
+
+class RuleBy(StrEnum):
+    RULE = "rule"
+    YOU = "you"
+    AI = "ai"
+
+
+class DataCheckLine(EgressPayload):
+    """Something *Check these* found (#511): a sample missing its mate, with the file that looks
+    like it, or a sample whose measured value differs from the one most share."""
+
+    sample: SampleName
+    kind: CheckKind
+    file: SampleName | None = None
+    measurement: MeasurementId | None = None
+
+
+class DataView(EgressPayload):
+    """The analysis's data by name and fact (#511): its samples, the kinds of data, how the files
+    were read into samples and what needs checking. **Never a path or a file's contents.**"""
+
+    kind: Literal[ViewKind.DATA] = ViewKind.DATA
+    samples: list[SampleName] = Field(default_factory=list)
+    left_out: list[SampleName] = Field(default_factory=list)
+    kinds: list[TypeId] = Field(default_factory=list)
+    unfit: int = 0
+    rule: Line | None = None
+    """The reading rule's pattern, `None` for pairing by name."""
+    rule_by: RuleBy = RuleBy.RULE
+    rule_confirmed: bool = False
+    checks: list[DataCheckLine] = Field(default_factory=list)
+
+
 class FiredLine(EgressPayload):
     """A rule that decided something in this pipeline: what, the value, why, and the citation."""
 
@@ -284,7 +322,7 @@ class VocabularyView(EgressPayload):
 
 AgentView = Annotated[
     TextView | SamplesView | GoalView | PipelineView | StepView | ToolsView | RulesView
-    | FactsView | NeedsView | ResolvedView | CompiledView | AskedView | VocabularyView,
+    | FactsView | NeedsView | ResolvedView | CompiledView | AskedView | VocabularyView | DataView,
     Field(discriminator="kind"),
 ]
 """Every view a tool may return. Each tool's own view joins this union."""

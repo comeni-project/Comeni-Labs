@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 
 import { useAnalysis } from "../../app/AnalysisFrame";
+import { Assistant } from "../Assistant";
 import { RailControls } from "../../app/rail/RailContext";
 import { Failed, Loading } from "../../ui/States";
 import { FolderTree } from "./FolderTree";
@@ -25,6 +26,7 @@ export function DataPage() {
 
   return (
     <div className="overflow-y-auto h-full">
+      <Assistant draftId={draftId} />
       <RailControls label="Folders">
         <FolderTree ticked={folders} onTick={data.tick} />
       </RailControls>
