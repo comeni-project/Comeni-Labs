@@ -159,7 +159,12 @@ def _apply_input(draft_id: str, change: DecisionChange, stack, *, said, heard) -
     if change.retract:
         if old is None or (not old.present and old.origin is FactOrigin.OPEN):
             return False
-        if old.present:
+        if old.present and old.origin is FactOrigin.MEASURED:
+            # An input the data has (#511) is not a logged decision: withdrawing it is saying so.
+            decisions.set_input(draft_id, old.model_copy(update={"present": False,
+                                                                "origin": FactOrigin.PERSON_SAID}),
+                                **said)
+        elif old.present:
             decisions.withdraw_input(draft_id, old.key, who=said["who"])
         else:
             # *I don't have one*, forgotten (review I5): nobody knows again.

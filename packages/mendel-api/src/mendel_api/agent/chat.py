@@ -84,6 +84,21 @@ def _waiting_for_data(draft_id: str) -> str | None:
     return session_id if asked else None
 
 
+def rebuild_for_data(draft_id: str, who: str) -> None:
+    """The draft's pipeline built again from facts its new data established (#511), when it has
+    a conversation and a pipeline to rebuild."""
+    from mendel_api.agent.direct import _rebuild
+    from mendel_api.models import PipelineDraft
+
+    with session_scope() as db:
+        session_id = db.scalar(select(PipelineAuthoringSession.id).where(
+            PipelineAuthoringSession.draft_id == draft_id))
+        draft = db.get(PipelineDraft, draft_id)
+        drawn = bool(draft and (draft.graph or {}).get("nodes"))
+    if session_id and drawn:
+        _rebuild(session_id, draft_id, who)
+
+
 async def data_scanned(draft_id: str) -> None:
     """**A finished scan answers the agent's `data` question** (#511, Checkpoint A): the person
     ticked folders in Data rather than typing, so what was found is said for them, as the person's

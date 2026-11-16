@@ -40,6 +40,9 @@ async def scan_analysis_data(ctx: dict, draft_id: str, who: str, revision: int) 
     if scan.finished(draft_id, revision):
         from mendel_api.agent import chat
 
+        # The data changed, so the facts did: the pipeline is built again from them, then the
+        # agent hears what was found if it asked.
+        await asyncio.to_thread(chat.rebuild_for_data, draft_id, who)
         await chat.data_scanned(draft_id)
     return draft_id
 

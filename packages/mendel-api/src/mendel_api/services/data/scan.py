@@ -16,7 +16,7 @@ from mendel_api.authoring.types import SampleFact
 from mendel_api.db import session_scope
 from mendel_api.models import AnalysisData
 from mendel_api.services import inspect, protection, registry
-from mendel_api.services.data import pairing, record
+from mendel_api.services.data import pairing
 from mendel_api.services.data.roots import inside_roots
 from mendel_api.services.data.types import DataSample, Scan, ScannedFile
 from mendel_api.settings import settings
@@ -103,7 +103,6 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str) -> None:
         stack = registry.stack()
         files: list[ScannedFile] = []
         samples: list[DataSample] = []
-        inspections = []
         taken: set[str] = set()
         done = 0
         for paths in groups:
@@ -116,7 +115,6 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str) -> None:
                     continue  # gone, or not a regular file any more: not a sample
                 found = inspect.inspect_sample(heads, stack, None, sizes=sizes)
                 del heads
-                inspections.append(found)
                 samples.append(DataSample(
                     name=name, files=[str(p) for p in chosen], outcome=found.outcome,
                     type_id=found.type_id,
@@ -130,8 +128,6 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str) -> None:
                       scan=Scan(state="scanning", done=done, total=total).model_dump())
         _save(draft_id, revision, files=[f.model_dump() for f in files],
               samples=[s.model_dump(mode="json") for s in samples])
-        if inspections:
-            record.record_measured(draft_id, record.agreed(inspections), who=who)
         _save(draft_id, revision, scan=Scan(state="done", done=done, total=total).model_dump())
     except _Stale:
         raise

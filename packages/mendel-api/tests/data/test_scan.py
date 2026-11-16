@@ -119,23 +119,6 @@ def test_same_sample_name_in_two_folders_is_numbered(clean, client, root):
     assert [s["name"] for s in view(client, d)["samples"]] == ["S1", "S1#2"]
 
 
-def test_scan_records_agreed_facts_as_measured_but_not_over_the_persons_word(clean, client, root):
-    d = draft(client)
-    decisions.import_goal(d, Goal.model_validate(example_mapping()), who="ana")
-    tick(client, d, pairs(root / "liver", "L01", "L02"))
-    scanning.scan(d, who="ana")
-    assert view(client, d)["scan"]["state"] == "done", view(client, d)["scan"]
-    from mendel_api.models import PipelineObservation
-    from sqlalchemy import select
-
-    with session_scope() as db:
-        measured = set(db.scalars(select(PipelineObservation.subject).where(
-            PipelineObservation.draft_id == d, PipelineObservation.origin == "measured")))
-    assert "quality_encoding" in measured, "what nobody said is recorded as measured"
-    # The goal already says these: the person's word stands over the measurement.
-    assert not measured & {"read_length", "paired"}
-
-
 def test_scan_reads_at_most_head_bytes_per_file(clean, client, root, monkeypatch):
     d = draft(client)
     folder = root / "big"
@@ -408,3 +391,27 @@ def test_a_scan_that_cannot_be_queued_says_so_rather_than_scanning_forever(clean
     d = draft(client)
     got = tick(client, d, pairs(root / "a", "SA")).json()
     assert got["scan"]["state"] == "failed" and "could not start" in got["scan"]["error"]
+
+
+def test_changing_the_folders_changes_the_facts(clean, client, root):
+    """Checkpoint A, finding 4: facts measured on data no longer ticked do not stay."""
+    d = draft(client)
+    tick(client, d, pairs(root / "reads", "L01"))
+    scanning.scan(d, who="ana")
+    assert {f.subject for f in decisions.read(d).facts} >= {"paired", "read_length"}
+    assert [i.type_id for i in decisions.read(d).inputs] == ["fastq.reads"]
+    empty = root / "empty"
+    empty.mkdir()
+    tick(client, d, empty)
+    scanning.scan(d, who="ana")
+    assert decisions.read(d).facts == [] and decisions.read(d).inputs == []
+
+
+def test_the_persons_word_stands_over_what_the_data_measured(clean, client, root):
+    d = draft(client)
+    decisions.import_goal(d, Goal.model_validate(example_mapping()), who="ana")
+    tick(client, d, pairs(root / "reads", "L01"))
+    scanning.scan(d, who="ana")
+    facts = {f.subject: f for f in decisions.read(d).facts}
+    assert facts["read_length"].origin.value == "person_said"
+    assert facts["quality_encoding"].origin.value == "measured"

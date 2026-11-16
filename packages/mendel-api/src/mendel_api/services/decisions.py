@@ -386,61 +386,78 @@ def retain_fact(draft_id, subject, *, who, expected_revision=None):
 
 
 def read(draft_id):
+    """The draft's decisions, **with what its data measured beside them** (#511): facts about the
+    data are derived from `analysis_data` at every read, never logged (`services.data.facts`)."""
     with session_scope() as db:
         _draft(db, draft_id)
-        return Decisions(
-            inputs=[
-                InputDecision(
-                    key=s.subject_key,
-                    type_id=r.type_id,
-                    name=r.name,
-                    states=r.states,
-                    present=r.present,
-                    origin=r.origin,
-                    units=r.units,
-                    table=r.table,
-                )
-                for s, r in _current(db, draft_id, "input")
-            ],
-            wants=[
-                WantDecision(
-                    type_id=r.type_id,
-                    states=r.states,
-                    present=r.present,
-                    states_order=r.states_order,
-                )
-                for s, r in _current(db, draft_id, "want")
-            ],
-            facts=[
-                _fact(_observation(db, r.observation_id), s.subject_key)
-                for s, r in _current(db, draft_id, "fact")
-            ],
-            producers=[
-                ProducerChoice(site=Site(type_id=r.type_id, states=r.states), contract=r.contract,
-                               **_authored(r))
-                for s, r in _current(db, draft_id, "producer")
-            ],
-            parameters=[
-                ParameterChoice(name=r.name, value=r.value, **_authored(r))
-                for s, r in _current(db, draft_id, "parameter")
-            ],
-            roles=[RoleChoice(role=r.role, absent=r.absent)
-                   for s, r in _current(db, draft_id, "role")],
-            exclusions=[
-                ExclusionChoice(site=Site(type_id=r.type_id, states=r.states),
-                                contract=r.contract, excluded=r.excluded)
-                for s, r in _current(db, draft_id, "exclusion")
-            ],
-            sources=[SourceChoice(consumer=r.consumer, port=r.port, producer=r.producer)
-                     for s, r in _current(db, draft_id, "source")],
-            optional_inputs=[
-                OptionalInputChoice(contract=r.contract, port=r.port,
-                                    state=InputState(r.state) if r.state else None)
-                for s, r in _current(db, draft_id, "optional_input")
-            ],
-            wholes=[WholeChoice(contract=r.contract, whole=r.whole)
-                    for s, r in _current(db, draft_id, "whole")],
-        )
+        return _with_data(db, draft_id, _decided(db, draft_id))
+
+
+def _with_data(db, draft_id, decided):
+    from mendel_api.models import AnalysisData
+    from mendel_api.services.data.facts import merge
+
+    data = db.get(AnalysisData, draft_id)
+    if data is None or not data.samples:
+        return decided
+    facts, inputs = merge(decided.facts, decided.inputs, list(data.samples))
+    return decided.model_copy(update={"facts": facts, "inputs": inputs})
+
+
+def _decided(db, draft_id):
+    return Decisions(
+        inputs=[
+            InputDecision(
+                key=s.subject_key,
+                type_id=r.type_id,
+                name=r.name,
+                states=r.states,
+                present=r.present,
+                origin=r.origin,
+                units=r.units,
+                table=r.table,
+            )
+            for s, r in _current(db, draft_id, "input")
+        ],
+        wants=[
+            WantDecision(
+                type_id=r.type_id,
+                states=r.states,
+                present=r.present,
+                states_order=r.states_order,
+            )
+            for s, r in _current(db, draft_id, "want")
+        ],
+        facts=[
+            _fact(_observation(db, r.observation_id), s.subject_key)
+            for s, r in _current(db, draft_id, "fact")
+        ],
+        producers=[
+            ProducerChoice(site=Site(type_id=r.type_id, states=r.states), contract=r.contract,
+                           **_authored(r))
+            for s, r in _current(db, draft_id, "producer")
+        ],
+        parameters=[
+            ParameterChoice(name=r.name, value=r.value, **_authored(r))
+            for s, r in _current(db, draft_id, "parameter")
+        ],
+        roles=[RoleChoice(role=r.role, absent=r.absent)
+               for s, r in _current(db, draft_id, "role")],
+        exclusions=[
+            ExclusionChoice(site=Site(type_id=r.type_id, states=r.states),
+                            contract=r.contract, excluded=r.excluded)
+            for s, r in _current(db, draft_id, "exclusion")
+        ],
+        sources=[SourceChoice(consumer=r.consumer, port=r.port, producer=r.producer)
+                 for s, r in _current(db, draft_id, "source")],
+        optional_inputs=[
+            OptionalInputChoice(contract=r.contract, port=r.port,
+                                state=InputState(r.state) if r.state else None)
+            for s, r in _current(db, draft_id, "optional_input")
+        ],
+        wholes=[WholeChoice(contract=r.contract, whole=r.whole)
+                for s, r in _current(db, draft_id, "whole")],
+    )
 
 
 def _authored(revision) -> dict:
