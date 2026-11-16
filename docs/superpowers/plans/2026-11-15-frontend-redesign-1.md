@@ -390,7 +390,7 @@ Done, outside the original plan, from Checkpoint A's finding 4 and the operator'
     - `POST /api/data/{id}/fixes`, body `Fix`. The fix is applied and recorded with who made it.
   - `AnalysisDataView` gains `rule`, `rule_result` (counts and examples) and `checks`.
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `test_default_rule_matches_samples_of`
   - `test_pattern_sample_read_pairs_and_counts_unfit`
   - `test_pattern_without_read_makes_single_file_samples`
@@ -404,11 +404,11 @@ Done, outside the original plan, from Checkpoint A's finding 4 and the operator'
   - `test_leave_out_fix_keeps_the_sample_listed_but_out`
   - `test_a_persons_rule_is_tagged_you_and_unconfirmed_until_confirm`
   - `test_changing_the_rule_does_not_reread_files`
-- [ ] **Step 2:** Run the tests. Expected: FAIL.
-- [ ] **Step 3:** Implement. With `pattern=None`, `apply_rule` delegates to `samples_of`, so the two can never
+- [x] **Step 2:** Run the tests. Expected: FAIL.
+- [x] **Step 3:** Implement. With `pattern=None`, `apply_rule` delegates to `samples_of`, so the two can never
   disagree.
-- [ ] **Step 4:** Run `tests/data/`. Expected: PASS.
-- [ ] **Step 5:** Commit: `feat(mendel-api): the reading rule, checks and fixes (#511)`.
+- [x] **Step 4:** Run `tests/data/`. Expected: PASS.
+- [x] **Step 5:** Commit: `feat(mendel-api): the reading rule, checks and fixes (#511)`.
 
 ### Task 6: References, columns and the Overview summary
 

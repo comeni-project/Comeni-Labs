@@ -3714,6 +3714,19 @@ MI0222:
   explanation: |
     Data lists and reads files only under configured folders. With none configured there is
     nothing it may read, and it says so rather than reading anywhere.
+MI0223:
+  emitted_by: api
+  concern: workflow
+  says: "a reading rule is not a pattern Comeni can read"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Write the file name with `{sample}` where the sample's name is, `{read}` where 1 or 2 is,
+    and the rest as it is: `{sample}_R{read}.fastq.gz`. Name `{sample}` once, `{read}` at most
+    once, and no other `{…}`.
+  explanation: |
+    A reading rule says how a folder's file names become samples. It is matched against each
+    whole file name; a file it does not fit is listed as not fitting, never dropped silently.
 MI0300:
   emitted_by: api
   concern: settings

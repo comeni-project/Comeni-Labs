@@ -221,6 +221,7 @@ decline to curate one.
 | `MI0208` | that value does not fit what this measurement can be |
 | `MI0219` | there is no pipeline to compile yet |
 | `MI0220` | the builder's turn did not run to the end |
+| `MI0223` | a reading rule is not a pattern Comeni can read |
 | `MI0500` | a rule proposal cannot be approved as it stands |
 | `MI0501` | no model is set to propose rules |
 

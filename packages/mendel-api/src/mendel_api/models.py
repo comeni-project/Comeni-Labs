@@ -806,6 +806,12 @@ class AnalysisData(Base):
     scan: Mapped[Any] = mapped_column(Json, nullable=False, default=dict)
     files: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
     samples: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    rule: Mapped[Any] = mapped_column(Json, nullable=True)
+    """How file names are read into samples (`services.data.rule.Rule`); `None` is the default."""
+    fixes: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    """Fixes applied on every scan, in order (`Fix`): a mate used, a sample left out."""
+    unfit: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    """File names the rule did not fit, from the last scan."""
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0,
                                           server_default=text("0"))
     updated_at: Mapped[datetime | None] = mapped_column(

@@ -16,8 +16,9 @@ from mendel_api.authoring.types import SampleFact
 from mendel_api.db import session_scope
 from mendel_api.models import AnalysisData
 from mendel_api.services import inspect, registry
-from mendel_api.services.data import pairing
+from mendel_api.services.data import rule
 from mendel_api.services.data.roots import inside_roots
+from mendel_api.services.data.rule import Fix, Rule
 from mendel_api.services.data.types import DataSample, Scan, ScannedFile
 from mendel_api.settings import settings
 
@@ -88,12 +89,15 @@ def scan(draft_id: str, *, who: str, revision: int | None = None) -> None:
                 return
             folders = list(row.folders or [])
             revision = row.revision if revision is None else revision
-        _run(draft_id, folders, revision, who)
+            reading = Rule(**row.rule) if row.rule else Rule()
+            fixes = [Fix(**f) for f in row.fixes or []]
+        _run(draft_id, folders, revision, who, reading, fixes)
     except _Stale:
         return
 
 
-def _run(draft_id: str, folders: list[str], revision: int, who: str) -> None:
+def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Rule,
+         fixes: list[Fix]) -> None:
     try:
         groups = _files(folders)
         total = sum(len(g) for g in groups)
@@ -102,9 +106,18 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str) -> None:
         files: list[ScannedFile] = []
         samples: list[DataSample] = []
         taken: set[str] = set()
+        unfit: list[str] = []
+        left_out = {f.sample for f in fixes if f.kind == "leave_out"}
         done = 0
+        examples: list[tuple[str, str, str | None]] = []
         for paths in groups:
-            for name, indexes in pairing.pair([p.name for p in paths], taken):
+            grouped = rule.group([p.name for p in paths], reading, fixes, taken)
+            examples += grouped.examples[:3 - len(examples)]
+            for index in grouped.unfit:
+                unfit.append(paths[index].name)
+                files.append(ScannedFile(path=str(paths[index]), name=paths[index].name,
+                                         size=paths[index].stat().st_size))
+            for name, indexes in grouped.samples:
                 chosen = [paths[i] for i in indexes]
                 try:
                     sizes = tuple(p.stat().st_size for p in chosen)
@@ -115,7 +128,7 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str) -> None:
                 del heads
                 samples.append(DataSample(
                     name=name, files=[str(p) for p in chosen], outcome=found.outcome,
-                    type_id=found.type_id,
+                    type_id=found.type_id, left_out=name in left_out,
                     facts=[SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage)
                            for f in found.facts if f.undetermined is None]))
                 files += [ScannedFile(path=str(p), name=p.name, size=s, sample=name,
@@ -125,13 +138,14 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str) -> None:
                 _save(draft_id, revision,
                       scan=Scan(state="scanning", done=done, total=total).model_dump())
         _save(draft_id, revision, files=[f.model_dump() for f in files],
-              samples=[s.model_dump(mode="json") for s in samples])
-        _save(draft_id, revision, scan=Scan(state="done", done=done, total=total).model_dump())
+              samples=[s.model_dump(mode="json") for s in samples], unfit=unfit)
+        _save(draft_id, revision, scan=Scan(state="done", done=done, total=total,
+                                            examples=examples).model_dump())
     except _Stale:
         raise
     except Exception as failed:  # noqa: BLE001 — a scan says what went wrong, never hangs
         # What another selection found is not this one's: a failed scan shows nothing found.
-        _save(draft_id, revision, files=[], samples=[],
+        _save(draft_id, revision, files=[], samples=[], unfit=[],
               scan=Scan(state="failed", error=str(failed)[:500]).model_dump())
 
 

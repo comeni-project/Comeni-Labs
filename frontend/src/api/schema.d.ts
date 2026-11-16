@@ -1000,6 +1000,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data/{draft_id}/rule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Read the files into samples by a pattern, and scan again
+         * @description `{sample}` and `{read}` in a file name; `null` returns to the default pairing. The person's
+         *     rule is theirs and unconfirmed until **Looks right**.
+         */
+        put: operations["setReadingRule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/{draft_id}/rule/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The reading rule looks right */
+        post: operations["confirmReadingRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/data/{draft_id}/fixes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use a file as a sample's mate, or leave a sample out; then scan again
+         * @description A fix is kept and applied on every scan, so it survives the next one.
+         */
+        post: operations["applyDataFix"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/forge/catalogue": {
         parameters: {
             query?: never;
@@ -1676,7 +1734,8 @@ export interface components {
              * @default {
              *       "state": "idle",
              *       "done": 0,
-             *       "total": 0
+             *       "total": 0,
+             *       "examples": []
              *     }
              */
             scan: components["schemas"]["Scan"];
@@ -1695,6 +1754,31 @@ export interface components {
              * @default 0
              */
             revision: number;
+            /**
+             * @default {
+             *       "origin": "rule",
+             *       "confirmed": false
+             *     }
+             */
+            rule: components["schemas"]["Rule"];
+            /**
+             * @default {
+             *       "samples": 0,
+             *       "unfit": 0,
+             *       "examples": []
+             *     }
+             */
+            rule_result: components["schemas"]["RuleResult"];
+            /**
+             * Checks
+             * @default []
+             */
+            checks: components["schemas"]["Check"][];
+            /**
+             * Fixes
+             * @default []
+             */
+            fixes: components["schemas"]["Fix"][];
         };
         /**
          * AnswerQuestion
@@ -2236,6 +2320,20 @@ export interface components {
             states: string[];
             /** Ports */
             ports: string[];
+        };
+        /** Check */
+        Check: {
+            /** Sample */
+            sample: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "missing_mate" | "odd_fact";
+            /** Detail */
+            detail: string;
+            /** Fixes */
+            fixes: components["schemas"]["Fix"][];
         };
         /** ChoiceOption */
         ChoiceOption: {
@@ -3026,6 +3124,26 @@ export interface components {
             /** Reads It */
             reads_it: string[];
         };
+        /** Fix */
+        Fix: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "use_file" | "leave_out";
+            /** Sample */
+            sample: string;
+            /** File */
+            file?: string | null;
+            /**
+             * By
+             * @default you
+             * @enum {string}
+             */
+            by: "you" | "ai";
+            /** Reason */
+            reason?: string | null;
+        };
         /** Folder */
         Folder: {
             /** Name */
@@ -3778,6 +3896,11 @@ export interface components {
             /** Because */
             because: string;
         };
+        /** Pattern */
+        Pattern: {
+            /** Pattern */
+            pattern: string | null;
+        };
         /**
          * Pinned
          * @description A value in `.env` beats every layer. The variable is named so a person knows where to go.
@@ -4346,6 +4469,46 @@ export interface components {
             /** Makes */
             makes: string[];
         };
+        /** Rule */
+        Rule: {
+            /** Pattern */
+            pattern?: string | null;
+            /**
+             * Origin
+             * @default rule
+             * @enum {string}
+             */
+            origin: "rule" | "you" | "ai";
+            /**
+             * Confirmed
+             * @default false
+             */
+            confirmed: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** RuleResult */
+        RuleResult: {
+            /**
+             * Samples
+             * @default 0
+             */
+            samples: number;
+            /**
+             * Unfit
+             * @default 0
+             */
+            unfit: number;
+            /**
+             * Examples
+             * @default []
+             */
+            examples: [
+                string,
+                string,
+                string | null
+            ][];
+        };
         /** RuleRow */
         RuleRow: {
             /** When */
@@ -4415,6 +4578,15 @@ export interface components {
             total: number;
             /** Error */
             error?: string | null;
+            /**
+             * Examples
+             * @default []
+             */
+            examples: [
+                string,
+                string,
+                string | null
+            ][];
         };
         /**
          * ScannedFile
@@ -6789,6 +6961,134 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Folders"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    setReadingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Pattern"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    confirmReadingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisDataView"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    applyDataFix: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Fix"];
             };
         };
         responses: {

@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from mendel_api.authoring.types import SampleFact
+from mendel_api.services.data.rule import Check, Fix, Rule
 
 
 class ScannedFile(BaseModel):
@@ -37,6 +38,14 @@ class Scan(BaseModel):
     done: int = 0
     total: int = 0
     error: str | None = None
+    examples: list[tuple[str, str, str | None]] = []
+    """The first three files the rule fitted: file, sample, read."""
+
+
+class RuleResult(BaseModel):
+    samples: int = 0
+    unfit: int = 0
+    examples: list[tuple[str, str, str | None]] = []
 
 
 class AnalysisDataView(BaseModel):
@@ -49,6 +58,10 @@ class AnalysisDataView(BaseModel):
     samples: list[DataSample] = []
     files: int = 0
     revision: int = 0
+    rule: Rule = Rule()
+    rule_result: RuleResult = RuleResult()
+    checks: list[Check] = []
+    fixes: list[Fix] = []
 
 
 class FilesPage(BaseModel):
