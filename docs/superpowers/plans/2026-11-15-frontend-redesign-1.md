@@ -744,19 +744,19 @@ Board: `Run.dc.html`.
     - the results so far
     - This machine
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `run is disabled while bindings report missing, and each links to data`
   - `sending posts the bindings' params to wiener, with no form`
   - `selected step survives switching graph to timeline`
   - `clicking a gantt bar selects that step's tasks`
   - `the rail lists only this analysis's runs`
-- [ ] **Step 2:** Run `npx vitest run src/analysis/run`. Expected: FAIL.
-- [ ] **Step 3:** Implement against the board.
-- [ ] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
+- [x] **Step 2:** Run `npx vitest run src/analysis/run`. Expected: FAIL.
+- [x] **Step 3:** Implement against the board.
+- [x] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
 - [ ] **Step 5:** Walk `docs/how-to/development/demo-walk.md` in the browser on the dev stack, beats 1–8, after
   `python3 tools/demo_data.py`. This is the spec's success path from end to end, and the demo's rehearsal. Fix
   the script where the product is right and the script is wrong; file an issue where the product is wrong.
-- [ ] **Step 6:** Commit: `feat(frontend): Run in the analysis frame, inputs from Data (#511, #508)`.
+- [x] **Step 6:** Commit: `feat(frontend): Run in the analysis frame, inputs from Data (#511, #508)`.
 
 **→ Checkpoint D.**
 
