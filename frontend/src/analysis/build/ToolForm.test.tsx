@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AnsweredStep } from "../../build/useBuilder";
-import { ToolForm } from "./ToolForm";
+import { type InputFrom, ToolForm } from "./ToolForm";
 
 const setting = (name: string, extra: Record<string, unknown> = {}) => ({
   name, value: null, via: "ext", tier: 2, reason: "", because: "", axis_reason: "", optional: false,
@@ -35,8 +35,9 @@ function form(over: Partial<Parameters<typeof ToolForm>[0]> = {}) {
     step: STEP, aiChoices: [], inputs: [
       { port: "reads", from: { data: "Samples", count: 24, href: "/a/d1/data/samples" } },
       { port: "index", from: { step: "STAR_GENOMEGENERATE" } },
-    ],
-    onSet: vi.fn(), onAsk: vi.fn(), onAccept: vi.fn(), ...over,
+    { port: "gtf", from: { none: true } },
+    ] as InputFrom[],
+    onSet: vi.fn(), onAsk: vi.fn(), onAccept: vi.fn(), onConnect: vi.fn(), ...over,
   };
   render(<MemoryRouter><ToolForm {...props} /></MemoryRouter>);
   return props;
@@ -136,4 +137,11 @@ describe("an open value, in plain words (issue 384)", () => {
     fireEvent.blur(box);
     expect(props.onSet).toHaveBeenCalledExactlyOnceWith("outSAMattrRGline", "ID:ab");
   });
+});
+
+it("an input nothing feeds offers Connect", () => {
+  const props = form();
+  const inputs = screen.getByRole("group", { name: "Inputs" });
+  fireEvent.click(within(inputs).getByRole("button", { name: "Connect gtf" }));
+  expect(props.onConnect).toHaveBeenCalledWith("gtf");
 });

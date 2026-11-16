@@ -11,7 +11,8 @@ from mendel_api.services import build
 def _placed(graph, steps):
     neutral = Graph(
         nodes=tuple(Node(s.id, tuple(p.name for p in s.ports if p.side == "in"),
-                         tuple(p.name for p in s.ports if p.side == "out"), s.tier) for s in steps),
+                         tuple(p.name for p in s.ports if p.side == "out"), s.tier,
+                         hangs=s.measures) for s in steps),
         edges=tuple(Edge(e.from_node, e.from_port, e.to_node, e.to_port) for e in graph.edges),
     )
     return {n.id: {"x": n.x, "y": n.y} for n in layout_of(neutral).nodes}

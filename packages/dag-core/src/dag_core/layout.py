@@ -9,22 +9,22 @@ package tests.
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from dag_core.graph import Graph
 
 NODE_W = 172
-NODE_H = 112
+NODE_H = 136
 """Node width, and the height of a node with one or two ports a side, shared with the browser."""
 
 RANK_PITCH = 224
 """Distance between ranks along the left-to-right flow."""
 
-SIBLING_PITCH = 170
+SIBLING_PITCH = 194
 """Minimum distance between nodes that share a rank."""
 
-HEAD_H = 28
-"""Height of the node header in the browser canvas."""
+HEAD_H = 44
+"""Height of the node header in the browser canvas: what the step does, then its tool."""
 
 PORT_ROW = 19
 """Height of a port row in the browser canvas."""
@@ -266,6 +266,34 @@ def _port_offset(index: int) -> int:
     return SPINE + index * PORT_GAP
 
 
+HANG_GAP = 48
+"""Between a step and the measuring step hung under it."""
+
+HANG_REACH = 14
+"""How far a hung step's wire runs out before it turns down, and in before its port."""
+
+
+def _hang(graph: Graph, placed: tuple[Placed, ...]) -> tuple[Placed, ...]:
+    """Move each measuring step under the one step it reads, in that step's column, and push
+    down whatever shared the column below it (#517)."""
+    by_id = {node.id: node for node in placed}
+    for node in sorted((n for n in graph.nodes if n.hangs), key=lambda n: n.id):
+        sources = sorted({e.from_node for e in graph.edges if e.to_node == node.id})
+        if len(sources) != 1 or sources[0] not in by_id:
+            continue
+        above = by_id[sources[0]]
+        hung = replace(by_id[node.id], rank=above.rank, x=above.x,
+                       y=above.y + above.height + HANG_GAP)
+        by_id[node.id] = hung
+        bottom = hung.y + hung.height + SIBLING_GAP
+        for other in sorted((n for n in by_id.values() if n.x == hung.x and n.id != hung.id
+                             and n.y >= above.y + above.height), key=lambda n: n.y):
+            if other.y < bottom:
+                by_id[other.id] = replace(other, y=bottom)
+            bottom = by_id[other.id].y + by_id[other.id].height + SIBLING_GAP
+    return tuple(by_id[n.id] for n in placed)
+
+
 def of(graph: Graph = None) -> Layout:
     """Lay out an acyclic graph with deterministic integer coordinates."""
     ins, outs = _ports_of(graph)
@@ -288,6 +316,7 @@ def of(graph: Graph = None) -> Layout:
         # Keep tuple order stable as well as coordinates.
         for node in sorted(graph.nodes, key=lambda n: (rank[n.id], order[n.id], n.id))
     )
+    placed = _hang(graph, placed)
     by_id = {node.id: node for node in placed}
 
     wires = []
@@ -314,6 +343,14 @@ def of(graph: Graph = None) -> Layout:
             if start.y == end.y
             else (start, Point(mid, start.y), Point(mid, end.y), end)
         )
+        if end.x <= start.x:
+            # A step hung under the one it reads: out to the right, down past its source, back
+            # along the gap between them, and into its port from the left.
+            below = (source.y + source.height + target.y) // 2
+            out, back = start.x + HANG_REACH, end.x - HANG_REACH
+            points = (start, Point(out, start.y), Point(out, below),
+                      Point(back, below), Point(back, end.y), end)
+            mid = start.x + HANG_REACH
         wires.append(
             Wire(
                 from_node=edge.from_node,

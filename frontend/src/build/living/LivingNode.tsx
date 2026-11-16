@@ -34,6 +34,7 @@ export function LivingNode({
   takes,
   samples,
   version,
+  does,
   className,
   delay,
   onAnimationEnd,
@@ -65,6 +66,8 @@ export function LivingNode({
   samples?: number;
   /** The tool's version, from its contract id. */
   version?: string;
+  /** What the step does, in a few words (its role's label): the node's first line. */
+  does?: string | null;
   /** A motion class for a domain event (`motion.ts`), and the callback when it has played. */
   className?: string;
   /** When this step's reveal starts, for Spawn's staged arrival. */
@@ -148,16 +151,13 @@ export function LivingNode({
         }),
       )}
       <span
-        className="flex items-center gap-2 px-[10px] w-full shrink-0"
+        className="flex flex-col justify-center gap-[2px] px-[10px] w-full shrink-0"
         style={{ height: HEAD_H, borderBottom: "1px solid var(--node-rule)" }}
       >
-        <span className="font-data text-[11px] font-semibold text-ink truncate" data-testid={`node-name-${id}`}>
-          {processName(id)}
-        </span>
-        {version && <span className="font-data text-[10px] text-ink-3 shrink-0">{version}</span>}
-        {perItem && samples !== undefined && (
-          <span className="font-data text-[10px] font-semibold text-now-ink shrink-0">×{samples}</span>
-        )}
+       {/* What the step does, then the tool that does it. */}
+       <span className="flex items-center gap-2 min-w-0">
+        <span className="text-[12.5px] font-semibold text-ink truncate"
+              data-testid={does ? undefined : `node-name-${id}`}>{does ?? processName(id)}</span>
         {aiChoice && (
           <span data-testid={`node-ai-${id}`} title="Chosen by the AI and not reviewed yet: open the step to review it"
                 className="shrink-0 px-[4px] rounded-control text-[9.5px] font-semibold leading-[15px]"
@@ -177,6 +177,19 @@ export function LivingNode({
                 className={`${reviewState === "again" || takes ? "" : "ml-auto"} w-[8px] h-[8px] rounded-full shrink-0`}
                 style={{ background: "var(--needs-you)" }} />
         )}
+       </span>
+       <span className="flex items-center gap-2 min-w-0">
+        {/* Without a label, the first line is already the tool's name. */}
+        {does && (
+          <span className="font-data text-[10.5px] text-ink-2 truncate" data-testid={`node-name-${id}`}>
+            {processName(id)}
+          </span>
+        )}
+        {version && <span className="font-data text-[10px] text-ink-3 shrink-0">{version}</span>}
+        {perItem && samples !== undefined && (
+          <span className="ml-auto font-data text-[10px] font-semibold text-now-ink shrink-0">×{samples}</span>
+        )}
+       </span>
       </span>
       {rows.map(([input, output], i) => (
         <span key={`row-${i}`} data-port-row

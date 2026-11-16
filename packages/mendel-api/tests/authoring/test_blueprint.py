@@ -70,9 +70,9 @@ def test_the_blueprint_is_laid_out_with_each_steps_declared_ports(monkeypatch):
     seen = {}
     real = layout.of
 
-    def spy(ir, ports=None):
+    def spy(ir, ports=None, hangs=frozenset()):
         seen["ports"] = ports
-        return real(ir, ports=ports)
+        return real(ir, ports=ports, hangs=hangs)
 
     monkeypatch.setattr(bp.layout, "of", spy)
     blueprint, _ = bp.resolve(_rnaseq())
@@ -90,11 +90,12 @@ def test_the_rnaseq_spine_is_revealed_in_layout_order(spine):
     # the run (#217); nothing feeds STAR from them on the graph, the fact travels on `meta`.
     # The measurement comes before the index whose setting it decides (issue 496).
     # Laid out with each step's declared ports (plan 2 review), the trimmer sits with the
-    # genome's own steps in rank 0; the measurement still precedes the index it decides.
+    # genome's own steps in rank 0; the measurement still precedes the index it decides, and,
+    # hung under the step it reads (#517), comes straight after it.
     assert spine.order == [
         "samtools_faidx",
-        "trimgalore",
         "measure_genome_length_fai",
+        "trimgalore",
         "star_genomegenerate",
         "star_align",
         "samtools_sort",

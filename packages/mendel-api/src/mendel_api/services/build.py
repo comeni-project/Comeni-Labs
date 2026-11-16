@@ -355,6 +355,10 @@ class StepView(BaseModel):
     id: str
     process: str
     contract_id: str
+    does: str | None = None
+    """What the step does, in a few words: its first role's label (*Align reads*)."""
+    measures: bool = False
+    """Its job is measurement: it reads a fact for another step, and hangs under its source."""
     runs: Literal["once", "per_item"] = "once"
     """Whether this step runs once for the run, or once per item — `runs 12×` against `runs once`.
 
@@ -541,6 +545,8 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
 
     return [
         StepView(id=step.id, process=step.process, contract_id=step.module.contract_id,
+                 does=_does(layers, step.module.contract_id),
+                 measures=_measures(layers, step.module.contract_id),
                  tier=int(step.why.tier), runs=runs[step.id], reason=step.why.reason,
                  ports=ports_of(step.id),
                  checked_per_sample=[rule.says for rule in step.sample_rules],
@@ -567,6 +573,18 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
         for node_id in (ids if ids is not None else list(by_id))
         for step in [by_id[node_id]]
     ]
+
+
+def _does(layers, contract_id: str) -> str | None:
+    """The first of a contract's roles that has a label, in the stack's words."""
+    contract = layers.routing.get(contract_id)
+    labels = layers.roles.labels
+    return next((labels[r] for r in (contract.roles if contract else []) if r in labels), None)
+
+
+def _measures(layers, contract_id: str) -> bool:
+    contract = layers.routing.get(contract_id)
+    return contract is not None and "measurement" in contract.roles
 
 
 def _view(ir, pipeline, layers) -> BuiltPipeline:

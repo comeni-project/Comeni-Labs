@@ -56,7 +56,7 @@ describe("a step with many ports (issue 494)", () => {
                         positions={{ quast: { x: 0, y: 0 } }} steps={{ quast }} authors={{}}
                         selected={null} onSelect={vi.fn()} />);
     const node = screen.getByTestId("living-node-quast");
-    expect(node.style.height).toBe("199px");
+    expect(node.style.height).toBe("211px");
     const marks = Array.from(node.querySelectorAll<HTMLElement>("[data-port-mark]"));
     expect(marks).toHaveLength(9);
     for (const mark of marks) {
@@ -69,9 +69,9 @@ describe("a step with many ports (issue 494)", () => {
     expect(rows[0]).toHaveTextContent(/consensus.*results/);
     expect(rows[2]).toHaveTextContent(/gff.*report/);
     expect(rows[5]).toHaveTextContent(/^\s*<\s*reads\s*$/);
-    // Each row is centred on its own ports' anchor: 56 + 22 × index.
+    // Each row is centred on its own ports' anchor: 68 + 22 × index.
     expect(rows.map((r) => parseFloat(r.style.top) + parseFloat(r.style.height) / 2))
-      .toEqual([56, 78, 100, 122, 144, 166]);
+      .toEqual([68, 90, 112, 134, 156, 178]);
   });
 });
 

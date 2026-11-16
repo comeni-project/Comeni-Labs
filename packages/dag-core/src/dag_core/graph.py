@@ -17,6 +17,8 @@ class Node:
     outputs: tuple[str, ...] = ()
     tier: int = 0
     """Renderer metadata passed through unchanged on the placed node."""
+    hangs: bool = False
+    """It only measures a fact for another step: drawn under the step it reads (#517)."""
 
 
 @dataclass(frozen=True)

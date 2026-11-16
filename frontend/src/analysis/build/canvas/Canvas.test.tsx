@@ -11,7 +11,7 @@ const port = (name: string, type_id: string, side: "in" | "out", extra = {}) =>
 
 const STEPS = {
   ...FAKE_STEPS,
-  star_align: { ...FAKE_STEPS.star_align, ports: [
+  star_align: { ...FAKE_STEPS.star_align, does: "Align reads", ports: [
     port("reads", "fastq.reads", "in"), port("index", "genome.index.star", "in"),
     port("gtf", "annotation.gtf", "in", { optional: true, met: false }),
     port("bam", "alignment.bam", "out")] },
@@ -52,16 +52,28 @@ describe("the Build canvas", () => {
     expect(within(screen.getByTestId("living-node-samtools_sort")).getByText("all 24")).toBeTruthy();
   });
 
-  it("shows the tool's version under its name", () => {
+  it("a step says what it does, then its tool and version", () => {
     canvas();
-    expect(within(screen.getByTestId("living-node-star_align")).getByText("2.7.11b")).toBeTruthy();
+    const node = screen.getByTestId("living-node-star_align");
+    const does = within(node).getByText("Align reads");
+    const tool = within(node).getByTestId("node-name-star_align");
+    expect(does.compareDocumentPosition(tool) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(node).getByText("2.7.11b")).toBeTruthy();
+  });
+
+  it("an input several steps read draws as one shared trunk", () => {
+    canvas({ channels: [{ name: "gtf", param: "gtf", type_id: "annotation.gtf", grain: "study", count: null,
+                          states: [], ports: ["star_genomegenerate.fasta", "star_align.gtf"] }] as never });
+    expect(screen.getByTestId("trunk-gtf")).toBeTruthy();
+    expect(screen.getByText("gtf · shared")).toBeTruthy();
   });
 
   it("right-click on the empty canvas offers add step here", () => {
     const props = canvas();
     fireEvent.contextMenu(screen.getByTestId("canvas"), { clientX: 300, clientY: 200 });
     fireEvent.click(screen.getByRole("menuitem", { name: "Add step here" }));
-    expect(props.onAddHere).toHaveBeenCalled();
+    // Where on the drawing the step goes: the click, in canvas coordinates.
+    expect(props.onAddHere).toHaveBeenCalledWith({ x: expect.any(Number), y: expect.any(Number) });
     expect(screen.queryByRole("menu")).toBeNull();
   });
 });

@@ -25,6 +25,8 @@ class RoleDeclaration(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     id: str
+    label: str | None = Field(default=None, min_length=1, max_length=40)
+    """The job in a few words, as a step on the canvas names it: *Align reads*."""
     explain: str = Field(min_length=1, max_length=600)
 
 
@@ -34,6 +36,8 @@ class RoleVocabulary(BaseModel):
     names: frozenset[str]
     explains: dict[str, str] = {}
     """What each role means, by name."""
+    labels: dict[str, str] = {}
+    """Each role's short label, by name, where one is declared."""
 
     @staticmethod
     def kind() -> Kind[RoleDeclaration, str]:
@@ -48,7 +52,8 @@ class RoleVocabulary(BaseModel):
                     _role_name(role.id)
                 except ValidationError as exc:
                     raise ValueError(coded(
-                        "MD0302", f"{path}: a role is an `id` and an `explain`, not {entry!r}"
+                        "MD0302", f"{path}: a role is an `id`, an `explain` and an optional "
+                        f"`label`, not {entry!r}"
                     )) from exc
                 except ValueError as exc:
                     raise ValueError(coded("MD0302", f"{path}: {exc}")) from exc
@@ -71,7 +76,8 @@ class RoleVocabulary(BaseModel):
     @classmethod
     def of(cls, entries: Mapping[str, RoleDeclaration]) -> "RoleVocabulary":
         """The vocabulary a stack of role files adds up to."""
-        return cls(names=frozenset(entries), explains={k: r.explain for k, r in entries.items()})
+        return cls(names=frozenset(entries), explains={k: r.explain for k, r in entries.items()},
+                   labels={k: r.label for k, r in entries.items() if r.label})
 
     def check(self, contract_id: str, roles: Sequence[str]) -> None:
         """Refuse a contract naming a role nothing declares.

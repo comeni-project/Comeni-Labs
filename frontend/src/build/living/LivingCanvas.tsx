@@ -42,6 +42,9 @@ const LEGEND: [string, string][] = [
   ["settled", "var(--line-2)"], ["measured", "var(--measured)"], ["needs you", "var(--needs-you)"],
 ];
 
+/** How far a shared input runs as one line before its branches split off. */
+const TRUNK = 72;
+
 export function LivingCanvas({
   graph,
   positions,
@@ -63,6 +66,8 @@ export function LivingCanvas({
   beside = null,
   samples,
   onAddHere,
+  connect = null,
+  onConnected,
 }: {
   graph: DraftGraph;
   positions: Positions;
@@ -95,8 +100,11 @@ export function LivingCanvas({
   beside?: { node: string; content: React.ReactNode } | null;
   /** The analysis's kept samples, for ×N and *all N*. */
   samples?: number;
-  /** Right-click on the empty canvas: *Add step here*. */
-  onAddHere?: () => void;
+  /** Right-click on the empty canvas: *Add step here*, with where on the drawing it goes. */
+  onAddHere?: (at: Point) => void;
+  /** Open the port picker on this step's input (Connect, from the Step tab). */
+  connect?: { node: string; port: string } | null;
+  onConnected?: () => void;
 }) {
   const [here, setHere] = useState<{ x: number; y: number } | null>(null);
   const view = useView();
@@ -110,6 +118,13 @@ export function LivingCanvas({
   const [picking, setPicking] = useState<{ node: string; port: PortView; at: Point } | null>(null);
   const index = useCompatibility();
   const editable = onEdit !== undefined && !readOnly;
+  useEffect(() => {
+    if (!connect) return;
+    const port = steps[connect.node]?.ports.find((p) => p.side === "in" && p.name === connect.port);
+    const where = positions[connect.node];
+    if (port && where) setPicking({ node: connect.node, port, at: onScreen({ x: where.x - 356, y: where.y }) });
+    onConnected?.();
+  }, [connect, steps, positions, onConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** **Delete removes the selected step**, not while a field has focus — typing a value into a
    *  setting would delete the step being configured. */
@@ -315,7 +330,11 @@ export function LivingCanvas({
           {here && onAddHere && (
             <div className="step-beside absolute z-20" style={{ left: here.x, top: here.y }}>
               <StepMenu label="canvas menu" items={[{ id: "add", label: "Add step here" }]}
-                        onChoose={() => { setHere(null); onAddHere(); }} onClose={() => setHere(null)} />
+                        onChoose={() => {
+                          setHere(null);
+                          // The click, from the screen into the drawing's own coordinates.
+                          onAddHere({ x: (here.x - view.view.x) / view.view.k, y: (here.y - view.view.y) / view.view.k });
+                        }} onClose={() => setHere(null)} />
             </div>
           )}
           {beside && at[beside.node] && (
@@ -385,19 +404,33 @@ export function LivingCanvas({
     >
       <svg aria-hidden width={width} height={height}
            className="absolute left-0 top-0 overflow-visible pointer-events-none">
-        {sources.flatMap(({ channel, edge, feeds }) =>
-          feeds.map(([node, port]) => {
-            const tip = tipIn(node, port);
-            if (!tip) return null;
-            const flow: Flow =
-              gathers(node, port) ? "gather" : channel.grain === "sample" ? "many" : "one";
-            return (
-              <Flowline key={`src-${channel.name}-${node}-${port}`} testId={`flow-${channel.name}-${node}`}
-                        from={edge} to={tip} flow={flow}
-                        label={selected === node ? flowLabel(flow, channel.count ?? null) : undefined} />
-            );
-          }),
-        )}
+        {sources.flatMap(({ channel, edge, feeds }) => {
+          // **One trunk for an input several steps read** (#517): a single run out of the input,
+          // named, and each step's wire branching off its end.
+          const shared = feeds.length > 1;
+          const branch = shared ? { x: edge.x + TRUNK, y: edge.y } : edge;
+          return [
+            shared && (
+              <g key={`trunk-${channel.name}`} data-testid={`trunk-${channel.name}`}>
+                <line x1={edge.x} y1={edge.y} x2={branch.x} y2={branch.y} stroke="var(--port-line)" strokeWidth={2} />
+                <text x={edge.x + 4} y={edge.y - 6} className="font-data" fontSize={10} fill="var(--now-ink)">
+                  {channel.name} · shared
+                </text>
+              </g>
+            ),
+            ...feeds.map(([node, port]) => {
+              const tip = tipIn(node, port);
+              if (!tip) return null;
+              const flow: Flow =
+                gathers(node, port) ? "gather" : channel.grain === "sample" ? "many" : "one";
+              return (
+                <Flowline key={`src-${channel.name}-${node}-${port}`} testId={`flow-${channel.name}-${node}`}
+                          from={branch} to={tip} flow={flow}
+                          label={selected === node ? flowLabel(flow, channel.count ?? null) : undefined} />
+              );
+            }),
+          ];
+        })}
         {solid.map((edge) => {
           const from = tipOut(edge.from_node, edge.from_port);
           const to = tipIn(edge.to_node, edge.to_port);
@@ -476,6 +509,7 @@ export function LivingCanvas({
             takes={steps[id]?.takes_samples?.samples}
             samples={samples}
             version={steps[id]?.contract_id.split("@")[1]}
+            does={(steps[id] as { does?: string | null } | undefined)?.does}
             selected={selected === id}
             onSelect={() => {
               if (!readOnly && !drag.current?.travelled) onSelect(id);

@@ -14,12 +14,12 @@ describe("geometry the client owns", () => {
   });
 
   it("does not size a node at all", async () => {
-    // A node used to be sized from its declared port count. Every symbol is 172x112 now —
+    // A node used to be sized from its declared port count. Every symbol is 172x136 now —
     // `impl-geom` calls that load-bearing, because variable heights put a jog between every
     // pair and the main chain stops reading as a chain.
     const geometry = await import("./geometry");
     expect("heightFor" in geometry).toBe(false);
-    expect(geometry.NODE_H).toBe(112);
+    expect(geometry.NODE_H).toBe(136);
   });
 
   it("a straight run is two points, not four", () => {
@@ -79,5 +79,22 @@ describe("geometry the client owns", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("a wire into a step hung under its source (#517)", () => {
+  it("goes out right, down through the gap above the hung step, back, and in from the left", async () => {
+    const { elbow, SPINE } = await import("./geometry");
+    const start = { x: 172, y: 68 };
+    const end = { x: 0, y: 136 + 48 + SPINE };
+    const points = elbow(start, end);
+    expect(points[0]).toEqual(start);
+    expect(points[points.length - 1]).toEqual(end);
+    expect(points[1].x).toBeGreaterThan(start.x);
+    expect(points[points.length - 2].x).toBeLessThan(end.x);
+    // The run back crosses in the gap between the two steps, never through either.
+    const back = points[2].y;
+    expect(back).toBeGreaterThan(136);
+    expect(back).toBeLessThan(136 + 48);
   });
 });

@@ -5177,6 +5177,8 @@ export interface components {
             process: string;
             /** Contract Id */
             contract_id: string;
+            /** Does */
+            does?: string | null;
             /**
              * Runs
              * @default once

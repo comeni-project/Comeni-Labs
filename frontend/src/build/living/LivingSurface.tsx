@@ -11,6 +11,7 @@ import type { AuthoringSession, DraftGraph } from "../../api/types";
 import type { components } from "../../api/schema";
 import { AddStep } from "../../analysis/build/AddStep";
 import type { Positions } from "../geometry";
+import { idFor } from "../graphOps";
 import { type AnsweredStep, withTypedValues } from "../useBuilder";
 import type { AnswerValue } from "./AgentQuestion";
 import { ChatPanel } from "./ChatPanel";
@@ -82,6 +83,10 @@ export function LivingSurface({
     retry: false,
   });
   const kept = data.data?.samples?.filter((s) => !s.left_out).length;
+  // Where *Add step here* asked the next step to go, and the steps placed so.
+  const [addAt, setAddAt] = useState<{ x: number; y: number } | null>(null);
+  const [placed, setPlaced] = useState<Record<string, { x: number; y: number }>>({});
+  const [connect, setConnect] = useState<{ node: string; port: string } | null>(null);
 
   // **The server's frame, whole**: the visible graph, each step's recorded metadata, and the
   // channels that really enter. Nothing here re-derives or guesses any of it.
@@ -278,7 +283,7 @@ export function LivingSurface({
               reviews={reviews}
               aiChosen={aiChosen}
               channels={frame?.channels ?? []}
-              positions={{ ...session.placement, ...(frame?.placement as Positions | undefined) }}
+              positions={{ ...session.placement, ...(frame?.placement as Positions | undefined), ...placed }}
               steps={steps}
               authors={{}}
               selected={carded ?? (present(selected) ? selected : null)}
@@ -288,7 +293,9 @@ export function LivingSurface({
               onMenu={session.retired ? undefined : (node) => { setCardFor(null); setMenuFor(node); }}
               beside={beside}
               samples={kept || undefined}
-              onAddHere={session.retired ? undefined : () => setBrowsing(true)}
+              onAddHere={session.retired ? undefined : (at) => { setAddAt(at); setBrowsing(true); }}
+              connect={connect}
+              onConnected={() => setConnect(null)}
               footer={
                 <button type="button" data-testid="add-step" onClick={() => setBrowsing(true)}
                         className="px-[14px] py-[6px] rounded-button border border-line-2 bg-surface text-[13px]
@@ -300,8 +307,11 @@ export function LivingSurface({
             />
           </div>
           {browsing && (
-            <AddStep onAdd={(contract) => { onAddStep(contract); setBrowsing(false); }}
-                    onClose={() => setBrowsing(false)} />
+            <AddStep onAdd={(contract) => {
+                       if (addAt) setPlaced({ ...placed, [idFor(graph, contract)]: addAt });
+                       onAddStep(contract); setBrowsing(false); setAddAt(null);
+                     }}
+                     onClose={() => { setBrowsing(false); setAddAt(null); }} />
           )}
         </section>
 
@@ -309,9 +319,13 @@ export function LivingSurface({
                    step={chosen && steps[chosen] ? (
                      <>
                        <header className="flex flex-col gap-2 px-5 pt-4 pb-3">
-                         <h2 className="m-0 font-data text-[14px] font-semibold text-ink">{processName(chosen)}</h2>
-                         <span className="text-[12px] text-ink-3">
-                           {steps[chosen].runs === "per_item" ? "once per sample" : "once"}
+                         <h2 className="m-0 text-[16px] font-semibold text-ink">
+                           {steps[chosen].does ?? processName(chosen)}
+                         </h2>
+                         <span className="flex items-baseline gap-2 text-[12px] text-ink-3">
+                           {steps[chosen].does && <span className="font-data text-ink-2">{processName(chosen)}</span>}
+                           <span className="font-data">{steps[chosen].contract_id.split("@")[1]}</span>
+                           <span>· {steps[chosen].runs === "per_item" ? `once per sample${kept ? ` · ×${kept}` : ""}` : "once"}</span>
                          </span>
                          {!session.retired && (
                            <div className="flex gap-2">
@@ -348,7 +362,10 @@ export function LivingSurface({
                                    setTab("assistant"); setPane("chat");
                                    onSay(`About ${processName(chosen)}, the setting ${setting}: what should it be, and why?`);
                                  }}
-                                 onAccept={() => onReviewed(chosen)} />
+                                 onAccept={() => onReviewed(chosen)}
+                                 onConnect={session.retired ? undefined : (port) => {
+                                   setPane("canvas"); setConnect({ node: chosen, port });
+                                 }} />
                      </>
                    ) : (
                      <p className="m-0 px-5 py-6 text-[13px] text-ink-3">Pick a step on the canvas to see its settings.</p>

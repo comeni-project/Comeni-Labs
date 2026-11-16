@@ -106,11 +106,14 @@ def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Bluepri
     # as tall as its declared ports (#494), so its rank's next step must be placed below that.
     routing = registry.stack().routing
     declared = {}
+    measuring = set()
     for step in built.pipeline.steps:
         contract = routing.get(step.module.contract_id)
         declared[step.id] = ([p.name for p in contract.consumes],
                              [p.name for p in contract.produces])
-    placed = layout.of(built.ir, ports=declared)
+        if "measurement" in contract.roles:
+            measuring.add(step.id)
+    placed = layout.of(built.ir, ports=declared, hangs=measuring)
     order = _after_measurers(
         [node.id for node in sorted(placed.nodes, key=lambda n: (n.rank, n.order, n.id))],
         built.pipeline)

@@ -55,7 +55,28 @@ def test_a_tall_step_grows_and_its_siblings_make_room():
     many = Node("quast", inputs=tuple(f"in{i}" for i in range(6)), outputs=("report",))
     laid = of(Graph(nodes=(many, Node("other"))))
     quast, other = (next(n for n in laid.nodes if n.id == i) for i in ("quast", "other"))
-    assert quast.height == node_height(6) == 89 + 22 * 5
+    assert quast.height == node_height(6) == 101 + 22 * 5
     assert other.height == NODE_H
     top, below = sorted((quast, other), key=lambda n: n.y)
     assert below.y >= top.y + top.height + 58
+
+
+def test_a_measuring_step_hangs_under_the_step_it_reads():
+    """#517: a step that only measures a fact hangs under the step it reads, in that step's
+    column, rather than taking a rank of its own; what shared the column moves down for it."""
+    graph = Graph(
+        nodes=(Node("faidx", inputs=("fasta",), outputs=("fai",)),
+               Node("index", inputs=("fasta",), outputs=("index",)),
+               Node("measure", inputs=("data",), outputs=("genome_length",), hangs=True),
+               Node("align", inputs=("index",), outputs=("bam",))),
+        edges=(Edge("faidx", "fai", "measure", "data"), Edge("index", "index", "align", "index")),
+    )
+    laid = {n.id: n for n in of(graph).nodes}
+    faidx, measure = laid["faidx"], laid["measure"]
+    assert measure.x == faidx.x
+    assert measure.y >= faidx.y + faidx.height
+    for other in laid.values():
+        if other.id != "measure" and other.x == measure.x:
+            assert other.y + other.height <= measure.y or other.y >= measure.y + measure.height
+    [wire] = [w for w in of(graph).wires if w.to_node == "measure"]
+    assert wire.points[0].x == faidx.x + faidx.width and wire.points[-1].x == measure.x

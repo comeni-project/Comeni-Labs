@@ -49,7 +49,8 @@ def _declared(
     return ins, outs
 
 
-def graph_of(ir: PipelineIR, ports: Ports | None = None) -> Graph:
+def graph_of(ir: PipelineIR, ports: Ports | None = None,
+             hangs: set[str] | frozenset[str] = frozenset()) -> Graph:
     """The IR as a neutral graph: ids, ports and edges, plus the tier as the node's stripe."""
     ins, outs = _declared(ir, ports)
     return Graph(
@@ -59,6 +60,7 @@ def graph_of(ir: PipelineIR, ports: Ports | None = None) -> Graph:
                 inputs=tuple(ins.get(node.id, [])),
                 outputs=tuple(outs.get(node.id, [])),
                 tier=int(node.selection.tier),
+                hangs=node.id in hangs,
             )
             for node in ir.nodes
         ),
@@ -75,6 +77,8 @@ def graph_of(ir: PipelineIR, ports: Ports | None = None) -> Graph:
     )
 
 
-def of(ir: PipelineIR, ports: Ports | None = None) -> Layout:
-    """Lay out an IR. Pure, integer coordinates, stable under repetition."""
-    return _lay_out(graph_of(ir, ports))
+def of(ir: PipelineIR, ports: Ports | None = None,
+       hangs: set[str] | frozenset[str] = frozenset()) -> Layout:
+    """Lay out an IR. Pure, integer coordinates, stable under repetition. `hangs` names the
+    measuring steps, drawn under the step each reads (#517)."""
+    return _lay_out(graph_of(ir, ports, hangs))

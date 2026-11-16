@@ -21,7 +21,7 @@ type AiChoice = { what: string; because: string };
  *
  *  Inputs are **bindings, never paths**: an input reads another step's output or a Data table, and
  *  the form says which and links to it (invariant 15). */
-export function ToolForm({ step, aiChoices, inputs, onSet, onAsk, onAccept }: {
+export function ToolForm({ step, aiChoices, inputs, onSet, onAsk, onAccept, onConnect }: {
   step: AnsweredStep;
   aiChoices: AiChoice[];
   inputs: InputFrom[];
@@ -29,6 +29,8 @@ export function ToolForm({ step, aiChoices, inputs, onSet, onAsk, onAccept }: {
   onAsk: (setting: string) => void;
   /** The person accepts what the AI chose at this step. */
   onAccept: () => void;
+  /** Feed an input nothing feeds: pick a step that makes what it reads. */
+  onConnect?: (port: string) => void;
 }) {
   const [advanced, setAdvanced] = useState(false);
   const aiFor = (name: string) => aiChoices.find((c) => c.what.startsWith(`set ${name} to `));
@@ -47,7 +49,18 @@ export function ToolForm({ step, aiChoices, inputs, onSet, onAsk, onAccept }: {
             <div key={port} className="flex items-baseline gap-3 px-5 py-[7px]">
               <span className="font-data text-[12.5px] text-ink">{port}</span>
               {"step" in from ? <span className="text-[12.5px] text-ink-3">from {from.step}</span>
-                : "none" in from ? <span className="text-[12.5px] text-needs-you-ink">not connected</span>
+                : "none" in from ? (
+                  <>
+                    <span className="text-[12.5px] text-ink-3">not connected</span>
+                    {onConnect && (
+                      <button type="button" onClick={() => onConnect(port)} aria-label={`Connect ${port}`}
+                              className="ml-auto px-3 py-[3px] rounded-button border border-line bg-surface text-[12px]
+                                         font-medium text-ink cursor-pointer hover:bg-hover">
+                        Connect
+                      </button>
+                    )}
+                  </>
+                )
                 : <Link to={from.href} className="text-[12.5px] text-now-ink">
                     {from.count != null ? `${from.data} · ${from.count}` : from.data}
                   </Link>}

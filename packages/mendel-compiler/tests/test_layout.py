@@ -286,3 +286,11 @@ def test_producers_are_ordered_to_match_the_ports_they_feed(spine):
                         f"{b.from_node}->{target}.{b.to_port}"
                     )
     assert not crossings, "\n".join(sorted(set(crossings)))
+
+
+def test_a_step_named_as_hanging_is_drawn_under_what_it_reads(spine):
+    """#517: the caller names the measuring steps; the layout hangs each under its one source."""
+    sink = next(n.id for n in spine.nodes if not any(e.from_node == n.id for e in spine.edges))
+    [source] = {e.from_node for e in spine.edges if e.to_node == sink}
+    laid = {n.id: n for n in layout.of(spine, hangs={sink}).nodes}
+    assert laid[sink].x == laid[source].x and laid[sink].y > laid[source].y
