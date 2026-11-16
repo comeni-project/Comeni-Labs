@@ -58,4 +58,3 @@ The namespace is test support and must not be imported by production code.
 
 Helper fixtures keep scenario-specific cleanup where their starting states differ. Test files
 contain their behavior checks and small local setup. Repository paths come from `support.paths`;
-shape goldens stay in `golden/shapes/` regardless of where their tests are grouped.

@@ -258,9 +258,7 @@ decline to curate one.
 |---|---|
 | `MI0221` | a path is not inside a data folder this installation can read |
 | `MI0222` | no data folders are configured on this installation |
-| `MI0400` | a stored row is in an older shape than this server reads |
 | `MI0401` | a draft with a gate running cannot be deleted |
-| `MW0100` | a stored run row is in an older shape than this server reads |
 | `MW0101` | a run's parameters could not be written; nothing was queued |
 | `MW0102` | a run had no parameters to launch with, so it was failed rather than started empty |
 

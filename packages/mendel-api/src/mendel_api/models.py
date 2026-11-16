@@ -37,7 +37,6 @@ from mendel_api.authoring.types import (
 )
 from mendel_api.db import Base
 from mendel_api.invocations import Agent, InvocationPurpose, InvocationState
-from mendel_api.shape_versions import stamp
 from mendel_api.shapes import Json
 
 
@@ -106,7 +105,6 @@ class InstallationSetting(Base):
     """
 
     __tablename__ = "installation_setting"
-    shape_version: Mapped[int] = stamp("installation_setting")
 
     key: Mapped[str] = mapped_column(String(120), primary_key=True)
     value: Mapped[Any] = mapped_column(Json)
@@ -137,7 +135,6 @@ class PipelineDraft(Base):
     """
 
     __tablename__ = "pipeline_draft"
-    shape_version: Mapped[int] = stamp("pipeline_draft")
 
     decision_revision: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     confirmed_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -263,7 +260,6 @@ class AiInvocation(Base):
     """
 
     __tablename__ = "ai_invocation"
-    shape_version: Mapped[int] = stamp("ai_invocation")
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     agent: Mapped[str] = mapped_column(_one_of(Agent, 32, "agent"), index=True)
@@ -371,7 +367,6 @@ class PipelineAuthoringSession(Base):
     """
 
     __tablename__ = "pipeline_authoring_session"
-    shape_version: Mapped[int] = stamp("pipeline_authoring_session")
 
     retired: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     retirement_reason: Mapped[str | None] = mapped_column(
@@ -420,7 +415,6 @@ class PipelineAuthoringTurn(Base):
     """
 
     __tablename__ = "pipeline_authoring_turn"
-    shape_version: Mapped[int] = stamp("pipeline_authoring_turn")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     session_id: Mapped[str] = mapped_column(
@@ -500,7 +494,6 @@ class PipelineDecisionMigration(Base):
     """Frozen legacy provenance; an archive, never a current decision fallback."""
 
     __tablename__ = "pipeline_decision_migration"
-    shape_version: Mapped[int] = stamp("pipeline_decision_migration")
     draft_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True
     )
@@ -547,7 +540,6 @@ class CatalogueModule(Base):
     """
 
     __tablename__ = "catalogue_module"
-    shape_version: Mapped[int] = stamp("catalogue_module")
 
     source: Mapped[str] = mapped_column(String(32), primary_key=True)
     path: Mapped[str] = mapped_column(String(255), primary_key=True)
@@ -585,7 +577,6 @@ class ForgeAdaptation(Base):
     who decided what, and a later adaptation may depend on it."""
 
     __tablename__ = "forge_adaptation"
-    shape_version: Mapped[int] = stamp("forge_adaptation")
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     source: Mapped[str] = mapped_column(String(32))
@@ -621,7 +612,6 @@ class ForgeRevision(Base):
     against the same revision cannot both land."""
 
     __tablename__ = "forge_revision"
-    shape_version: Mapped[int] = stamp("forge_revision")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     adaptation: Mapped[str] = mapped_column(
@@ -733,7 +723,6 @@ class ForgeStep(Base):
     these as they happen and reads them back later, so progress and history are one record."""
 
     __tablename__ = "forge_step"
-    shape_version: Mapped[int] = stamp("forge_step")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     adaptation: Mapped[str] = mapped_column(
@@ -752,7 +741,6 @@ class ForgeMessage(Base):
     notes (an invalid reply, an assembly result). `commands` are the AI's proposals it carried."""
 
     __tablename__ = "forge_message"
-    shape_version: Mapped[int] = stamp("forge_message")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     adaptation: Mapped[str] = mapped_column(
@@ -782,7 +770,6 @@ class RuleProposal(Base):
     force when a person approves them."""
 
     __tablename__ = "rule_proposal"
-    shape_version: Mapped[int] = stamp("rule_proposal")
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     target_key: Mapped[str] = mapped_column(String(200), index=True)
@@ -812,7 +799,6 @@ class AnalysisData(Base):
     """
 
     __tablename__ = "analysis_data"
-    shape_version: Mapped[int] = stamp("analysis_data")
 
     draft_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True)

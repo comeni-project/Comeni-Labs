@@ -22,9 +22,7 @@ class Base(DeclarativeBase):
     })
 
 
-from mendel_api import shapes  # noqa: E402 — after Base, which it listens on
 
-shapes.install(Base)
 
 
 _joined: ContextVar[Session | None] = ContextVar("mendel_db_joined", default=None)

@@ -26,7 +26,6 @@ from wiener_core.policy import IntentKind, Outcome, Reason
 from wiener_core.state import RunPhase
 
 from wiener_api.db import Base
-from wiener_api.shape_versions import stamp
 from wiener_api.shapes import Json
 
 
@@ -43,7 +42,6 @@ class Run(Base):
     gate runs Mendel's own artifact on public data and lives in `mendel-api`'s `gate_run`."""
 
     __tablename__ = "run"
-    shape_version: Mapped[int] = stamp("run")
     __table_args__ = (
         UniqueConstraint("lab_id", "id", name="uq_run_lab_id_id"),
         # Its artifact, in its lab (issue 274).
@@ -110,7 +108,6 @@ class RunEventRow(Base):
     """The record. Every projection is derivable from these rows and nothing else."""
 
     __tablename__ = "run_event"
-    shape_version: Mapped[int] = stamp("run_event")
     __table_args__ = (
         # Its run, in its lab: `(lab_id, run_id)` is the key, so a child can belong to no other
         # lab's run (issue 274).
@@ -130,7 +127,6 @@ class RunEventRow(Base):
 
 class RunTask(Base):
     __tablename__ = "run_task"
-    shape_version: Mapped[int] = stamp("run_task")
     __table_args__ = (
         # Its run, in its lab: `(lab_id, run_id)` is the key, so a child can belong to no other
         # lab's run (issue 274).
@@ -307,7 +303,6 @@ class WienerSetting(Base):
     One row per setting per lab; the `running` section stays reported, never stored."""
 
     __tablename__ = "wiener_setting"
-    shape_version: Mapped[int] = stamp("wiener_setting")
 
     lab_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     key: Mapped[str] = mapped_column(String(120), primary_key=True)
