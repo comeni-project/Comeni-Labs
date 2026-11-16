@@ -5116,6 +5116,11 @@ export interface components {
              * @default
              */
             because: string;
+            /**
+             * Explain
+             * @default
+             */
+            explain: string;
             /** Axis Reason */
             axis_reason: string;
             /**

@@ -104,7 +104,7 @@ export function LiveLiving({ sessionId }: { sessionId: string }) {
  *  board is compared against. */
 const QUESTION_STEPS = { ...FAKE_STEPS, star_align: { ...FAKE_STEPS.star_align, settings: [
   ...FAKE_STEPS.star_align.settings,
-  { name: "outSAMstrandField", value: null, via: "ext", tier: 4, because: "", axis_reason: "", optional: false, premise: [],
+  { name: "outSAMstrandField", value: null, via: "ext", tier: 4, because: "", explain: "", axis_reason: "", optional: false, premise: [],
     reason: "No rule settles it: your description does not say which tools read the alignments next, "
       + "and nothing measured it.",
     domain: { kind: "enum", values: ["None", "intronMotif"] } },

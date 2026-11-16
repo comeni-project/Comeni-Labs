@@ -33,7 +33,7 @@ function show(
 afterEach(() => vi.unstubAllGlobals());
 
 const setting = (name: string, tier: number, value: string | null) => ({
-  name, value, via: "ext", tier, reason: `because ${name}`, axis_reason: "", optional: false, premise: [], because: "",
+  name, value, via: "ext", tier, reason: `because ${name}`, axis_reason: "", optional: false, premise: [], because: "", explain: "",
 });
 
 const STEP = {
@@ -125,22 +125,22 @@ describe("answering a parameter", () => {
   const enumSetting = {
     name: "index_format", value: "bai", via: "ext", tier: 4,
     reason: "no rule matched", axis_reason: "", optional: false, premise: [],
-    because: "every downstream tool reads BAI",
+    because: "every downstream tool reads BAI", explain: "",
     domain: { kind: "enum", values: ["bai", "csi"], minimum: null, maximum: null },
   };
   const freeSetting = {
     name: "seq_platform", value: null, via: "ext", tier: 4,
-    reason: "no rule matched", axis_reason: "", optional: false, premise: [], because: "",
+    reason: "no rule matched", axis_reason: "", optional: false, premise: [], because: "", explain: "",
     domain: null,
   };
   const boolSetting = {
     name: "star_ignore_sjdbgtf", value: null, via: "ext", tier: 2,
-    reason: "align with the annotation", axis_reason: "", optional: false, premise: [], because: "",
+    reason: "align with the annotation", axis_reason: "", optional: false, premise: [], because: "", explain: "",
     domain: { kind: "boolean", values: [], minimum: null, maximum: null },
   };
   const numberSetting = {
     name: "read_length", value: null, via: "meta", tier: 4,
-    reason: "no rule matched", axis_reason: "", optional: false, premise: [], because: "",
+    reason: "no rule matched", axis_reason: "", optional: false, premise: [], because: "", explain: "",
     domain: { kind: "integer", values: [], minimum: null, maximum: null },
   };
   const step = (settings: unknown[]) =>

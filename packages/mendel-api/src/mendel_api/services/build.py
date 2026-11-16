@@ -244,6 +244,8 @@ class SettingView(BaseModel):
     """The contract author's own note on the default. Distinct from `reason`, which is why THIS
     pipeline got this value: `because` survives even when a rule or a person overrode it, so a
     reader can see what the convention was that they departed from."""
+    explain: str = ""
+    """What the setting is, in one line (the registry's `explain`), shown behind a (?)."""
 
     axis_reason: str
     """Why this parameter is being decided at all, as distinct from why it got this answer.
@@ -500,6 +502,11 @@ def _domain(layers, contract_id: str, name: str) -> DomainView | None:
     )
 
 
+def _explain(layers, contract_id: str, name: str) -> str:
+    param = _param(layers, contract_id, name)
+    return param.explain if param else ""
+
+
 def _because(layers, contract_id: str, name: str) -> str:
     param = _param(layers, contract_id, name)
     return param.because if param else ""
@@ -630,6 +637,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                     axis_reason=setting.why.axis_reason,
                     domain=_domain(layers, step.module.contract_id, setting.name),
                     because=_because(layers, step.module.contract_id, setting.name),
+                    explain=_explain(layers, step.module.contract_id, setting.name),
                     premise=[record.prose() for record in setting.why.premise],
                     optional=setting.via in OMITTABLE,
                     evidence=evidence_of(setting.why.premise),

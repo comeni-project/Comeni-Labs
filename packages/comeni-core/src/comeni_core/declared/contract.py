@@ -286,6 +286,10 @@ class Param(BaseModel):
     default: Any = None
     because: str = ""
     """Why the declared default is appropriate; empty means no reason was declared."""
+    explain: str = ""
+    """What the setting is, in one plain sentence for the person setting it (*The lowest mapping
+    quality a read needs to be counted.*): no reasons, defaults or caveats — `because` keeps those,
+    and the assistant explains more when asked."""
     via: Via
     """Which emission site carries this. No default: a setting with no route is the defect."""
     key: ExtKey | None = None

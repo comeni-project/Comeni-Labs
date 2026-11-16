@@ -124,14 +124,15 @@ function Row({ setting: s, process, ai, onSet, onAsk, onAccept }: {
 }) {
   // An open value's recorded reason is the resolver's placeholder for *nobody decided this*; say
   // it in the person's words (issue 384). The pipeline file keeps the record verbatim.
-  const help = ai?.because
-    || (optionalOpen(s) ? `No rule or answer decides this. Left unset, ${process} uses its tool's own default.`
-      : open(s) ? `No rule or answer decides this, and ${process} cannot run without it.`
-      : s.reason || s.because);
+  // **What the setting is, behind a (?)** (#511): one line from the registry, nothing else. Why a
+  // value is what it is lives in the record and the pipeline file; the assistant explains more.
+  const status = open(s) ? `Needs a value: ${process} cannot run without it.`
+    : optionalOpen(s) ? "Left unset, the tool uses its own default." : null;
   return (
     <div data-setting={s.name} className="flex flex-col gap-[6px] px-5 py-[9px]">
       <div className="flex items-center gap-2 min-w-0">
         <span className="font-data text-[12.5px] font-medium text-ink truncate">{s.name}</span>
+        {s.explain && <Hint name={s.name} text={s.explain} />}
         <SourceTag source={sourceOf(s, !!ai)} />
         <button type="button" onClick={() => onAsk(s.name)} aria-label={`Ask AI about ${s.name}`}
                 className="ml-auto shrink-0 px-2 py-[3px] rounded-control border border-ai-line bg-ai-soft text-[11.5px]
@@ -140,10 +141,10 @@ function Row({ setting: s, process, ai, onSet, onAsk, onAccept }: {
         </button>
       </div>
       <Control setting={s} onSet={(v) => onSet(s.name, v)} />
-      {help && <p className="m-0 text-[12px] text-ink-2">{help}</p>}
+      {status && <p className={`m-0 text-[12px] ${open(s) ? "text-needs-you-ink" : "text-ink-3"}`}>{status}</p>}
       {ai && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-control bg-ai-soft border border-ai-line">
-          <span className="text-[12px] text-ink">The AI chose this. Keep it?</span>
+          <span className="text-[12px] text-ink">The AI chose this{ai.because ? `: ${ai.because}` : ""}. Keep it?</span>
           <button type="button" onClick={onAccept}
                   className="ml-auto px-3 py-[3px] rounded-button border border-line bg-surface text-[12px] font-medium cursor-pointer">
             Accept
@@ -151,6 +152,25 @@ function Row({ setting: s, process, ai, onSet, onAsk, onAccept }: {
         </div>
       )}
     </div>
+  );
+}
+
+/** A (?) that shows what a setting is on hover or focus. */
+function Hint({ name, text }: { name: string; text: string }) {
+  return (
+    <span className="relative inline-flex group shrink-0">
+      <button type="button" aria-label={`What is ${name}?`} aria-describedby={`hint-${name}`}
+              className="w-[16px] h-[16px] grid place-items-center p-0 rounded-full border border-line-2 bg-surface text-[10px]
+                         font-semibold text-ink-3 cursor-help hover:text-ink focus-visible:shadow-[var(--ring)]">
+        ?
+      </button>
+      <span role="tooltip" id={`hint-${name}`}
+            className="absolute left-0 top-[22px] z-20 w-[240px] px-3 py-2 rounded-control border border-line bg-surface shadow-e2
+                       text-[12px] leading-[1.45] text-ink-2 font-normal invisible opacity-0 group-hover:visible group-hover:opacity-100
+                       group-focus-within:visible group-focus-within:opacity-100">
+        {text}
+      </span>
+    </span>
   );
 }
 
