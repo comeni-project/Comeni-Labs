@@ -187,27 +187,45 @@ def _stage(name: str, samples: list[dict], workdir: pathlib.Path) -> str:
     return f"{folder}/*_R{{1,2}}.*" if paired else f"{folder}/*"
 
 
+def _looks_like_a_path(text: str) -> bool:
+    """A value that names a file: absolute, relative (`a/b`, `../x`), or a URL. A plain word
+    (`reverse`, `true`, a sample's name) is not one."""
+    return "/" in text or "://" in text or text.startswith(".")
+
+
 def _paths(value: object) -> list[str]:
-    """Every path a parameter's value names: a plain string, a samplesheet's cells, a stage's
-    files."""
+    """Every path a parameter's value names: a string, a list of strings, a samplesheet's cells,
+    a stage's files (every one of which is a path)."""
     if isinstance(value, str):
-        return [value] if value.startswith("/") else []
+        return [value] if _looks_like_a_path(value) else []
     if isinstance(value, dict) and isinstance(value.get("stage"), list):
         return [f for s in value["stage"] for f in s.get("files", []) if isinstance(f, str)]
     if isinstance(value, list):
-        return [cell for row in value if isinstance(row, dict) for cell in row.values()
-                if isinstance(cell, str) and cell.startswith("/")]
+        out = []
+        for item in value:
+            if isinstance(item, dict):
+                out += [c for c in item.values() if isinstance(c, str) and _looks_like_a_path(c)]
+            elif isinstance(item, str) and _looks_like_a_path(item):
+                out.append(item)
+        return out
     return []
 
 
 def paths_outside(params: dict[str, object], roots: list[pathlib.Path]) -> list[str]:
-    """The paths in `params` that do not resolve inside one of `roots` (#508): a run reads only
-    from the data folders. A link is followed before the check, so one cannot lead out."""
+    """The paths in `params` a run may not read (#508): anything not resolving inside one of
+    `roots`. **Only absolute paths are read at all**: a relative one would resolve against
+    whichever folder Nextflow runs in, and a URL against a remote store, so both are refused; a
+    `file://` URL is checked as the path it names. A link is followed before the check, so one
+    cannot lead out."""
     resolved = [pathlib.Path(r).resolve() for r in roots]
     outside = []
     for value in params.values():
         for path in _paths(value):
-            target = pathlib.Path(path).resolve()
+            local = path[len("file://"):] if path.startswith("file://") else path
+            if "://" in local or not local.startswith("/"):
+                outside.append(path)
+                continue
+            target = pathlib.Path(local).resolve()
             if not any(target.is_relative_to(root) for root in resolved):
                 outside.append(path)
     return outside
@@ -241,7 +259,8 @@ def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dic
         if not rows or not all(isinstance(row, dict) for row in rows):
             written[name] = value
             continue
-        columns = list(rows[0])
+        # Every row's columns, in first-seen order: a short first row drops none (Checkpoint B).
+        columns = list(dict.fromkeys(column for row in rows for column in row))
         path = workdir / f"{name}.csv"
         # Quoted where a cell needs it, so a comma in a name or a path stays in its column.
         with path.open("w", newline="") as sheet:

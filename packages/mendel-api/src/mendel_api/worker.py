@@ -42,7 +42,10 @@ async def scan_analysis_data(ctx: dict, draft_id: str, who: str, revision: int) 
 
         # The data changed, so the facts did: the pipeline is built again from them, then the
         # agent hears what was found if it asked.
-        await asyncio.to_thread(chat.rebuild_for_data, draft_id, who)
+        try:
+            await asyncio.to_thread(chat.rebuild_for_data, draft_id, who)
+        except Exception:  # noqa: BLE001 — the agent still hears what was found
+            logging.getLogger(__name__).exception("rebuild after scanning %s failed", draft_id)
         await chat.data_scanned(draft_id)
     return draft_id
 

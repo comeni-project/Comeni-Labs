@@ -87,9 +87,21 @@ def test_a_column_is_kept_per_sample(clean, client, root):
 
 
 def test_a_column_cannot_shadow_a_measured_fact(clean, client, root):
-    refused = client.put(f"/api/data/{draft(client)}/columns",
-                         json={"name": "read_length", "values": {}})
-    assert refused.status_code in (400, 422) and "MI0224" in refused.text
+    d = draft(client)
+    tick(client, d, pairs(root / "a", "Y1"))
+    scanning.scan(d, who="ana")
+    refused = client.put(f"/api/data/{d}/columns", json={"name": "read_length", "values": {}})
+    assert refused.status_code in (400, 422) and "MI0225" in refused.text
+
+
+def test_a_column_may_give_a_fact_nothing_measured(clean, client, root):
+    """Checkpoint B, I8: strandedness is the person's to give, per sample."""
+    d = draft(client)
+    tick(client, d, pairs(root / "a", "Y1"))
+    scanning.scan(d, who="ana")
+    got = client.put(f"/api/data/{d}/columns",
+                     json={"name": "strandedness", "values": {"Y1": "reverse"}})
+    assert got.status_code == 200, got.text
 
 
 def test_the_view_carries_the_summary(clean, client, root):
@@ -99,3 +111,48 @@ def test_the_view_carries_the_summary(clean, client, root):
     got = view(client, d)["summary"]
     assert got["tiles"][0] == {"label": "Samples", "value": "2", "hint": None}
     assert [c["measurement"] for c in got["compare_by"]] == ["read_length"]
+
+
+def _current(d):
+    from mendel_api.db import session_scope
+    from mendel_api.models import PipelineDraft
+
+    with session_scope() as db:
+        return db.get(PipelineDraft, d).projection_current
+
+
+def _set_current(d):
+    from mendel_api.db import session_scope
+    from mendel_api.models import PipelineDraft
+
+    with session_scope() as db:
+        db.get(PipelineDraft, d).projection_current = True
+
+
+def test_data_changes_mark_the_drawn_pipeline_outdated(clean, client, root):
+    """Checkpoint B, I7: the goal moved, so the picture is not current any more."""
+    d = draft(client)
+    tick(client, d, pairs(root / "a", "Y1"))
+    _set_current(d)
+    scanning.scan(d, who="ana")
+    assert _current(d) is False
+    _set_current(d)
+    client.post(f"/api/data/{d}/references",
+                json={"path": str(a_reference(root)), "type_id": "genome.fasta"})
+    assert _current(d) is False
+    _set_current(d)
+    client.put(f"/api/data/{d}/columns", json={"name": "condition", "values": {"Y1": "x"}})
+    assert _current(d) is False
+
+
+def test_a_units_change_on_the_datas_input_is_the_persons(clean, client, root):
+    """Checkpoint B, I6: it is logged as what the person said, never as `measured`."""
+    from mendel_api.services import changes
+    from mendel_authoring.payloads import DecisionChange
+
+    d = draft(client)
+    tick(client, d, pairs(root / "a", "Y1"))
+    scanning.scan(d, who="ana")
+    changes.apply(d, DecisionChange(kind="units", subject="fastq.reads", value=True), who="ana")
+    [reads] = [i for i in decisions.read(d).inputs if i.type_id == "fastq.reads"]
+    assert reads.units is True and reads.origin.value == "person_said"

@@ -1,6 +1,6 @@
 """What an analysis's data is made of (#511): the files found in its ticked folders, the samples
 they pair into, and what was measured on each. **Paths live here and in a submitted run's
-params, never in a pipeline** (invariant 15, as level 0 loosens it)."""
+params, never in a pipeline** (invariant 15)."""
 
 from typing import Literal
 

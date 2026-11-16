@@ -44,3 +44,51 @@ def test_each_kind_of_data_is_an_input():
 
 def test_no_data_derives_nothing():
     assert derive([]) == ([], [])
+
+
+def test_mixed_data_keeps_the_facts_of_each_kind():
+    """Checkpoint B, I3: a genome among reads does not erase the reads' facts."""
+    facts, _ = derive([sample("a", paired=True, read_length=101),
+                       sample("b", paired=True, read_length=101),
+                       sample("g", type_id="genome.fasta")])
+    assert {f.subject for f in facts} == {"paired", "read_length"}
+
+
+def test_a_retracted_fact_lets_the_data_speak_again():
+    """Checkpoint B, I4: retracting an override writes `open`, which must not hide the data."""
+    from mendel_api.services.data.facts import merge
+    from mendel_authoring.decisions import FactDecision
+
+    facts, _ = merge([FactDecision(subject="read_length", origin=FactOrigin.OPEN)], [],
+                     [sample("a", read_length=150)])
+    assert [(f.subject, f.value, f.origin) for f in facts] == [
+        ("read_length", 150, FactOrigin.MEASURED)]
+
+
+def test_a_forgotten_input_lets_the_data_say_it_again():
+    from mendel_api.services.data.facts import merge
+    from mendel_authoring.decisions import InputDecision
+
+    forgotten = InputDecision(key="fastq.reads", type_id="fastq.reads", present=False,
+                              origin=FactOrigin.OPEN)
+    _, inputs = merge([], [forgotten], [sample("a")])
+    assert [(i.type_id, i.present) for i in inputs] == [("fastq.reads", True)]
+
+
+def test_what_a_person_said_varies_stands_over_uniform_data():
+    """Checkpoint B, I5."""
+    from mendel_api.services.data.facts import merge
+    from mendel_authoring.decisions import FactDecision
+
+    facts, _ = merge([FactDecision(subject="read_length", origin=FactOrigin.VARIES)], [],
+                     [sample("a", read_length=150), sample("b", read_length=150)])
+    assert [(f.subject, f.origin) for f in facts] == [("read_length", FactOrigin.VARIES)]
+
+
+def test_a_measured_fact_keeps_what_measured_it():
+    """Checkpoint B, I10: pipeline.yml says which measurer answered."""
+    s = sample("a")
+    s["facts"] = [{"measurement": "read_length", "value": 101,
+                   "pieces": ["fastq@1.1.0", "read_length@1.0.0"]}]
+    facts, _ = derive([s])
+    assert facts[0].pieces == ["fastq@1.1.0", "read_length@1.0.0"]

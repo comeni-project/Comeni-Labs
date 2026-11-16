@@ -245,8 +245,8 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
         # #511: an analysis's data. **The level-0 exception to invariant 15, by the operator's
         # decision (11-12 for sample names, 11-15 for paths):** the folders a person ticked, every
         # file in them by path, the samples they pair into by name and what was measured on each,
-        # so a run is bound to the data without a path being typed. Deleted with the draft. At
-        # level 0 the builder agent may read sample names; never a goal, a pipeline or a log.
+        # so a run is bound to the data without a path being typed. Deleted with the draft. The
+        # builder agent may read sample names; never a goal, a pipeline or a log.
         "analysis_data": {
             "draft_id", "folders", "scan", "files", "samples", "rule", "fixes", "unfit",
             "references", "columns", "revision",

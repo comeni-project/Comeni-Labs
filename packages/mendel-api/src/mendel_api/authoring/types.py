@@ -130,6 +130,8 @@ class SampleFact(_Shape):
     measurement: str = Field(min_length=1, max_length=128)
     value: HumanParamValue | None = None
     coverage: Literal["head", "all"] | None = None
+    pieces: list[str] = []
+    """The inspector pieces that measured it, so the pipeline file says which answered."""
 
 
 class FactSource(StrEnum):

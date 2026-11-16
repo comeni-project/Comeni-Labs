@@ -1106,8 +1106,9 @@ export interface paths {
         get?: never;
         /**
          * Set a column of the samples table, such as condition or batch
-         * @description A column a person types. One named after a measurement is refused: measured values are
-         *     the data's own column.
+         * @description A column a person types: a condition, a batch, or a fact nothing measured (strandedness),
+         *     which the run's samplesheet then reads. One named after a fact the data measured is refused:
+         *     the measured values are already that column.
          */
         put: operations["setDataColumn"];
         post?: never;
@@ -4743,6 +4744,11 @@ export interface components {
             value?: number | boolean | string | null;
             /** Coverage */
             coverage?: ("head" | "all") | null;
+            /**
+             * Pieces
+             * @default []
+             */
+            pieces: string[];
         };
         /** SampleValue */
         SampleValue: {

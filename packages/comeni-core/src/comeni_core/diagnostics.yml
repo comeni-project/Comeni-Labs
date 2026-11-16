@@ -3730,15 +3730,25 @@ MI0223:
 MI0224:
   emitted_by: api
   concern: workflow
-  says: "a name or type on the analysis's data is not one Comeni can use"
+  says: "a reference's type is not one the registry declares"
   fires_on: [authoring]
   refuses: true
   fix: |
-    Give a reference a type the registry declares, such as `genome.fasta`, and give a column a
-    name that is not a measurement's: measured values are already their own column.
+    Give the reference a type the registry declares, such as `genome.fasta` or `annotation.gtf`.
   explanation: |
-    A reference is bound to a pipeline's inputs by its type, so the type must be declared. A
-    column named after a measurement would sit beside the measured value under the same name.
+    A reference is bound to a pipeline's inputs by its type, so the type must be declared.
+MI0225:
+  emitted_by: api
+  concern: workflow
+  says: "a column is named after a fact the data already measured"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Choose another name. A column named after a fact nothing measured, such as `strandedness`,
+    is fine: the run's samplesheet reads it.
+  explanation: |
+    Measured values are already a column of the samples table; a typed column of the same name
+    would sit beside them and disagree.
 MI0300:
   emitted_by: api
   concern: settings

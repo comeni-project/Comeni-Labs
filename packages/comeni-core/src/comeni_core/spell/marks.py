@@ -250,7 +250,7 @@ def _sample_name(value: str) -> str:
 
 
 SampleName = Annotated[str, Mark.SAMPLE, AfterValidator(_sample_name)]
-"""A sample's name. Lab data: it crosses only the doors that may carry a sample, at level 0."""
+"""A sample's name. Lab data: it crosses only the doors that may carry a sample."""
 
 def _edge_ref(value: str) -> str:
     """`<node>.<port>`, both Groovy identifiers.

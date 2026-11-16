@@ -43,7 +43,11 @@ def _gone(paths: list[str]) -> list[str]:
     return [os.path.basename(p) for p in paths if not os.path.exists(p)]
 
 
-def bind(pipeline: Pipeline | None, samples: list[dict], references: list[dict]) -> Bindings:
+def bind(pipeline: Pipeline | None, samples: list[dict], references: list[dict],
+         columns: dict[str, dict[str, str]] | None = None) -> Bindings:
+    """`columns` are the person's (`{name: {sample: value}}`): a fact the pipeline's samplesheet
+    asks for and nothing measured is taken from the column of that measurement's name."""
+    columns = columns or {}
     if pipeline is None:
         return Bindings(missing=[Missing(channel="", type_id="",
                                          why="keep the pipeline first: a run is of a kept one")])
@@ -75,6 +79,12 @@ def bind(pipeline: Pipeline | None, samples: list[dict], references: list[dict])
                 for s in mine:
                     row = rows.setdefault(s["name"], {SAMPLE: s["name"]})
                     row.update(dict(zip(channel.columns, s["files"], strict=False)))
+            elif len(channel.columns) == 2 and any(len(s["files"]) != 2 for s in mine):
+                # `fromFilePairs` reads pairs only: a lone file would be dropped without a word.
+                lone = [s["name"] for s in mine if len(s["files"]) != 2]
+                missing.append(Missing(channel=channel.name, type_id=channel.type_id,
+                                       why=f"this pipeline reads pairs; {', '.join(lone[:3])} "
+                                           "has one file"))
             else:
                 params[channel.param] = {"stage": [{"sample": s["name"], "files": s["files"]}
                                                    for s in mine]}
@@ -98,17 +108,28 @@ def bind(pipeline: Pipeline | None, samples: list[dict], references: list[dict])
                                    why=f"no reference is {channel.type_id}"))
     if pipeline.input_form is InputForm.SAMPLESHEET and rows:
         by_name = {s["name"]: s for s in kept}
+        # **Every row has every column**, blank where empty: Wiener writes the CSV's header from
+        # the rows, and a short first row would drop a column for every sample (Checkpoint B).
+        header = [SAMPLE, *[c for ch in pipeline.channels if ch.grain.value == "sample"
+                            and ch.table is None for c in ch.columns]]
         for fact in pipeline.sheet_facts:
+            if fact.from_row is not None:
+                continue  # the row states it: its file cell is there or blank (Checkpoint B)
+            header.append(fact.column)
+            given = columns.get(fact.measurement, {})
             for name, row in rows.items():
                 values = {f["measurement"]: f.get("value") for f in by_name[name]["facts"]}
-                if values.get(fact.measurement) is not None:
-                    row[fact.column] = str(values[fact.measurement]).lower() \
-                        if isinstance(values[fact.measurement], bool) else \
-                        str(values[fact.measurement])
+                value = values.get(fact.measurement)
+                if value is None and given.get(name, "").strip():
+                    value = given[name].strip()
+                if value is not None:
+                    row[fact.column] = str(value).lower() if isinstance(value, bool) else str(value)
                 elif fact.required:
                     missing.append(Missing(channel=fact.column, type_id=fact.describes,
-                                           why=f"{name} has no measured {fact.measurement}"))
-        params["input"] = list(rows.values())
+                                           why=f"{name} has no {fact.measurement}: measure it or "
+                                               f"give it in a column named {fact.measurement}"))
+        params["input"] = [{column: row.get(column, "") for column in dict.fromkeys(header)}
+                           for row in rows.values()]
     sample_count = len({s["name"] for s in kept})
     words = [_plural(sample_count, "sample")]
     if used_refs:

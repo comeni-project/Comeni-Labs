@@ -15,7 +15,7 @@ from pathlib import Path
 from mendel_api.authoring.types import SampleFact
 from mendel_api.db import session_scope
 from mendel_api.models import AnalysisData
-from mendel_api.services import inspect, registry
+from mendel_api.services import decisions, inspect, registry
 from mendel_api.services.data import rule
 from mendel_api.services.data.roots import inside_roots
 from mendel_api.services.data.rule import Fix, Rule
@@ -114,9 +114,14 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
             grouped = rule.group([p.name for p in paths], reading, fixes, taken)
             examples += grouped.examples[:3 - len(examples)]
             for index in grouped.unfit:
+                try:
+                    size = paths[index].stat().st_size
+                except OSError:
+                    continue  # gone since it was listed: not a file of this folder any more
                 unfit.append(paths[index].name)
                 files.append(ScannedFile(path=str(paths[index]), name=paths[index].name,
-                                         size=paths[index].stat().st_size))
+                                         size=size))
+                done += 1
             for name, indexes in grouped.samples:
                 chosen = [paths[i] for i in indexes]
                 try:
@@ -129,7 +134,8 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
                 samples.append(DataSample(
                     name=name, files=[str(p) for p in chosen], outcome=found.outcome,
                     type_id=found.type_id, left_out=name in left_out,
-                    facts=[SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage)
+                    facts=[SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage,
+                                      pieces=list(f.pieces))
                            for f in found.facts if f.undetermined is None]))
                 files += [ScannedFile(path=str(p), name=p.name, size=s, sample=name,
                                       recognised=found.type_id)
@@ -139,6 +145,7 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
                       scan=Scan(state="scanning", done=done, total=total).model_dump())
         _save(draft_id, revision, files=[f.model_dump() for f in files],
               samples=[s.model_dump(mode="json") for s in samples], unfit=unfit)
+        decisions.data_changed(draft_id)
         _save(draft_id, revision, scan=Scan(state="done", done=done, total=total,
                                             examples=examples).model_dump())
     except _Stale:

@@ -177,7 +177,7 @@ services:
       - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
     command: arq mendel_api.worker.WorkerSettings
 
-  # Run model calls for pipeline conversations, sample characterisation, and Forge.
+  # Run model calls for pipeline conversations and Forge.
   # A separate queue keeps long model calls from delaying other background jobs.
   ai-worker:
     build: *python-build

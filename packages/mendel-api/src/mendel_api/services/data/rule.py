@@ -119,9 +119,17 @@ def group(names: list[str], rule: Rule, fixes: list[Fix],
         unfit = [i for i in unfit if i != extra]
         files = sorted({*samples.pop(fix.sample), extra}, key=lambda i: _read_order(names[i]))
         stem = pairing._MATE.match(names[files[0]])
-        name = stem["stem"] if stem and stem["stem"] not in samples else fix.sample
+        # The pair takes its shared stem, unless another sample here or in another folder has it.
+        free = stem and stem["stem"] not in samples and stem["stem"] not in taken
+        name = stem["stem"] if free else fix.sample
+        taken.add(name)
         samples[name] = files
     return Grouped(samples=list(samples.items()), unfit=unfit, examples=found.examples)
+
+
+def _plain(value: object) -> str:
+    """A value as a person reads it: `true`, `101`, `phred33`."""
+    return str(value).lower() if isinstance(value, bool) else str(value)
 
 
 def _read_order(name: str) -> tuple[str, str]:
@@ -142,8 +150,11 @@ def checks(samples: list[dict], unfit: list[str]) -> list[Check]:
     # Paired data: more of its files sit in pairs than alone.
     paired = sum(len(s["files"]) for s in kept if len(s["files"]) == 2) > sum(
         len(s["files"]) == 1 for s in kept)
+    # Only the kind of data that comes in pairs is missing a mate: a genome among reads is not.
+    paired_kinds = {s.get("type_id") for s in kept if len(s["files"]) == 2}
     if paired:
-        lone = {s["name"]: _name(s["files"][0]) for s in kept if len(s["files"]) == 1}
+        lone = {s["name"]: _name(s["files"][0]) for s in kept
+                if len(s["files"]) == 1 and s.get("type_id") in paired_kinds}
         claimed: set[str] = set()
         # Read 1 first, so two lone halves of one pair are one check, raised on read 1.
         for sample, file in sorted(lone.items(), key=lambda item: _read_order(item[1])):
@@ -166,13 +177,14 @@ def checks(samples: list[dict], unfit: list[str]) -> list[Check]:
         for fact in s.get("facts", []):
             measured.setdefault(fact["measurement"], []).append((s["name"], fact.get("value")))
     for measurement, values in sorted(measured.items()):
-        common, count = Counter(repr(v) for _, v in values).most_common(1)[0]
+        common, count = Counter(_plain(v) for _, v in values).most_common(1)[0]
         if count <= len(kept) / 2 or count == len(values):
             continue
         for sample, value in values:
-            if repr(value) != common:
+            if _plain(value) != common:
                 found.append(Check(sample=sample, kind="odd_fact",
-                                   detail=f"{measurement} is {value}; most samples have {common}",
+                                   detail=f"{measurement} is {_plain(value)}; most samples have "
+                                          f"{common}",
                                    fixes=[Fix(kind="leave_out", sample=sample)]))
     return found
 

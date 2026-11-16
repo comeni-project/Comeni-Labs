@@ -266,8 +266,8 @@ no premise in the file to check. Each entry carries the fact, its value, and its
 | `goal` | the goal's own shape, such as `required_states` |
 | `unmeasured` | the fact is absent, and a row testing `absent` read that |
 
-The distinction between `measured` and `asserted` is the one a clinical reviewer needs and the
-one the `sealed` protection profile will act on: a measured 150bp read length is a fact a
+The distinction between `measured` and `asserted` is the one a clinical reviewer needs: a
+measured 150bp read length is a fact a
 profiling run established, and an asserted one is a claim by whoever wrote the goal. Both are
 legitimate; only one is checkable.
 

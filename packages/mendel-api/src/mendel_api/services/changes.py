@@ -294,8 +294,8 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             raise ValueError(coded("MI0204", f"this pipeline takes no {subject} to span rows"))
         if current.units == bool(change.value):
             return False
-        decisions.set_input(draft_id, current.model_copy(update={"units": bool(change.value)}),
-                            **said)
+        decisions.set_input(draft_id, current.model_copy(update={
+            "units": bool(change.value), **_theirs(current)}), **said)
     elif kind == "tables":
         # A study input supplied as several items, such as several databases (#466).
         _type(stack, subject)
@@ -305,13 +305,19 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             raise ValueError(coded("MI0204", f"this pipeline takes no {subject} to be a table"))
         if current.table == bool(change.value):
             return False
-        decisions.set_input(draft_id, current.model_copy(update={"table": bool(change.value)}),
-                            **said)
+        decisions.set_input(draft_id, current.model_copy(update={
+            "table": bool(change.value), **_theirs(current)}), **said)
     elif kind == "retain":
         decisions.retain_fact(draft_id, subject, who=who)
     elif kind == "observation":
         decisions.select_observation(draft_id, subject, change.observation_id, who=who)
     return _revision(draft_id) != before
+
+
+def _theirs(current) -> dict:
+    """An input the data has (#511), once a person decides something about it, is theirs: it is
+    logged as what they said, never as `measured` (Checkpoint B)."""
+    return {"origin": FactOrigin.PERSON_SAID} if current.origin is FactOrigin.MEASURED else {}
 
 
 def describe(change: DecisionChange) -> str:

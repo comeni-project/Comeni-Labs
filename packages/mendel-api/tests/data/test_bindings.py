@@ -113,3 +113,70 @@ def test_bindings_are_never_written_to_the_draft(clean, client, root, monkeypatc
     with session_scope() as db:
         row = db.get(PipelineDraft, d)
         assert "stage" not in json.dumps(row.graph or {})
+
+
+def _sheet_with_paired_varying():
+    """The RNA-seq pipeline as a samplesheet where `paired` varies: its fact is the second file
+    cell, read from the row (`from_row`)."""
+    from comeni_core.artifact.pipeline import RowFact, SheetFact
+
+    paired = SheetFact.model_construct(
+        measurement="paired", column="reads_2", kind="boolean", values=[], required=False,
+        from_row=RowFact.SECOND_FILE_PRESENT, auto=False, describes="fastq.reads", meta=[])
+    return RNASEQ.model_copy(update={"input_form": InputForm.SAMPLESHEET, "sheet_facts": [paired]})
+
+
+def test_a_fact_the_row_states_does_not_overwrite_the_file_cell(tmp_path):
+    """Checkpoint B, C1: `paired` is read from whether the second file is there."""
+    pe = files(tmp_path, "P_R1.fq", "P_R2.fq")
+    se = files(tmp_path, "S.fq")
+    gtf, fasta = files(tmp_path, "genes.gtf", "genome.fasta")
+    got = bind(_sheet_with_paired_varying(), [sample("P", pe, paired=True),
+                                              sample("S", se, paired=False)],
+               [reference(gtf, "annotation.gtf"), reference(fasta, "genome.fasta")])
+    assert got.missing == []
+    assert got.params["input"] == [{"sample": "P", "reads_1": pe[0], "reads_2": pe[1]},
+                                   {"sample": "S", "reads_1": se[0], "reads_2": ""}]
+
+
+def test_every_row_has_every_column_so_a_short_first_row_drops_nothing(tmp_path):
+    """Checkpoint B, I9: the CSV's columns are the first row's keys."""
+    se = files(tmp_path, "A.fq")
+    pe = files(tmp_path, "B_R1.fq", "B_R2.fq")
+    gtf, fasta = files(tmp_path, "genes.gtf", "genome.fasta")
+    got = bind(_sheet_with_paired_varying(), [sample("A", se, paired=False),
+                                              sample("B", pe, paired=True)],
+               [reference(gtf, "annotation.gtf"), reference(fasta, "genome.fasta")])
+    assert [list(row) for row in got.params["input"]] == [["sample", "reads_1", "reads_2"]] * 2
+
+
+def test_a_direct_pairs_channel_refuses_single_end_samples(tmp_path):
+    """Checkpoint B, I2: `fromFilePairs` drops a lone file; say so rather than lose a sample."""
+    pe = files(tmp_path, "P_R1.fq", "P_R2.fq")
+    se = files(tmp_path, "S.fq")
+    gtf, fasta = files(tmp_path, "genes.gtf", "genome.fasta")
+    got = bind(RNASEQ, [sample("P", pe), sample("S", se)],
+               [reference(gtf, "annotation.gtf"), reference(fasta, "genome.fasta")])
+    [refused] = got.missing
+    assert refused.channel == "reads" and "S" in refused.why and got.params == {}
+
+
+def test_a_fact_nothing_measured_comes_from_the_persons_column(tmp_path):
+    """Checkpoint B, I8: strandedness differs and only the person knows it."""
+    from comeni_core.artifact.pipeline import SheetFact
+
+    strand = SheetFact.model_construct(
+        measurement="strandedness", column="strandedness", kind="choice",
+        values=["forward", "reverse", "unstranded"], required=True, from_row=None, auto=False,
+        describes="fastq.reads", meta=[])
+    sheet = RNASEQ.model_copy(update={"input_form": InputForm.SAMPLESHEET,
+                                      "sheet_facts": [strand]})
+    a, b = files(tmp_path, "A_R1.fq", "A_R2.fq"), files(tmp_path, "B_R1.fq", "B_R2.fq")
+    gtf, fasta = files(tmp_path, "genes.gtf", "genome.fasta")
+    refs = [reference(gtf, "annotation.gtf"), reference(fasta, "genome.fasta")]
+    unanswered = bind(sheet, [sample("A", a), sample("B", b)], refs)
+    assert {m.channel for m in unanswered.missing} == {"strandedness"}
+    got = bind(sheet, [sample("A", a), sample("B", b)], refs,
+               {"strandedness": {"A": "reverse", "B": "forward"}})
+    assert got.missing == []
+    assert [r["strandedness"] for r in got.params["input"]] == ["reverse", "forward"]

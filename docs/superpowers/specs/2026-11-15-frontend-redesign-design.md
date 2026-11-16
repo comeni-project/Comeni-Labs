@@ -61,7 +61,7 @@ Everything cut is tracked under #512.
 
 - A path stored in `pipeline.yml`, or typed by a person. Invariant 15 holds: the pipeline holds a type, and the
   binding lives with the run.
-- A file copied. At level 0 Comeni reads files where they are: their first bytes for measuring, and their paths for
+- A file copied. Comeni reads files where they are: their first bytes for measuring, and their paths for
   the run.
 - A pairing that fails silently. Every file the rule leaves out is counted and listed, and every exception appears
   in *Check these*.
@@ -71,8 +71,8 @@ Everything cut is tracked under #512.
 
 - Hundreds of samples per analysis: stream the reads, keep facts only, summarise for the UI and model, and use no
   caps. The table is virtualised.
-- Protection levels are unchanged. At level 0 the assistant may read file names and measured facts. Check
-  `services/protection.py` before writing any wording about it.
+- The assistant may read sample names and measured facts, never a path or a file's contents. Protection
+  levels were removed on 2026-11-16 (Task 4b); a privacy posture is #71.
 - The Wiener worker reaches host files only through mounts. The data roots are mounted read-only, at the same
   absolute path, into `mendel-api`, `mendel-worker` and `wiener-worker`.
 - No backward compatibility before v0.1.0. Old routes redirect once, and old components are deleted, not kept.
@@ -93,7 +93,7 @@ Everything cut is tracked under #512.
    - Rejected: a per-run bind of chosen paths. It needs the worker to rewrite Docker mounts per run, and widens the
      socket boundary.
 3. **Who measures.** Mendel, as today. A scan job reads each file's head from disk, then reuses `samples_of`
-   (pairing) and `inspect_sample` (facts). Rejected: measuring in Wiener. Inspection, protection and facts already
+   (pairing) and `inspect_sample` (facts). Rejected: measuring in Wiener. Inspection and facts already
    live in Mendel.
 4. **The reading rule.**
    - The default is the existing mate-token pairing, tagged RULE.

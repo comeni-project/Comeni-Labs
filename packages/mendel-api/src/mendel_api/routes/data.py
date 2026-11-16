@@ -174,7 +174,17 @@ def _change(draft_id: str, change) -> AnalysisDataView:
             db.add(row)
         change(row)
         db.flush()
-        return _view(draft_id, row)
+        view = _view(draft_id, row)
+    # What a person named or typed changes the facts and inputs: the pipeline is built again.
+    from mendel_api.agent import chat
+    from mendel_api.services import decisions
+
+    decisions.data_changed(draft_id)
+    try:
+        chat.rebuild_for_data(draft_id, identity.default_author())
+    except Exception:  # noqa: BLE001 — the data is saved; a build that fails says so on Build
+        log.exception("rebuild after a data change on %s failed", draft_id)
+    return view
 
 
 class NamedFile(BaseModel):
@@ -199,7 +209,8 @@ def add_reference(draft_id: str, body: NamedFile) -> AnalysisDataView:
     found = inspect.inspect_sample([(path.name, _head(path, inspect.HEAD_BYTES))],
                                    registry.stack(), None, sizes=(path.stat().st_size,))
     made = Reference(path=str(path), name=path.name, type_id=body.type_id, facts=[
-        SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage)
+        SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage,
+                   pieces=list(f.pieces))
         for f in found.facts if f.undetermined is None])
 
     def keep(row):
@@ -227,13 +238,16 @@ class Column(BaseModel):
             summary="Set a column of the samples table, such as condition or batch",
             responses=REFUSES)
 def set_column(draft_id: str, body: Column) -> AnalysisDataView:
-    """A column a person types. One named after a measurement is refused: measured values are
-    the data's own column."""
-    from mendel_api.services import registry
-
+    """A column a person types: a condition, a batch, or a fact nothing measured (strandedness),
+    which the run's samplesheet then reads. One named after a fact the data measured is refused:
+    the measured values are already that column."""
     name = body.name.strip()
-    if not name or name in set(registry.stack().measurements.ids()):
-        raise ValueError(coded("MI0224", f"{body.name!r} names a measurement; choose another"))
+    with session_scope() as db:
+        row = db.get(AnalysisData, draft_id)
+        measured = {f["measurement"] for s in (row.samples if row else []) for f in s["facts"]}
+    if not name or name in measured:
+        raise ValueError(coded("MI0225", f"{body.name!r} is measured on this data already; "
+                                         "choose another name"))
 
     def keep(row):
         row.columns = {**(row.columns or {}), name: dict(body.values)}
@@ -255,7 +269,8 @@ def read_bindings(draft_id: str) -> Bindings:
         row = db.get(AnalysisData, draft_id)
         samples = list(row.samples or []) if row else []
         references = list(row.references or []) if row else []
+        columns = dict(row.columns or {}) if row else {}
     path = draft_service.artifact_path(draft_id)
     pipeline = (Pipeline.model_validate(yaml_strict.load(path))
                 if path is not None and path.is_file() else None)
-    return bind(pipeline, samples, references)
+    return bind(pipeline, samples, references, columns)

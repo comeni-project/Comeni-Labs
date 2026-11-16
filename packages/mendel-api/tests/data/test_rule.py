@@ -87,3 +87,25 @@ def test_a_left_out_sample_is_not_checked_again():
     found = checks([sample("Y1", ["a", "b"], read_length=101),
                     sample("Y2", ["c", "d"], read_length=101), odd], [])
     assert found == []
+
+
+def test_use_file_does_not_rename_onto_a_name_another_folder_took():
+    taken = {"Y4"}
+    found = group(NAMES, Rule(), [Fix(kind="use_file", sample="Y4_R1", file="Y4_2.fq.gz")], taken)
+    names = [n for n, _ in found.samples]
+    assert "Y4" not in names and len(names) == len(set(names))
+
+
+def test_a_lone_file_of_another_kind_is_not_missing_its_mate():
+    genome = sample("ref", ["ref.fa"])
+    genome["type_id"] = "genome.fasta"
+    found = checks([sample("Y1", ["Y1_R1.fq", "Y1_R2.fq"]), sample("Y2", ["Y2_R1.fq", "Y2_R2.fq"]),
+                    genome], [])
+    assert found == []
+
+
+def test_check_text_says_values_plainly():
+    [odd] = checks([sample("a", ["1", "2"], quality_encoding="phred33"),
+                    sample("b", ["3", "4"], quality_encoding="phred33"),
+                    sample("c", ["5", "6"], quality_encoding="phred64")], [])
+    assert odd.detail == "quality_encoding is phred64; most samples have phred33"

@@ -135,6 +135,15 @@ def _changed(db, draft):
     draft.projection_current = False
 
 
+def data_changed(draft_id) -> None:
+    """The analysis's data changed, so the facts and inputs derived from it did (#511): the goal
+    moved, and the drawn pipeline is no longer current until it is built again."""
+    with session_scope() as db:
+        draft = db.get(PipelineDraft, draft_id)
+        if draft is not None:
+            _changed(db, draft)
+
+
 def _current(db, draft_id, family):
     subject, revision = _FAMILIES[family]
     return db.execute(

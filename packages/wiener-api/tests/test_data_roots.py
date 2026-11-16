@@ -109,3 +109,40 @@ def test_submit_takes_staged_samples(client, tmp_path, monkeypatch):
         "artifact_id": stored.json()["artifact_id"],
         "params": {"input": {"stage": [{"sample": "Y1", "files": y1}]}}})
     assert accepted.status_code == 202, accepted.text
+
+
+def test_a_list_of_paths_is_checked(tmp_path):
+    """Checkpoint B, I1: `fastq.reads` reads a List param directly."""
+    (tmp_path / "data").mkdir()
+    assert paths_outside({"reads": ["/etc/passwd"]}, [tmp_path / "data"]) == ["/etc/passwd"]
+
+
+def test_a_relative_path_is_refused(tmp_path):
+    (tmp_path / "data").mkdir()
+    bad = "../../../../etc/passwd"
+    assert paths_outside({"x": bad, "y": [{"sample": "a", "r": bad}]}, [tmp_path / "data"]) == [
+        bad, bad]
+
+
+def test_a_url_is_refused_and_a_file_url_is_checked(tmp_path):
+    (tmp_path / "data").mkdir()
+    inside = files(tmp_path / "data", "a.fq")[0]
+    got = paths_outside({"x": "file:///etc/passwd", "y": "s3://bucket/a.fq",
+                         "z": f"file://{inside}"}, [tmp_path / "data"])
+    assert got == ["file:///etc/passwd", "s3://bucket/a.fq"]
+
+
+def test_a_relative_staged_file_is_refused(tmp_path):
+    (tmp_path / "data").mkdir()
+    stage = {"stage": [{"sample": "a", "files": ["data/a.fq"]}]}
+    assert paths_outside({"input": stage}, [tmp_path / "data"]) == ["data/a.fq"]
+
+
+def test_the_csv_header_is_every_rows_columns_in_first_seen_order(tmp_path):
+    """Checkpoint B, I9: a short first row drops no column for the rest."""
+    written = _materialise_tables({"input": [{"sample": "a", "reads_1": "/d/a.fq"},
+                                             {"sample": "b", "reads_1": "/d/b1.fq",
+                                              "reads_2": "/d/b2.fq"}]}, tmp_path)
+    lines = (tmp_path / "input.csv").read_text().splitlines()
+    assert written["input"] == str(tmp_path / "input.csv")
+    assert lines == ["sample,reads_1,reads_2", "a,/d/a.fq,", "b,/d/b1.fq,/d/b2.fq"]
