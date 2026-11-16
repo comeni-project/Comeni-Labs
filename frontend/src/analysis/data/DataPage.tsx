@@ -76,7 +76,7 @@ export function DataPage() {
             : sub === "files" ? <Files draftId={draftId} />
             : (
               <>
-                <Overview data={data.data} onFix={data.fix} />
+                <Overview data={data.data} onFix={data.fix} onRescan={data.rescan} />
                 <Applied data={data.data} onKeep={data.keepFix} onUndo={data.undoFix} />
               </>
             ))}

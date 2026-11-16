@@ -238,6 +238,7 @@ decline to curate one.
 | `MA0007` | the provider rejected the request, or could not be reached |
 | `MA0008` | no committed prompt file carries that id, or the id is not a versioned one |
 | `MA0009` | the values supplied do not match the prompt's placeholders |
+| `MA0010` | the model's usage limit is reached |
 
 ## What a model answered
 

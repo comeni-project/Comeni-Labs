@@ -338,6 +338,8 @@ class LiteLLMTransport:
             raise TimeoutError(
                 coded("MA0003", f"no answer within {access.timeout_seconds}s")
             ) from failure
+        except litellm.RateLimitError as failure:
+            raise ModelUnavailableError(coded("MA0010", _limited(failure))) from failure
         except Exception as failure:
             # Keep third-party failures behind the package's transport error contract.
             raise ModelUnavailableError(
@@ -374,11 +376,25 @@ class LiteLLMTransport:
             raise TimeoutError(
                 coded("MA0003", f"no answer within {access.timeout_seconds}s")
             ) from failure
+        except litellm.RateLimitError as failure:
+            raise ModelUnavailableError(coded("MA0010", _limited(failure))) from failure
         except Exception as failure:
             raise ModelUnavailableError(
                 coded("MA0007", f"{access.model}: {failure}")
             ) from failure
         return reply_of(access, response, started)
+
+def _limited(failure: Exception) -> str:
+    """The usage limit, and when the provider says it resets (walk 2026-11-16)."""
+    import datetime
+    import re
+
+    found = re.search(r'"resets_at"\s*:\s*(\d+)', str(failure))
+    if not found:
+        return "the model's usage limit is reached"
+    at = datetime.datetime.fromtimestamp(int(found.group(1)), datetime.UTC)
+    return f"the model's usage limit is reached; it resets at {at:%H:%M} UTC"
+
 
 def _cacheable(model: str, messages: list[dict]) -> list[dict]:
     """**The repeated prompt, marked for the provider's cache where it needs marking** (walk

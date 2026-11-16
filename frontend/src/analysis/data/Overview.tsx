@@ -9,7 +9,9 @@ const TILE_TO: Record<string, string> = { Samples: "samples", Files: "files" };
 
 /** Data's Overview (#511): the same four tiles whatever the data is, what needs checking, the
  *  samples compared by a fact this data measured, and what was measured. */
-export function Overview({ data, onFix }: { data: AnalysisData; onFix: (fix: DataFix) => void }) {
+export function Overview({ data, onFix, onRescan }: {
+  data: AnalysisData; onFix: (fix: DataFix) => void; onRescan?: () => void;
+}) {
   if (data.folders.length === 0) {
     return (
       <p className="m-0 text-[14px] text-ink-2">
@@ -27,7 +29,15 @@ export function Overview({ data, onFix }: { data: AnalysisData; onFix: (fix: Dat
         </p>
       )}
       {data.scan.state === "failed" && (
-        <p role="alert" className="m-0 text-[13px] text-needs-you-ink">The scan stopped: {data.scan.error}</p>
+        <p role="alert" className="m-0 flex flex-wrap items-center gap-3 text-[13px] text-needs-you-ink">
+          <span className="flex-1 min-w-0">The scan stopped: {data.scan.error}</span>
+          {onRescan && (
+            <button type="button" onClick={onRescan}
+                    className="h-[30px] px-[11px] rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer">
+              Read again
+            </button>
+          )}
+        </p>
       )}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {summary.tiles.map((tile) => {

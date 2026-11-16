@@ -2871,6 +2871,18 @@ MA0005:
     The same value is refused a second time by `Hole.legal` on the way into a scaffold. That
     is not redundant: it is the check that already existed for a person's fill, and routing
     a model's answer through it means one rule rather than two that can drift.
+MA0010:
+  emitted_by: ai
+  concern: model-access
+  says: "the model's usage limit is reached"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Wait until the time it names, when the provider resets the limit, then try again; or use
+    another model access (an API key or a local endpoint) in Settings.
+  explanation: |
+    A subscription caps how much it answers in a window. The provider says when the window
+    resets, and the person is told that time rather than offered a Retry that cannot work yet.
 MA0007:
   emitted_by: ai
   concern: model-access

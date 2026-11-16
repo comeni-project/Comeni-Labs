@@ -197,6 +197,23 @@ def test_a_provider_failure_fails_the_turn_with_its_code(clean, monkeypatch):
     assert turn.blocks[-1]["notice"] == "refusal" and turn.blocks[-1]["code"] == "MA0007"
 
 
+def test_a_reached_usage_limit_says_so_rather_than_did_not_answer(clean, monkeypatch):
+    """Walk 2026-11-16: the person read "The AI did not answer. Try again." for a limit that
+    lasts hours."""
+    class Limited:
+        def converse(self, access, messages, tools):
+            raise ModelUnavailableError(coded(
+                "MA0010", "the model's usage limit is reached; it resets at 22:28 UTC"))
+
+    monkeypatch.setattr(loop, "model_access", lambda: object())
+    session_id = loop.start_session(drafts.create(DraftGraph(), "agent", "ana"), who="ana")
+    seq = loop.add_person_turn(session_id, "hello")
+    loop.run_turn(session_id, seq, transport=Limited())
+    notice = _turn(session_id, seq).blocks[-1]
+    assert notice["code"] == "MA0010"
+    assert notice["text"] == "The model's usage limit is reached; it resets at 22:28 UTC. Try again then."
+
+
 def test_asking_ends_the_turn_with_the_question(clean, monkeypatch):
     session_id, seq, script = _started(
         monkeypatch, [_call("ask", question="Do you have a GTF?", shape="yes_no")])

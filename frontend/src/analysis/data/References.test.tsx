@@ -7,6 +7,7 @@ import { References } from "./References";
 
 vi.mock("../../api/client", () => ({
   get: vi.fn(async (url: string) => url.endsWith("/reference-types") ? ["annotation.gtf", "genome.fasta"]
+    : url.endsWith("/vocabulary") ? { names: { "annotation.gtf": "Gene annotation (GTF)", "genome.fasta": "Genome sequence" } }
     : { total: 2, files: [{ path: "/d/genome.fasta", name: "genome.fasta", size: 10, sample: "genome", recognised: null, used_as: null },
                           { path: "/d/L01_R1.fq.gz", name: "L01_R1.fq.gz", size: 10, sample: "L01", recognised: "fastq.reads", used_as: null }] }),
 }));
@@ -24,9 +25,8 @@ it("references: standard is shown as later; from a file names the file and its t
   const { add } = refs();
   expect(screen.getByText(/Standard references/)).toBeTruthy();
   expect(screen.getByText("later")).toBeTruthy();
-  // The file and its kind share a name here: wait for both lists.
-  await screen.findByRole("option", { name: "annotation.gtf" });
-  expect(await screen.findAllByRole("option", { name: "genome.fasta" })).toHaveLength(2);
+  await screen.findByRole("option", { name: "Gene annotation (GTF)" });
+  expect(await screen.findByRole("option", { name: "genome.fasta" })).toBeTruthy();
   fireEvent.change(screen.getByRole("combobox", { name: "File" }), { target: { value: "/d/genome.fasta" } });
   fireEvent.change(screen.getByRole("combobox", { name: "Kind" }), { target: { value: "genome.fasta" } });
   fireEvent.click(screen.getByRole("button", { name: "Add reference" }));
@@ -40,4 +40,12 @@ it("a reference is listed with its kind and can be removed", () => {
   expect(screen.getByText("annotation.gtf")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Remove genes.gtf" }));
   expect(remove).toHaveBeenCalledWith(0);
+});
+
+it("kinds are offered and listed by their names, not their ids (#527)", async () => {
+  refs(analysis({ references: [{ path: "/d/genes.gtf", name: "genes.gtf", type_id: "annotation.gtf",
+                                origin: "you", facts: [] }] }));
+  expect(await screen.findByRole("option", { name: "Genome sequence" })).toBeTruthy();
+  expect(await screen.findAllByText("Gene annotation (GTF)")).not.toHaveLength(0);
+  expect(screen.queryByText("one file each, for the whole analysis")).toBeNull();
 });

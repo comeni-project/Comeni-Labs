@@ -73,3 +73,11 @@ it("hundreds of samples do not widen the page", () => {
   expect(bars.className).toContain("overflow-hidden");
   expect(bars.className).toContain("gap-0");
 });
+
+it("a scan that stopped offers Read again (#526)", () => {
+  const onRescan = vi.fn();
+  render(<MemoryRouter><Overview data={analysis({ scan: { state: "failed", done: 0, total: 5, error: "boom", examples: [] } })}
+                                  onFix={vi.fn()} onRescan={onRescan} /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "Read again" }));
+  expect(onRescan).toHaveBeenCalled();
+});

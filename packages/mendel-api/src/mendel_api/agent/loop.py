@@ -260,6 +260,14 @@ def _record(session_id: str, access, sent: list[dict], reply, failure: str | Non
     return invocation
 
 
+def _said(failure: Exception) -> str:
+    """What the person reads when the model fails: a reached limit says so and when it resets."""
+    if _code(failure) == "MA0010":
+        detail = str(failure).split(": ", 1)[-1]
+        return f"{detail[:1].upper()}{detail[1:]}. Try again then."
+    return "The AI did not answer. Try again."
+
+
 def _code(failure: Exception) -> str:
     found = re.match(r"(M[A-Z]\d{4})", str(failure))
     return found.group(1) if found else "MA0007"
@@ -290,7 +298,7 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
         except Exception as failure:  # noqa: BLE001 — every provider failure ends the turn coded
             invocation = _record(session_id, access, messages, None, _code(failure))
             blocks.append(Notice(id=f"failed-{seq}", notice=NoticeKind.REFUSAL,
-                                 text="The AI did not answer. Try again.",
+                                 text=_said(failure),
                                  code=_code(failure)).model_dump(mode="json"))
             _write(session_id, seq, blocks, TurnState.FAILED, invocation)
             return TurnState.FAILED.value

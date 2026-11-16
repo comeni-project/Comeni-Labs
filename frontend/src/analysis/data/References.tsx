@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { get } from "../../api/client";
+import { useTypeNames } from "../../build/living/useTypeNames";
 import { Panel } from "../../ui/Panel";
 import { allFiles } from "./files";
 import type { AnalysisData } from "./types";
@@ -17,6 +18,7 @@ export function References({ data, onAdd, onRemove }: {
     queryKey: ["analysis-files", data.draft_id, data.revision],
     queryFn: () => allFiles(data.draft_id),
   });
+  const typeName = useTypeNames();
   const [path, setPath] = useState("");
   const [kind, setKind] = useState("");
   const named = new Set(data.references.map((r) => r.path));
@@ -26,12 +28,12 @@ export function References({ data, onAdd, onRemove }: {
 
   return (
     <div className="flex flex-col gap-4">
-      <Panel title="References" hint="one file each, for the whole analysis">
+      <Panel title="References">
         {data.references.length === 0 && <p className="m-0 px-5 pb-4 text-[13px] text-ink-3">None yet.</p>}
         {data.references.map((ref, index) => (
           <div key={ref.path} className="flex items-center gap-3 px-5 py-[10px] border-t border-line-soft text-[13px]">
             <span className="font-data text-[12.5px] text-ink">{ref.name}</span>
-            <span className="text-ink-3">{ref.type_id}</span>
+            <span className="text-ink-3">{typeName(ref.type_id)}</span>
             <button type="button" aria-label={`Remove ${ref.name}`} onClick={() => onRemove(index)}
                     className="ml-auto h-7 px-[10px] rounded-control border border-line-2 bg-surface text-[12px] text-ink-2 cursor-pointer">
               Remove
@@ -51,7 +53,7 @@ export function References({ data, onAdd, onRemove }: {
             <label className="flex flex-col gap-1 text-[12px] text-ink-3">Kind
               <select aria-label="Kind" value={kind} onChange={(e) => setKind(e.target.value)} className={field}>
                 <option value="">What it is</option>
-                {(types.data ?? []).map((t) => <option key={t} value={t}>{t}</option>)}
+                {(types.data ?? []).map((t) => <option key={t} value={t}>{typeName(t)}</option>)}
               </select>
             </label>
             <button type="button" disabled={!path || !kind} onClick={() => { onAdd(path, kind); setPath(""); setKind(""); }}
