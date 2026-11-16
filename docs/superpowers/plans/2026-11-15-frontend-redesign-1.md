@@ -701,18 +701,18 @@ Board: `Build.dc.html`: the nodes, the ports and the picker.
   - **Right-click:** on a step it opens `StepMenu`; on the empty canvas it offers Add step here.
   - **Add step:** a searchable picker over the canvas, grouped by job, that shows what each tool takes and makes.
 
-- [ ] **Step 1:** Write the failing tests:
+- [x] **Step 1:** Write the failing tests:
   - `optional ports are dashed with connect`
   - `a per-sample step shows ×N from the analysis's sample count`
   - `a fan-in port reads all N`
   - `right-click on the empty canvas offers add step here`
   - `add step searches tools grouped by job and shows takes → makes`
-- [ ] **Step 2:** Run `npx vitest run src/analysis/build`. Expected: FAIL.
-- [ ] **Step 3:** Implement against the board. The measuring step hung under the step it reads, and the shared
+- [x] **Step 2:** Run `npx vitest run src/analysis/build`. Expected: FAIL.
+- [x] **Step 3:** Implement against the board. The measuring step hung under the step it reads, and the shared
   trunk, are tracked in #517. Build them here only if they fall out of the layout; if they do not, ledger that.
-- [ ] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
-- [ ] **Step 5:** Walk it in the browser: a QUAST-style step with many ports, and adding a step by right-clicking.
-- [ ] **Step 6:** Commit: `feat(frontend): Build's canvas and Add step (#511)`.
+- [x] **Step 4:** Run the tests and `npx tsc -b`. Expected: PASS.
+- [x] **Step 5:** Walk it in the browser: a QUAST-style step with many ports, and adding a step by right-clicking.
+- [x] **Step 6:** Commit: `feat(frontend): Build's canvas and Add step (#511)`.
 
 ### Task 14: Run in the analysis frame, sent without a form
 
