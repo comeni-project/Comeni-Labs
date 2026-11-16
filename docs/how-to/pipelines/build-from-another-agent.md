@@ -37,5 +37,4 @@ claude mcp add --transport http comeni http://127.0.0.1/api/mcp/ \
 - **Choices are recorded as the AI's**, with the client's name as who made them and the reason
   it gave, and they are marked for a person to review, as the builder's AI's are.
 - **`ask`** returns the question to the client: its own user answers it.
-- Data the tools return follows the installation's protection level. At level 0 it may include
-  your samples' names.
+- Data the tools return may include your samples' names, never a path or a file's contents.

@@ -48,17 +48,16 @@ cites its entry; the long form is in [the archive](journal/archive/).
   called *measured* (#387, #397). (2026-10-22)
 - **Current decisions are retained rows**, one pointer per subject; corrections cascade reviews,
   truthful unbuildable answers stay. (2026-10-11)
-- **Open:** the frontend's agent thread (task 12); characterisation as a tool (#501); tier-4
+- **Open:** the frontend's agent thread (task 12); AI reading a file as a tool (#501); tier-4
   structure for the agent (#502); how samples differ, as a spread (#503); `MD0225` does not
   cover step selections. (2026-11-15)
 
-## Samples (protection level 0)
+## Samples
 
-- **A gap can be answered with a sample**, one file or a pair: each file's first 4 MB, measured in
-  memory by a child process with no secrets and hard limits; facts are kept, never bytes. A
-  disagreement asks keep, use, correct or unknown. (2026-10-03, 2026-10-04)
-- **A sample nothing reads was read by the AI** (door 6): up to 8 KB, each property quoting its
-  line. Deleted with the walk; it returns as an agent tool (#501). (2026-10-04, 11-15)
+- **Data is ticked folders, read in place** (#511): each file's first 4 MB, measured by a child
+  process with no secrets and hard limits; facts are derived from the analysis's data at every
+  read, never logged. Upload, protection levels, characterisation (door 6) and shape versions were
+  removed on 2026-11-16; AI reading an unrecognised file returns as an agent tool (#501).
 - **Measurers are composed pieces** in `registry/measurers/` (codecs, formats, measurers), run
   only from trusted layers in one pass; below a threshold a measurer says *undetermined*. (11-10)
 - **A measured fact is `MEASURED`**, naming its pieces and evidence. Adding a piece:
@@ -72,7 +71,7 @@ cites its entry; the long form is in [the archive](journal/archive/).
   typed in the menu are sealed with `COMENI_SETTINGS_KEY`. (2026-10-01)
 - **On the RX 7600 (8 GiB):** gemma3:4b and qwen2.5:7b fit (0.5–3 s a call); gemma3:12b spills
   36% to the CPU (3–7 s, about 20 s a chat reply) and is what the walks run. (2026-09-29, 10-18)
-- Pacing is live; tier 4 by a model, protection levels and k8s/awsbatch remain designed. (10-01)
+- Pacing is live; tier 4 by a model and k8s/awsbatch remain designed; a privacy posture is #71. (10-01)
 
 ## The screens
 

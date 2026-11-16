@@ -99,7 +99,7 @@ nav:
       - Use Comeni:
           - Install and open the app: how-to/install.md
           - Work with the builder: how-to/pipelines/build.md
-          - Answer with a sample: how-to/pipelines/answer-with-sample.md
+          - Add your data: how-to/pipelines/add-your-data.md
           - Build from another agent: how-to/pipelines/build-from-another-agent.md
           - Review decisions: how-to/pipelines/review.md
           - Run a pipeline: how-to/pipelines/run.md

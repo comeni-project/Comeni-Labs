@@ -67,22 +67,22 @@ agent made carries `because`, its reason. A kept `pipeline.yml` lists the agent'
 `ai_choices`, each marked reviewed or not; keeping never waits on a review. A reviewed choice
 counts as the person's answer when rules are learned from kept pipelines; an unreviewed one
 does not. The person's direct actions — a change, a corrected
-fact, a released tool, a canvas edit, an upload — are the person's, and the pipeline is built
+fact, a released tool, a canvas edit — are the person's, and the pipeline is built
 again so the canvas follows at once.
 
 Facts keep their origin:
 
 | Origin | Meaning |
 |---|---|
-| measured | A declared measurer obtained the value. |
+| measured | A declared measurer obtained the value from the analysis's data. Derived at every read, never logged: change the data and it changes. |
 | person said | The person asserted the value. |
 | model read | A model read the value from admitted evidence. |
 | open | No accepted value is available. |
-| varies | The person said it differs between samples. |
+| varies | The samples differ, or the person said so. Each sample keeps its own value. |
 
 An open fact is not silently defaulted. A rule that needs it cannot apply, and the affected
 decision remains open for the agent or the person to settle. A person's word stands over a
-measurement: an upload never overwrites a fact the person stated.
+measurement: new data never overwrites a fact the person stated.
 
 ## Canvas edits become durable intent
 
@@ -109,25 +109,22 @@ tool, input, value or justification, so review state is not keyed by identifier 
 ## Where each measurer runs
 
 Every measurer declares where it runs (`runs: [server, pipeline]`), and a format states whether it
-can run on this server. That location determines what data crosses a boundary and which
-protection levels allow it.
+can run on this server. That location determines what is read where.
 
-| Measurer | Reads | Runs on | What crosses | Allowed at |
-|---|---|---|---|---|
-| **Measurer, `server`** | The bounded head of one uploaded sample file or pair. | **this server**, in a constrained child process. | At level 0, the sample's head reaches this server; the complete file is neither uploaded nor stored. Admitted facts enter the goal. | Level 0. |
-| **Measurer, `pipeline`** | All of the data, as a step in the run: our measure code, or a tool and a parser of its output. | **the lab's machine**, inside the pipeline. | No sample data reaches this server. Reading the run's measured facts back is planned (#465). | Every implemented level. |
-| **Characteriser** | At most the admitted decoded excerpt from the sample head. | The configured model. | The excerpt would reach the model. Its door is declared; it is not wired to the agent yet (#501). | Level 0. |
+| Measurer | Reads | Runs on | What is kept |
+|---|---|---|---|
+| **Measurer, `server`** | The first 4 MB of each file of one sample, read in place from a ticked folder. | **this server**, in a constrained child process. | The measured facts, on the analysis's data. Nothing is copied. |
+| **Measurer, `pipeline`** | All of the data, as a step in the run: our measure code, or a tool and a parser of its output. | **the lab's machine**, inside the pipeline. | The run's own record. Reading its facts back is planned (#465). |
 
-Browser-side measurers are a future protection option, not a currently declared execution place.
 Changing a measurer's `runs` declaration requires a matching runner and an update to this table.
 
-## Privacy at level 0
+## What the agent's model sees
 
 What reaches the agent's model is declared on one door, `builder_agent`: the conversation (the
-person's words and the agent's own) and one typed result per tool call. At protection level 0 a
-result may carry the names of the person's uploaded samples, so the agent can talk about them;
-a stricter level filters them before a view is built. Sample names are kept with the session and
-deleted with it; they never enter a goal, a pipeline or a log. See
+person's words and the agent's own) and one typed result per tool call. A result may carry the
+names of the person's samples, so the agent can talk about them; never a path or a file's
+contents. Sample names are kept with the analysis's data and deleted with it; they never enter a
+goal, a pipeline or a log. See
 [the invariants](invariants.md) for the rule and its guards.
 
 ## Determinism

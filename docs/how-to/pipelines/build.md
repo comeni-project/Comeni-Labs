@@ -94,4 +94,4 @@ tool or asks a question the lab can answer with a rule, the fix usually belongs 
 [Registry](../../explanation/registry.md), not in a one-off graph edit.
 
 For control and status definitions, see [Builder interface](../../reference/pipelines/builder-interface.md).
-To answer a data question using a file, follow [Answer with a sample](answer-with-sample.md).
+To add your files, follow [Add your data](add-your-data.md).

@@ -22,7 +22,7 @@ Do not reuse the deprecated `mendel-ai` name.
    `mendel_api/jobs.py`; `AIWorkerSettings` registers the allowed worker functions.
 3. `services/authoring_jobs.py` reads the still-pending context, chooses the phase/purpose and
    constructs a `comeni_ai.Client` using application settings. A delivered job whose context no
-   longer matches does not spend another model call. Phrasing, read-back and characterisation
+   longer matches does not spend another model call. Phrasing and read-back
    have their own handlers and context checks.
 4. `services/authoring_ai.py` composes the request and resolves a committed template through
    `authoring/prompts.py`. `comeni_ai.prompts.PromptTemplate` loads/renders/version-identifies the
@@ -74,7 +74,7 @@ Tests that substantiate the current boundaries include:
 - `packages/comeni-ai/tests/`: provider formats, validation, chat, prompt loading and recordings.
 - `packages/mendel-api/tests/authoring/test_authoring_ai.py` and `test_authoring_prompts.py`:
   builder context, admission, prompt identity and recorded invocation behavior.
-- `packages/mendel-api/tests/authoring/samples/`: characterisation evidence and excerpt handling.
+- `packages/mendel-api/tests/authoring/samples/`: sample inspection.
 - `packages/mendel-api/tests/infrastructure/test_invocations.py`: the recorded vocabulary's values.
 - `tests/repo/test_compose.py`: process/queue separation and access-setting propagation.
 

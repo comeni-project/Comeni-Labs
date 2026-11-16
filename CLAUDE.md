@@ -27,7 +27,8 @@ a model's contribution must remain visible and reviewable.
 
 - Follow the user's requested scope. A documentation pass changes documentation; report
   implementation problems separately. Do not turn an audit into an unsolicited refactor.
-- Record defects in GitHub issues before implementation. For rule, protocol or ownership
+- Record a defect found outside the plan being executed in a GitHub issue before fixing it; a
+  plan's own defects go in its ledger. For rule, protocol or ownership
   changes, explain the alternatives and costs so the operator can choose. The
   [walking procedure](docs/how-to/development/investigate.md) describes the issue and decision workflow.
 - Before code changes, agree on the approach. Design work proceeds through an approved
@@ -73,10 +74,10 @@ claims in source and guards before repeating them.
   Publication verifies the saved artifact and emitted files; it must not silently re-resolve.
 - Models are reached by API key, local endpoint or subscription sign-in. Self-hosting must retain the same
   construction capabilities and reproducible output. Telemetry is opt-in and off by default.
-- Data crosses boundaries only through declared payloads. Sample inspection and model
-  characterisation are explicit exceptions controlled by protection level. Inspect the current
-  upload, egress and retention code before making privacy claims: sampled file text can reach
-  a model and stored replies at level 0. Do not promise that only measured facts are retained.
+- Data reaches a model only through declared payloads. A pipeline never holds a path, sample
+  name or file content. Files are read in place under the data roots and never copied; facts
+  about them are derived, not logged. The agent's model may read sample names, and stored model
+  replies are kept: inspect egress and retention code before making privacy claims.
 
 ## Documentation and public claims
 

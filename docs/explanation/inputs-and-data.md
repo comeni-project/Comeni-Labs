@@ -63,20 +63,18 @@ flowchart TD
 ```
 
 Pipeline construction uses analysis descriptions, registry declarations and data facts.
-You can state facts yourself or supply a bounded sample for inspection. At protection
-level 0, an unrecognized sample can also be characterized by a model using a bounded
-text excerpt. Model replies are recorded, and queued excerpts can reach Redis persistence.
-Keep that exception separate from the full input files used to execute a pipeline.
+You can state facts yourself, or tick the folders that hold your data: Comeni reads the start
+of each file where it is, never copying it, and derives the facts from what it measured. The
+same files are what a run reads.
 
-For the upload procedure and limits, see
-[Answer a data question with a sample](../how-to/pipelines/answer-with-sample.md).
+To add data, see [Add your data](../how-to/pipelines/add-your-data.md).
 
 ## Practical checks
 
 | Question | Answer |
 |---|---|
-| Do I upload files to design a pipeline? | Optional bounded samples can supply facts; full execution files are supplied separately. |
-| Do I provide paths to run locally? | yes, in the current alpha run sheet |
+| Do I upload files to design a pipeline? | No. You tick folders on this machine; files are read where they are. |
+| Do I provide paths to run locally? | No. A run's inputs come from the analysis's data. |
 | Can the same artifact run twice? | yes, a run is one execution of an artifact |
 | Can inputs change without changing the pipeline? | yes, when the scientific shape and decisions stay the same |
 

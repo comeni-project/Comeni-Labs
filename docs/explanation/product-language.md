@@ -30,8 +30,8 @@ Prefer the person's words when they gave them. One idea per sentence. Short sent
 |---|---|
 | one file, or a pair (R1 and R2) | Choose your samples' files: one file per sample, or both files of each paired sample. Paired files are usually named _R1 and _R2, or _1 and _2. |
 | This analysis needs annotation.gtf. Do you have one? | Do you have the gene annotation (GTF) this analysis needs? |
-| I have it, and I'll upload a sample | Yes — I'll upload a sample |
-| Not sure: upload a sample and I'll measure it | Not sure — measure it from a sample |
+| I have it, and I'll add it in Data | Yes — it's in my data |
+| Not sure: measure it from my data | Not sure — measure it from my data |
 | only the first 4 MB is read, on this server · if nothing here reads its type, about 8 KB of its text goes to the AI to read | Have a sample to hand? Upload it and we'll measure the rest: sequenced read length. You won't need to answer that yourself. |
 
 ## Where it applies
