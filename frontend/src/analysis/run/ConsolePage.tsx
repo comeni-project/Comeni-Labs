@@ -55,7 +55,7 @@ export function ConsolePage({ draftId, runId, phase }: { draftId: string; runId:
   return (
     <ShellContext.Provider value={{ run: (c) => shell.current?.run(c), insert: (c) => shell.current?.insert(c) }}>
       {failed && (
-        <div role="status" className="flex flex-wrap items-center gap-3 px-[14px] py-[10px] rounded-panel bg-needs-you-soft border border-needs-you-line">
+        <div role="status" className="shrink-0 flex flex-wrap items-center gap-3 px-[14px] py-[10px] rounded-panel bg-needs-you-soft border border-needs-you-line">
           <span aria-hidden className="w-2 h-2 rounded-full bg-needs-you shrink-0" />
           <span className="flex-1 min-w-[240px] text-[13.5px] text-ink">
             <b>{failed.step}{failed.tag ? ` · ${failed.tag}` : ""}</b> stopped{failed.exit != null ? `: exit ${failed.exit}` : ""}
@@ -74,8 +74,8 @@ export function ConsolePage({ draftId, runId, phase }: { draftId: string; runId:
           )}
         </div>
       )}
-      <div className="flex-1 min-h-[560px] flex gap-3">
-        <section ref={area} aria-label="Console" className="flex-1 min-w-0 flex flex-col rounded-panel border border-line bg-surface overflow-hidden">
+      <div className="flex-1 min-h-0 flex gap-3 overflow-hidden">
+        <section ref={area} aria-label="Console" className="flex-1 min-w-0 min-h-0 flex flex-col rounded-panel border border-line bg-surface overflow-hidden">
           <div className={PANE}>
             <span className="text-[13px] font-semibold text-ink">Nextflow</span>
             <span className={`flex items-center gap-[6px] text-[12px] ${over ? "text-ink-3" : "text-now-ink"}`}>
@@ -171,8 +171,8 @@ function ConsoleAssistant({ draftId, runId, cwd, base, shell, onClose }: {
     staleTime: Infinity,
   });
   return (
-    <aside aria-label="Assistant" className="w-[380px] shrink-0 flex flex-col rounded-panel border border-line bg-surface overflow-hidden">
-      <div className="flex items-center gap-2 px-[14px] py-[11px] border-b border-line-soft">
+    <aside aria-label="Assistant" className="w-[380px] min-h-0 shrink-0 flex flex-col rounded-panel border border-line bg-surface overflow-hidden">
+      <div className="shrink-0 flex items-center gap-2 px-[14px] py-[11px] border-b border-line-soft">
         <span className="text-[13.5px] font-semibold text-ink">Assistant</span>
         <span className="text-[12px] text-ink-3">sees the console and the shell</span>
         <button type="button" aria-label="Close the assistant" onClick={onClose}

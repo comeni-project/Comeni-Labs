@@ -10,7 +10,7 @@ import { overAsked, progressOf, retryWhy, samplesOf, type ProcessRow, type RunNo
 import { Measured } from "./Measured";
 import { RunCanvas } from "./RunCanvas";
 import { bytes, seconds } from "./units";
-import { factsOf, useBuildCanvas, useRun, useSamples, type RunState } from "./useRuns";
+import { factsOf, useBuildCanvas, useRun, usePipelineSamples, type RunState } from "./useRuns";
 
 type Machine = components["schemas"]["Machine"];
 
@@ -22,7 +22,7 @@ export function Overview({ draftId, runId, base, state, live, stop }: {
   const navigate = useNavigate();
   const run = useRun(runId);
   const canvas = useBuildCanvas(draftId);
-  const samples = useSamples(draftId);
+  const samples = usePipelineSamples(draftId);
   const facts = factsOf(canvas.data);
   const nodes = run.graph.data?.nodes ?? [];
   const rows = run.overview.data?.rows ?? [];
@@ -65,6 +65,11 @@ export function Overview({ draftId, runId, base, state, live, stop }: {
               {" · "}{failures ? <span className="text-needs-you-ink font-semibold">{failures} failed</span> : "no failures"}
               {retries > 0 && ` · ${retries} ${retries === 1 ? "retry" : "retries"}`}
             </p>
+            {!bySteps && <p className="m-0 text-[12px] text-ink-3">
+              {samples.reduce((n, sample) => n + sample.files.length, 0)} input files
+              {samples.length > 0 && samples.every((sample) => sample.files.length === 2)
+                ? " · each read pair counts as one sample" : ""}
+            </p>}
           </div>
           <span className="ml-auto flex items-center gap-2">
             <Link to={`${base}/outputs`} className="h-[32px] px-3 inline-flex items-center rounded-control border border-line-2 bg-surface text-[13px] font-semibold text-ink no-underline hover:bg-surface-2">

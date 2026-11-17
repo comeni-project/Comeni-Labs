@@ -22,7 +22,8 @@ export const CANVAS_SESSION = {
              edges: [] },
     steps: [step("star_align", "STAR_ALIGN", "Align reads", "nf-core/star/align@2.7.11b"),
             step("samtools_sort", "SAMTOOLS_SORT", "Sort alignments", "nf-core/samtools/sort@1.24")],
-    channels: [],
+    // The pipeline's one per-sample input: Run counts the samples of this type (2026-11-17).
+    channels: [{ name: "reads", param: "input", type_id: "fastq.reads", grain: "sample", ports: [], states: [] }],
     placement: { star_align: { x: 0, y: 0 }, samtools_sort: { x: 240, y: 0 } },
   },
 };
@@ -77,7 +78,7 @@ export function stubRunServers({ runs = [], bindings, posted = () => {} }: Answe
       : path.endsWith("/data/machine") ? { cpus: 12, load: 4, memory_gb: 64, memory_free_gb: 40, disk_free_gb: 200 }
       : path.includes("/data/d1") ? { folders: ["/data/yeast"], files: 6, references: [], checks: [], revision: 1,
                                       scan: { state: "done" }, rule: {}, fixes: [], kinds: [], columns: {}, unfit: [],
-                                      samples: ["WT_REP1", "WT_REP2", "RAP1"].map((name) => ({ name, files: [], facts: [], left_out: false })) }
+                                      samples: ["WT_REP1", "WT_REP2", "RAP1"].map((name) => ({ name, files: [], facts: [], left_out: false, type_id: "fastq.reads" })) }
       : path.startsWith("/api/runs?") ? { runs, total: runs.length }
       : path.endsWith("/overview") ? { rows: [], steps_declared: 2, steps_finished: 1 }
       : path.endsWith("/graph") ? { nodes: [node("star_align", "STAR_ALIGN", 3, 0), node("samtools_sort", "SAMTOOLS_SORT", 1, 1)], wires: [] }

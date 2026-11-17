@@ -51,6 +51,7 @@ export function Flowline({
   dashed = false,
   testId,
   pulse = false,
+  pulseColour = "var(--path)",
   lit = false,
 }: {
   from: Point;
@@ -65,6 +66,8 @@ export function Flowline({
    *  a lit path (Run → Outputs) now, and any canvas that wants to say "this way" later; still for
    *  anyone who asks the system for less motion. */
   pulse?: boolean;
+  /** Live execution uses the running colour; output tracing keeps the path colour. */
+  pulseColour?: string;
   /** **On the lit path**: drawn in the path colour (not a run state's), a little heavier, so the
    *  way reads even between pulses. */
   lit?: boolean;
@@ -102,7 +105,7 @@ export function Flowline({
       })}
       {pulse && (() => {
         const route = flow === "gather" ? [from, ...elbow({ x: Math.max(from.x, to.x - runway), y: from.y }, to)] : elbow(from, to);
-        return <Pulses d={path(route)} length={lengthOf(route)} />;
+        return <Pulses d={path(route)} length={lengthOf(route)} colour={pulseColour} />;
       })()}
       {/* Only where it fits. Two adjacent steps leave 52px between them, and a tag drawn there was
           clipped to `ollect al` — a clipped word is worse than none; the full sentence is on

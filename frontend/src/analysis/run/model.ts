@@ -54,7 +54,10 @@ export function samplesOf(rows: ProcessRow[], perSample: Set<string>, total: num
 /** One step's progress, as its node and the tasks panel say it. */
 export function progressOf(node: RunNode | undefined, facts: StepFacts | undefined, samples: number,
                            live: boolean): StepProgress {
-  const of = facts?.perSample ? Math.max(samples, node?.total ?? 0) : 1;
+  // Ended runs have their actual task counts, including branches taking only some samples.
+  const of = facts?.perSample
+    ? !live && node?.total ? node.total : Math.max(samples, node?.total ?? 0)
+    : 1;
   const done = Math.min(of, node?.done ?? 0);
   const running = node?.running ?? 0;
   if (node?.failed) return { state: "failed", done, running, of, label: `${node.failed} failed` };

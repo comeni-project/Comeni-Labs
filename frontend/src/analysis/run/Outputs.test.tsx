@@ -35,14 +35,13 @@ function page() {
 }
 afterEach(() => { vi.unstubAllGlobals(); lit.length = 0; });
 
-it("opens on what the pipeline made, with Open a link in a new tab (Checkpoint D)", async () => {
+it("opens on what the pipeline made; a table is shown in its folder, not opened in a tab (demo 2026-11-17)", async () => {
   page();
   const results = await screen.findByRole("region", { name: "Your results" });
   expect(within(results).getByText("Count reads")).toBeTruthy();
-  const open = await screen.findByRole("link", { name: "Open WT_REP1.featureCounts.tsv" });
-  expect(open.getAttribute("href")).toBe("/api/runs/r1/results/file?process=subread_featurecounts&name=WT_REP1.featureCounts.tsv");
-  expect(open.getAttribute("target")).toBe("_blank");
-  expect(open.getAttribute("rel")).toContain("noopener");
+  expect(await screen.findByRole("button", { name: "Show WT_REP1.featureCounts.tsv in folder" })).toBeTruthy();
+  // Only an HTML report opens in a new tab.
+  expect(screen.queryByRole("link", { name: /WT_REP1\.featureCounts\.tsv/ })).toBeNull();
 });
 
 it("lights where the chosen file came from on the pipeline", async () => {

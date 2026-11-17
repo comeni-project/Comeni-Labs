@@ -81,6 +81,7 @@ export function LivingCanvas({
   connect = null,
   onConnected,
   progress,
+  animateProgress = false,
   fitOnOpen = false,
   given = {},
   showTool = true,
@@ -126,6 +127,8 @@ export function LivingCanvas({
   onConnected?: () => void;
   /** **On Run**: each step's progress in the run, drawn on its node in place of its values. */
   progress?: Record<string, StepProgress>;
+  /** Animate actual running tasks only while their run is live. */
+  animateProgress?: boolean;
   /** Fit the drawing to the frame when it first has steps (Run's panels, which open small). */
   fitOnOpen?: boolean;
   /** What Data answers each input type with (a reference's file name), for its chip. */
@@ -139,6 +142,8 @@ export function LivingCanvas({
    *  rest fade, so a file's way through the pipeline reads at a glance. `null` lights everything. */
   lit?: string[] | null;
 }) {
+  const running = (id: string) => animateProgress && progress?.[id]?.state === "running"
+    && (progress[id].running > 0);
   const [here, setHere] = useState<{ x: number; y: number } | null>(null);
   /** The step under the pointer, whose details show beside it. */
   const [hovered, setHovered] = useState<string | null>(null);
@@ -555,7 +560,8 @@ export function LivingCanvas({
                 gathers(node, port) ? "gather" : channel.grain === "sample" ? "many" : "one";
               return (
                 <Flowline key={`src-${channel.name}-${node}-${port}`} testId={`flow-${channel.name}-${node}`}
-                          from={branch} to={tip} flow={flow} pulse={lit !== null && lit.includes(node)}
+                          from={branch} to={tip} flow={flow} pulse={running(node) || lit !== null && lit.includes(node)}
+                          pulseColour={running(node) ? "var(--now)" : "var(--path)"}
                           lit={lit !== null && lit.includes(node)}
                           label={selected === node ? flowLabel(flow, channel.count ?? null) : undefined} />
               );
@@ -567,7 +573,8 @@ export function LivingCanvas({
           if (!from) return null;
           return (
             <Flowline key={`result-wire-${r.id}`} testId={`result-wire-${r.id}`} from={from}
-                      to={{ x: r.at.x, y: r.at.y + SOURCE_H / 2 }} pulse={lit !== null && lit.includes(r.id)}
+                      to={{ x: r.at.x, y: r.at.y + SOURCE_H / 2 }} pulse={running(r.id) || lit !== null && lit.includes(r.id)}
+                      pulseColour={running(r.id) ? "var(--now)" : "var(--path)"}
                       lit={lit !== null && lit.includes(r.id)}
                       flow={steps[r.id]?.runs === "per_item" ? "many" : "one"} />
           );
@@ -581,7 +588,8 @@ export function LivingCanvas({
           return (
             <g key={`${edge.from_node}.${edge.from_port}-${edge.to_node}.${edge.to_port}`}
                data-lit={lit === null ? undefined : String(!faded)} opacity={faded ? 0.3 : 1}>
-            <Flowline pulse={lit !== null && !faded} lit={lit !== null && !faded}
+            <Flowline pulse={!faded && (running(edge.to_node) || lit !== null)} lit={lit !== null && !faded}
+                      pulseColour={running(edge.to_node) ? "var(--now)" : "var(--path)"}
                       testId={`wire-${edge.from_node}-${edge.to_node}`} from={from} to={to} flow={flow}
                       label={
                         selected === edge.from_node || selected === edge.to_node
@@ -681,6 +689,7 @@ export function LivingCanvas({
             showTool={showTool}
             showPorts={showPorts}
             progress={progress?.[id]}
+            running={running(id)}
             onHover={(on) => hover(id, on)}
             broken={brokenOf(id)}
             selected={selected === id}

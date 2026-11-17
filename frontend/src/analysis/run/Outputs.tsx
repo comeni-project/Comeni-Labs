@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { Panel } from "../../ui/Panel";
@@ -137,7 +137,7 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
                     <button type="button" onClick={() => { clear(); setSteps(new Set([id])); setResultsOnly(true); }}
                             className="h-[30px] px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer">Show</button>
                     <button type="button" onClick={() => setPicked(keyOf(these[0]))}
-                            className="h-[30px] px-3 rounded-control border border-line-2 bg-surface text-[12.5px] font-semibold text-ink cursor-pointer">Open</button>
+                            className="h-[30px] px-3 rounded-control border border-line-2 bg-surface text-[12.5px] font-semibold text-ink cursor-pointer">Inspect</button>
                   </span>
                 </li>
               );
@@ -241,6 +241,28 @@ export function upstream(step: string, edges: { from_node: string; to_node: stri
   return [...seen];
 }
 
+function RevealFile({ runId, file }: { runId: string; file: File }) {
+  const reveal = useMutation({ mutationFn: async () => {
+    const response = await fetch("/api/local/reveal", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run: runId, process: file.process, name: file.name }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(body?.detail && body.detail !== "Not Found" ? body.detail
+      : "Showing files in your desktop file manager is available in the local Comeni app.");
+    return body as { revealed: "file" | "folder" };
+  } });
+  return <span className="flex flex-col gap-1 items-end max-w-[220px]">
+    <button type="button" disabled={reveal.isPending} onClick={() => reveal.mutate()}
+      aria-label={`Show ${file.name} in folder`}
+      className="h-[30px] px-3 rounded-control border border-line-2 bg-surface text-[12.5px] font-semibold text-ink cursor-pointer hover:bg-surface-2 disabled:opacity-50">
+      {reveal.isPending ? "Opening folder…" : "Show in folder"}
+    </button>
+    {reveal.isSuccess && <span role="status" className="text-[11px] text-done-ink">{reveal.data.revealed === "file" ? "File shown in your file manager" : "Containing folder opened"}</span>}
+    {reveal.isError && <span role="alert" className="text-[11px] text-needs-you-ink">{reveal.error.message}</span>}
+  </span>;
+}
+
 function Preview({ runId, file, step, nameOf, sample, edges, files, stepOf, samples, canvas, onPick }: {
   runId: string; draftId: string; file: File; step: string; nameOf: (id: string) => string; sample: string | null;
   edges: { from_node: string; to_node: string }[]; files: File[]; stepOf: (f: File) => string; samples: string[];
@@ -277,10 +299,11 @@ function Preview({ runId, file, step, nameOf, sample, edges, files, stepOf, samp
           <span className="text-[12px] text-ink-3">{bytes(file.size_bytes)}</span>
         </span>
         <span className="flex gap-[6px] shrink-0">
-          {file.viewable && (
-            <a href={href} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name}`}
+          <RevealFile key={`${runId}:${file.process}:${file.name}`} runId={runId} file={file} />
+          {file.viewable && file.name.endsWith(".html") && (
+            <a href={href} target="_blank" rel="noopener noreferrer" aria-label={`View report ${file.name}`}
                className="h-[30px] px-3 inline-flex items-center rounded-control border border-line-2 bg-surface text-[12.5px] font-semibold text-ink no-underline hover:bg-surface-2">
-              Open
+              View report
             </a>
           )}
           <button type="button" onClick={() => void navigator.clipboard?.writeText(`${file.process}/${file.name}`)}
@@ -305,7 +328,7 @@ function Preview({ runId, file, step, nameOf, sample, edges, files, stepOf, samp
         <p className="m-0 px-4 py-4 text-[13px] text-ink-2">{kind === "bam" ? "BAM · binary" : kind === "reads" ? "FASTQ · gzip · binary" : "Binary"}</p>
       )}
       {file.viewable && file.name.endsWith(".html") && (
-        <p className="m-0 px-4 py-4 text-[13px] text-ink-2">A report: Open shows it.</p>
+        <p className="m-0 px-4 py-4 text-[13px] text-ink-2">Use View report to preview this report, or Show in folder to find it on disk.</p>
       )}
       {head.isPending && file.viewable && !file.name.endsWith(".html") && <p className="m-0 px-4 py-4 text-[13px] text-ink-3">Reading…</p>}
       {head.data !== undefined && table && (

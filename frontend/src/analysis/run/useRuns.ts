@@ -99,13 +99,20 @@ export type RunState = {
   last_activity_ms?: number | null;
 };
 
-/** Kept samples of the analysis: the denominator of *14 of 24 samples finished*. */
+/** Kept samples matching this pipeline's sample inputs, as run submission selects them. */
 export function useSamples(draftId: string): string[] {
+  return usePipelineSamples(draftId).map((sample) => sample.name);
+}
+
+export function usePipelineSamples(draftId: string): AnalysisData["samples"] {
+  const canvas = useBuildCanvas(draftId);
   const data = useQuery({
     queryKey: ["analysis-data", draftId],
     queryFn: () => get<AnalysisData>(`/data/${encodeURIComponent(draftId)}`),
   });
-  return (data.data?.samples ?? []).filter((s) => !s.left_out).map((s) => s.name);
+  const types = new Set((canvas.data?.canvas?.channels ?? [])
+    .filter((channel) => channel.grain === "sample").map((channel) => channel.type_id));
+  return (data.data?.samples ?? []).filter((s) => !s.left_out && types.has(s.type_id ?? ""));
 }
 
 /** What Data answers each input type with: a reference's file name, by type. */
