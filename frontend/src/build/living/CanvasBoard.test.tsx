@@ -276,3 +276,28 @@ describe("inputs and results are cards of their own", () => {
     expect(parseFloat(screen.getByTestId(result.dataset.testid!).style.left)).toBe(left + 40);
   });
 });
+
+describe("the canvas keeps its gestures to itself (walk 2026-11-17)", () => {
+  it("a wheel over the canvas zooms it and never scrolls the page", () => {
+    fake();
+    expect(fireEvent.wheel(screen.getByTestId("canvas"), { deltaY: 40 })).toBe(false);
+  });
+
+  it("dragging an input or a result does not pan the canvas", () => {
+    fake();
+    const frame = screen.getByTestId("canvas").querySelector<HTMLElement>("[style*='translate']")!;
+    const before = frame.style.transform;
+    const [result] = screen.getAllByTestId(/^living-result-/);
+    fireEvent.pointerDown(result, { clientX: 10, clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 80, clientY: 10, pointerId: 1 });
+    fireEvent.pointerUp(window, { pointerId: 1 });
+    expect(frame.style.transform).toBe(before);
+  });
+
+  it("a lit path carries pulses along its wires, and only there", () => {
+    fake({ lit: ["trimgalore", "star_align"] });
+    const lit = screen.getByTestId("wire-trimgalore-star_align");
+    expect(lit.querySelectorAll("[data-pulse]").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("wire-star_align-samtools_sort").querySelectorAll("[data-pulse]").length).toBe(0);
+  });
+});

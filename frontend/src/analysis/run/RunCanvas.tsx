@@ -8,7 +8,7 @@ import { factsOf, useBuildCanvas, useReferences } from "./useRuns";
 /** **The run, drawn on Build's canvas** (#511, `Run.dc.html`): the same steps where Build put them,
  *  each with how far it has got. A run of a pipeline the analysis no longer keeps is drawn from
  *  the run's own record instead, since Build's canvas is of the current one. */
-export function RunCanvas({ draftId, runId, nodes, samples, live, current, selected, onSelect, lit = null, focus = null }: {
+export function RunCanvas({ draftId, runId, nodes, samples, live, current, selected, onSelect, lit = null, focus = null, fit = true }: {
   draftId: string;
   runId: string;
   nodes: RunNode[];
@@ -22,6 +22,8 @@ export function RunCanvas({ draftId, runId, nodes, samples, live, current, selec
   lit?: string[] | null;
   /** The step brought on screen when it changes. */
   focus?: string | null;
+  /** Fit the whole drawing when it opens (Overview); Outputs opens at size, on `focus`. */
+  fit?: boolean;
 }) {
   const canvas = useBuildCanvas(draftId);
   const given = useReferences(draftId);
@@ -46,7 +48,7 @@ export function RunCanvas({ draftId, runId, nodes, samples, live, current, selec
       given={given}
       lit={lit}
       focus={focus}
-      fitOnOpen
+      fitOnOpen={fit}
     />
   );
 }

@@ -79,7 +79,8 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
     && (!q || f.name.toLowerCase().includes(q) || (sampleOf(f.name, samples) ?? "").toLowerCase().includes(q)));
   // What the pipeline was made for: what its last steps published, readable.
   const sinks = stepIds.filter((id) => !edges.some((e) => e.from_node === id));
-  const made = files.filter((f) => sinks.includes(stepOf(f)) && f.viewable && kindOf(f.name) !== "log");
+  // A measuring step ends nowhere by wire but is no result: its fact shows under Measured.
+  const made = files.filter((f) => sinks.includes(stepOf(f)) && f.viewable && !["log", "fact"].includes(kindOf(f.name)));
   const cur = files.find((f) => keyOf(f) === picked) ?? made[0] ?? files[0];
 
   const groups = useMemo(() => {
@@ -202,7 +203,7 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
                    canvas={<RunCanvas draftId={draftId} runId={runId} nodes={run.graph.data?.nodes ?? []} samples={samples.length}
                                       live={live} current={current} selected={step ?? stepOf(cur)}
                                       onSelect={(id) => setStep(id && id === step ? null : id)}
-                                      lit={[...upstream(stepOf(cur), edges), stepOf(cur)]} focus={stepOf(cur)} />}
+                                      lit={[...upstream(stepOf(cur), edges), stepOf(cur)]} focus={stepOf(cur)} fit={false} />}
                    onPick={(f) => setPicked(keyOf(f))} />
         )}
       </div>

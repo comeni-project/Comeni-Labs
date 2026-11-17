@@ -103,11 +103,6 @@ function RunView({ draftId, runId, n, sub, base }: {
             {!run.live && <DeleteRun runId={runId} phase={state.phase} />}
           </span>
         </header>
-        {state.work_cleared && (
-          <p className="m-0 text-[12.5px] text-ink-3">
-            Working files cleared by this installation's retention setting. The results and the record stay.
-          </p>
-        )}
         {sub === "steps" ? <Steps draftId={draftId} runId={runId} live={run.live} />
           : sub === "outputs" ? <Outputs draftId={draftId} runId={runId} live={run.live} />
           : sub === "console" ? <ConsolePage draftId={draftId} runId={runId} phase={state.phase} />

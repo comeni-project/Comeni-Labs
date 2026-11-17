@@ -50,6 +50,7 @@ export function Flowline({
   onDrawn,
   dashed = false,
   testId,
+  pulse = false,
 }: {
   from: Point;
   to: Point;
@@ -59,6 +60,10 @@ export function Flowline({
   onDrawn?: () => void;
   dashed?: boolean;
   testId?: string;
+  /** **Data moving along it**: dots that travel the wire, from its source to where it goes. For
+   *  a lit path (Run → Outputs) now, and any canvas that wants to say "this way" later; still for
+   *  anyone who asks the system for less motion. */
+  pulse?: boolean;
 }) {
   const strands = flow === "one" ? [0] : [-STRAND, 0, STRAND];
   const runway = 72; // the design's convergence runway, before a gathering port
@@ -91,6 +96,7 @@ export function Flowline({
           />
         );
       })}
+      {pulse && <Pulses d={path(flow === "gather" ? [from, ...elbow({ x: Math.max(from.x, to.x - runway), y: from.y }, to)] : elbow(from, to))} />}
       {/* Only where it fits. Two adjacent steps leave 52px between them, and a tag drawn there was
           clipped to `ollect al` — a clipped word is worse than none; the full sentence is on
           selection and the count is on the source. */}
@@ -105,6 +111,21 @@ export function Flowline({
           {label}
         </text>
       )}
+    </g>
+  );
+}
+
+/** Three dots travelling a path, a beat apart: where data went. Hidden under reduced motion. */
+export function Pulses({ d, dots = 3, seconds = 2.4 }: { d: string; dots?: number; seconds?: number }) {
+  return (
+    <g className="motion-reduce:hidden" aria-hidden="true">
+      {Array.from({ length: dots }, (_, n) => (
+        <circle key={n} data-pulse r={3} fill="var(--now)" opacity={0}>
+          <animateMotion dur={`${seconds}s`} begin={`${(n * seconds) / dots}s`} repeatCount="indefinite" path={d} />
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur={`${seconds}s`}
+                   begin={`${(n * seconds) / dots}s`} repeatCount="indefinite" />
+        </circle>
+      ))}
     </g>
   );
 }
@@ -149,6 +170,7 @@ export function SourceNode({
     <div
       data-testid={`living-source-${name}`}
       title={`${typeName(typeId)}${spelledStates(states)} · params.${name}`}
+      data-chip=""
       {...drag}
       className={`absolute box-border flex flex-col justify-center gap-[1px] px-[10px] ${drag ? "cursor-grab touch-none active:cursor-grabbing" : ""}`}
       style={{
@@ -176,7 +198,7 @@ export function ResultNode({ at, name, detail, testId, drag }: {
   drag?: React.HTMLAttributes<HTMLDivElement>;
 }) {
   return (
-    <div data-testid={testId} {...drag}
+    <div data-testid={testId} data-chip="" {...drag}
          className={`absolute box-border flex flex-col justify-center gap-[1px] px-[10px] ${drag ? "cursor-grab touch-none active:cursor-grabbing" : "pointer-events-none"}`}
          style={{ left: at.x, top: at.y, width: SOURCE_W, height: SOURCE_H, borderRadius: "var(--radius-control)",
                   background: "var(--done-soft)", border: "1px solid var(--done-line)" }}>

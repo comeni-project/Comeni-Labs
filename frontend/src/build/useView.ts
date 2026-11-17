@@ -78,7 +78,7 @@ export function useView() {
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     // Only empty space pans. A node drag and a canvas pan are different gestures and the design
     // separates them by target, not by modifier.
-    if ((e.target as HTMLElement).closest("[data-node],[data-zoomer]")) return;
+    if ((e.target as HTMLElement).closest("[data-node],[data-chip],[data-zoomer]")) return;
     panning.current = true;
     const sx = e.clientX;
     const sy = e.clientY;
