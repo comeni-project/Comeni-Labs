@@ -9,6 +9,7 @@ import { Adaptation } from "../registry/forging/Adaptation";
 import { ForgingList } from "../registry/forging/ForgingList";
 import { LearnedRules } from "../registry/LearnedRules";
 import { Releases } from "../registry/Releases";
+import { MeasurersPage } from "../registry/Measurers";
 import { VocabularyPage } from "../registry/Vocabulary";
 import { Tool } from "../registry/Tool";
 import { Loading } from "../ui/States";
@@ -51,6 +52,7 @@ export const routes: RouteObject[] = [
       { path: "/registry/forging/:id", element: <Adaptation /> },
       { path: "/registry/releases", element: <Releases /> },
       { path: "/registry/vocabulary", element: <VocabularyPage /> },
+      { path: "/registry/measurers", element: <MeasurersPage /> },
       { path: "/registry/learned", element: <LearnedRules /> },
 
       // Preserve older settings URLs by opening the settings overlay.

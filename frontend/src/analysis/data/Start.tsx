@@ -126,7 +126,7 @@ function Readers() {
     <Panel title="What Comeni reads">
       <div className="flex flex-col px-5 pb-4">
         {readers.error && <p className="m-0 text-[12.5px] text-needs-you-ink">The readers could not be listed.</p>}
-        {(readers.data ?? []).map((r) => (
+        {(readers.data ?? []).filter((r) => r.by === "code").map((r) => (
           <div key={r.id} className="flex flex-col gap-[2px] py-[10px] border-b border-line-soft">
             <span className="text-[13.5px] font-semibold text-ink">{typeName(r.type_id)}</span>
             <span className="font-data text-[11.5px] text-ink-3">{r.extensions.join(" ")}{r.compressed.length ? `, and ${r.compressed.join(" ")}` : ""}</span>

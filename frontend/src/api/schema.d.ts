@@ -3408,6 +3408,26 @@ export interface components {
          */
         FactOrigin: "person_said" | "measured" | "model_read" | "open" | "varies";
         /**
+         * FactRule
+         * @description A decision that reads this fact: which role it fills, and its rows.
+         */
+        FactRule: {
+            /** Role */
+            role: string;
+            /** Rows */
+            rows: components["schemas"]["RuleRowView"][];
+        };
+        /**
+         * FactSetting
+         * @description A setting worked out from this fact, as a formula a person reads.
+         */
+        FactSetting: {
+            /** Name */
+            name: string;
+            /** Formula */
+            formula: string;
+        };
+        /**
          * FactSource
          * @description Where a fact came from, which is what the goal card and the tier-3 premise show.
          * @enum {string}
@@ -4781,19 +4801,56 @@ export interface components {
         };
         /**
          * Reader
-         * @description A format reader: what it reads, from which extensions, and what it measures there.
+         * @description **A reader and what it measures** (Registry · Measurers, board 7b): a format our code reads
+         *     as data is read, or a tool's output read in the run; each fact it makes, the rules and settings
+         *     that decide by it, and its tests.
          */
         Reader: {
             /** Id */
             id: string;
             /** Type Id */
             type_id: string;
+            /** By */
+            by: string;
+            /** Uses */
+            uses?: string | null;
             /** Extensions */
             extensions: string[];
             /** Compressed */
             compressed: string[];
+            /** Runs */
+            runs: string[];
             /** Measures */
             measures: string[];
+            /**
+             * Facts
+             * @default []
+             */
+            facts: components["schemas"]["ReaderFact"][];
+        };
+        /** ReaderFact */
+        ReaderFact: {
+            /** Measurement */
+            measurement: string;
+            /** Unit */
+            unit?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Rules
+             * @default []
+             */
+            rules: components["schemas"]["FactRule"][];
+            /**
+             * Settings
+             * @default []
+             */
+            settings: components["schemas"]["FactSetting"][];
+            /**
+             * Tests
+             * @default []
+             */
+            tests: string[];
         };
         /**
          * Reference
@@ -5063,6 +5120,15 @@ export interface components {
             because: string | null;
             /** Cite */
             cite: string | null;
+        };
+        /** RuleRowView */
+        RuleRowView: {
+            /** When */
+            when: {
+                [key: string]: string;
+            };
+            /** Then */
+            then: string | null;
         };
         /**
          * RuleView

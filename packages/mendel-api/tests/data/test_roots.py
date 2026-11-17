@@ -125,3 +125,24 @@ def test_readers_say_what_they_read_and_measure(monkeypatch):
     assert ".gz" in fastq["compressed"]
     assert "read_length" in fastq["measures"]
     assert {"contigs", "n50"} <= set(readers["fasta"]["measures"])
+
+
+def test_each_reader_says_what_it_measures_what_decides_by_it_and_its_tests(monkeypatch):
+    """Registry · Measurers (board 7b): one entry a reader — the FASTQ and FASTA readers and the
+    samtools faidx output — each fact with its unit, the rules and settings that read it, and the
+    cases its tests check."""
+    client = TestClient(create_app())
+    readers = {r["id"]: r for r in client.get("/api/data/readers").json()}
+    fastq = readers["fastq"]
+    assert fastq["by"] == "code" and fastq["runs"] == ["server", "pipeline"]
+    facts = {f["measurement"]: f for f in fastq["facts"]}
+    assert set(facts) == {"paired", "quality_encoding", "read_length"}
+    read_length = facts["read_length"]
+    assert read_length["unit"] == "bp"
+    assert any(r["role"] == "alignment" and r["rows"] for r in read_length["rules"])
+    assert read_length["tests"], "the measurer's test cases are listed"
+    faidx = readers["genome_length_fai"]
+    assert faidx["by"] == "tool" and faidx["runs"] == ["pipeline"] and faidx["type_id"] == "fai"
+    [genome] = faidx["facts"]
+    assert genome["settings"] == [{"name": "star_sa_index_nbases",
+                                   "formula": "round(min(14, log₂(genome length) / 2 − 1))"}]

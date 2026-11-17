@@ -10,7 +10,7 @@ vi.mock("../../api/client", () => ({
       { name: "reads", path: "/d/reads", files: 10, folders: 0, looks_like: [{ type_id: "fastq.reads", count: 10 }] },
       { name: "reference", path: "/d/reference", files: 2, folders: 0,
         looks_like: [{ type_id: "annotation.gtf", count: 1 }, { type_id: "genome.fasta", count: 1 }] }] };
-    if (url === "/data/readers") return [{ id: "fastq", type_id: "fastq.reads", extensions: [".fastq", ".fq"], compressed: [".gz"],
+    if (url === "/data/readers") return [{ id: "fastq", by: "code", type_id: "fastq.reads", extensions: [".fastq", ".fq"], compressed: [".gz"],
                                            measures: ["paired", "read_length"] }];
     if (url === "/data/reference-types") return ["annotation.gtf", "genome.fasta"];
     if (url.endsWith("/vocabulary")) return { names: { "fastq.reads": "sequencing reads (FASTQ)", "genome.fasta": "reference genome (FASTA)",

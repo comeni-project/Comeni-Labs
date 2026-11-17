@@ -9,7 +9,7 @@ import type { CataloguePage } from "./useCatalogue";
 type ReleasesPage = components["schemas"]["ReleasesPage"];
 type Vocabulary = components["schemas"]["AuthoringVocabulary"];
 
-/** **Registry's pages, in the rail** (board "7 · Registry", #511): Tools, Vocabulary and Releases
+/** **Registry's pages, in the rail** (board "7 · Registry", #511): Tools, Vocabulary, Measurers and Releases
  *  under Registry, each with its count, the open one filled. Forging is Forge's. */
 export function RegistryTabs(_: { registryAt?: string }) {
   const mini = useRailMini();
@@ -26,6 +26,12 @@ export function RegistryTabs(_: { registryAt?: string }) {
     enabled: rail && !mini,
     staleTime: Infinity,
   });
+  const readers = useQuery({
+    queryKey: ["data-readers"],
+    queryFn: () => get<{ id: string }[]>("/data/readers"),
+    enabled: rail && !mini,
+    staleTime: Infinity,
+  });
   const releases = useQuery({
     queryKey: ["releases"],
     queryFn: () => get<ReleasesPage>("/forge/releases"),
@@ -38,6 +44,8 @@ export function RegistryTabs(_: { registryAt?: string }) {
     { to: "/registry", label: "Tools", end: true, count: all ? all.toLocaleString("en") : "" },
     { to: "/registry/vocabulary", label: "Vocabulary", end: false,
       count: vocabulary.data?.types ? String(Object.keys(vocabulary.data.types).length) : "" },
+    { to: "/registry/measurers", label: "Measurers", end: false,
+      count: Array.isArray(readers.data) ? String(readers.data.length) : "" },
     { to: "/registry/releases", label: "Releases", end: false, count: waiting ? `${waiting} waiting` : "" },
   ];
   return (
