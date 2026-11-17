@@ -21,3 +21,14 @@ def test_tests_do_not_import_other_collected_test_modules():
                 if any(part.startswith("test_") for part in module.split(".")):
                     imports.append(f"{path}:{node.lineno}: {module}")
     assert imports == [], "shared setup must be extracted from test modules:\n" + "\n".join(imports)
+
+
+def test_test_files_are_imported_by_path_so_names_may_repeat_across_packages():
+    """`packages/*/tests` are not packages, so under pytest's default `prepend` mode two
+    `test_routes.py` stop collection with *import file mismatch* (#409)."""
+    import tomllib
+
+    from support.paths import ROOT
+
+    pytest_ini = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["pytest"]
+    assert "--import-mode=importlib" in pytest_ini["ini_options"]["addopts"].split()

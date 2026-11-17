@@ -66,8 +66,10 @@ default-groups = ["dev", "docs"]
 
 # Collect repository, package, and registry-inspector tests from the root.
 [tool.pytest.ini_options]
-# Make shared test helpers importable as support.*.
-pythonpath = ["tests"]
+# Import test files by path, so two packages may each have a test_routes.py (#409). Shared helpers
+# are importable by name: support.*, and each package's own *_tests helpers.
+pythonpath = ["tests", "packages/mendel-api/tests", "packages/mendel-resolver/tests",
+              "packages/comeni-inspect/tests", "packages/wiener-api/tests"]
 testpaths = ["tests", "packages", "registry/measurers"]
 markers = [
     "slow: needs Docker and Nextflow; run nightly, not on a pull request",
@@ -75,7 +77,7 @@ markers = [
 ]
 # Load isolated database configuration before test imports, including package-only runs.
 # Keep execution tests out of the default suite; make slow selects them with -m slow.
-addopts = "-p support.pytest_bootstrap -m 'not slow'"
+addopts = "--import-mode=importlib -p support.pytest_bootstrap -m 'not slow'"
 
 # pytest-asyncio handles explicitly marked async tests and its own decorated fixtures.
 # Sync tests that call asyncio.run() are unaffected by this mode.
