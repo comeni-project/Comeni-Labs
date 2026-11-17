@@ -49,9 +49,11 @@ export function sampleOf(name: string, samples: string[]): string | null {
  *  a window on the pipeline itself (Run's canvas, which pans and zooms as on Overview) lighting
  *  where the chosen file came from, and the file shown. */
 export function Outputs({ draftId, runId, live }: { draftId: string; runId: string; live: boolean }) {
+  const [limit, setLimit] = useState(PAGE);
   const results = useQuery({
-    queryKey: ["results", runId],
-    queryFn: () => fromWiener<Results>(`/api/runs/${runId}/results?limit=${PAGE}`),
+    queryKey: ["results", runId, limit],
+    queryFn: () => fromWiener<Results>(`/api/runs/${runId}/results?limit=${limit}`),
+    placeholderData: (previous) => previous,
     refetchInterval: live ? 6_000 : false,
   });
   const canvas = useBuildCanvas(draftId);
@@ -63,8 +65,10 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
   const stepIds = (canvas.data?.canvas?.steps ?? []).map((s) => s.id);
 
   const [by, setBy] = useState<"sample" | "step">("sample");
-  const [kind, setKind] = useState<Kind | "all">("all");
-  const [step, setStep] = useState<string | null>(null);
+  const [kinds, setKinds] = useState<Set<Kind>>(new Set());
+  const [steps, setSteps] = useState<Set<string>>(new Set());
+  const [only, setOnly] = useState<Set<string>>(new Set());
+  const [resultsOnly, setResultsOnly] = useState(false);
   const [find, setFind] = useState("");
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
@@ -72,15 +76,22 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
   const files = results.data?.files ?? [];
   const stepOf = (f: File) => stepIds.find((id) => id.toLowerCase() === f.process.toLowerCase()) ?? f.process;
   const keyOf = (f: File) => `${f.process}/${f.name}`;
-  const nameOf = (id: string) => facts[id]?.does ?? id;
+  // Wiener writes what was decided in the run to a folder of its own (`decided`).
+  const nameOf = (id: string) => (id === "decided" ? "Decided in the run" : facts[id]?.does ?? id);
   const q = find.trim().toLowerCase();
-  const shown = files.filter((f) => (kind === "all" || kindOf(f.name) === kind)
-    && (!step || stepOf(f) === step)
-    && (!q || f.name.toLowerCase().includes(q) || (sampleOf(f.name, samples) ?? "").toLowerCase().includes(q)));
   // What the pipeline was made for: what its last steps published, readable.
   const sinks = stepIds.filter((id) => !edges.some((e) => e.from_node === id));
   // A measuring step ends nowhere by wire but is no result: its fact shows under Measured.
-  const made = files.filter((f) => sinks.includes(stepOf(f)) && f.viewable && !["log", "fact"].includes(kindOf(f.name)));
+  const isResult = (f: File) => sinks.includes(stepOf(f)) && f.viewable && !["log", "fact"].includes(kindOf(f.name));
+  const made = files.filter(isResult);
+  const shown = files.filter((f) => (!kinds.size || kinds.has(kindOf(f.name)))
+    && (!steps.size || steps.has(stepOf(f)))
+    && (!only.size || only.has(sampleOf(f.name, samples) ?? "_shared"))
+    && (!resultsOnly || isResult(f))
+    && (!q || f.name.toLowerCase().includes(q) || (sampleOf(f.name, samples) ?? "").toLowerCase().includes(q)));
+  const toggle = <T,>(set: Set<T>, value: T) => { const next = new Set(set); if (next.has(value)) next.delete(value); else next.add(value); return next; };
+  const filtered = kinds.size + steps.size + only.size > 0 || resultsOnly || !!q;
+  const clear = () => { setKinds(new Set()); setSteps(new Set()); setOnly(new Set()); setResultsOnly(false); setFind(""); };
   const cur = files.find((f) => keyOf(f) === picked) ?? made[0] ?? files[0];
 
   const groups = useMemo(() => {
@@ -112,35 +123,39 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
       {results.error && <p role="alert" className="m-0 text-[13px] text-needs-you-ink">The outputs could not be listed.</p>}
       {madeBySteps.length > 0 && (
         <Panel title="Your results">
-          <div className="grid gap-[10px] px-4 pb-4 grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
-            {madeBySteps.map((id) => (
-              <div key={id} className="flex flex-col gap-[10px] p-[14px] rounded-panel border border-done-line bg-done-soft">
-                <span className="text-[14px] font-semibold text-ink">{nameOf(id)}</span>
-                <span className="flex flex-wrap gap-[6px]">
-                  {made.filter((f) => stepOf(f) === id).map((f) => (
-                    <button key={keyOf(f)} type="button" onClick={() => setPicked(keyOf(f))}
-                            className="inline-flex items-center gap-[6px] h-[28px] px-[10px] rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer">
-                      {sampleOf(f.name, samples) ?? f.name}<span className="font-data text-[10.5px] text-ink-3">{bytes(f.size_bytes)}</span>
-                    </button>
-                  ))}
-                </span>
-              </div>
-            ))}
-          </div>
+          <ul className="list-none m-0 p-0">
+            {madeBySteps.map((id) => {
+              const these = made.filter((f) => stepOf(f) === id);
+              const size = these.reduce((n, f) => n + f.size_bytes, 0);
+              return (
+                <li key={id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 border-t border-line-soft">
+                  <span aria-hidden="true" className="w-[8px] h-[8px] rounded-full bg-done shrink-0" />
+                  <span className="flex flex-col min-w-0">
+                    <span className="text-[14px] font-semibold text-ink">{nameOf(id)}</span>
+                    <span className="text-[12px] text-ink-3">{these.length} {these.length === 1 ? "file" : "files"} · {bytes(size)}</span>
+                  </span>
+                  <span className="ml-auto flex gap-2">
+                    <button type="button" onClick={() => { clear(); setSteps(new Set([id])); setResultsOnly(true); }}
+                            className="h-[30px] px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer">Show</button>
+                    <button type="button" onClick={() => setPicked(keyOf(these[0]))}
+                            className="h-[30px] px-3 rounded-control border border-line-2 bg-surface text-[12.5px] font-semibold text-ink cursor-pointer">Open</button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         </Panel>
       )}
       <Measured runId={runId} live={live} />
 
       <div className="flex flex-wrap gap-4 items-start">
-        <section aria-label="All files" className="flex-[1_1_520px] min-w-0 bg-surface border border-line rounded-panel overflow-hidden">
+        <section aria-label="All files" className="flex-[1_1_520px] min-w-0 bg-surface border border-line rounded-panel overflow-clip">
           <div className="flex flex-wrap items-center gap-2 px-4 pt-[14px] pb-[10px]">
             <h2 className="m-0 text-[14px] font-semibold">All files</h2>
             <span className="text-[12px] text-ink-3">{results.data?.total ?? 0}</span>
-            {step && (
-              <button type="button" onClick={() => setStep(null)}
-                      className="h-[26px] px-[9px] rounded-control border border-now-line bg-now-soft text-now-ink text-[12px] font-semibold cursor-pointer">
-                {nameOf(step)} ×
-              </button>
+            {filtered && <span className="text-[12px] text-ink-3">· {shown.length} shown</span>}
+            {filtered && (
+              <button type="button" onClick={clear} className="h-[26px] px-[9px] rounded-control border border-line-2 bg-surface text-[12px] text-ink-2 cursor-pointer">Clear filters</button>
             )}
             <span role="group" aria-label="Group files" className="ml-auto inline-flex rounded-control border border-line-2 overflow-hidden">
               {(["sample", "step"] as const).map((g) => (
@@ -151,19 +166,19 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
               ))}
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-[6px] px-4 pb-[10px]">
-            <input aria-label="Find a sample or file" placeholder="Find a sample or file" value={find} onChange={(e) => setFind(e.target.value)}
-                   className="h-[28px] w-[200px] max-w-full px-[10px] rounded-control border border-line-2 bg-surface text-[12.5px] text-ink" />
-            {([["all", "All"], ...KINDS.map((k) => [k.kind, k.label])] as [Kind | "all", string][])
-              .filter(([k]) => k === "all" || files.some((f) => kindOf(f.name) === k))
-              .map(([k, label]) => (
-                <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}
-                        className={`h-[28px] px-[10px] rounded-control border text-[12.5px] cursor-pointer
-                                    ${kind === k ? "bg-now-soft border-now-line text-now-ink font-semibold" : "bg-surface border-line-2 text-ink-2"}`}>
-                  {label} <span className="text-ink-3 font-normal">{k === "all" ? files.length : files.filter((f) => kindOf(f.name) === k).length}</span>
-                </button>
-              ))}
-          </div>
+          <div className="grid md:grid-cols-[220px_minmax(0,1fr)] md:items-start border-t border-line">
+          <FilterPanel find={find} setFind={setFind} resultsOnly={resultsOnly} setResultsOnly={setResultsOnly}
+                       steps={[...new Set([...stepIds, ...files.map(stepOf)])].filter((id) => files.some((f) => stepOf(f) === id))
+                         .map((id) => ({ id, label: nameOf(id), count: files.filter((f) => stepOf(f) === id).length, on: steps.has(id) }))}
+                       onStep={(id) => setSteps((was) => toggle(was, id))}
+                       kinds={KINDS.filter((k) => files.some((f) => kindOf(f.name) === k.kind))
+                         .map((k) => ({ id: k.kind, label: k.label, count: files.filter((f) => kindOf(f.name) === k.kind).length, on: kinds.has(k.kind) }))}
+                       onKind={(id) => setKinds((was) => toggle(was, id as Kind))}
+                       samples={[...samples, "_shared"].map((id) => ({ id, label: id === "_shared" ? "Shared" : id,
+                         count: files.filter((f) => (sampleOf(f.name, samples) ?? "_shared") === id).length, on: only.has(id) }))
+                         .filter((x) => x.count > 0)}
+                       onSample={(id) => setOnly((was) => toggle(was, id))} />
+          <div className="min-w-0 md:border-l border-line">
           {groups.length === 0 && <p className="m-0 px-4 pb-4 text-[13px] text-ink-3">{files.length ? "Nothing matches." : "Nothing published yet."}</p>}
           {groups.map((g) => (
             <div key={g.key} className="border-t border-line">
@@ -193,16 +208,22 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
             </div>
           ))}
           {results.data && results.data.total > files.length && (
-            <p className="m-0 px-4 py-3 border-t border-line-soft text-[12.5px] text-ink-3">Showing {files.length} of {results.data.total}.</p>
+            <p className="m-0 flex items-center gap-3 px-4 py-3 border-t border-line-soft text-[12.5px] text-ink-3">
+              Showing {files.length} of {results.data.total}.
+              <button type="button" onClick={() => setLimit((n) => n + PAGE)} disabled={results.isFetching}
+                      className="h-[28px] px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer disabled:opacity-50">Show more</button>
+            </p>
           )}
+          </div>
+          </div>
         </section>
 
         {cur && (
           <Preview runId={runId} draftId={draftId} file={cur} step={stepOf(cur)} nameOf={nameOf} sample={sampleOf(cur.name, samples)}
                    edges={edges} files={files} stepOf={stepOf} samples={samples}
                    canvas={<RunCanvas draftId={draftId} runId={runId} nodes={run.graph.data?.nodes ?? []} samples={samples.length}
-                                      live={live} current={current} selected={step ?? stepOf(cur)}
-                                      onSelect={(id) => setStep(id && id === step ? null : id)}
+                                      live={live} current={current} selected={stepOf(cur)}
+                                      onSelect={(id) => id && setSteps((was) => toggle(was, id))}
                                       lit={[...upstream(stepOf(cur), edges), stepOf(cur)]} focus={stepOf(cur)} fit={false} />}
                    onPick={(f) => setPicked(keyOf(f))} />
         )}
@@ -304,6 +325,55 @@ function Preview({ runId, file, step, nameOf, sample, edges, files, stepOf, samp
       {head.data !== undefined && !table && (
         <pre className="m-4 p-3 rounded-control bg-surface-2 font-data text-[11.5px] leading-[18px] text-ink-2 whitespace-pre-wrap max-h-[320px] overflow-y-auto">{lines.slice(0, 40).join("\n")}</pre>
       )}
+    </aside>
+  );
+}
+
+type Option = { id: string; label: string; count: number; on: boolean };
+
+/** **The filters**, as a files panel has them: a search, results only, and the steps, kinds and
+ *  samples present, each ticked on its own; the samples list searches and scrolls on its own, so
+ *  four hundred of them fit. */
+function FilterPanel({ find, setFind, resultsOnly, setResultsOnly, steps, onStep, kinds, onKind, samples, onSample }: {
+  find: string; setFind: (v: string) => void; resultsOnly: boolean; setResultsOnly: (v: boolean) => void;
+  steps: Option[]; onStep: (id: string) => void; kinds: Option[]; onKind: (id: string) => void;
+  samples: Option[]; onSample: (id: string) => void;
+}) {
+  const [sampleFind, setSampleFind] = useState("");
+  const q = sampleFind.trim().toLowerCase();
+  const list = (title: string, options: Option[], onFlip: (id: string) => void) => (
+    <fieldset className="m-0 p-0 border-0 flex flex-col gap-[2px] min-w-0">
+      <legend className="p-0 mb-1 text-[11.5px] font-semibold text-ink-3">{title}</legend>
+      {options.map((o) => (
+        <label key={o.id} className="flex items-center gap-2 h-[26px] px-1 rounded-control text-[12.5px] text-ink-2 cursor-pointer hover:bg-surface-2">
+          <input type="checkbox" checked={o.on} onChange={() => onFlip(o.id)} className="w-[14px] h-[14px] accent-[var(--now)]" />
+          <span className={`truncate ${o.on ? "text-ink font-semibold" : ""}`}>{o.label}</span>
+          <span className="ml-auto font-data text-[11px] text-ink-3">{o.count}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+  return (
+    // Stays in view as the files scroll past, as the preview does (walk 2026-11-17).
+    <aside aria-label="Filters" className="flex flex-col gap-4 p-4 min-w-0 md:sticky md:top-4 md:max-h-[calc(100dvh-32px)] md:overflow-y-auto">
+      <input aria-label="Find a sample or file" placeholder="Find a sample or file" value={find} onChange={(e) => setFind(e.target.value)}
+             className="h-[30px] w-full px-[10px] rounded-control border border-line-2 bg-surface text-[12.5px] text-ink" />
+      <label className="flex items-center gap-2 text-[12.5px] text-ink-2 cursor-pointer">
+        <input type="checkbox" checked={resultsOnly} onChange={(e) => setResultsOnly(e.target.checked)} className="w-[14px] h-[14px] accent-[var(--now)]" />
+        Results only
+      </label>
+      {list("Step", steps, onStep)}
+      {list("Kind", kinds, onKind)}
+      <div className="flex flex-col gap-1 min-w-0">
+        <span className="text-[11.5px] font-semibold text-ink-3">Sample <span className="font-normal">{samples.length}</span></span>
+        {samples.length > 8 && (
+          <input aria-label="Find a sample" placeholder="Find a sample" value={sampleFind} onChange={(e) => setSampleFind(e.target.value)}
+                 className="h-[28px] w-full px-[10px] rounded-control border border-line-2 bg-surface text-[12px] text-ink" />
+        )}
+        <div className="max-h-[220px] overflow-y-auto">
+          {list("", samples.filter((o) => !q || o.label.toLowerCase().includes(q) || o.on), onSample)}
+        </div>
+      </div>
     </aside>
   );
 }
