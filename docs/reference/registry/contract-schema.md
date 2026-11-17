@@ -109,6 +109,7 @@ Model: `comeni_core.declared.contract.Param`
 | `domain` | object \| null | `null` | the permitted values |
 | `default` | any | `None` | the value when no rule fires |
 | `because` | string | `""` | why that default. This becomes the `why:` in `pipeline.yml` |
+| `explain` | string | `""` | what the setting is, in one line, shown behind its (?) in Build. Not written to the contract's digest when empty |
 | `key` | string \| null | `null` | the `ext.args` key, when `via: ext` |
 | `template` | string \| null | `null` | how the value is spelled on the way in |
 

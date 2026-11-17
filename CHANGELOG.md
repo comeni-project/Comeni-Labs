@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- `Pipeline.content_digest()` leaves out `gate` as well as `emitted`, so a gated pipeline's runs match their analysis (#529). A contract param may carry a one-line `explain`, not serialised when empty (#511). Egress: `ConsoleView` and `CommandView` for Run → Console (#511).
+
 - Rule proposals (#462): a door, `rule_proposal` (`RuleProposalRequest`): a target, the existing rows, the facts a row may test, the legal answers, and each person's answer with its study facts and reason. Codes MI0500 and MI0501.
 
 - A second table (#466): `Constraints.tables` names study inputs given as several items (MD0347); their channel carries a `TableShape` (`name`, file `columns`, item `facts`). A port may select on a fact describing its own type, a table row's fact, which is a column of that table rather than of the samplesheet. MD0348 refuses a by-sample join after a cross.
@@ -259,6 +261,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- Data for the redesign (#511): `GET /data/readers`; `/data/tree` says what each folder looks like; files in a folder named for references are offered as references, files nothing reads are not samples, and a number ten times off the median is checked. The builder agent sees references (`DataView.references`), suggests commands on Run → Console (`suggest_command`, paths shortened in what the page carries), and a reached subscription limit says when it resets (MA0010). `POST /pipeline/authoring/{id}/tidy` lays the canvas out again; steps carry their input rules (`StepView.rules`) and settings their `explain`.
+
 - Learned rules (#462): `/api/rules/...` proposes rules from people's answers in kept pipelines, one model call per target whose evidence moved (`rule_proposal` table, job `propose_rules`), checks each against the registry, and on approval writes it to the installation's own layer (`MENDEL_OWN_LAYER`, default `<workspace>/layer`), which every build now stacks above the release.
 
 - A study input may be a table of several items (#466): a `tables` change from a checkbox on the input in *What was understood*, offered only on inputs the study shares, while the lanes checkbox is now offered only on per-sample ones; inputs store it (`pipeline_input_revision.table`), and suggestions and turns move to shapes 6 and 10.
@@ -440,6 +444,8 @@ or a complete commit history.
 
 ### comeni-ai
 
+- A provider's usage limit is MA0010, with the reset time it gives (#528).
+
 #### Added
 
 - Shared provider transport supports purpose-specific models, system/user message splits,
@@ -537,6 +543,8 @@ or a complete commit history.
 
 ### wiener-core
 
+- `series` draws cores used: each task's mean CPU spread over its run (derived), beside cores reserved (#511).
+
 #### Added
 
 - `MEASURED` events, Wiener's own: what a run measured and the values its run-time settings took (`wiener_core.measured`), compared with what the pipeline was built on (#465).
@@ -549,6 +557,8 @@ or a complete commit history.
   Telemetry mapping stays pure, with export handled outside the package.
 
 ### wiener-api
+
+- Run → Console (#511, #525): Nextflow runs under a pty and its output is kept as `console.log`; a new `wiener-term` service serves it, shells in a run's folder (host-level, behind the Wiener token, refusing another page's Origin), a Commands list, and read-only commands for the assistant that read only inside the run. Run results open sandboxed (`GET /runs/{id}/results/file`).
 
 - The run form composes each table input with a `name` per row, its files and its item facts, and sends it under its own parameter (`input_tables`, #466).
 
@@ -583,6 +593,8 @@ or a complete commit history.
 - Shared pure graph layout supports the build and run canvases.
 
 ### frontend
+
+- **The redesigned everyday path** (#511): one frame for an analysis, Data → Build → Run, with the rail holding each page's sub-pages and controls. **Data** picks folders on the page, each saying what its files look like; read, the samples are the page (one tab a kind of data, columns from what its reader measures, a bar per number, amber where flagged), with Check these one row a sample, the references the pipeline reads, the facts across the samples and the changes made (yours and the AI's). **References** offers files from the folders by kind. **Build** draws compact step cards (inputs as circles, outputs as triangles), lays optional inputs out by the tool's rules, explains each setting behind a (?), and fits as the assistant builds. **Run** opens on New run (what it reads, pre-flight checks, what you will get), and a run has Overview (the pipeline as Build draws it, the machine's cores and memory reserved and cores used), Steps, Outputs and Console (Nextflow's terminal, a shell, Commands and the assistant). Native controls follow the theme.
 
 - **Registry → Learned rules** (#462): each proposed rule with the model's reason, its evidence, the engine's check and what it would change; Approve, Reject, and Withdraw for a rule in use.
 

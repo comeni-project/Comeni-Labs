@@ -14,7 +14,7 @@ do, is in [How the builder agent works](../../explanation/builder-agent.md).
 A draft is the editable graph. An artifact is the saved pipeline record behind it. See
 [Core words](../../explanation/pipeline-concepts.md) if those terms are new.
 
-![RNA-seq draft in the alpha builder](../../assets/screenshots/builder-rnaseq-alpha.png)
+![RNA-seq draft in the alpha builder](../../assets/screenshots/build-rnaseq.jpg)
 
 ## Inspect and review the draft
 
@@ -78,7 +78,7 @@ Check the evidence behind the selection and whether a different premise would ch
 
 The canvas is for working. The artifact is for review.
 
-![Artifact view in the alpha builder](../../assets/screenshots/artifact-view-alpha.png)
+![Artifact view in the alpha builder](../../assets/screenshots/pipeline-file.jpg)
 
 When something looks surprising on the canvas, open **Pipeline file** (or *Show in pipeline
 file* on the step's menu) and find the same step in `pipeline.yml`. Click a value to read why it

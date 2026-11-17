@@ -21,82 +21,59 @@ flowchart TD
 
 ## Run from the app
 
-In the builder, press **Run**. In the current alpha, that action:
+Open **Run** in the analysis. Its first page is **New run**: it shows what the run will read, the
+checks that must pass first, what you will get, and where it runs.
 
-1. keeps the current draft as an artifact,
-2. runs the lint gate,
-3. opens the run sheet for local input values,
-4. submits the run to the local Wiener services.
+![New run in the alpha app](../../assets/screenshots/new-run.jpg)
 
-Inputs and samplesheets are still an alpha surface. Expect this flow to become more polished
-and more lab-aware before the API is treated as stable.
+- **What it reads** lists each input the pipeline takes, answered from **Data**: the samples, with
+  any you left out named, and each reference. No path is typed; the run reads the files where
+  they are.
+- **Pre-flight checks** cover the saved pipeline, that every input has data, that every file is
+  still there, that the samples agree, that no setting still needs a value, that the AI's choices
+  have been reviewed, and the disk space where runs are written. After a first run, a memory
+  check compares what each step asked for with what this machine has. A check that fails links to
+  where you fix it.
+- **What you will get** lists the results by the step that makes them.
+
+Press **Run on this machine**. The app keeps the pipeline as it is in Build, runs the lint gate,
+and sends it to the local run service, which launches Nextflow. The run then has its own pages:
+**Overview** (samples finished, the pipeline as Build draws it with each step's progress, and the
+cores and memory it reserved and the cores it used), **Steps**, **Outputs** and **Console**
+(Nextflow's own terminal and a shell in the run's folder).
 
 ### When your samples differ
 
-If you told the builder that a fact differs between your samples (strandedness, say), the run
-sheet asks for it on each sample's row, offering only the values the pipeline accepts. Where the
-pipeline can measure the fact itself, you may leave the cell blank, or choose *auto*, and it is
-measured in the run. The pipeline checks every row before it processes any sample, and stops
-naming the row, the sample and the column if a cell does not fit.
+If a fact differs between your samples and nothing measured it (strandedness, say), add a column
+for it on **Data**, named for the fact, and fill each sample's value. The run takes the pipeline's
+value for each sample from that column, and the pipeline checks every row before it processes
+any sample.
 
-If you said some samples are paired-end and some single-end, leave a single-end sample's second
-reads cell blank: the pipeline reads it as single-end, and passes it one file. After the run, the run page
-says each value a setting took and where each fact behind it came from.
+An input the pipeline takes as **optional** and that Data does not answer is sent empty, and the
+tool runs without it. When optional inputs depend on each other, the pipeline checks that rule
+again when it starts.
 
-If you said a sample may span several rows (tell the builder, for the reads), give each
-lane its own row with the same `sample` and its own `unit`. A one-lane sample may leave `unit`
-blank. The pipeline merges each sample's lanes before anything reads them; a one-lane sample
-passes straight on. Lanes of one sample that disagree, one paired and one single-end say, stop the
-run naming the sample, and so does a repeated `sample` and `unit`.
+Not yet answered from Data: an input that is a table of several items (such as a set of
+databases), a sample that spans several lanes, and columns that relate samples to each other
+(such as `patient` or `control`). New run names such an input as missing and holds the run. The
+emitted pipeline still accepts them when you [run it as plain Nextflow](#run-as-plain-nextflow)
+with a samplesheet.
 
-If you said an input is a table of several items (tell the builder, for an input the whole
-study shares, such as a database), the run form asks for it as a table of its own: one row per
-item, each with a `name` you choose, its files, and any fact a step selects rows by. Every
-sample runs against every row a step reads, and each result is named after the sample and the
-row. A blank or repeated name, a file that does not exist, or a table none of whose rows a step
-reads stops the run, naming what is wrong.
-
-Where a step relates samples, the samplesheet has a column for each relation: a key such as
-`patient` or `group` (letters, digits and `_ . -`), a fact a step selects on such as `status`,
-or a reference such as `control`, which names another row's `sample` or stays blank. A
-reference to a sample the sheet does not have, or a patient with two normals for a step that
-takes one, stops the run naming them.
-
-The dedicated input model page is [Inputs in the alpha](../../explanation/inputs-and-data.md).
-
-![Run sheet in the alpha app](../../assets/screenshots/run-sheet-alpha.png)
-
-For the shared [RNA-seq example](../../tutorials/rnaseq-example.md), a local run needs paths like these:
-
-| Input | Example |
-|---|---|
-| Paired reads | `data/*_R{1,2}.fastq.gz` |
-| Genome FASTA | `reference/genome.fa` |
-| Annotation GTF | `reference/genes.gtf` |
-
-Those are run-time paths. They are not part of the scientific choice that selected STAR,
-samtools, or featureCounts.
-
-An input the pipeline takes as **optional** is marked *optional — leave empty to run without
-it*. Leave it empty and the tool runs without it; supply it and you get what it adds. When
-inputs depend on each other, the sheet says so before you start — *`gff` is used only with
-`fasta`* — and holds **Start run** until the values agree. The pipeline checks the same rule
-again when it starts, however it was launched.
+The input model is explained in [Inputs in the alpha](../../explanation/inputs-and-data.md).
 
 ## Current alpha behavior
 
 | Step | What happens today |
 |---|---|
-| Keep | the current draft is written as a pipeline artifact |
-| Lint gate | the app checks the artifact before submission |
-| Run sheet | the app asks for local input values |
-| Submit | the local run service launches Nextflow from the artifact |
+| New run | the app answers each input from Data and runs the pre-flight checks |
+| Keep | the pipeline is written as an artifact, as Build shows it |
+| Lint gate | the app checks the artifact before it is sent |
+| Send | the local run service launches Nextflow from the artifact, on this machine |
 
 ## Expected to change
 
-Input collection will likely become more structured. A lab should eventually be able to reuse
-known sample sheets, project locations, and execution profiles instead of filling loose fields
-each time.
+Running on a cluster is shown and not yet available; it will be set up in Settings. Inputs that
+Data cannot answer yet (tables, lanes, relations between samples) are expected to come to Data.
 
 The stable concept is the boundary: Comeni decides and records the pipeline before local paths
 enter the run.

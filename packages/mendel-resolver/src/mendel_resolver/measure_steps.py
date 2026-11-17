@@ -30,7 +30,8 @@ RUNNER_IMAGE = (
 )
 """The Python image every measuring step runs on, pinned by digest (2026-11-15, from quay.io's
 tag list). The runner needs the standard library only; the image also needs `ps`, which a traced
-Nextflow task requires and `python:*-slim` lacks (#506, guarded by `tests/emit/test_measure_image.py`)."""
+Nextflow task requires and `python:*-slim` lacks (#506, guarded by
+`tests/emit/test_measure_image.py`)."""
 
 
 @dataclass(frozen=True)
