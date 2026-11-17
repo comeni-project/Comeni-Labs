@@ -208,6 +208,9 @@ class RunRow(BaseModel):
     """**Tasks, not steps.** `steps_declared` is in the artifact and reading one per row is
     what the board could never afford; how many tasks a run has seen is one GROUP BY over the
     `run_task` projection W2 built."""
+    analysis: str = ""
+    """Which analysis sent it (#536): how a page lists an analysis's runs, its pipeline changed
+    since or not. `""` for a hand upload, which only its digest can place."""
     pipeline_digest: str | None = None
     """Which pipeline this run is of — **the join key the browser reads.**
 
@@ -259,10 +262,17 @@ class BoardSummary(BaseModel):
     """
 
 
+ANALYSIS_ID = r"^[A-Za-z0-9_-]{0,64}$"
+"""An analysis is an id (a Mendel draft's), never text or a path (#536)."""
+
+
 @router.post("/artifacts", status_code=201, operation_id="uploadArtifact",
              summary="Upload a gated pipeline directory")
-async def upload_artifact(bundle: UploadFile,
-                          name: Annotated[str, Form()] = "") -> ArtifactStored:
+async def upload_artifact(
+    bundle: UploadFile,
+    name: Annotated[str, Form()] = "",
+    analysis: Annotated[str, Form(pattern=ANALYSIS_ID)] = "",
+) -> ArtifactStored:
     """**`name` is optional and stays optional.** The browser is the courier and it has the
     draft's name to send; `curl -F bundle=@run.zip` has nothing to send and must keep working,
     because an air-gapped site uploading a `mendel build` artifact by hand is invariant 13's
@@ -277,6 +287,7 @@ async def upload_artifact(bundle: UploadFile,
         repository.add(session, settings.lab_id, RunArtifact(
             id=artifact_id, uploaded_by="operator", uploaded_at=datetime.now(UTC),
             digest=digest, size_bytes=size, name=name.strip()[:200],
+            analysis=analysis,
             # **The column stopped being decoration here.** Declared in W1 and never assigned;
             # it is the key that lets the browser put runs beside pipelines without either
             # server learning the other exists.
@@ -377,6 +388,9 @@ def board(phase: RunPhase | None = None, who: str | None = None, executor: str |
         names = repository.artifact_names(
             session, settings.lab_id, [r.artifact_id for r in page]
         )
+        analyses = repository.artifact_analyses(
+            session, settings.lab_id, [r.artifact_id for r in page]
+        )
         return RunsPage(
             runs=[
                 RunRow(id=r.id, phase=r.phase, executor=r.executor,
@@ -385,7 +399,8 @@ def board(phase: RunPhase | None = None, who: str | None = None, executor: str |
                        tasks_done=counts.get(r.id, (0, 0))[0],
                        tasks_seen=counts.get(r.id, (0, 0))[1],
                        pipeline_digest=digests.get(r.artifact_id),
-                       name=names.get(r.artifact_id, ""))
+                       name=names.get(r.artifact_id, ""),
+                       analysis=analyses.get(r.artifact_id, ""))
                 for r in page
             ],
             total=total,

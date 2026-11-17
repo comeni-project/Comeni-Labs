@@ -42,7 +42,7 @@ export function useSend(draftId: string, { name = "", keep = false }: { name?: s
       if (answered.missing.length) throw new Error(answered.missing.map((m) => m.why).join("; "));
       const archive = await blob(`/pipeline/drafts/${at}/bundle`);
       const stored = await upload<ArtifactStored>("/api/artifacts", "bundle", archive,
-                                                  `pipeline-${draftId}.zip`, name ? { name } : {});
+                                                  `pipeline-${draftId}.zip`, { ...(name ? { name } : {}), analysis: draftId });
       return await toWiener<RunAccepted>("/api/runs", {
         artifact_id: stored.artifact_id, params: answered.params, executor: "local",
       });

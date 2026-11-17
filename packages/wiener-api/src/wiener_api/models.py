@@ -274,6 +274,10 @@ class RunArtifact(Base):
     pipeline_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
     size_bytes: Mapped[int] = mapped_column(BigInteger)
     note: Mapped[str] = mapped_column(Text, default="")
+    analysis: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    """Which analysis (a Mendel draft id) sent it, carried by the browser like the name (#536):
+    what lists a run under its analysis when the pipeline has changed since. `""` for a hand
+    upload."""
 
     # --- what a person called this pipeline, carried across the courier -----------------
     #

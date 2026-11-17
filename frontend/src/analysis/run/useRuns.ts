@@ -12,7 +12,7 @@ import { numbered, TERMINAL, type ProcessRow, type RunNode, type StepFacts } fro
 type DraftsPage = components["schemas"]["DraftsPage"];
 type RunsPage = wiener["schemas"]["RunsPage"];
 
-/** **Runs of this analysis**: the runs of the pipeline it keeps, matched by digest, newest first.
+/** **Runs of this analysis**: the runs it sent (by analysis, #536), newest first.
  *  The same query key as `LegacyRun`, so one request answers both. */
 export function useAnalysisRuns(draftId: string) {
   const drafts = useQuery({ queryKey: ["drafts"], queryFn: () => get<DraftsPage>("/pipeline/drafts") });
@@ -23,7 +23,7 @@ export function useAnalysisRuns(draftId: string) {
     retry: false,
   });
   const row = drafts.data?.drafts?.find((d) => d.id === draftId);
-  const list = numbered(runs.data?.runs ?? [], row?.digest);
+  const list = numbered(runs.data?.runs ?? [], row?.digest, draftId);
   return {
     list,
     row,

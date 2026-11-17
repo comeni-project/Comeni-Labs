@@ -52,7 +52,13 @@ export function stubRunServers({ runs = [], bindings, posted = () => {} }: Answe
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body, blob: async () => new Blob(["zip"]) });
     if (init?.method === "POST") {
-      const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
+      const body = typeof init.body === "string" ? JSON.parse(init.body)
+        : init.body instanceof FormData ? (() => {
+          const fields: Record<string, string> = {};
+          init.body.forEach((value, key) => { if (typeof value === "string") fields[key] = value; });
+          return fields;
+        })()
+        : null;
       posted(url, body);
       if (url.includes("/session")) return ok({ session_id: "s1" });
       if (url.endsWith("/api/artifacts")) return ok({ artifact_id: "art1", declared: [] });

@@ -24,10 +24,11 @@ export type StepFacts = { does?: string | null; perSample: boolean; gathers: boo
 
 export const TERMINAL = new Set(["succeeded", "failed", "cancelled", "lost"]);
 
-/** This analysis's runs, newest first, each with its number: Run 1 is the first sent. */
-export function numbered(runs: RunRow[], digest: string | null | undefined): { run: RunRow; n: number }[] {
-  if (!digest) return [];
-  const mine = runs.filter((r) => r.pipeline_digest === digest)
+/** This analysis's runs, newest first, each with its number: Run 1 is the first sent. **By the
+ *  analysis that sent them** (#536), so a change to the pipeline after a run keeps it listed; a run
+ *  sent before runs carried their analysis is placed by its digest, as before. */
+export function numbered(runs: RunRow[], digest: string | null | undefined, draftId: string): { run: RunRow; n: number }[] {
+  const mine = runs.filter((r) => (r.analysis ? r.analysis === draftId : !!digest && r.pipeline_digest === digest))
     .sort((a, b) => a.submitted_at.localeCompare(b.submitted_at));
   return mine.map((run, i) => ({ run, n: i + 1 })).reverse();
 }

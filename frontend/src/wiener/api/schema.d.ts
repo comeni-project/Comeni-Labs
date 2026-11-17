@@ -561,6 +561,11 @@ export interface components {
              * @default
              */
             name: string;
+            /**
+             * Analysis
+             * @default
+             */
+            analysis: string;
         };
         /**
          * CancelRequest
@@ -1160,6 +1165,11 @@ export interface components {
              * @default 0
              */
             tasks_seen: number;
+            /**
+             * Analysis
+             * @default
+             */
+            analysis: string;
             /** Pipeline Digest */
             pipeline_digest?: string | null;
         };

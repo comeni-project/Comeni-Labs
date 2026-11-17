@@ -26,6 +26,9 @@ it("sending posts the bindings' params to wiener, with no form", async () => {
   expect(accepted?.run_id).toBe("new-run");
   const run = posted.mock.calls.find(([url]) => String(url).endsWith("/api/runs"));
   expect(run?.[1]).toEqual({ artifact_id: "art1", params, executor: "local" });
+  // The run says which analysis sent it, so it stays listed when the pipeline changes (#536).
+  const upload = posted.mock.calls.find(([url]) => String(url).endsWith("/api/artifacts"));
+  expect(upload?.[1]).toEqual({ name: "Yeast counts", analysis: "d1" });
 });
 
 it("a missing input stops the send before anything reaches wiener", async () => {
