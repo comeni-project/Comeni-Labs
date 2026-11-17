@@ -6,7 +6,7 @@ only carries the conversation. :class:`ScriptedAgentTransport` replays a fixed s
 which never call a live model.
 """
 
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -52,6 +52,8 @@ class AgentReply(BaseModel):
     calls: list[ToolCall] = Field(default_factory=list)
     usage: Usage | None = None
     refusal: str | None = None
+    tool_choice: Literal["required"] | None = None
+    """Effective provider policy for invocation provenance; None means auto/omitted."""
 
 
 @runtime_checkable
@@ -59,7 +61,8 @@ class AgentTransport(Protocol):
     """Send a conversation and the tools it may use; return what the model answered."""
 
     def converse(self, access: ModelAccess, messages: list[dict],
-                 tools: list[ToolSpec]) -> AgentReply: ...
+                 tools: list[ToolSpec], *, tool_choice: Literal["required"] | None = None
+                 ) -> AgentReply: ...
 
 
 class ScriptedAgentTransport:
@@ -68,10 +71,13 @@ class ScriptedAgentTransport:
     def __init__(self, replies: list[AgentReply]) -> None:
         self._replies = list(replies)
         self.sent: list[list[dict]] = []
+        self.tool_choices: list[Literal["required"] | None] = []
 
     def converse(self, access: ModelAccess, messages: list[dict],
-                 tools: list[ToolSpec]) -> AgentReply:
+                 tools: list[ToolSpec], *, tool_choice: Literal["required"] | None = None
+                 ) -> AgentReply:
         self.sent.append([dict(m) for m in messages])
+        self.tool_choices.append(tool_choice)
         if len(self.sent) > len(self._replies):
             raise AssertionError("the script ran out: the agent called the model again")
         return self._replies[len(self.sent) - 1]
