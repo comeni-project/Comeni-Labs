@@ -5582,3 +5582,8 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 - 2026-11-16, redesign Task 7 (#508, #511): `test_submit_refuses_an_input_outside_the_data_roots`
   and `test_submit_takes_staged_samples`, run against the committed `routes/runs.py` (no guard, no
   `stage` shape): both failed. Both pass after.
+- 2026-11-17, walk fixes (#535): `sizes nothing with spacing steps 8 or 9` (frontend
+  `tokens.test.ts`) run against the committed `analysis/data/Overview.tsx` (`h-9`, 60 px here),
+  by copy and `git show HEAD:path`: failed. `every row and the header share one width` failed on
+  the `w-max` rows; `the agent hears data change until it has built` failed with one notice of
+  two; the analysis-list test failed on `draft d1` not refreshed. All pass after.

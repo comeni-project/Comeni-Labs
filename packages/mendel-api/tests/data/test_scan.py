@@ -433,3 +433,47 @@ def test_assemblies_kept_in_a_genomes_folder_are_samples(clean, client, root):
     tick(client, d, folder)
     scanning.scan(d, who="ana")
     assert sorted(s["name"] for s in view(client, d)["samples"]) == ["BAC1", "BAC2"]
+
+
+def test_the_agent_hears_data_change_until_it_has_built(clean, client, root, monkeypatch):
+    """Walk 2026-11-17: the agent heard the first scan (6 samples, no references), answered
+    without building, and never heard the person pair a read, leave a sample out or add the
+    references, so Build stayed empty. While nothing is built, a scan that reads differently
+    from what it last heard is said again; the same reading is not said twice."""
+    import asyncio
+
+    from mendel_api.agent import chat, loop
+    from mendel_api.authoring.types import TurnState
+    from mendel_api.models import PipelineAuthoringTurn
+    from sqlalchemy import select
+
+    said = []
+
+    async def say(session_id, text):
+        said.append(text)
+        seq = loop.add_person_turn(session_id, text)
+        with session_scope() as db:  # the agent answers, and builds nothing
+            for turn in db.scalars(select(PipelineAuthoringTurn).where(
+                    PipelineAuthoringTurn.session_id == session_id)):
+                turn.state = TurnState.ANSWERED.value
+        return seq, True
+
+    monkeypatch.setattr(chat, "say", say)
+    d = draft(client)
+    _asks_for_data(d)
+    tick(client, d, pairs(root / "liver", "L01"))
+    scanning.scan(d, who="ana")
+    asyncio.run(chat.data_scanned(d))
+    assert len(said) == 1 and "no references" in said[0]
+
+    (root / "ref").mkdir()
+    (root / "ref" / "genome.fasta").write_text(">chrI\nACGT\n")
+    client.post(f"/api/data/{d}/references",
+                json={"path": str(root / "ref" / "genome.fasta"), "type_id": "genome.fasta"})
+    scanning.scan(d, who="ana")
+    asyncio.run(chat.data_scanned(d))
+    assert len(said) == 2 and "references: genome.fasta" in said[1]
+
+    scanning.scan(d, who="ana")
+    asyncio.run(chat.data_scanned(d))
+    assert len(said) == 2, "the same reading is not said twice"

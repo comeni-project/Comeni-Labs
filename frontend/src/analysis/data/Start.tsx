@@ -36,7 +36,7 @@ export function Start({ ticked, onTick, onCancel }: {
     <div className="grid gap-[14px] items-start lg:grid-cols-[minmax(0,1fr)_340px]">
       <Panel title="Folders" actions={
         <input aria-label="Find a folder" placeholder="Find a folder" value={find} onChange={(e) => setFind(e.target.value)}
-               className="h-8 w-[220px] max-w-full px-[10px] border border-line-2 rounded-control bg-surface text-[13px] text-ink" />
+               className="h-[32px] w-[220px] max-w-full px-[10px] border border-line-2 rounded-control bg-surface text-[13px] text-ink" />
       }>
         <div className={`${ROW} hidden sm:grid py-2 border-t border-line-soft text-[12px] font-semibold text-ink-3`}>
           <span /><span>Folder</span><span>Files</span><span>Looks like</span>

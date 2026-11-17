@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useRef } from "react";
 
 export type Column<T> = {
   id: string;
@@ -11,6 +11,15 @@ export type Column<T> = {
 
 const ROW = 38;
 const HEADER = 36;
+
+const GAP = 14;
+const PAD = 40;
+
+/** A track's least width in px: `170px`, or the minimum of `minmax(140px,1.2fr)`. */
+function leastOf(track: string): number {
+  const px = /(\d+(?:\.\d+)?)px/.exec(track);
+  return px ? Number(px[1]) : 0;
+}
 
 /** A table for hundreds of rows (samples, files, tasks): only the rows in view are mounted, so
  *  500 samples cost what 20 do. Its own box scrolls, never the page. */
@@ -35,10 +44,16 @@ export function DataTable<T>({ rows, columns, rowKey, label, height, highlight, 
     initialRect: { width: 1200, height },
   });
   const tracks = columns.map((c) => c.width ?? "minmax(120px,1fr)").join(" ");
-  const cells = "grid items-center gap-[14px] px-5 min-w-full w-max";
+  // **One width for the header and every row** (walk 2026-11-17): each row sized to its own
+  // content (`w-max`), so on a narrow page the flexible columns spread differently row by row.
+  // The page's width, or the columns' least, whichever is wider; a cell truncates past it.
+  const least = columns.reduce((sum, c) => sum + leastOf(c.width ?? "minmax(120px,1fr)"), 0)
+    + GAP * Math.max(0, columns.length - 1) + PAD;
+  const cells = "grid items-center gap-[14px] px-5 w-[max(100%,var(--least))]";
 
   return (
-    <div role="table" aria-label={label} aria-rowcount={rows.length + 1} className="min-w-0 text-[13px]">
+    <div role="table" aria-label={label} aria-rowcount={rows.length + 1} className="min-w-0 text-[13px]"
+         style={{ "--least": `${least}px` } as CSSProperties}>
       {/* **One box scrolls both ways**, so a wide table's header moves with its rows. */}
       <div ref={scroller} data-testid="table-scroll" className="overflow-auto" style={{ height: height + HEADER }}>
         <div role="rowgroup" className="sticky top-0 z-[1] bg-surface">
@@ -47,7 +62,7 @@ export function DataTable<T>({ rows, columns, rowKey, label, height, highlight, 
             {columns.map((c) => <div key={c.id} role="columnheader" className="truncate">{c.header}</div>)}
           </div>
         </div>
-        <div role="rowgroup" className="relative min-w-full w-max" style={{ height: virtual.getTotalSize() }}>
+        <div role="rowgroup" className="relative w-[max(100%,var(--least))]" style={{ height: virtual.getTotalSize() }}>
           {virtual.getVirtualItems().map((item) => {
             const row = rows[item.index];
             const marked = highlight?.(row) ?? false;

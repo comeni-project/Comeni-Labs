@@ -99,27 +99,64 @@ def rebuild_for_data(draft_id: str, who: str) -> None:
         _rebuild(session_id, draft_id, who)
 
 
+_DATA_SAID = ("I added data in Data:", "My data changed in Data:")
+
+
+def _told_and_unbuilt(draft_id: str) -> tuple[str, str] | None:
+    """The draft's session and what its agent last heard about the data, when it has heard once,
+    has built nothing yet and is not working: a change in Data since is news to it."""
+    from mendel_api.models import PipelineDraft
+
+    with session_scope() as db:
+        session_id = db.scalar(select(PipelineAuthoringSession.id).where(
+            PipelineAuthoringSession.draft_id == draft_id))
+        draft = db.get(PipelineDraft, draft_id)
+        if session_id is None or (draft and (draft.graph or {}).get("nodes")):
+            return None
+        turns = db.scalars(select(PipelineAuthoringTurn)
+                           .where(PipelineAuthoringTurn.session_id == session_id)
+                           .order_by(PipelineAuthoringTurn.seq.desc())).all()
+        if any(t.state == TurnState.PENDING.value for t in turns):
+            return None
+        heard = next((t.text for t in turns if t.role == TurnRole.PERSON.value
+                      and (t.text or "").startswith(_DATA_SAID)), None)
+    return (session_id, heard) if heard else None
+
+
 async def data_scanned(draft_id: str) -> None:
     """**A finished scan answers the agent's `data` question** (#511, Checkpoint A): the person
     ticked folders in Data rather than typing, so what was found is said for them, as the person's
     answer: how many samples, of what, and what was measured. Counts and measurements only,
-    never a path. Nothing is said when the agent was not waiting for data."""
+    never a path.
+
+    **Until the agent has built, a change is said too** (walk 2026-11-17): it heard the first scan
+    and answered without building; the person then paired a read, left a sample out and added
+    the references, and it heard none of it, so Build stayed empty. A reading it already heard
+    is not said again; once a pipeline is built, `rebuild_for_data` keeps it current instead."""
     from mendel_api.models import AnalysisData
 
-    session_id = _waiting_for_data(draft_id)
+    session_id, heard = _waiting_for_data(draft_id), None
     if session_id is None:
-        return
+        told = _told_and_unbuilt(draft_id)
+        if told is None:
+            return
+        session_id, heard = told
     with session_scope() as db:
         row = db.get(AnalysisData, draft_id)
         samples = [s for s in (row.samples if row else []) if not s.get("left_out")]
         references = sorted(r["type_id"] for r in (row.references if row else []))
     kinds = sorted({s.get("type_id") or "unrecognised" for s in samples})
     measured = sorted({f["measurement"] for s in samples for f in s.get("facts", [])})
-    words = (f"I added data in Data: {len(samples)} sample{'' if len(samples) == 1 else 's'} "
-             f"({', '.join(kinds) or 'none'})")
-    words += f"; measured {', '.join(measured)}" if measured else ""
-    words += f"; references: {', '.join(references)}." if references else "; no references."
-    await say(session_id, words)
+    reading = (f"{len(samples)} sample{'' if len(samples) == 1 else 's'} "
+               f"({', '.join(kinds) or 'none'})")
+    reading += f"; measured {', '.join(measured)}" if measured else ""
+    reading += f"; references: {', '.join(references)}." if references else "; no references."
+    if heard is not None:
+        if heard.split(":", 1)[1].strip() == reading:
+            return
+        await say(session_id, f"{_DATA_SAID[1]} {reading}")
+        return
+    await say(session_id, f"{_DATA_SAID[0]} {reading}")
 
 
 async def retry(session_id: str, seq: int) -> bool:

@@ -41,7 +41,7 @@ export function Checks({ data, onFix }: { data: AnalysisData; onFix: (fix: DataF
   const bySample = new Map<string, AnalysisData["checks"]>();
   for (const check of data.checks) bySample.set(check.sample, [...(bySample.get(check.sample) ?? []), check]);
   if (bySample.size === 0) return null;
-  const button = "h-9 px-[14px] rounded-control text-[13px] cursor-pointer";
+  const button = "h-[36px] px-[14px] rounded-control text-[13px] cursor-pointer";
   return (
     <Panel title="Check these" hint="found from what was measured">
       {[...bySample].map(([sample, checks]) => {

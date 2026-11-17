@@ -15,7 +15,7 @@ type Reader = components["schemas"]["Reader"];
 type File = components["schemas"]["FilesPage"]["files"][number];
 
 const folderOf = (path: string) => path.split("/").slice(-3, -1).join("/");
-const BUTTON = "h-9 px-[14px] rounded-control text-[13px] cursor-pointer";
+const BUTTON = "h-[36px] px-[14px] rounded-control text-[13px] cursor-pointer";
 
 /** **References** (#511, board 2026-11-16): one slot a study-wide input the pipeline reads, as
  *  Build's canvas has them. A slot set says its file; an open one offers the files in the ticked
@@ -102,7 +102,7 @@ function Slot({ kind, data, choices, readers, files, onAdd, onRemove }: {
           <div className="flex flex-wrap items-center gap-[10px] px-5 py-3 border-t border-line-soft">
             <input aria-label={`Find another file for the ${name}`} placeholder="Another file in your folders" value={find}
                    onChange={(e) => setFind(e.target.value)}
-                   className="flex-1 min-w-[200px] h-9 px-[10px] border border-line-2 rounded-control bg-surface text-[13px] text-ink" />
+                   className="flex-1 min-w-[200px] h-[36px] px-[10px] border border-line-2 rounded-control bg-surface text-[13px] text-ink" />
           </div>
           {found.map((f) => <Candidate key={f.path} file={f} label={chipName(name).toLowerCase()} onUse={() => onAdd(f.path, kind)} />)}
         </>
@@ -131,7 +131,7 @@ function ByKind({ choices, onAdd }: { choices: File[]; onAdd: (path: string, typ
   const [path, setPath] = useState("");
   const [kind, setKind] = useState("");
   const types = useQuery({ queryKey: ["reference-types"], queryFn: () => get<string[]>("/data/reference-types"), enabled: open });
-  const field = "h-9 px-2 border border-line-2 rounded-control bg-surface text-[13px] text-ink";
+  const field = "h-[36px] px-2 border border-line-2 rounded-control bg-surface text-[13px] text-ink";
   if (!open) {
     return (
       <div className="flex flex-wrap items-center gap-3 px-5 py-[14px] bg-surface border border-line rounded-panel">

@@ -106,14 +106,14 @@ export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColum
           <Segmented<"all" | "check"> label="Show" value={filter} onChange={setFilter}
                                      options={[{ id: "all", label: "All" }, { id: "check", label: `To check · ${flagged.size}` }]} />
           <input aria-label="Find a sample" placeholder="Find a sample" value={find} onChange={(e) => setFind(e.target.value)}
-                 className="h-8 w-[180px] px-[10px] border border-line-2 rounded-control bg-surface text-[13px] text-ink" />
+                 className="h-[32px] w-[180px] px-[10px] border border-line-2 rounded-control bg-surface text-[13px] text-ink" />
           {adding ? <AddColumn onAdd={(name) => {
             // A column that exists is not added again: its values stay.
             if (!(name in data.columns)) addColumn(name);
             setAdding(false);
           }} />
             : <button type="button" onClick={() => setAdding(true)}
-                      className="h-8 px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-now-ink cursor-pointer">
+                      className="h-[32px] px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-now-ink cursor-pointer">
                 + Add column
               </button>}
         </span>
@@ -152,9 +152,9 @@ function AddColumn({ onAdd }: { onAdd: (name: string) => void }) {
   return (
     <span className="flex items-center gap-1">
       <input aria-label="New column" placeholder="condition" value={name} onChange={(e) => setName(e.target.value)}
-             className="h-8 w-[130px] px-2 border border-line-2 rounded-control bg-surface text-[13px] text-ink" />
+             className="h-[32px] w-[130px] px-2 border border-line-2 rounded-control bg-surface text-[13px] text-ink" />
       <button type="button" disabled={!name.trim()} onClick={() => onAdd(name.trim())}
-              className="h-8 px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer">Add</button>
+              className="h-[32px] px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer">Add</button>
     </span>
   );
 }
@@ -166,6 +166,8 @@ function ReadingRule({ data, setRule, confirmRule }: {
   const [pattern, setPattern] = useState(data.rule.pattern ?? "{sample}_R{read}.fastq.gz");
   const { samples, unfit } = data.rule_result;
   const paired = data.samples.filter((s) => s.files.length === 2).length > data.samples.length / 2;
+  // The rule counts every sample it made; the page counts those kept (walk 2026-11-17).
+  const leftOut = data.samples.filter((s) => s.left_out).length;
   return (
     <section aria-label="How the samples were read"
              className="flex flex-col gap-[10px] px-5 py-4 bg-surface border border-line rounded-panel">
@@ -189,20 +191,21 @@ function ReadingRule({ data, setRule, confirmRule }: {
       <span className="text-[13px] text-ink-2">
         {data.rule.pattern ? <>Rule <span className="font-data">{data.rule.pattern}</span>: </>
           : paired ? "Paired by name: " : "One sample per file: "}
-        <b>{samples} {samples === 1 ? "sample" : "samples"}</b>{paired ? ", paired" : ""}.
+        <b>{samples} {samples === 1 ? "sample" : "samples"}</b>{paired ? ", paired" : ""}
+        {leftOut > 0 ? `; ${leftOut} left out` : ""}.
         {unfit > 0 && ` ${unfit} ${unfit === 1 ? "file did" : "files did"} not fit the pattern.`}
       </span>
       {editing ? (
         <span className="flex items-center gap-2 flex-wrap">
           <input aria-label="Reading rule" value={pattern} onChange={(e) => setPattern(e.target.value)}
-                 className="h-8 w-[320px] max-w-full px-[10px] border border-line-2 rounded-control bg-surface font-data text-[12.5px] text-ink" />
+                 className="h-[32px] w-[320px] max-w-full px-[10px] border border-line-2 rounded-control bg-surface font-data text-[12.5px] text-ink" />
           <button type="button" onClick={() => setRule(pattern.trim()).then(() => setEditing(false), () => undefined)}
-                  className="h-8 px-3 rounded-control bg-action text-on-action shadow-raise border-0 text-[12.5px] font-semibold cursor-pointer">
+                  className="h-[32px] px-3 rounded-control bg-action text-on-action shadow-raise border-0 text-[12.5px] font-semibold cursor-pointer">
             Use this rule
           </button>
           {data.rule.pattern && (
             <button type="button" onClick={() => setRule(null).then(() => setEditing(false), () => undefined)}
-                    className="h-8 px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer">
+                    className="h-[32px] px-3 rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer">
               Pair by name again
             </button>
           )}

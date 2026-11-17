@@ -190,11 +190,16 @@ describe("the analyses list (issue 530)", () => {
     vi.stubGlobal("fetch", fetch);
     const client = fresh();
     client.setQueryData(["drafts"], { drafts: [] });
+    // Walk 2026-11-17: the rail, the frame and Run read the one analysis, not the list.
+    for (const k of [["draft", "d1"], ["keep-for-run", "d1"], ["bindings", "d1"]]) client.setQueryData(k, {});
     const { result } = renderHook(() => useAuthoringSession("s1", { pollMs: 100 }), { wrapper: wrap(client) });
     await waitFor(() => expect(result.current.session?.working).toBe(true));
     expect(client.getQueryState(["drafts"])?.isInvalidated).toBe(false);
     await act(async () => { await vi.advanceTimersByTimeAsync(150); });
     await waitFor(() => expect(result.current.session?.working).toBe(false));
     await waitFor(() => expect(client.getQueryState(["drafts"])?.isInvalidated).toBe(true));
+    for (const k of [["draft", "d1"], ["keep-for-run", "d1"], ["bindings", "d1"]]) {
+      expect(client.getQueryState(k)?.isInvalidated, k.join(" ")).toBe(true);
+    }
   });
 });

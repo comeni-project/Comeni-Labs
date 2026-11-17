@@ -155,3 +155,11 @@ it("two kinds of data get one tab each, with that kind's columns", async () => {
   expect(screen.getByText("ASM1")).toBeTruthy();
   expect(screen.getByRole("columnheader", { name: "Contigs" })).toBeTruthy();
 });
+
+it("the rule's count says how many of its samples are left out (walk 2026-11-17)", () => {
+  // The rule read 5 samples and the page said 4: the rule counts what it made, and one was left
+  // out. It says both, so the two numbers agree.
+  samples(withRule({ samples: [{ ...analysis().samples[0], left_out: true }, analysis().samples[1]] }));
+  const rule = screen.getByRole("region", { name: "How the samples were read" });
+  expect(within(rule).getByText(/1 left out/)).toBeTruthy();
+});

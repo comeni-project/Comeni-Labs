@@ -154,12 +154,12 @@ function Detail({ reader: r, typeName }: { reader: Reader; typeName: (id: string
           <span className="pill" style={{ background: tone.soft, color: tone.ink }} title={typeName(r.type_id)}>{fileOf(r)}</span>
           <span className="font-data text-[11.5px] text-ink-3">{reads}</span>
         </div>
-        <span aria-hidden="true" className="w-9 h-px bg-line-2 shrink-0" />
+        <span aria-hidden="true" className="w-[36px] h-px bg-line-2 shrink-0" />
         <div className="flex flex-col items-center gap-[2px] min-w-[170px] px-5 py-4 rounded-panel border border-line-2 bg-surface text-center">
           <span className="text-[15px] font-semibold text-ink">{nameOf(r)}</span>
           <span className="font-data text-[11.5px] text-ink-3">{r.by === "tool" ? "a tool's output" : `records of ${typeName(r.type_id)}`}</span>
         </div>
-        <span aria-hidden="true" className="w-9 h-px bg-line-2 shrink-0" />
+        <span aria-hidden="true" className="w-[36px] h-px bg-line-2 shrink-0" />
         <div className="flex flex-col items-start gap-[6px] min-w-0">
           <span className={label}>Measures</span>
           {r.facts.map((f) => <Fact key={f.measurement} id={f.measurement} />)}

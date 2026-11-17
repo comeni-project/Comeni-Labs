@@ -420,3 +420,12 @@ it("draws words in the -ink shade of a meaning, never its plain mark colour", ()
     .map(([p]) => p.slice(SRC.length + 1));
   expect(found).toEqual([]);
 });
+
+it("sizes nothing with spacing steps 8 or 9, which are 40 and 60 px here, not Tailwind's 32 and 36", () => {
+  // Walk 2026-11-17: `h-9` buttons and selects drew 60 px tall. This scale's steps 8 and 9 are
+  // section gaps (main.css `--spacing-8/9`); a control's size is written in pixels.
+  const wrong = sources().filter(([path]) => !/\.test\.tsx?$/.test(path)).flatMap(([path, text]) =>
+    [...text.matchAll(/(?<=[\s"`])(?:h|min-h|w|size)-(?:8|9)(?=[\s"`])/g)].map((m) => `${path.slice(SRC.length + 1)}: ${m[0]}`));
+  expect(sources().length).toBeGreaterThan(0);
+  expect(wrong).toEqual([]);
+});

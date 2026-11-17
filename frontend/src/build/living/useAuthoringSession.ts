@@ -85,7 +85,13 @@ export function useAuthoringSession(sessionId: string, options: { pollMs?: numbe
   // analysis's name, step count and kept digest from it, and the agent renames and builds.
   const working = session.data?.working ?? false;
   useEffect(() => {
-    if (session.data && !working) void client.invalidateQueries({ queryKey: ["drafts"] });
+    if (session.data && !working) {
+      // The list, and the one analysis the rail, the frame and Run read (walk 2026-11-17: its
+      // name and step count stayed stale, and Run said "Untitled analysis · 0 steps").
+      for (const queryKey of [["drafts"], ["draft"], ["keep-for-run"], ["bindings"]]) {
+        void client.invalidateQueries({ queryKey });
+      }
+    }
   }, [client, working, settledRevision, session.data === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const preview = useQuery({

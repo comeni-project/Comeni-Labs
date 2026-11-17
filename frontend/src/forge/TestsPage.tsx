@@ -171,7 +171,7 @@ function Selected({ c }: { c: Case }) {
       </div>
       <table className="w-full border-collapse text-[12.5px]">
         <thead><tr className="bg-surface-2 text-left text-[11.5px] text-ink-3">
-          <th className="w-8" /><th className="px-3 py-[6px] font-semibold">Output</th><th className="px-3 py-[6px] font-semibold">Expected</th><th className="px-3 py-[6px] font-semibold">Got</th>
+          <th className="w-[32px]" /><th className="px-3 py-[6px] font-semibold">Output</th><th className="px-3 py-[6px] font-semibold">Expected</th><th className="px-3 py-[6px] font-semibold">Got</th>
         </tr></thead>
         <tbody>
           {c.expect.map((e) => (

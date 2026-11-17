@@ -54,7 +54,7 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
   }
   const forge = () => start.mutate({ source: row.source, path: row.path },
                                    { onSuccess: (view) => navigate(`/forge/${view.id}`) });
-  const primary = "inline-flex items-center h-9 px-4 rounded-control border-0 bg-action text-on-action shadow-raise text-[13px] font-semibold no-underline cursor-pointer";
+  const primary = "inline-flex items-center h-[36px] px-4 rounded-control border-0 bg-action text-on-action shadow-raise text-[13px] font-semibold no-underline cursor-pointer";
   const action = row.state === "update_available"
     ? <button type="button" className={primary} disabled={start.isPending} onClick={forge}>Update to {row.tool_version}</button>
     : row.state === "not_imported"
@@ -80,7 +80,7 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
           {row.description && <span className="text-[13.5px] text-ink-2">{row.description}</span>}
         </div>
         <span className="flex flex-wrap items-center gap-2">
-          <a className="inline-flex items-center h-9 px-[14px] rounded-control border border-line-2 bg-surface text-[13px] text-ink no-underline"
+          <a className="inline-flex items-center h-[36px] px-[14px] rounded-control border border-line-2 bg-surface text-[13px] text-ink no-underline"
              href={`https://github.com/nf-core/modules/tree/master/modules/nf-core/${row.path}`} target="_blank" rel="noreferrer">nf-core page</a>
           {action}
         </span>
@@ -92,12 +92,12 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
           <span className={label}>Takes</span>
           {takes.length ? takes.map(({ f, m }) => <Chip key={f} format={f} mention={m} />) : <span className="text-[11.5px] text-ink-3">not stated</span>}
         </div>
-        <span aria-hidden="true" className="w-8 h-px bg-line-2 shrink-0" />
+        <span aria-hidden="true" className="w-[32px] h-px bg-line-2 shrink-0" />
         <div className="flex flex-col items-center gap-[2px] min-w-[150px] px-5 py-4 rounded-panel border border-line-2 bg-surface text-center">
           <span className="text-[15px] font-semibold text-ink">{row.path.replace("/", " ")}</span>
           <span className="font-data text-[11.5px] text-ink-3">{row.registry_version ? `here ${row.registry_version}` : `upstream ${row.tool_version ?? "unknown"}`}</span>
         </div>
-        <span aria-hidden="true" className="w-8 h-px bg-line-2 shrink-0" />
+        <span aria-hidden="true" className="w-[32px] h-px bg-line-2 shrink-0" />
         <div className="flex flex-col items-start gap-[6px] min-w-0">
           <span className={label}>Makes</span>
           {makes.length ? makes.map(({ f, m }) => <Chip key={f} format={f} mention={m} />) : <span className="text-[11.5px] text-ink-3">not stated</span>}
@@ -128,7 +128,7 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
                   {list.length === 0 && <span className="text-[12.5px] text-ink-3">none yet</span>}
                   {list.slice(0, 6).map((fit) => (
                     <button key={fit.path} type="button" onClick={() => filters.set("module", [fit.path])}
-                            className="flex items-center gap-2 h-8 px-3 rounded-control border border-line bg-surface text-left cursor-pointer hover:bg-hover">
+                            className="flex items-center gap-2 h-[32px] px-3 rounded-control border border-line bg-surface text-left cursor-pointer hover:bg-hover">
                       <span aria-hidden="true" className="w-[6px] h-[6px] rounded-full bg-done shrink-0" />
                       <span className="truncate font-data text-[12.5px] text-ink">{fit.path}</span>
                       <span className="ml-auto font-data text-[11.5px] text-ink-3">{fit.via}</span>

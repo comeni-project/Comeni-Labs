@@ -51,7 +51,7 @@ export function Commands({ runId, onInsert, onRun, onClose }: {
           <h2 className="m-0 text-[17px] font-semibold text-ink">Commands</h2>
           <span className="text-[12.5px] text-ink-3">run in the shell, in this run's folder</span>
           <button type="button" aria-label="Close" onClick={onClose}
-                  className="ml-auto w-8 h-8 rounded-control border-0 bg-transparent text-ink-3 text-[18px] cursor-pointer hover:bg-surface-2">×</button>
+                  className="ml-auto w-[32px] h-[32px] rounded-control border-0 bg-transparent text-ink-3 text-[18px] cursor-pointer hover:bg-surface-2">×</button>
         </header>
         <div className="px-5 pb-3 flex flex-col gap-[10px]">
           <input ref={search} aria-label="Search commands" placeholder="Search what you want to see or do" value={find}

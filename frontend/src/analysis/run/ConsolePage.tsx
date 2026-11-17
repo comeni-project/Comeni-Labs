@@ -68,7 +68,7 @@ export function ConsolePage({ draftId, runId, phase }: { draftId: string; runId:
           )}
           {resume && (
             <button type="button" onClick={() => shell.current?.run(resume)}
-                    className="h-8 px-[14px] rounded-control border-0 bg-action text-on-action shadow-raise text-[13px] font-semibold cursor-pointer">
+                    className="h-[32px] px-[14px] rounded-control border-0 bg-action text-on-action shadow-raise text-[13px] font-semibold cursor-pointer">
               Resume the run
             </button>
           )}
@@ -93,7 +93,7 @@ export function ConsolePage({ draftId, runId, phase }: { draftId: string; runId:
           </div>
           <div role="separator" aria-orientation="horizontal" aria-label="Resize the panes" onPointerDown={dragSplit}
                className="h-[9px] shrink-0 flex items-center justify-center bg-surface-2 border-y border-line-soft cursor-row-resize touch-none">
-            <span aria-hidden className="w-9 h-[3px] rounded-full bg-line-2" />
+            <span aria-hidden className="w-[36px] h-[3px] rounded-full bg-line-2" />
           </div>
           <div className={PANE}>
             <span className="text-[13px] font-semibold text-ink">Shell</span>

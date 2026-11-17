@@ -42,3 +42,15 @@ it("the header scrolls sideways with the rows, in one box", () => {
   expect(box.contains(screen.getByRole("columnheader", { name: "Sample" }))).toBe(true);
   expect(box.contains(screen.getAllByRole("row")[1])).toBe(true);
 });
+
+it("every row and the header share one width, so the columns line up (walk 2026-11-17)", () => {
+  // Each row sized itself to its own content (`w-max`), so on a narrow page a row with a longer
+  // file name spread its columns further than the next. One width, the same for all.
+  render(<DataTable label="Samples" rows={rows.slice(0, 3)} columns={columns} rowKey={(r) => r.name} height={400} />);
+  // Sample's default track (120) + Read pairs (120) + one gap (14) + the padding (40).
+  expect(screen.getByRole("table").style.getPropertyValue("--least")).toBe("294px");
+  for (const row of screen.getAllByRole("row")) {
+    expect(row.className).toContain("w-[max(100%,var(--least))]");
+    expect(row.className).not.toMatch(/\bw-max\b/);
+  }
+});
