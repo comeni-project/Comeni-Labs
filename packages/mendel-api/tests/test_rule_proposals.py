@@ -222,7 +222,8 @@ def test_two_hundred_kept_pipelines_read_quickly():
                                  provenance={}, revision=0, kept_at=now, kept_digest=digest))
     started = time.monotonic()
     view = proposals.read()
-    assert time.monotonic() - started < 2.0
+    # 5 s: catches a read many times slower, not a slower runner (1.2 s here, 2.3 s on CI).
+    assert time.monotonic() - started < 5.0
     assert len(proposals.cases()) == 200 and view.proposals == []
 
 
