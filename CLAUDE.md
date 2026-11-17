@@ -13,7 +13,7 @@ a model's contribution must remain visible and reviewable.
 ## Before working
 
 - Read [current work](docs/notes/now.md), then the relevant source and tests. The
-  [journal](docs/notes/journal) records completed work; GitHub issue #119 is the task tree.
+  [journal](docs/notes/journal) records completed work; open GitHub issues are the backlog.
 - Check the branch, worktree and working tree before editing. Use a feature branch and
   preserve other agents' changes. Worktree submodule configuration is shared: never run
   `git submodule deinit` inside a worktree.
