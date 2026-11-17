@@ -62,7 +62,8 @@ function Gantt({ runId, draftId, nodes, live, selected, onSelect }: {
     refetchInterval: live ? 5_000 : false,
   });
   const facts = factsOf(useBuildCanvas(draftId).data);
-  if (!timeline.data) return <Panel title="When each step ran"><p className="m-0 px-5 pb-4 text-[13px] text-ink-3">Nothing has run yet.</p></Panel>;
+  if (timeline.error) return <Panel title="When each step ran"><p role="alert" className="m-0 px-5 pb-4 text-[13px] text-needs-you-ink">The timeline could not be read.</p></Panel>;
+  if (!timeline.data) return <Panel title="When each step ran"><p className="m-0 px-5 pb-4 text-[13px] text-ink-3">{timeline.isPending ? "Reading…" : "Nothing has run yet."}</p></Panel>;
   const g = ganttOf(timeline.data, Date.now());
   const span = Math.max(1, g.to - g.from);
   const at = (ms: number) => `${(100 * (ms - g.from)) / span}%`;

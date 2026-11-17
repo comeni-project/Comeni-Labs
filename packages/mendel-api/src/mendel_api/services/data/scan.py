@@ -98,9 +98,9 @@ def scan(draft_id: str, *, who: str, revision: int | None = None) -> None:
         return
 
 
-# Folders whose files are the study's references, not samples (walk 2026-11-16).
-REFERENCE_FOLDERS = frozenset({"reference", "references", "ref", "refs", "genome", "genomes",
-                               "annotation", "annotations"})
+# Folders whose files are the study's references, not samples (walk 2026-11-16). Only names
+# that say *reference*: `genomes/` is where a lab keeps its isolates' assemblies (Checkpoint D).
+REFERENCE_FOLDERS = frozenset({"reference", "references", "ref", "refs"})
 
 
 def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Rule,

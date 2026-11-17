@@ -135,7 +135,7 @@ function useFailure(draftId: string, runId: string, enabled: boolean) {
   const run = useRun(runId);
   const facts = factsOf(useBuildCanvas(draftId).data);
   const failed = useQuery({
-    queryKey: ["failed-tasks", runId],
+    queryKey: ["failed-tasks", runId, "first"],
     queryFn: () => fromWiener<{ tasks: Task[] }>(`/api/runs/${runId}/tasks?status=FAILED&limit=1`),
     enabled,
   });
@@ -188,11 +188,23 @@ function ConsoleAssistant({ draftId, runId, cwd, base, shell, onClose }: {
 
 const AUTO_RUNS = 3;
 
+/** **What the page runs for the assistant by itself** (Checkpoint D): read-only commands it has
+ *  not run yet, at most `AUTO_RUNS`, and only in a reply to something the person said — never in
+ *  a reply to the output it sent back itself, so one message from the person is one round. */
+export function autoRuns(blocks: { id: string; kind: string; read_only?: boolean | null; command?: string }[],
+                         handled: Set<string>, personAsked: boolean): { id: string; command: string }[] {
+  if (!personAsked) return [];
+  return blocks.filter((b) => b.kind === "command" && b.read_only && !handled.has(b.id))
+    .slice(0, AUTO_RUNS) as { id: string; command: string }[];
+}
+
 function Talk({ sessionId, runId, cwd, base, shell }: {
   sessionId: string; runId: string; cwd: string; base: string; shell: React.RefObject<TerminalHandle | null>;
 }) {
   const living = useAuthoringSession(sessionId, { pollMs: 1500 });
   const handled = useRef<Set<string> | null>(null);
+  // Set when the person sends a message; spent by the one round of runs that answers it.
+  const asked = useRef(false);
   const turns = living.session?.turns ?? [];
   if (handled.current === null && living.session) {
     // What was suggested before the page opened was handled then.
@@ -200,15 +212,16 @@ function Talk({ sessionId, runId, cwd, base, shell }: {
   }
   const context = async () => ({
     run: runId,
-    console: (await fromWiener<{ text: string }>(`${base}/console?lines=200`).catch(() => ({ text: "" }))).text,
-    shell: shell.current?.tail(80) ?? "",
+    // Within what the server takes (40,000 and 20,000 characters), the newest kept.
+    console: (await fromWiener<{ text: string }>(`${base}/console?lines=200`).catch(() => ({ text: "" }))).text.slice(-38_000),
+    shell: (shell.current?.tail(80) ?? "").slice(-18_000),
   });
   const last = turns.at(-1);
   useEffect(() => {
     if (!last || last.role !== "assistant" || last.state !== "answered" || !handled.current) return;
-    const todo = last.blocks.filter((b) => b.kind === "command" && b.read_only && !handled.current!.has(b.id))
-      .slice(0, AUTO_RUNS) as { id: string; command: string }[];
+    const todo = autoRuns(last.blocks as Parameters<typeof autoRuns>[0], handled.current, asked.current);
     if (todo.length === 0) return;
+    asked.current = false;
     todo.forEach((b) => handled.current!.add(b.id));
     void (async () => {
       const outputs: string[] = [];
@@ -229,7 +242,7 @@ function Talk({ sessionId, runId, cwd, base, shell }: {
     <div className="flex-1 min-h-0 flex flex-col">
       <ChatPanel embedded session={living.session} sending={living.sending} composer={living.composer}
                  onCompose={living.compose}
-                 onSay={(text) => { void context().then((seen) => living.sayWith(text, seen)); }}
+                 onSay={(text) => { asked.current = true; void context().then((seen) => living.sayWith(text, seen)); }}
                  onAnswer={living.answer} onRetry={living.retry} notices={null} />
     </div>
   );

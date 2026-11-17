@@ -126,3 +126,19 @@ def test_a_path_outside_the_results_is_refused(client, a_run):
         served = client.get(f"/api/runs/{a_run.id}/results/file",
                             params={"process": process, "name": name})
         assert served.status_code == 404, (process, name)
+
+
+def test_a_report_opens_sandboxed_so_its_scripts_cannot_reach_the_app(client, a_run):
+    """Checkpoint D, I1: opened as a blob, a QC report's scripts ran with the app's origin and
+    could open the terminal. HTML, SVG and XML are served in their own sandboxed origin."""
+    _publish(a_run.id, {"multiqc/report.html": "<html>r</html>", "quast/plot.svg": "<svg/>",
+                        "featurecounts/counts.tsv": "g\t1\n"})
+    for process, name in (("multiqc", "report.html"), ("quast", "plot.svg")):
+        served = client.get(f"/api/runs/{a_run.id}/results/file",
+                            params={"process": process, "name": name})
+        assert served.headers["content-security-policy"].startswith("sandbox"), name
+        assert "allow-same-origin" not in served.headers["content-security-policy"]
+        assert served.headers["x-content-type-options"] == "nosniff"
+    table = client.get(f"/api/runs/{a_run.id}/results/file",
+                       params={"process": "featurecounts", "name": "counts.tsv"})
+    assert "content-security-policy" not in table.headers

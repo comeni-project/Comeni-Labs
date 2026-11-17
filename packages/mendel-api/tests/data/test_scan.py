@@ -420,3 +420,16 @@ def test_a_file_nothing_reads_is_not_a_sample(clean, client, root):
     got = view(client, d)
     assert [s["name"] for s in got["samples"]] == ["L01"]
     assert got["rule_result"]["unfit"] == 1
+
+
+def test_assemblies_kept_in_a_genomes_folder_are_samples(clean, client, root):
+    """Checkpoint D, I6: `genomes/` is where a lab keeps its isolates' assemblies; it named a
+    reference folder, so every sample vanished into References with no word why."""
+    d = draft(client)
+    folder = root / "genomes"
+    folder.mkdir()
+    for name in ("BAC1", "BAC2"):
+        (folder / f"{name}.fna").write_text(">c1\nACGTACGTAC\n")
+    tick(client, d, folder)
+    scanning.scan(d, who="ana")
+    assert sorted(s["name"] for s in view(client, d)["samples"]) == ["BAC1", "BAC2"]

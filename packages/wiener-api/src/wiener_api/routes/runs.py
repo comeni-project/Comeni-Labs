@@ -933,7 +933,18 @@ def run_result_file(run_id: str, process: str, name: str) -> FileResponse:
     path = (root / process / name).resolve()
     if not path.is_relative_to(root) or path.parent == root.parent or not path.is_file():
         raise HTTPException(status_code=404)
-    return FileResponse(path, filename=path.name, content_disposition_type="inline")
+    served = FileResponse(path, filename=path.name, content_disposition_type="inline")
+    # **A report runs in its own origin** (Checkpoint D): a QC report carries a tool's scripts
+    # and text from the samples; sandboxed, without allow-same-origin, it cannot reach the app's
+    # API or its terminal, while its own charts still draw.
+    if (served.media_type or "").split(";")[0] in _ACTIVE:
+        served.headers["Content-Security-Policy"] = "sandbox allow-scripts allow-popups"
+        served.headers["X-Content-Type-Options"] = "nosniff"
+    return served
+
+
+_ACTIVE = frozenset({"text/html", "application/xhtml+xml", "image/svg+xml", "text/xml",
+                     "application/xml"})
 
 
 TERMINAL = {"succeeded", "failed", "cancelled", "lost"}

@@ -62,15 +62,6 @@ export async function get<T>(path: string): Promise<T> {
   return (await r.json()) as T;
 }
 
-/** A file a run published, as a blob: **Open** on Run's Outputs reads it with the token, since a
- *  plain link cannot carry one. */
-export async function fileOf(path: string): Promise<Blob> {
-  const r = await fetch(path, { headers: headers() });
-  if (r.status === 401) throw new Unauthorized("this Wiener wants a token");
-  if (!r.ok) throw new Error(`${path} → ${r.status}`);
-  return await r.blob();
-}
-
 /** A file, as `multipart/form-data`. The artifact upload is the only one.
  *
  * **No `Content-Type` header.** The browser sets it, and the boundary it appends is what makes
