@@ -120,25 +120,14 @@ describe("jump to a pipeline or run", () => {
     expect(await screen.findByText('Nothing matches "zzz"')).toBeTruthy();
   });
 
-  it("closes on Esc without closing the settings behind it, and gives focus back", async () => {
-    at("/registry?settings=appearance");
+  it("closes on Esc and gives focus back", async () => {
+    at("/registry");
     const opener = await screen.findByRole("button", { name: /jump to a pipeline or run/i });
     await userEvent.click(opener);
     await screen.findByRole("dialog", { name: /jump/i });
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog", { name: /jump/i })).toBeNull());
-    expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
     expect(document.activeElement).toBe(opener);
-  });
-
-  it("draws above the settings overlay, which comes later in the page", async () => {
-    at("/registry?settings=appearance");
-    await screen.findByRole("dialog", { name: "Settings" });
-    press();
-    const jump = await screen.findByRole("dialog", { name: /jump/i });
-    const dialogs = screen.getAllByRole("dialog");
-    expect(dialogs[dialogs.length - 1]).toBe(jump);
-    expect(jump.closest("header")).toBeNull();
   });
 
   it("keeps focus inside while open", async () => {

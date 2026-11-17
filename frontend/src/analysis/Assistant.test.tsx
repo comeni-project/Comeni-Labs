@@ -58,6 +58,6 @@ it("without a model the drawer says so and links to settings", () => {
   page();
   fireEvent.click(screen.getByRole("button", { name: "Assistant" }));
   expect(screen.getByText("Needs a model")).toBeTruthy();
-  expect(screen.getByRole("link", { name: /Connect a model/ }).getAttribute("href")).toContain("settings=models");
+  expect(screen.getByRole("link", { name: /Connect a model/ }).getAttribute("href")).toBe("/settings#models");
   expect(screen.queryByRole("textbox", { name: "Message" })).toBeNull();
 });

@@ -36,7 +36,7 @@ describe("deleting a run", () => {
     expect(screen.getByTestId("delete-run-confirm")).toHaveTextContent(/permanent/i);
     expect(screen.getByTestId("delete-run-confirm")).toHaveTextContent(/results/i);
     expect(screen.getByRole("link", { name: /data retention settings/i }))
-      .toHaveAttribute("href", "/runs/r1?settings=retention_runs");
+      .toHaveAttribute("href", "/settings#privacy");
   });
 
   it("deletes on the second press", async () => {

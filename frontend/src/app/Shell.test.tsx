@@ -47,9 +47,9 @@ describe("the shell", () => {
     }
   });
 
-  it("keeps settings one click away, over the page you are on", () => {
+  it("keeps settings one click away, as its own page", () => {
     at("/registry/releases");
-    expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/registry/releases?settings=");
+    expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/settings");
   });
 
   it("sends the old addresses to their analysis", () => {

@@ -6,6 +6,7 @@ import { RunPage } from "../analysis/run/RunPage";
 import { Home } from "../home/Home";
 import { Catalogue } from "../registry/Catalogue";
 import { ForgeHome } from "../forge/ForgeHome";
+import { SettingsPage } from "../preferences/SettingsPage";
 import { Forging } from "../forge/Forging";
 import { LearnedRules } from "../registry/LearnedRules";
 import { Releases } from "../registry/Releases";
@@ -17,11 +18,10 @@ import {
   AnalysisFrame, AnalysisIndex, LegacyBuild, LegacyRun,
 } from "./AnalysisFrame";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { SettingsLink } from "./SettingsLink";
 import { Shell } from "./Shell";
 
 /** Application destinations (#511). An analysis is a pipeline draft, at `/a/<draft>/…`.
- * Filters and settings overlays use query parameters so views remain linkable. */
+ * Filters use query parameters so views remain linkable. */
 export const routes: RouteObject[] = [
   {
     element: <Shell />,
@@ -57,8 +57,7 @@ export const routes: RouteObject[] = [
       { path: "/registry/measurers", element: <MeasurersPage /> },
       { path: "/registry/learned", element: <LearnedRules /> },
 
-      // Preserve older settings URLs by opening the settings overlay.
-      { path: "/settings/:section?", element: <SettingsLink /> },
+      { path: "/settings", element: <SettingsPage /> },
     ],
   },
 ];

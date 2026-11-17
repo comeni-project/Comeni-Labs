@@ -51,7 +51,7 @@ export function Ask({ starters, large = false }: { starters: string[]; large?: b
       </form>
       {!model.pending && !model.configured && (
         <p className="m-0 text-[12.5px] text-ink-3">
-          <Link to="?settings=models" className="text-now-ink">Set up a model</Link> to describe an
+          <Link to="/settings#models" className="text-now-ink">Set up a model</Link> to describe an
           analysis in words. <em>Add a folder</em> works without one.
         </p>
       )}

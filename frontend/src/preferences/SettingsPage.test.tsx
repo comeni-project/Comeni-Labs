@@ -1,11 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, Navigate, RouterProvider, type RouteObject } from "react-router";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { routes } from "../app/router";
-import { Shell } from "../app/Shell";
 
 const HELP = "A setting this page has never seen. Served by a newer API than it.";
 
@@ -82,23 +81,12 @@ const serving = (menu: unknown = MENU, wiener: Answer = ok({ sections: [] })) =>
           : ok(menu),
     ));
 
-/** The shell over a page that fetches nothing, so the overlay is the only thing under test. */
-const table: RouteObject[] = [
-  {
-    element: <Shell />,
-    children: [
-      { path: "/page", element: <p>The page underneath</p> },
-      { path: "/settings/:section?", element: <Navigate to="/page" /> },
-    ],
-  },
-];
-
-function at(path: string, fetch = serving(), table_: RouteObject[] = table) {
+function at(path: string, fetch = serving()) {
   vi.stubGlobal("fetch", fetch);
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  const router = createMemoryRouter(table_, { initialEntries: [path] });
+  const router = createMemoryRouter(routes, { initialEntries: [path] });
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
@@ -109,78 +97,38 @@ function at(path: string, fetch = serving(), table_: RouteObject[] = table) {
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("the settings overlay", () => {
-  it("opens over the page you are on, at the first section", async () => {
-    at("/page?settings=");
-    const dialog = await screen.findByRole("dialog", { name: "Settings" });
-    expect(await within(dialog).findByRole("heading", { name: "Look" })).toBeTruthy();
-    expect(screen.getByText("The page underneath")).toBeTruthy();
-  });
-
-  it("is opened by the gear, which keeps you on the same page", async () => {
-    at("/page?tab=x");
+describe("the settings page (board 4 · Settings)", () => {
+  it("is a page the gear opens", async () => {
+    at("/registry/releases");
     const gear = await screen.findByRole("link", { name: "Settings" });
-    expect(gear.getAttribute("href")).toBe("/page?tab=x&settings=");
+    expect(gear.getAttribute("href")).toBe("/settings");
   });
 
-  it("draws a setting it has never seen, under its section's own line", async () => {
-    at("/page?settings=lab");
+  it("draws a setting it has never seen, under its section's own title", async () => {
+    at("/settings");
     expect(await screen.findByText("Flavour")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Laboratory" })).toBeTruthy();
     expect(screen.getByText("What this laboratory prefers, for everyone here.")).toBeTruthy();
     expect(screen.getByLabelText("Spiced")).toBeTruthy();
   });
 
-  it("groups the sections by where their values live, and counts what is set here", async () => {
-    at("/page?settings=lab");
+  it("puts the board's sections first, in its order, and lists every section in the rail", async () => {
+    const menu = { sections: [
+      ...MENU.sections,
+      { key: "models", title: "Models", lede: "", order: 3, served_by: "mendel", entries: MENU.sections[1].entries.slice(0, 1) },
+      { key: "appearance", title: "Appearance", lede: "", order: 1, served_by: "mendel", entries: MENU.sections[0].entries },
+    ] };
+    at("/settings", serving(menu));
     const rail = await screen.findByRole("navigation", { name: "Settings sections" });
-    for (const group of ["This browser", "This installation", "Reported"]) {
-      expect(within(rail).getByText(group)).toBeTruthy();
-    }
-    expect(within(rail).getByText("1 set")).toBeTruthy();
-  });
-
-  it("moves between sections in the address, so a section can be linked", async () => {
-    const { router } = at("/page?settings=lab");
-    await userEvent.click(await screen.findByRole("button", { name: /Facts/ }));
-    await waitFor(() => expect(router.state.location.search).toBe("?settings=facts"));
-    expect(await screen.findByText("1.2.3")).toBeTruthy();
-  });
-
-  it("closes on Escape and leaves you where you were", async () => {
-    const { router } = at("/page?tab=x&settings=lab");
-    await screen.findByRole("dialog", { name: "Settings" });
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(router.state.location.pathname).toBe("/page");
-    expect(router.state.location.search).toBe("?tab=x");
-  });
-
-  it("closes from its close button and from a click on the dimmed page, not from inside", async () => {
-    at("/page?settings=lab");
-    const dialog = await screen.findByRole("dialog", { name: "Settings" });
-    await userEvent.click(await within(dialog).findByText("Flavour"));
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    await userEvent.click(screen.getByTestId("settings-scrim"));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  });
-
-  it("closes a row's note on Escape before it closes itself", async () => {
-    at("/page?settings=lab");
-    await userEvent.click(await screen.findByRole("button", { name: "About Flavour" }));
-    expect(screen.getByRole("note")).toBeTruthy();
-    await userEvent.keyboard("{Escape}");
-    expect(screen.queryByRole("note")).toBeNull();
-    expect(screen.getByRole("dialog")).toBeTruthy();
-  });
-
-  it("takes the focus when it opens", async () => {
-    at("/page?settings=lab");
-    const dialog = await screen.findByRole("dialog", { name: "Settings" });
-    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    await within(rail).findByText("General");
+    const names = within(rail).getAllByRole("link").map((l) => l.textContent);
+    expect(names.slice(0, 2)).toEqual(["General", "Models"]);
+    expect(names).toContain("Laboratory");
+    expect(within(rail).getByRole("link", { name: "Models" }).getAttribute("href")).toBe("#models");
   });
 
   it("writes a change and asks for the menu again", async () => {
-    const { fetch } = at("/page?settings=lab");
+    const { fetch } = at("/settings");
     await userEvent.click(await screen.findByLabelText("Spiced"));
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith("/api/settings/lab.flavour", expect.objectContaining({
@@ -191,30 +139,21 @@ describe("the settings overlay", () => {
   });
 
   it("shows a 409's reason under the row", async () => {
-    const fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) =>
-      Promise.resolve(
-        url === "/api/wiener/settings" ? ok({ sections: [] })
-          : init?.method === "PUT"
-            ? { ok: false, status: 409, json: async () => ({ detail: "MI0300: lab.flavour is locked: Pinned by .env (LAB_FLAVOUR)." }) }
-            : ok(MENU),
-      ));
-    at("/page?settings=lab", fetch);
+    const refusing = vi.fn().mockImplementation((url: string, init?: RequestInit) => Promise.resolve(
+      init?.method === "PUT"
+        ? { ok: false, status: 409, json: async () => ({ detail: "MI0300: lab.flavour is locked by .env" }) }
+        : url === "/api/wiener/settings" ? ok({ sections: [] }) : ok(MENU)));
+    at("/settings", refusing);
     await userEvent.click(await screen.findByLabelText("Spiced"));
     expect(await screen.findByText(/MI0300: lab.flavour is locked/)).toBeTruthy();
   });
 
-  it("says so inside the overlay when the API cannot be reached", async () => {
-    at("/page?settings=lab", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }));
-    const dialog = await screen.findByRole("dialog", { name: "Settings" });
-    expect(await within(dialog).findByText(/500/)).toBeTruthy();
+  it("says so when the API cannot be reached", async () => {
+    at("/settings", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }));
+    expect((await screen.findAllByText(/500/)).length).toBeGreaterThan(0);
   });
 
-  it("does not crash on a section that does not exist", async () => {
-    at("/page?settings=nonsense");
-    expect(await screen.findByText(/no section called nonsense/i)).toBeTruthy();
-  });
-
-  it("adds Wiener's sections in their order", async () => {
+  it("puts Wiener's own sections under Running", async () => {
     const running = { sections: [{
       key: "running", title: "Running", lede: "As Wiener reports it.", order: 5, served_by: "wiener",
       entries: [{
@@ -222,29 +161,27 @@ describe("the settings overlay", () => {
         shown: shown({ value: "docker", source: "reported", locked: true }),
       }],
     }] };
-    at("/page?settings=running", serving(MENU, ok(running)));
+    at("/settings", serving(MENU, ok(running)));
     expect(await screen.findByText("docker")).toBeTruthy();
-    const rail = screen.getByRole("navigation", { name: "Settings sections" });
-    const names = within(rail).getAllByRole("button").map((b) => b.textContent ?? "");
-    expect(names.findIndex((n) => n.startsWith("Running")))
-      .toBeGreaterThan(names.findIndex((n) => n.startsWith("Facts")));
+    const section = screen.getByRole("region", { name: "Running" });
+    expect(within(section).getByText("Container runtime")).toBeTruthy();
   });
 
   it("still draws Mendel's sections when Wiener does not answer, and says so", async () => {
-    at("/page?settings=lab", serving(MENU, { ok: false, status: 401, json: async () => ({}) }));
+    at("/settings", serving(MENU, { ok: false, status: 401, json: async () => ({}) }));
     expect(await screen.findByText("Flavour")).toBeTruthy();
     expect(await screen.findByText(/Running could not be read/)).toBeTruthy();
   });
 
-  it("sends an old /settings link to the overlay", async () => {
-    const router = createMemoryRouter(routes, { initialEntries: ["/settings/models"] });
-    vi.stubGlobal("fetch", serving());
-    render(
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
-    await waitFor(() => expect(router.state.location.search).toBe("?settings=models"));
+  it("says that .env wins", async () => {
+    at("/settings");
+    expect(await screen.findByText((_, el) => el?.tagName === "P"
+      && el.textContent === "A value in .env always wins.")).toBeTruthy();
+  });
+
+  it("answers the old overlay address as nothing special: the page you were on", async () => {
+    at("/registry/releases?settings=models");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull());
   });
 });
 
@@ -280,8 +217,10 @@ describe("data retention", () => {
     ));
 
   it("writes a Wiener limit to Wiener", async () => {
-    const { fetch } = at("/page?settings=retention_runs", both());
-    await userEvent.click(await screen.findByLabelText("Kept until deleted"));
+    const { fetch } = at("/settings", both());
+    // Both limits are on the page: Mendel's first (its order), then Wiener's.
+    await waitFor(() => expect(screen.getAllByLabelText("Kept until deleted")).toHaveLength(2));
+    await userEvent.click(screen.getAllByLabelText("Kept until deleted")[1]);
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(
       "/api/wiener/settings/retention_runs.work_failed_days",
       expect.objectContaining({ method: "PUT", body: JSON.stringify({ value: "keep" }) })));
@@ -290,29 +229,28 @@ describe("data retention", () => {
   });
 
   it("writes a Mendel limit to Mendel", async () => {
-    const { fetch } = at("/page?settings=retention", both());
-    await userEvent.click(await screen.findByLabelText("Kept until deleted"));
+    const { fetch } = at("/settings", both());
+    await waitFor(() => expect(screen.getAllByLabelText("Kept until deleted")).toHaveLength(2));
+    await userEvent.click(screen.getAllByLabelText("Kept until deleted")[0]);
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(
       "/api/settings/retention.model_replies_days", expect.objectContaining({ method: "PUT" })));
   });
 
-  it("lists both under this installation, side by side", async () => {
-    at("/page?settings=retention", both());
-    const rail = await screen.findByRole("navigation", { name: "Settings sections" });
-    await within(rail).findByText("Data retention: runs");
-    const group = within(rail).getByText("This installation").parentElement!;
-    expect(within(group).getByText("Data retention")).toBeTruthy();
-    expect(within(group).getByText("Data retention: runs")).toBeTruthy();
+  it("puts both under Data & privacy, side by side", async () => {
+    at("/settings", both());
+    const section = await screen.findByRole("region", { name: "Data & privacy" });
+    expect(await within(section).findByRole("heading", { name: "Data retention: runs" })).toBeTruthy();
+    expect(within(section).getByRole("heading", { name: "Data retention" })).toBeTruthy();
   });
 
   it("keeps Mendel's limits usable when Wiener does not answer", async () => {
-    at("/page?settings=retention", both({ ok: false, status: 503, json: async () => ({}) }));
+    at("/settings", both({ ok: false, status: 503, json: async () => ({}) }));
     expect(await screen.findByLabelText("Kept until deleted")).toBeTruthy();
     expect(screen.getByLabelText("After 30 days")).toBeChecked();
   });
 
   it("says when each side last cleared something, and what", async () => {
-    at("/page?settings=retention", both());
+    at("/settings", both());
     expect(await screen.findByText(/Last cleared 12 Oct: 41 replies/)).toBeTruthy();
   });
 
@@ -321,22 +259,12 @@ describe("data retention", () => {
       url === "/api/settings/retention/last"
         ? ok({ ran_at: "2026-10-12T04:00:00Z", removed: { model_replies: 1, drafts: 1 } })
         : url === "/api/wiener/settings" ? ok({ sections: [] }) : ok(MENDEL)));
-    at("/page?settings=retention", one);
+    at("/settings", one);
     expect(await screen.findByText("Last cleared 12 Oct: 1 reply, 1 draft.")).toBeTruthy();
   });
 
   it("counts working folders together, and says nothing was due when nothing was", async () => {
-    at("/page?settings=retention_runs", both());
+    at("/settings", both());
     expect(await screen.findByText(/Last cleared 12 Oct: 3 working folders/)).toBeTruthy();
-  });
-});
-
-describe("the overlay in the new identity (issue 381)", () => {
-  it("speaks in sentences: what it is, and that .env wins", async () => {
-    at("/page?settings=");
-    const dialog = await screen.findByRole("dialog", { name: "Settings" });
-    expect(within(dialog).getByText("This installation · every change is saved as you make it")).toBeTruthy();
-    expect(await within(dialog).findByText((_, el) => el?.tagName === "SPAN"
-      && el.textContent === "A value in .env always wins.")).toBeTruthy();
   });
 });

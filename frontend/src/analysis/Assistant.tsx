@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { post } from "../api/client";
 import { ChatPanel } from "../build/living/ChatPanel";
@@ -45,7 +45,6 @@ export function Assistant({ draftId }: { draftId: string }) {
 }
 
 function NeedsAModel() {
-  const { pathname } = useLocation();
   return (
     <div className="flex flex-col gap-2 p-4">
       <p className="m-0 text-[14px] font-semibold text-ink">Needs a model</p>
@@ -53,7 +52,7 @@ function NeedsAModel() {
         Everything on this page works without one. The assistant reads your data and changes it for you once a model
         is connected.
       </p>
-      <Link to={`${pathname}?settings=models`} className="self-start text-[13px] text-now-ink">Connect a model in Settings</Link>
+      <Link to="/settings#models" className="self-start text-[13px] text-now-ink">Connect a model in Settings</Link>
     </div>
   );
 }

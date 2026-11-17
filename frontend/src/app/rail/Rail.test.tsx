@@ -68,7 +68,7 @@ describe("the rail", () => {
   it("the bottom row is Settings, theme, Local", () => {
     at("/");
     const foot = within(rail()).getByRole("group", { name: "This machine" });
-    expect(within(foot).getByRole("link", { name: "Settings" }).getAttribute("href")).toContain("settings=");
+    expect(within(foot).getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/settings");
     expect(within(foot).getByRole("button", { name: /theme/i })).toBeTruthy();
     expect(within(foot).getByText("Local")).toBeTruthy();
   });

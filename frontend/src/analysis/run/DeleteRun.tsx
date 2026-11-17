@@ -43,7 +43,7 @@ export function DeleteRun({ runId, phase }: { runId: string; phase: string }) {
                                                      text-secondary text-ink-2">
       <span>
         Permanent: its results, its working files and its record go with it. Limits are in{" "}
-        <Link to={{ search: "?settings=retention_runs" }} className="text-now-ink">
+        <Link to="/settings#privacy" className="text-now-ink">
           Data retention settings
         </Link>.
       </span>

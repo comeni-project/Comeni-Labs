@@ -1,4 +1,4 @@
-import { Link, NavLink, useLocation, useSearchParams } from "react-router";
+import { Link, NavLink, useLocation } from "react-router";
 
 import { DOCS_URL } from "../address";
 import { Jump } from "../Jump";
@@ -21,13 +21,8 @@ export function Rail() {
   const [theme, setTheme] = useTheme();
   const dark = painted(theme) === "dark";
 
-  // Settings is an overlay over the page you are on (`?settings=<section>`), so its link keeps
-  // the page and only adds the parameter.
   const location = useLocation();
-  const [params] = useSearchParams();
-  const gear = new URLSearchParams(params);
-  gear.set("settings", "");
-  const settings = `${location.pathname}?${gear.toString()}`;
+  const settings = "/settings";
 
   if (rail.hidden > 0) return null;
 
