@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { get } from "../../api/client";
+import { get } from "../api/client";
 import type { Step } from "./progress";
 
 const merged = (known: Step[], arrived: Step) =>

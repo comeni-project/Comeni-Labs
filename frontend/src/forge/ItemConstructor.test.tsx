@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-import { makeClient } from "../../app/queryClient";
+import { makeClient } from "../app/queryClient";
 import fixture from "./constructors.fixture.json";
 import { ItemConstructor } from "./ItemConstructor";
 import type { ItemView } from "./useAdaptation";

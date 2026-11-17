@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-import { makeClient } from "../../app/queryClient";
+import { makeClient } from "../app/queryClient";
 import { RulePreview } from "./RulePreview";
 import type { ItemView } from "./useAdaptation";
 

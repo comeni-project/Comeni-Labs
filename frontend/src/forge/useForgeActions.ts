@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { post } from "../../api/client";
-import type { components } from "../../api/schema";
+import { post } from "../api/client";
+import type { components } from "../api/schema";
 import type { AdaptationView } from "./useAdaptation";
 
 type Move = components["schemas"]["Move"];

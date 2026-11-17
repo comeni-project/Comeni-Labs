@@ -12,6 +12,9 @@ const paths = {
     <circle cx="12" cy="12" r="3" /></>,
   moon: <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" />,
   updown: <path d="M7 10l5-5 5 5M7 14l5 5 5-5" />,
+  tool: <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z" />,
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  publish: <path d="M7 17L17 7M9 7h8v8" />,
 } as const;
 
 export type IconName = keyof typeof paths;

@@ -1,8 +1,8 @@
 import { useId, useState } from "react";
 
-import { Failed } from "../../ui/States";
-import { RegistryPicker, type PickerEntry } from "../parts/RegistryPicker";
-import { roleEntries, typeEntries, useChoices } from "../parts/useChoices";
+import { Failed } from "../ui/States";
+import { RegistryPicker, type PickerEntry } from "../registry/parts/RegistryPicker";
+import { roleEntries, typeEntries, useChoices } from "../registry/parts/useChoices";
 
 /** The command model's JSON Schema. Rendering fields never replaces server validation. */
 export type Schema = {

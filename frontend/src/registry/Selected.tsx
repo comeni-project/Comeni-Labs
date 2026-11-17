@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router";
 import type { components } from "../api/schema";
 import { Failed } from "../ui/States";
 import { toneOf } from "./families";
-import { useStartForge } from "./forging/useForgeActions";
+import { useStartForge } from "../forge/useForgeActions";
 import { labelOf, pillOf } from "./states";
 import type { ModuleRow } from "./useCatalogue";
 import { useFilters, useModuleDetail } from "./useCatalogue";
@@ -53,14 +53,14 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
     );
   }
   const forge = () => start.mutate({ source: row.source, path: row.path },
-                                   { onSuccess: (view) => navigate(`/registry/forging/${view.id}`) });
+                                   { onSuccess: (view) => navigate(`/forge/${view.id}`) });
   const primary = "inline-flex items-center h-9 px-4 rounded-control border-0 bg-action text-on-action shadow-raise text-[13px] font-semibold no-underline cursor-pointer";
   const action = row.state === "update_available"
     ? <button type="button" className={primary} disabled={start.isPending} onClick={forge}>Update to {row.tool_version}</button>
     : row.state === "not_imported"
       ? <button type="button" className={primary} disabled={start.isPending} onClick={forge}>Forge this</button>
       : row.state === "merged_not_released" || row.state === "in_review"
-        ? <Link to="/registry/forging" className={primary}>Open forging</Link>
+        ? <Link to="/forge" className={primary}>Open forging</Link>
         : <Link to="/" className={primary}>Use in a build</Link>;
   const takes = [...row.formats_in.map((f) => ({ f, m: false })), ...row.mentions_in.map((f) => ({ f, m: true }))];
   const makes = [...row.formats_out.map((f) => ({ f, m: false })), ...row.mentions_out.map((f) => ({ f, m: true }))];

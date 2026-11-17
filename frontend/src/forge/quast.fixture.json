@@ -1,0 +1,928 @@
+{
+ "id": "b62e6a3fd9b04565b9e5542e39d517ff",
+ "source": "nf-core",
+ "path": "quast",
+ "version": "5.3.0",
+ "base": "v0.7.0",
+ "reforge": null,
+ "phase": "merged",
+ "depends_on": [],
+ "started_by": "person",
+ "started_at": "2026-11-04T17:57:30.486803Z",
+ "abandoned_at": null,
+ "next_piece": "measurers",
+ "ready": false,
+ "items": [
+  {
+   "key": "contract:constraint:row1",
+   "piece": "contract",
+   "status": "approved",
+   "value": {
+    "cite": "User-reported QUAST 5.3.0 run: --features without -r exits 0 but produces no genome_stats.",
+    "when": {
+     "given.gff": "present"
+    },
+    "because": "QUAST silently ignores GFF features without a reference; reject this ineffective input combination up front.",
+    "forbids": [],
+    "requires": [
+     "fasta"
+    ]
+   },
+   "current_n": 2,
+   "revisions": [
+    {
+     "n": 2,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": "`gff` is used only with `fasta` (QUAST silently ignores GFF features without a reference; reject this ineffective input combination up front.)"
+  },
+  {
+   "key": "contract:input:consensus",
+   "piece": "contract",
+   "status": "approved",
+   "value": {
+    "name": "consensus",
+    "type_id": "assembly.fasta",
+    "position": 0,
+    "required": true
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "contract:input:fasta",
+   "piece": "contract",
+   "status": "approved",
+   "value": {
+    "name": "fasta",
+    "type_id": "genome.fasta",
+    "position": 1,
+    "required": false
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "contract:input:gff",
+   "piece": "contract",
+   "status": "approved",
+   "value": {
+    "name": "gff",
+    "type_id": "annotation.gff",
+    "position": 2,
+    "required": false
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "contract:nf_inputs",
+   "piece": "contract",
+   "status": "approved",
+   "value": [
+    {
+     "ports": [
+      "consensus"
+     ]
+    },
+    {
+     "ports": [
+      "fasta"
+     ],
+     "absent": 2
+    },
+    {
+     "ports": [
+      "gff"
+     ],
+     "absent": 2
+    }
+   ],
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "contract:output:misassemblies",
+   "piece": "contract",
+   "status": "approved",
+   "value": {
+    "name": "misassemblies",
+    "format": [
+     "tsv"
+    ],
+    "type_id": "qc.report::assembly",
+    "position": 3,
+    "produced_when": {
+     "given.fasta": "present"
+    }
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "contract:output:results",
+   "piece": "contract",
+   "status": "approved",
+   "value": {
+    "name": "results",
+    "format": [
+     "folder"
+    ],
+    "type_id": "qc.report::assembly",
+    "position": 0,
+    "produced_when": null
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "contract:output:transcriptome",
+   "piece": "contract",
+   "status": "removed",
+   "value": {
+    "name": "transcriptome",
+    "format": [
+     "tsv"
+    ],
+    "type_id": "qc.report::assembly",
+    "position": 2,
+    "produced_when": {
+     "given.fasta": "present"
+    }
+   },
+   "current_n": 5,
+   "revisions": [
+    {
+     "n": 5,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "contract:output:tsv",
+   "piece": "contract",
+   "status": "approved",
+   "value": {
+    "name": "tsv",
+    "format": [
+     "tsv"
+    ],
+    "type_id": "qc.report::assembly",
+    "position": 1,
+    "produced_when": null
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "contract:output:unaligned",
+   "piece": "contract",
+   "status": "approved",
+   "value": {
+    "name": "unaligned",
+    "format": [
+     "tsv"
+    ],
+    "type_id": "qc.report::assembly",
+    "position": 4,
+    "produced_when": {
+     "given.fasta": "present"
+    }
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "contract:process",
+   "piece": "contract",
+   "status": "approved",
+   "value": {
+    "roles": [
+     "qc_per_sample"
+    ],
+    "priority": 0,
+    "container": "community.wave.seqera.io/library/quast:5.3.0--755a216045b6dbdd",
+    "nf_include": "modules/nf-core/quast/main",
+    "nf_process": "QUAST",
+    "priority_because": "Neutral priority; the approved competition answer requests no selection rule."
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "parameters:ext_args",
+   "piece": "parameters",
+   "status": "approved",
+   "value": {
+    "because": "main.nf defaults task.ext.args to an empty string. No additional command-line options are required; reference, features, threads, output directory and assemblies are already wired by the module.",
+    "template": ""
+   },
+   "current_n": 2,
+   "revisions": [
+    {
+     "n": 2,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "parameters:param:prefix",
+   "piece": "parameters",
+   "status": "approved",
+   "value": {
+    "key": "prefix",
+    "via": "ext",
+    "name": "prefix",
+    "domain": null,
+    "because": "main.nf reads task.ext.prefix and falls back to meta.id; this value names the output directory and report files.",
+    "default": "${meta.id}",
+    "position": 0
+   },
+   "current_n": 2,
+   "revisions": [
+    {
+     "n": 2,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:competition",
+   "piece": "questions",
+   "status": "approved",
+   "value": {
+    "choice": "no_rule"
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "answer",
+     "actor": "person",
+     "value": {
+      "choice": "no_rule"
+     },
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:input_type:consensus",
+   "piece": "questions",
+   "status": "approved",
+   "value": {
+    "new": true,
+    "choice": "assembly.fasta"
+   },
+   "current_n": 5,
+   "revisions": [
+    {
+     "n": 5,
+     "move": "answer",
+     "actor": "person",
+     "value": {
+      "new": true,
+      "choice": "assembly.fasta"
+     },
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:input_type:fasta",
+   "piece": "questions",
+   "status": "approved",
+   "value": {
+    "choice": "genome.fasta"
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "answer",
+     "actor": "person",
+     "value": {
+      "choice": "genome.fasta"
+     },
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:input_type:gff",
+   "piece": "questions",
+   "status": "approved",
+   "value": {
+    "new": true,
+    "choice": "annotation.gff"
+   },
+   "current_n": 5,
+   "revisions": [
+    {
+     "n": 5,
+     "move": "answer",
+     "actor": "person",
+     "value": {
+      "new": true,
+      "choice": "annotation.gff"
+     },
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:output_type:misassemblies",
+   "piece": "questions",
+   "status": "approved",
+   "value": {
+    "new": true,
+    "choice": "qc.report::assembly"
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "answer",
+     "actor": "person",
+     "value": {
+      "new": true,
+      "choice": "qc.report::assembly"
+     },
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:output_type:results",
+   "piece": "questions",
+   "status": "approved",
+   "value": {
+    "new": true,
+    "choice": "qc.report::assembly"
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "answer",
+     "actor": "person",
+     "value": {
+      "new": true,
+      "choice": "qc.report::assembly"
+     },
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:output_type:transcriptome",
+   "piece": "questions",
+   "status": "approved",
+   "value": {
+    "new": true,
+    "choice": "qc.report::assembly"
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "answer",
+     "actor": "person",
+     "value": {
+      "new": true,
+      "choice": "qc.report::assembly"
+     },
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:output_type:tsv",
+   "piece": "questions",
+   "status": "approved",
+   "value": {
+    "new": true,
+    "choice": "qc.report::assembly"
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "answer",
+     "actor": "person",
+     "value": {
+      "new": true,
+      "choice": "qc.report::assembly"
+     },
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:output_type:unaligned",
+   "piece": "questions",
+   "status": "approved",
+   "value": {
+    "new": true,
+    "choice": "qc.report::assembly"
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "answer",
+     "actor": "person",
+     "value": {
+      "new": true,
+      "choice": "qc.report::assembly"
+     },
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:output_type:versions_quast",
+   "piece": "questions",
+   "status": "removed",
+   "value": {
+    "asks": "Which registry type should represent the emitted process, tool, and version metadata tuple, which is not a report file?",
+    "options": [
+     {
+      "id": "provenance.software_version",
+      "new": true,
+      "label": "Software-version provenance",
+      "because": "The tuple records the software version used by a process execution rather than a biological measurement or QC report."
+     },
+     {
+      "id": "measurement.software_version",
+      "new": true,
+      "label": "Software-version measurement",
+      "because": "The registry could represent the reported version as execution-associated metadata within its measurement family."
+     }
+    ],
+    "suggested": "provenance.software_version",
+    "allows_new": true
+   },
+   "current_n": 2,
+   "revisions": [
+    {
+     "n": 2,
+     "move": "remove",
+     "actor": "person",
+     "value": null,
+     "because": "nf-core's versions topic output, not a data port",
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "questions:role",
+   "piece": "questions",
+   "status": "approved",
+   "value": {
+    "choice": "qc_per_sample"
+   },
+   "current_n": 4,
+   "revisions": [
+    {
+     "n": 4,
+     "move": "answer",
+     "actor": "person",
+     "value": {
+      "choice": "qc_per_sample"
+     },
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "rules:none",
+   "piece": "rules",
+   "status": "approved",
+   "value": {
+    "because": "The approved competition answer selects no_rule, so no selection rule is proposed for QUAST's qc_per_sample role."
+   },
+   "current_n": 2,
+   "revisions": [
+    {
+     "n": 2,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "tests:test:sarscov2_noref",
+   "piece": "tests",
+   "status": "approved",
+   "value": {
+    "setup": [],
+    "expect": [
+     {
+      "port": "results",
+      "pattern": "quast"
+     },
+     {
+      "port": "tsv",
+      "pattern": "quast.tsv"
+     }
+    ],
+    "inputs": {
+     "gff": [],
+     "fasta": [],
+     "consensus": [
+      "genomics/sarscov2/illumina/fasta/contigs.fasta"
+     ]
+    },
+    "params": {
+     "prefix": "quast"
+    },
+    "unchecked": {
+     "unaligned": "Not produced without a reference; this test leaves fasta absent.",
+     "misassemblies": "Not produced without a reference; this test leaves fasta absent."
+    }
+   },
+   "current_n": 2,
+   "revisions": [
+    {
+     "n": 2,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "tests:test:sarscov2_ref",
+   "piece": "tests",
+   "status": "approved",
+   "value": {
+    "setup": [],
+    "expect": [
+     {
+      "port": "results",
+      "pattern": "quast"
+     },
+     {
+      "port": "tsv",
+      "pattern": "quast.tsv"
+     },
+     {
+      "port": "misassemblies",
+      "pattern": "quast_misassemblies.tsv"
+     },
+     {
+      "port": "unaligned",
+      "pattern": "quast_unaligned.tsv"
+     }
+    ],
+    "inputs": {
+     "gff": [
+      "genomics/sarscov2/genome/genome.gff3.gz"
+     ],
+     "fasta": [
+      "genomics/sarscov2/genome/genome.fasta.gz"
+     ],
+     "consensus": [
+      "genomics/sarscov2/illumina/fasta/contigs.fasta"
+     ]
+    },
+    "params": {
+     "prefix": "quast"
+    },
+    "unchecked": {}
+   },
+   "current_n": 2,
+   "revisions": [
+    {
+     "n": 2,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "vocabulary:family:assembly",
+   "piece": "vocabulary",
+   "status": "approved",
+   "value": {
+    "id": "assembly",
+    "description": "Genome assemblies and their associated data."
+   },
+   "current_n": 2,
+   "revisions": [
+    {
+     "n": 2,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "vocabulary:type:annotation.gff",
+   "piece": "vocabulary",
+   "status": "approved",
+   "value": {
+    "id": "annotation.gff",
+    "name": "Reference annotation (GFF)",
+    "grain": "study",
+    "states": [],
+    "explain": "Genomic features in GFF format for the reference genome, shared across the run. Usually supplied with the reference genome or produced by an annotation tool.",
+    "entry_channel": "Channel.fromPath(params.{param}, checkIfExists: true).map { f -> [ [id: f.baseName], f ] }"
+   },
+   "current_n": 3,
+   "revisions": [
+    {
+     "n": 3,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "vocabulary:type:assembly.fasta",
+   "piece": "vocabulary",
+   "status": "approved",
+   "value": {
+    "id": "assembly.fasta",
+    "name": "Assembly sequences (FASTA)",
+    "grain": "sample",
+    "states": [],
+    "explain": "Assembled contig or scaffold sequences in FASTA format for one sample. Usually produced by an assembly tool and supplied to QUAST for quality assessment.",
+    "entry_channel": "Channel.fromPath(params.{param}, checkIfExists: true).map { f -> [ [id: f.baseName], f ] }"
+   },
+   "current_n": 3,
+   "revisions": [
+    {
+     "n": 3,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  },
+  {
+   "key": "vocabulary:type:qc.report",
+   "piece": "vocabulary",
+   "status": "approved",
+   "value": {
+    "id": "qc.report",
+    "add_states": [
+     "assembly"
+    ]
+   },
+   "current_n": 2,
+   "revisions": [
+    {
+     "n": 2,
+     "move": "approve",
+     "actor": "person",
+     "value": null,
+     "because": null,
+     "by": null,
+     "invocation": null
+    }
+   ],
+   "findings": [],
+   "sentence": null
+  }
+ ],
+ "messages": [],
+ "tests": [
+  {
+   "name": "sarscov2_noref",
+   "state": "passed",
+   "run_id": "52e21823eff594b49e9a62d285255d1b",
+   "says": null
+  },
+  {
+   "name": "sarscov2_ref",
+   "state": "passed",
+   "run_id": "c2168a5dcbafb2cb9c66cce3084129e2",
+   "says": null
+  }
+ ],
+ "tests_unavailable": null,
+ "pull_request": {
+  "number": 1,
+  "url": "https://github.com/rafaelmdc/Comeni-Registry/pull/1",
+  "state": "merged",
+  "checks": "green",
+  "says": null,
+  "merging": false
+ },
+ "publish_unavailable": null
+}

@@ -142,7 +142,7 @@ function Detail({ reader: r, typeName }: { reader: Reader; typeName: (id: string
           <span className="px-[9px] py-[2px] rounded-full bg-done-soft text-done-ink text-[12px] font-semibold">In your registry</span>
         </span>
         <span className="flex flex-wrap items-center gap-2">
-          <Link to="/registry/forging" className="self-start shrink-0 inline-flex items-center h-[34px] px-[14px] whitespace-nowrap rounded-control border-0 bg-action text-on-action shadow-raise text-[13px] font-semibold no-underline">
+          <Link to="/forge" className="self-start shrink-0 inline-flex items-center h-[34px] px-[14px] whitespace-nowrap rounded-control border-0 bg-action text-on-action shadow-raise text-[13px] font-semibold no-underline">
             Add a measurement
           </Link>
         </span>

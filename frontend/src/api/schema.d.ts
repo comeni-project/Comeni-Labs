@@ -1776,6 +1776,13 @@ export interface components {
              * Format: date-time
              */
             started_at: string;
+            /**
+             * Tests Failed
+             * @default 0
+             */
+            tests_failed: number;
+            /** Pull Request */
+            pull_request?: string | null;
         };
         /** AdaptationView */
         AdaptationView: {

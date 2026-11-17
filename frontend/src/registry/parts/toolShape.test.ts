@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 
-import type { ItemView } from "../forging/useAdaptation";
+import type { ItemView } from "../../forge/useAdaptation";
 import { toolShape } from "./toolShape";
 
 function item(key: string, value: unknown, status = "proposed"): ItemView {

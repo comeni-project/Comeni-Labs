@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { get } from "../../api/client";
-import type { components } from "../../api/schema";
+import { get } from "../api/client";
+import type { components } from "../api/schema";
 
 export type AdaptationView = components["schemas"]["AdaptationView"];
 export type ItemView = components["schemas"]["ItemView"];

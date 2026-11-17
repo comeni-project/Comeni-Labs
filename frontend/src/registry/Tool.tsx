@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import type { components } from "../api/schema";
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
-import { useStartForge } from "./forging/useForgeActions";
+import { useStartForge } from "../forge/useForgeActions";
 import { ToolDiagram } from "./parts/ToolDiagram";
 import { RegistryTabs } from "./RegistryTabs";
 import { colourOf, labelOf, StateIcon } from "./states";
@@ -119,7 +119,7 @@ function Reforge({ tool }: { tool: ModulePage }) {
     <>
       <button type="button" disabled={start.isPending}
               onClick={() => start.mutate({ source: "nf-core", path, reforge: tool.id },
-                                          { onSuccess: (view) => navigate(`/registry/forging/${view.id}`) })}
+                                          { onSuccess: (view) => navigate(`/forge/${view.id}`) })}
               className="px-4 py-[9px] rounded-control border border-line-2 bg-surface font-medium">
         Re-forge
       </button>

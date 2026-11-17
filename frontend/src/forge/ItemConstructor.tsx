@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 
-import { get } from "../../api/client";
-import { Failed } from "../../ui/States";
+import { get } from "../api/client";
+import { Failed } from "../ui/States";
 import { Fields, initial, RegistryReference, resolve, type Schema } from "./ConstructorFields";
 import { SettingFields } from "./SettingFields";
 import type { ItemView } from "./useAdaptation";

@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { post } from "../../api/client";
-import type { components } from "../../api/schema";
-import { Failed } from "../../ui/States";
+import { post } from "../api/client";
+import type { components } from "../api/schema";
+import { Failed } from "../ui/States";
 import type { ItemView } from "./useAdaptation";
 import { ValueDetails } from "./ValueDetails";
 

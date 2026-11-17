@@ -55,9 +55,9 @@ export function Rail() {
       <ul aria-label="Places" className="list-none m-0 p-0 flex flex-col gap-[2px]">
         <Place to="/" icon="home" label="Home" mini={mini} end
                inside={location.pathname.startsWith("/a/")} />
-        <Place to="/registry/forging" icon="forge" label="Forge" mini={mini} />
+        <Place to="/forge" icon="forge" label="Forge" mini={mini} end={false} />
         <Place to="/registry" icon="registry" label="Registry" mini={mini}
-               end={false} not="/registry/forging" />
+               end={false} />
       </ul>
       <div role="separator" className="h-px bg-line-soft mx-1 my-[10px]" />
 

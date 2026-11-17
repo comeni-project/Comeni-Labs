@@ -5,8 +5,8 @@ import { DataPage } from "../analysis/data/DataPage";
 import { RunPage } from "../analysis/run/RunPage";
 import { Home } from "../home/Home";
 import { Catalogue } from "../registry/Catalogue";
-import { Adaptation } from "../registry/forging/Adaptation";
-import { ForgingList } from "../registry/forging/ForgingList";
+import { ForgeHome } from "../forge/ForgeHome";
+import { Forging } from "../forge/Forging";
 import { LearnedRules } from "../registry/LearnedRules";
 import { Releases } from "../registry/Releases";
 import { MeasurersPage } from "../registry/Measurers";
@@ -48,8 +48,10 @@ export const routes: RouteObject[] = [
       { path: "/registry", element: <Catalogue /> },
       // The splat is the contract id, which carries `/` and `@` (`nf-core/star/align@2.7.11b`).
       { path: "/registry/tools/*", element: <Tool /> },
-      { path: "/registry/forging", element: <ForgingList /> },
-      { path: "/registry/forging/:id", element: <Adaptation /> },
+      { path: "/forge", element: <ForgeHome /> },
+      { path: "/forge/:id", element: <Forging page="tool" /> },
+      { path: "/forge/:id/tests", element: <Forging page="tests" /> },
+      { path: "/forge/:id/publish", element: <Forging page="publish" /> },
       { path: "/registry/releases", element: <Releases /> },
       { path: "/registry/vocabulary", element: <VocabularyPage /> },
       { path: "/registry/measurers", element: <MeasurersPage /> },
