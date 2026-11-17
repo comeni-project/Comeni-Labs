@@ -5587,3 +5587,27 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   by copy and `git show HEAD:path`: failed. `every row and the header share one width` failed on
   the `w-max` rows; `the agent hears data change until it has built` failed with one notice of
   two; the analysis-list test failed on `draft d1` not refreshed. All pass after.
+
+## Builder turn completion, 2026-11-17
+
+Guard: `packages/mendel-api/tests/agent/test_loop.py::test_checking_samples_without_tools_is_a_slip_not_completion`.
+The baseline was exercised before changing the loop, not simulated by deleting its test.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-11-17 | `test_checking_samples_without_tools_is_a_slip_not_completion` | Original `_ANNOUNCES` / text-only ANSWERED implementation, before this fix | `uv run pytest packages/mendel-api/tests/agent/test_loop.py::test_checking_samples_without_tools_is_a_slip_not_completion -q` failed: 1 failed in 0.59 s | `AssertionError: progress narration ended the turn before read_data ran`; `assert 1 == 3` |
+
+After replacing heuristic completion, the same guard passed in the focused run of
+`test_loop.py`, `test_agent_routes.py`, `test_keep_review.py`, `comeni-ai/tests/test_agent.py`
+and `tests/guards/test_egress.py`: **83 passed in 7.85 s**. The test uses the exact live
+“I'm checking the uploaded yeast samples…” response, then existing `read_data` / `ask` tools;
+it does not depend on a missing `reply` implementation to fail. Both runs used scripted
+transport and isolated databases on localhost:5442, without live model calls.
+
+**Retired the same day by operator override.** At the operator's request the slip rule was
+removed (builder protocol v4: a tool-free reply is the answer; `docs/superpowers/plans/2026-11-17-builder-explicit-turn-completion.md`,
+"Operator override"). `test_checking_samples_without_tools_is_a_slip_not_completion` and the
+other slip tests asserted the removed rule and were deleted. Their replacement,
+`test_a_tool_free_reply_is_the_answer_and_ends_the_turn`, records the current contract: one
+model call, the text as the answer (not narration), no reminder, no required tool choice. It
+is a behaviour test, not an invariant guard. MI0227 stays declared for earlier records.

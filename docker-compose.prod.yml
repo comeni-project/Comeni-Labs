@@ -37,6 +37,7 @@ services:
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
       - ./.run/forge:/app/forge:ro
+      - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
 
   ollama:
     restart: unless-stopped

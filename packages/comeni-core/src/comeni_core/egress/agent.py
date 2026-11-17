@@ -15,6 +15,7 @@ from pydantic import Field
 from comeni_core.egress.base import EgressPayload
 from comeni_core.spell.marks import (
     ContractId,
+    Digest,
     Line,
     MeasurementId,
     NodeId,
@@ -43,6 +44,7 @@ class ViewKind(StrEnum):
     RESOLVED = "resolved"
     COMPILED = "compiled"
     ASKED = "asked"
+    REPLIED = "replied"
     VOCABULARY = "vocabulary"
     DATA = "data"
     COMMAND = "command"
@@ -240,6 +242,16 @@ class DataCheckLine(EgressPayload):
     measurement: MeasurementId | None = None
 
 
+class ReferenceCandidate(EgressPayload):
+    """A file already in the analysis, addressed without exposing its filesystem path."""
+
+    id: Digest
+    name: SampleName
+    collection: SampleName
+    types: list[TypeId] = Field(default_factory=list)
+    selected: bool = False
+
+
 class DataView(EgressPayload):
     """The analysis's data by name and fact (#511): its samples, the kinds of data, how the files
     were read into samples and what needs checking. **Never a path or a file's contents.**"""
@@ -256,6 +268,8 @@ class DataView(EgressPayload):
     checks: list[DataCheckLine] = Field(default_factory=list)
     references: list[TypeId] = Field(default_factory=list)
     """The references set on Data → References, by kind (#531)."""
+    reference_files: list[ReferenceCandidate] = Field(default_factory=list)
+    """Available reference files and their possible kinds; selected ones are marked."""
 
 
 class FiredLine(EgressPayload):
@@ -289,6 +303,13 @@ class CompiledView(EgressPayload):
     processes: list[Line] = Field(default_factory=list)
     main_nf_lines: int = 0
     config_lines: int = 0
+
+
+class RepliedView(EgressPayload):
+    """The agent's validated message to the person, ending its turn."""
+
+    kind: Literal[ViewKind.REPLIED] = ViewKind.REPLIED
+    message: Text
 
 
 class AskedView(EgressPayload):
@@ -346,7 +367,7 @@ class ConsoleView(EgressPayload):
 AgentView = Annotated[
     TextView | SamplesView | GoalView | PipelineView | StepView | ToolsView | RulesView
     | FactsView | NeedsView | ResolvedView | CompiledView | AskedView | VocabularyView | DataView
-    | CommandView,
+    | CommandView | RepliedView,
     Field(discriminator="kind"),
 ]
 """Every view a tool may return. Each tool's own view joins this union."""

@@ -200,6 +200,8 @@ services:
       # The catalogue's nf-core clone: forging reads a module's main.nf and meta.yml (#364).
       - ./.run/forge:/app/forge:ro
       - ./.run/chatgpt:/app/chatgpt
+      # Agent Data tools open references at the same paths the API saved in its inventory.
+      - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
     command: arq mendel_api.ai_worker.AIWorkerSettings
 
   # -----------------------------------------------------------------------------

@@ -110,10 +110,11 @@ def test_the_tool_definitions_stay_small():
     """Walk 2026-11-15: the tool definitions were about 2,700 tokens, sent on every round of
     every turn. They are kept under a budget, with no per-property titles. Raised from 8,000 to
     9,000 on 2026-11-16 for the three Data tools (#511), each already cut to a line, and to 9,500
-    the same day for `suggest_command` (Run → Console), its description cut to a line too."""
+    the same day for `suggest_command` (Run → Console), its description cut to a line too.
+    10,000 includes explicit reply and reference selection on 2026-11-17."""
     import json
 
     specs = [spec_of(t).as_provider() for t in TOOLS.values()]
     text = json.dumps(specs)
     assert '"title"' not in text, "pydantic's titles repeat each property's name"
-    assert len(text) < 9500, f"{len(text)} characters of tool definitions"
+    assert len(text) < 10000, f"{len(text)} characters of tool definitions"

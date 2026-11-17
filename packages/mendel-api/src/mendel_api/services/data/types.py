@@ -55,6 +55,7 @@ class Reference(BaseModel):
     name: str
     type_id: str
     origin: Literal["you", "ai"] = "you"
+    reason: str | None = None
     facts: list[SampleFact] = []
 
 

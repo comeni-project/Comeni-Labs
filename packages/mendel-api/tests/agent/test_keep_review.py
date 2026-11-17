@@ -35,7 +35,7 @@ def built(clean, monkeypatch):
         AgentReply(calls=[ToolCall(id="c", name="choose_tool", arguments={
             "type_id": "alignment.bam", "contract": HISAT2, "because": "less memory"})]),
         AgentReply(calls=[ToolCall(id="b", name="resolve", arguments={})]),
-        AgentReply(text="Built with HISAT2."),
+        _reply("Built with HISAT2."),
     ]))
     return client, session
 
@@ -74,3 +74,7 @@ def test_a_pipeline_drawn_by_hand_records_no_ai_choices(clean):
     assert kept.status_code == 200, kept.text
     with open(kept.json()["path"]) as f:
         assert "ai_choices" not in yaml.safe_load(f)
+
+
+def _reply(message):
+    return AgentReply(calls=[ToolCall(id="final", name="reply", arguments={"message": message})])
