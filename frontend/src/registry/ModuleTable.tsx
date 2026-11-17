@@ -32,7 +32,9 @@ export function ModuleTable({ rows, selected, onSelect, header, more, footer }: 
                 <span className="truncate font-data text-[13px] font-semibold text-ink">
                   {cut > 0 && <span className="font-normal">{row.path.slice(0, cut)}</span>}{row.path.slice(cut)}
                 </span>
-                <span className="ml-auto shrink-0 font-data text-[11.5px] text-ink-3 tabular-nums">{row.tool_version ?? "unknown"}</span>
+                {row.preview
+                  ? <span className="ml-auto shrink-0 px-[7px] rounded-full bg-surface-2 border border-line text-[11px] text-ink-2">{row.source} · preview</span>
+                  : <span className="ml-auto shrink-0 font-data text-[11.5px] text-ink-3 tabular-nums">{row.tool_version ?? "unknown"}</span>}
               </span>
               {row.description && <span role="cell" className="pl-[15px] text-[12px] text-ink-2 truncate">{row.description}</span>}
               <span role="cell" className="pl-[15px] flex items-center gap-1 min-w-0 overflow-hidden">

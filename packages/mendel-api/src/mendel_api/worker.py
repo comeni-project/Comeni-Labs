@@ -69,6 +69,10 @@ async def sync_catalogue_job(ctx: dict) -> int:
     A clone and a parse of ~2,100 folders are blocking work, so they run in a thread: the worker
     keeps serving gates meanwhile."""
     done = await asyncio.to_thread(catalogue.run_sync)
+    # The pegi3s sample beside it: shown, not imported, so it reads no network (2026-11-17).
+    from mendel_forge.pegi3s import Pegi3sSample
+
+    await asyncio.to_thread(catalogue.run_sync, Pegi3sSample())
     return done.id if done else 0  # 0: another sync held the source, and this one did nothing
 
 

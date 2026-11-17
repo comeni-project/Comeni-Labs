@@ -3,7 +3,7 @@ import { ribbons, SHOWN, sideRows, ROW, type FlowRow } from "./flowRows";
 import type { CataloguePage } from "./useCatalogue";
 import { useFilters, useFlow } from "./useCatalogue";
 
-const WORDS: Record<string, string> = {
+export const FORMAT_WORDS: Record<string, string> = {
   fastq: "reads", fasta: "sequence", bam: "alignments", cram: "alignments", vcf: "variants",
   bed: "regions", gff: "annotation", table: "tsv, csv", report: "html, pdf", txt: "text", json: "data",
 };
@@ -21,7 +21,7 @@ function Side({ label, rows, picked, align, onPick }: {
                   onClick={() => onPick(row.format)}>
             <span className="bar-fill" style={{ width: `${row.share * 100}%`, background: tone.soft }} />
             <span className="bar-label"><span className="font-data font-semibold">{row.format}</span>{" "}
-              <span className="text-[11.5px] text-ink-3">{WORDS[row.format] ?? ""}</span></span>
+              <span className="text-[11.5px] text-ink-3">{FORMAT_WORDS[row.format] ?? ""}</span></span>
             <span className="bar-count">{row.count.toLocaleString("en")}</span>
           </button>
         );
@@ -47,8 +47,7 @@ export function FormatFlow({ page }: { page: CataloguePage; total: number }) {
   return (
     <section aria-labelledby="flow-title" className="bg-surface border border-line rounded-panel px-4 py-3 flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline gap-x-[10px] gap-y-1">
-        <h2 id="flow-title" className="m-0 text-[15px] font-semibold">How file formats connect</h2>
-        <span className="text-[12.5px] text-ink-3">Each band is the tools that take the left format and make the right one. Click a format to see its tools.</span>
+        <h2 id="flow-title" className="m-0 text-[15px] font-semibold">Formats</h2>
         {(reads || makes) && (
           <button type="button" onClick={() => filters.change((next) => { next.delete("reads"); next.delete("makes"); })}
                   className="ml-auto h-[26px] px-[10px] rounded-full border border-now-line bg-now-soft text-[12px] font-semibold text-now-ink cursor-pointer">

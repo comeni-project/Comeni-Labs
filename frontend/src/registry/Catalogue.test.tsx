@@ -63,18 +63,39 @@ it("renders rows, counts and the last sync", async () => {
   at();
   expect(await screen.findByRole("row", { name: /star\/align/ })).toBeTruthy();
   expect(screen.getByRole("row", { name: /quast/ })).toBeTruthy();
-  const states = screen.getByRole("group", { name: "Against your registry" });
-  expect(within(states).getByRole("button", { name: /In your registry/ }).textContent).toContain("1");
+  const states = screen.getByRole("group", { name: /^In your registry/ });
+  expect(within(states).getByRole("checkbox", { name: /In your registry/ }).closest("label")!.textContent).toContain("1");
   expect(screen.getByText(/2 of 2/)).toBeTruthy();
   expect(screen.getByText(/synced/)).toBeTruthy();
 });
 
-it("the state filter writes the URL and refetches", async () => {
+it("states tick together, write the URL, and refetch (2026-11-17)", async () => {
   const fetch = at();
-  const states = await screen.findByRole("group", { name: "Against your registry" });
-  fireEvent.click(within(states).getByRole("button", { name: /Not in your registry/ }));
-  await vi.waitFor(() =>
-    expect(fetch.mock.calls.some(([url]) => String(url).includes("state=not_imported"))).toBe(true));
+  const states = await screen.findByRole("group", { name: /^In your registry/ });
+  fireEvent.click(within(states).getByRole("checkbox", { name: /Not in your registry/ }));
+  fireEvent.click(within(states).getByRole("checkbox", { name: /^In your registry/ }));
+  await vi.waitFor(() => expect(fetch.mock.calls.some(([url]) =>
+    String(url).includes("state=not_imported") && String(url).includes("state=imported"))).toBe(true));
+});
+
+it("the filters ticked show in the search bar: one comes off alone, Clear all takes the rest", async () => {
+  at(PAGE, "/registry?state=imported&topic=alignment&source=pegi3s");
+  fireEvent.click(await screen.findByRole("button", { name: "Remove topic alignment" }));
+  await vi.waitFor(() => expect(screen.queryByRole("button", { name: "Remove topic alignment" })).toBeNull());
+  expect(screen.getByRole("button", { name: "Remove source pegi3s" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Remove registry in your registry" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+  await vi.waitFor(() => expect(screen.queryByRole("button", { name: /^Remove / })).toBeNull());
+});
+
+it("a tool from a source shown as a sample says so", async () => {
+  at({ ...PAGE, rows: [{ ...PAGE.rows[0], source: "pegi3s", path: "mafft", name: "mafft", preview: true }] });
+  expect(await screen.findByRole("row", { name: /mafft/ })).toBeTruthy();
+  expect(screen.getAllByText("pegi3s · preview").length).toBeGreaterThan(0);
+  expect(screen.getByText(/not synced from pegi3s/)).toBeTruthy();
+  // Nothing was synced, so there is nothing to forge: no button that would fail.
+  expect(screen.queryByRole("button", { name: "Forge this" })).toBeNull();
+  expect(screen.getByText("Forging from pegi3s is not built yet.")).toBeTruthy();
 });
 
 it("selecting a row fills the panel and links an imported tool", async () => {
@@ -98,9 +119,9 @@ it("not imported offers Forge, which starts an adaptation", async () => {
 
 it("the pull request states are filters like any other", async () => {
   at();
-  const states = await screen.findByRole("group", { name: "Against your registry" });
-  expect(within(states).getByRole("button", { name: /In review/ })).toBeTruthy();
-  expect(within(states).queryByRole("button", { name: /Merged, not released/ })).toBeNull();
+  const states = await screen.findByRole("group", { name: /^In your registry/ });
+  expect(within(states).getByRole("checkbox", { name: /In review/ })).toBeTruthy();
+  expect(within(states).queryByRole("checkbox", { name: /Merged, not released/ })).toBeNull();
 });
 
 it("before any sync it offers Sync now", async () => {
@@ -151,10 +172,13 @@ it("a suggestion becomes a chip that filters and can be removed", async () => {
 
 it("following a format filters the list, and picking it again lets go", async () => {
   const fetch = at();
-  const flow = await screen.findByRole("region", { name: "How file formats connect" });
+  const flow = await screen.findByRole("region", { name: "Formats" });
   fireEvent.click(within(flow).getByRole("button", { name: /^fastq/ }));
   await vi.waitFor(() =>
     expect(fetch.mock.calls.some(([url]) => /catalogue\?.*reads=fastq/.test(String(url)))).toBe(true));
+  // The flow sets the panel's Takes: the same filter, ticked there.
+  const takes = screen.getByRole("group", { name: /^Takes/ });
+  await vi.waitFor(() => expect((within(takes).getByRole("checkbox", { name: /^fastq/ }) as HTMLInputElement).checked).toBe(true));
   // The picked format is a chip that lets go of it (board).
   fireEvent.click(await within(flow).findByRole("button", { name: /fastq ×/ }));
   await vi.waitFor(() => expect(within(flow).queryByRole("button", { name: /fastq ×/ })).toBeNull());

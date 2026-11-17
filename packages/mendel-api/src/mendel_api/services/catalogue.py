@@ -16,6 +16,7 @@ import sqlalchemy as sa
 from mendel_forge import state as state_module
 from mendel_forge.model import Problem, UpstreamModule
 from mendel_forge.nfcore.source import TEST_DATASETS, NfCoreSource
+from mendel_forge.pegi3s import PREVIEW_SOURCES
 from mendel_forge.source import CatalogueSource, SourceUnavailable
 from mendel_forge.state import BEST_ORDER, Held, State
 from mendel_forge.topics import ALIASES, canonical, mentioned
@@ -195,6 +196,8 @@ def last_good_sync() -> CatalogueSync | None:
 
 class ModuleRow(BaseModel):
     source: str
+    preview: bool = False
+    """From a source shown as a sample of what it would look like (pegi3s), not one read."""
     path: str
     name: str
     description: str | None
@@ -322,14 +325,14 @@ def _escaped(text: str) -> str:
 
 
 class Filters(BaseModel):
-    state: State | None = None
+    states: list[State] = []
     topics: list[str] = []
     no_topic: bool = False
     suites: list[str] = []
     reads: list[str] = []
     makes: list[str] = []
     mentioned: bool = False
-    source: str | None = None
+    sources: list[str] = []
     q: str | None = None
 
 
@@ -350,8 +353,8 @@ def _where(filters: Filters, held, state_of, *, skip: frozenset[str] = frozenset
     """The conditions for `filters`, without the facets in `skip`."""
     reads, makes = _sides(filters)
     where = [_visible(held)]
-    if filters.state is not None and "state" not in skip:
-        where.append(state_of == filters.state.value)
+    if filters.states and "state" not in skip:
+        where.append(state_of.in_([s.value for s in filters.states]))
     if (filters.topics or filters.no_topic) and "topic" not in skip:
         chosen = []
         if filters.topics:
@@ -365,8 +368,8 @@ def _where(filters: Filters, held, state_of, *, skip: frozenset[str] = frozenset
         where.append(sa.cast(reads, ARRAY(sa.String)).contains(filters.reads))
     if filters.makes and "makes" not in skip:
         where.append(sa.cast(makes, ARRAY(sa.String)).contains(filters.makes))
-    if filters.source:
-        where.append(CatalogueModule.source == filters.source)
+    if filters.sources and "source" not in skip:
+        where.append(CatalogueModule.source.in_(filters.sources))
     needle = (filters.q or "").strip().lower()
     if needle:
         where.append(CatalogueModule.search.ilike(f"%{_escaped(needle)}%", escape="\\"))
@@ -461,7 +464,7 @@ def _counts(session, filters: Filters, held: dict[str, Held], state_of) -> Count
         sa.select(SUITE, sa.func.count()).where(*apart("suite")).group_by(SUITE).order_by(SUITE)
     ).all())
     sources = dict(session.execute(
-        sa.select(CatalogueModule.source, sa.func.count()).where(*apart())
+        sa.select(CatalogueModule.source, sa.func.count()).where(*apart("source"))
         .group_by(CatalogueModule.source)
     ).all())
     no_topic = session.scalar(sa.select(sa.func.count()).select_from(CatalogueModule).where(
@@ -477,7 +480,8 @@ def _row_view(module: CatalogueModule, state: State, held: dict[str, Held]) -> M
     document = UpstreamModule.model_validate(module.document)
     here = held.get(module.path)
     return ModuleRow(
-        source=module.source, path=module.path, name=module.name,
+        source=module.source, preview=module.source in PREVIEW_SOURCES,
+        path=module.path, name=module.name,
         description=document.description, formats_in=module.formats_in,
         formats_out=module.formats_out, mentions_in=module.mentions_in,
         mentions_out=module.mentions_out, topics=list(module.topics or []),

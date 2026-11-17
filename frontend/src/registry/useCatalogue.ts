@@ -27,7 +27,8 @@ export function useFilters() {
     for (const value of values) next.append(key, value);
   });
   return {
-    state: (params.get("state") ?? "") as State | "",
+    states: params.getAll("state") as State[],
+    sources: params.getAll("source"),
     topics: params.getAll("topic"),
     noTopic: params.get("no_topic") === "true",
     suites: params.getAll("suite"),
@@ -47,7 +48,8 @@ type Filters = ReturnType<typeof useFilters>;
 
 function shared(filters: Filters): URLSearchParams {
   const query = new URLSearchParams();
-  if (filters.state) query.set("state", filters.state);
+  for (const state of filters.states) query.append("state", state);
+  for (const source of filters.sources) query.append("source", source);
   for (const topic of filters.topics) query.append("topic", topic);
   if (filters.noTopic) query.set("no_topic", "true");
   for (const suite of filters.suites) query.append("suite", suite);

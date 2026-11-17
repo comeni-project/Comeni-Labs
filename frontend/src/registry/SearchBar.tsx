@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 
+import { labelOf } from "./states";
 import { suggest, type Pick } from "./suggest";
 import type { CataloguePage, ModuleRow } from "./useCatalogue";
 import { useFilters } from "./useCatalogue";
@@ -22,6 +23,8 @@ export function SearchBar({ page, rows }: { page: CataloguePage; rows: ModuleRow
   const input = useRef<HTMLInputElement>(null);
 
   const chips: Chip[] = [
+    ...filters.sources.map((value) => ({ kind: "source", value, drop: dropValue("source", value) })),
+    ...filters.states.map((value) => ({ kind: "registry", value: labelOf(value).toLowerCase(), drop: dropValue("state", value) })),
     ...filters.reads.map((value) => ({ kind: "reads", value, drop: dropValue("reads", value) })),
     ...filters.makes.map((value) => ({ kind: "makes", value, drop: dropValue("makes", value) })),
     ...filters.topics.map((value) => ({ kind: "topic", value, drop: dropValue("topic", value) })),
@@ -84,7 +87,7 @@ export function SearchBar({ page, rows }: { page: CataloguePage; rows: ModuleRow
         {(chips.length > 0 || text) && (
           <button type="button" className="link-plain" onClick={() => {
             setText("");
-            filters.change((next) => ["q", "reads", "makes", "topic", "no_topic", "suite", "mentioned"]
+            filters.change((next) => ["q", "source", "state", "reads", "makes", "topic", "no_topic", "suite", "mentioned"]
               .forEach((key) => next.delete(key)));
           }}>Clear all</button>
         )}
