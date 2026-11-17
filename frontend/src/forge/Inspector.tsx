@@ -7,6 +7,7 @@ import { byAi, describe, live, reasonOf, valueOf, waiting, type ItemView } from 
 import type { AdaptationView } from "./useAdaptation";
 import type { useForgeActions } from "./useForgeActions";
 import { ValueDetails } from "./ValueDetails";
+import { QuestionAnswer } from "./QuestionAnswer";
 
 type Actions = ReturnType<typeof useForgeActions>;
 export interface Selection { key?: string; card?: "params" | "rules" | "measurers" | "vocabulary"; adding?: string }
@@ -91,6 +92,7 @@ export function Inspector({ view, sel, onPick, actions }: { view: AdaptationView
   const piece = item.key.split(":")[0];
   const isPort = item.key.startsWith("contract:input:") || item.key.startsWith("contract:output:");
   const isParam = item.key.startsWith("parameters:param:");
+  const isQuestion = piece === "questions";
   const changing = editing === item.key;
 
   return (
@@ -103,7 +105,9 @@ export function Inspector({ view, sel, onPick, actions }: { view: AdaptationView
           {item.status === "approved" ? "approved" : item.status === "removed" ? "removed" : waiting(item) ? "waiting for review" : item.status}
         </span>
       </div>
-      {changing ? (
+      {isQuestion ? (
+        <QuestionAnswer key={`${item.key}:${item.current_n}`} item={item} actions={actions} />
+      ) : changing ? (
         <ItemConstructor key={item.key} id={view.id} piece={piece} items={view.items} item={item} actions={actions} onCancel={() => setEditing(null)} />
       ) : isPort ? (
         // Keyed by the item and its revision, so another part (or the AI's update) starts fresh.
@@ -115,10 +119,10 @@ export function Inspector({ view, sel, onPick, actions }: { view: AdaptationView
           {item.sentence ? <p className="m-0">{item.sentence}</p> : <ValueDetails value={item.value} />}
         </div>
       )}
-      {!changing && !isPort && !isParam && item.status !== "removed" && (
+      {!changing && !isQuestion && !isPort && !isParam && item.status !== "removed" && (
         <button type="button" className={`${quiet} self-start`} onClick={() => setEditing(item.key)}>Change</button>
       )}
-      {waiting(item) && (
+      {waiting(item) && !isQuestion && (
         <div className="flex flex-col gap-2 p-3 rounded-control border border-ai-line bg-ai-soft">
           <span className="text-[12.5px] text-ink"><b className="text-ai">AI</b>{reasonOf(item) ? ` · ${reasonOf(item)}` : " · proposed this; nobody has reviewed it yet."}</span>
           <span className="flex gap-2">
@@ -128,7 +132,7 @@ export function Inspector({ view, sel, onPick, actions }: { view: AdaptationView
           </span>
         </div>
       )}
-      {actions.command.isError && <Failed error={actions.command.error} padded={false} />}
+      {!isQuestion && actions.command.isError && <Failed error={actions.command.error} padded={false} />}
     </div>
   );
 }

@@ -1,17 +1,11 @@
 import { useEffect, useState } from "react";
 
-import { Failed } from "../ui/States";
 import { Assistant } from "./Assistant";
 import { useUpstream } from "./useUpstream";
 import { Inspector, type Selection } from "./Inspector";
 import { byAi, describe, live, valueOf, waiting, type ItemView } from "./items";
 import type { AdaptationView } from "./useAdaptation";
 import { useForgeActions } from "./useForgeActions";
-
-const PIECE_WORDS: Record<string, string> = {
-  questions: "the questions", contract: "the ports", parameters: "the parameters", vocabulary: "the vocabulary",
-  rules: "the rules", tests: "the tests", measurers: "the measurers",
-};
 
 export const portsOf = (items: ItemView[], side: "input" | "output") =>
   live(items).filter((i) => i.key.startsWith(`contract:${side}:`))
@@ -32,31 +26,13 @@ export function ToolPage({ view, part }: { view: AdaptationView; part: string | 
   const items = live(view.items);
   const firstWaiting = items.find(waiting)?.key;
   const [sel, setSel] = useState<Selection>(part ? { key: part } : firstWaiting ? { key: firstWaiting } : { card: "params" });
-  const [tab, setTab] = useState<"part" | "assistant">("part");
+  const [tab, setTab] = useState<"part" | "assistant">(part ? "part" : "assistant");
   useEffect(() => { if (part) { setSel({ key: part }); setTab("part"); } }, [part]);
   const pick = (s: Selection) => { setSel(s); setTab("part"); };
-
-  const drafting = view.phase === "drafting" || view.phase === "asking";
-  const next = view.next_piece;
-  const nextEmpty = !!next && !items.some((i) => i.key.startsWith(`${next}:`));
 
   return (
     <div className="grid gap-[14px] items-start xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex flex-col gap-[14px] min-w-0">
-        {(drafting || (nextEmpty && !["assembled", "testing", "tested", "publishing", "in_review", "merged"].includes(view.phase))) && (
-          <div role="status" className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-panel border border-ai-line bg-ai-soft text-[13px] text-ink">
-            <span className="h-[18px] px-[5px] rounded-xs bg-surface text-ai text-[10.5px] font-bold leading-[18px]">AI</span>
-            {drafting ? <span>Drafting {PIECE_WORDS[next ?? ""] ?? "the next part"}…</span>
-              : <span>Next: {PIECE_WORDS[next ?? ""] ?? next}. The AI drafts them from the module; each choice waits here for review.</span>}
-            {!drafting && next && (
-              <button type="button" disabled={actions.draft.isPending} onClick={() => actions.draft.mutate(next)}
-                      className="ml-auto h-[30px] px-3 rounded-control border-0 bg-action text-on-action shadow-raise text-[12.5px] font-semibold cursor-pointer disabled:opacity-50">
-                Draft with the AI
-              </button>
-            )}
-          </div>
-        )}
-        {actions.draft.isError && <Failed error={actions.draft.error} padded={false} />}
         <Canvas view={view} sel={sel} onPick={pick} />
         <Cards view={view} sel={sel} onPick={pick} />
       </div>

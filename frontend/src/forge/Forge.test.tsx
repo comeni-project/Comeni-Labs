@@ -64,6 +64,8 @@ it("the tool draws its ports, and Looks right approves the AI's waiting choice",
   // Waiting, it is both a port on the canvas and a row under Review in the rail.
   expect(within(tool).getByRole("button", { name: "Output misassemblies" })).toBeTruthy();
   expect(screen.getAllByRole("button", { name: /misassemblies/ }).length).toBe(2);
+  // The side panel opens on the Assistant unless a part is named; the waiting choice is on Part.
+  fireEvent.click(screen.getByRole("tab", { name: "Part" }));
   fireEvent.click(await screen.findByRole("button", { name: "Looks right" }));
   await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/commands"))).toBe(true));
   const sent = calls.find((c) => c.url.endsWith("/commands"))!.body as { move: string; item: string };
