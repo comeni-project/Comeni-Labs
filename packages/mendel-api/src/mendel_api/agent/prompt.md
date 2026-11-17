@@ -45,6 +45,11 @@ How to work:
 - Read a step (`read_step`) before switching one of its inputs or setting one of its values: it
   names them exactly.
 - Every change tool takes `because`: your reason, in one sentence, for the person to read.
+- **Asked what a setting should be, set it.** When the data or a rule settles it, set that. When
+  nothing does, choose the most likely value from what the data suggests and set it anyway with
+  `set_value`: it is your choice, marked for the person to review, so say in `because` what it
+  rests on and that it is an assumption ("101 bp paired reads with Phred+33 look like Illumina").
+  Leave it unset only when every value is equally likely, and then say so.
 - Call independent tools together, several in one reply (reading the goal, the pipeline and the
   vocabulary; recording several facts). Each reply is a round trip that resends the whole turn.
 - `resolve` already says what is still needed; call `what_is_needed` only when you have not just

@@ -190,3 +190,31 @@ def test_asking_returns_the_question_and_writes_nothing(clean):
     assert asked.ok, asked.refusal
     assert asked.view.question == "Do you have a GTF?" and asked.view.id
     assert decisions.revision(ctx.draft_id) == before
+
+
+def test_a_value_the_ai_set_still_builds_and_compiles(clean, monkeypatch):
+    """Walk 2026-11-17: asked what seq_platform should be, the agent set ILLUMINA (a tier-4
+    choice), and the rebuild refused it with `MD0225`: resolve and compile made the pipeline with
+    no AI provenance, so a value a model settled met a build saying no model was there."""
+    from types import SimpleNamespace
+
+    from mendel_api import settings as mendel_settings
+    from mendel_api.agent.loop import start_session
+
+    monkeypatch.setattr(mendel_settings, "model_access",
+                        lambda *a, **k: SimpleNamespace(model="chatgpt/gpt", base_url=None))
+    first = _rnaseq()
+    owned = start_session(first.draft_id, who="ana")
+
+    def now() -> ToolContext:
+        return ToolContext(draft_id=first.draft_id, session_id=owned, who="builder-agent",
+                           expected_revision=decisions.revision(first.draft_id))
+
+    assert call(now(), "resolve", {}).ok
+    chosen = call(now(), "set_value", {"name": "seq_platform", "value": "ILLUMINA",
+                                       "because": "101 bp paired reads look like Illumina"})
+    assert chosen.ok, chosen.refusal
+    resolved = call(now(), "resolve", {})
+    assert resolved.ok, resolved.refusal
+    compiled = call(now(), "compile", {})
+    assert compiled.ok, compiled.refusal

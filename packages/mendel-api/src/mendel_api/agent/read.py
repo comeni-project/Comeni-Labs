@@ -74,9 +74,12 @@ def list_vocabulary(ctx: ToolContext, _: Nothing) -> VocabularyView:
 def built(ctx: ToolContext):
     """The pipeline the engine builds from the decisions now, or why it cannot."""
     from mendel_api.services import blueprint as bp
+    from mendel_api.services import session
 
     try:
-        blueprint, _ = bp.resolve(decisions.goal(ctx.draft_id))
+        # With the draft's AI provenance: a value the agent set is a model's (`MD0225` otherwise).
+        blueprint, _ = bp.resolve(decisions.goal(ctx.draft_id),
+                                  ai=session.ai_for_draft(ctx.draft_id))
     except (ValueError, KeyError, LookupError) as unbuilt:
         return None, " ".join(str(unbuilt).split())[:300]
     return blueprint, ""

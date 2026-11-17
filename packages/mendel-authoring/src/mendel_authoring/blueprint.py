@@ -133,7 +133,14 @@ def committed(
         key = f"{node_id}.{setting.name}"
         if key in keys:
             settled_params.append(
-                ParamSettled(key=key, settled=_settled(setting.why, by=_model_of(blueprint, key)))
+                # A value a model settled names who: its decision record's model, else the actor
+                # committing it (the builder agent's `set_value` pins it as the goal's value, and
+                # a model value with no author is refused when the file is made, walk 2026-11-17).
+                ParamSettled(key=key, settled=_settled(
+                    setting.why,
+                    by=_model_of(blueprint, key)
+                    or (by if setting.why.source is ValueSource.MODEL else ""),
+                ))
             )
 
     return (

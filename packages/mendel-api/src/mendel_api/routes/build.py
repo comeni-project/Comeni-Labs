@@ -369,8 +369,10 @@ class EmittedPipeline(BaseModel):
 def emitted(draft_id: str) -> EmittedPipeline:
     """Read-only: emitted from the preview's materialisation, written nowhere (`MI0219` when
     there is no pipeline yet)."""
+    from mendel_api.services import session as authoring_session
+
     try:
-        done = draft_service.emitted(draft_id)
+        done = draft_service.emitted(draft_id, ai=authoring_session.ai_for_draft(draft_id))
     except ValueError as nothing:
         raise HTTPException(status_code=422, detail=str(nothing)) from None
     return EmittedPipeline(

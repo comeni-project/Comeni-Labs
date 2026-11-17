@@ -143,6 +143,7 @@ def test_every_operation_is_named_by_hand():
         ("/api/data/{draft_id}/columns", "put"): "setDataColumn",
         ("/api/data/{draft_id}/bindings", "get"): "readRunBindings",
         ("/api/settings", "get"): "readSettings",
+        ("/api/settings/{key}/check", "get"): "checkSetting",
         ("/api/settings/retention/last", "get"): "readLastRetentionSweep",
         # Whether a model is configured, from settings alone: the describe box's question,
         # apart from `/health/ai`'s probe (issue 268).

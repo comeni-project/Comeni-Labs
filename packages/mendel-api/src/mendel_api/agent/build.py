@@ -83,7 +83,11 @@ def compile_(ctx: ToolContext, _: Nothing) -> CompiledView:
     if blueprint is None:
         raise ValueError(coded("MI0219", f"there is no pipeline to compile yet: {unbuilt}"))
     _project(ctx, blueprint, resolved_from)
-    done = drafts.emitted(ctx.draft_id)
+    # **With the draft's AI provenance**, as the build route keeps it: without it a value the
+    # agent set (a tier-4 choice) met a build saying no model was there, and `MD0225` refused it.
+    from mendel_api.services import session
+
+    done = drafts.emitted(ctx.draft_id, ai=session.ai_for_draft(ctx.draft_id))
     processes = sorted({step.process for step in blueprint.pipeline.steps})
     return CompiledView(processes=processes, main_nf_lines=len(done.main_nf.splitlines()),
                         config_lines=len(done.config.splitlines()))

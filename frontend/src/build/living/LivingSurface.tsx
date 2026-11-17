@@ -381,7 +381,7 @@ export function LivingSurface({
                                  onSet={(setting, value) => onSetParam(chosen, setting, value)}
                                  onAsk={(setting) => {
                                    setTab("assistant"); setPane("chat");
-                                   onSay(`About ${processName(chosen)}, the setting ${setting}: what should it be, and why?`);
+                                   onSay(`About ${processName(chosen)}, the setting ${setting}: choose a value and set it, and say why.`);
                                  }}
                                  onAccept={() => onReviewed(chosen)}
                                  onSwitchInput={session.retired || !onSwitchInput ? undefined
