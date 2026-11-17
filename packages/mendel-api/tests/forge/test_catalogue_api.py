@@ -182,3 +182,33 @@ def test_a_modules_detail_says_what_fits_it_in_the_registry(client):
     assert feeds["samtools/sort"] == "bam", "each fit names the format the two tools share (board)"
     assert "bwa/mem" not in feeds and "bwa/mem" not in {f["path"] for f in fits["takes_from"]}
     assert isinstance(answer.json()["row"]["topics"], list)
+
+
+def test_states_combine(client):
+    """Registry · Tools' filter panel ticks several states at once (2026-11-17)."""
+    page = _page(client, state=["imported", "update_available"])
+    assert sorted(row["path"] for row in page["rows"]) == ["fastqc", "samtools/sort", "star/align"]
+
+
+def test_the_pegi3s_sample_is_a_second_source_marked_preview(client):
+    """pegi3s shown, not imported: a fixed sample synced like nf-core, each row a preview, and
+    filtered by source like any other."""
+    from mendel_forge.pegi3s import Pegi3sSample
+
+    catalogue.run_sync(Pegi3sSample())
+    page = _page(client, source="pegi3s", limit=200)
+    assert page["rows"], "the sample is in the catalogue"
+    assert all(row["source"] == "pegi3s" and row["preview"] for row in page["rows"])
+    assert page["counts"]["sources"]["pegi3s"] == page["total"]
+    nf = _page(client, source="nf-core", limit=200)
+    assert nf["rows"] and not any(row["preview"] for row in nf["rows"])
+    both = _page(client, source=["nf-core", "pegi3s"], limit=200)
+    assert both["total"] == page["total"] + nf["total"]
+    assert any(row["source"] == "pegi3s" for row in _page(client, q="mafft")["rows"])
+
+
+def test_the_flow_follows_the_source_filter(client):
+    shown = {"show_reads": ["gff"], "show_makes": ["bam", "log"]}
+    assert client.get("/api/forge/catalogue/flow", params=shown).json(), "nf-core has these"
+    none = client.get("/api/forge/catalogue/flow", params={**shown, "source": "pegi3s"}).json()
+    assert none == [], "no pegi3s tool joins them"

@@ -1,23 +1,20 @@
-import { RailControls } from "../app/rail/RailContext";
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
-import { Filters } from "./Filters";
+import { ToolFilters } from "./ToolFilters";
 import { FormatFlow } from "./FormatFlow";
 import { ModuleTable } from "./ModuleTable";
 import { RegistryTabs } from "./RegistryTabs";
 import { SearchBar } from "./SearchBar";
 import { Selected } from "./Selected";
-import { ago, labelOf, StateDot } from "./states";
+import { ago } from "./states";
 import type { CataloguePage } from "./useCatalogue";
 import { useCatalogue, useFilters } from "./useCatalogue";
 import { useSyncNow } from "./useSyncNow";
 
-/** The board's chips, in its order; a state with nothing in it is left out unless picked. */
-const CHIPS = ["imported", "update_available", "merged_not_released", "in_review", "unknown", "gone_upstream", "not_imported"] as const;
-
-/** `/registry` · **Tools** (board "7 · Registry", #511): search, the status chips, how file
- *  formats connect, and a slim list beside the selected tool's card. Topic filters sit in the
- *  rail. Filters, search, sort and the selected tool live in the address. */
+/** `/registry` · **Tools** (board "7 · Registry", #511): search; a filter panel (source, against
+ *  your registry, formats, topic, tool family) that stays in view; the filters on as chips; the
+ *  formats overview; and a slim list beside the selected tool's card. Filters, search, sort and
+ *  the selected tool live in the address. */
 export function Catalogue() {
   useTitle("Registry");
   const filters = useFilters();
@@ -27,17 +24,10 @@ export function Catalogue() {
   const first = pages[0];
   const rows = pages.flatMap((page) => page.rows);
   const selected = rows.find((row) => row.path === filters.module) ?? rows[0];
-  const all = Object.values(first?.counts.states ?? {}).reduce((a, b) => a + b, 0);
-  const chip = "inline-flex items-center gap-[7px] h-[30px] px-3 rounded-full border text-[12.5px] cursor-pointer";
 
   return (
     <div className="overflow-y-auto h-full">
       <RegistryTabs />
-      {first?.last_good && (
-        <RailControls label="Topic">
-          <Filters counts={first.counts} />
-        </RailControls>
-      )}
       <div className="page">
       {catalogue.isPending && <Loading what="the catalogue" />}
       {catalogue.isError && <Failed error={catalogue.error} />}
@@ -61,31 +51,17 @@ export function Catalogue() {
       {first && first.last_good && (
         <>
           <SearchBar page={first} rows={rows} />
-          <div role="group" aria-label="Against your registry" className="flex flex-wrap gap-2">
-            <button type="button" aria-pressed={!filters.state} onClick={() => filters.set("state", [])}
-                    className={`${chip} ${!filters.state ? "bg-now-soft border-now-line text-now-ink font-semibold" : "bg-surface border-line text-ink-2 hover:text-ink"}`}>
-              <span aria-hidden="true" className="w-[7px] h-[7px] rounded-full bg-ink" />All
-              <span className="font-data text-[11.5px] text-ink-3">{all.toLocaleString("en")}</span>
-            </button>
-            {CHIPS.filter((state) => (first.counts.states[state] ?? 0) > 0 || state === filters.state).map((state) => {
-              const on = filters.state === state;
-              return (
-                <button key={state} type="button" aria-pressed={on} onClick={() => filters.set("state", on ? [] : [state])}
-                        className={`${chip} ${on ? "bg-now-soft border-now-line text-now-ink font-semibold" : "bg-surface border-line text-ink-2 hover:text-ink"}`}>
-                  <StateDot state={state} />{labelOf(state)}
-                  <span className="font-data text-[11.5px] text-ink-3">{(first.counts.states[state] ?? 0).toLocaleString("en")}</span>
-                </button>
-              );
-            })}
-          </div>
+          <div className="grid gap-[14px] items-start lg:grid-cols-[230px_minmax(0,1fr)]">
+          <ToolFilters page={first} />
+          <div className="min-w-0 flex flex-col gap-[14px]">
           <FormatFlow page={first} total={first.total} />
-          <div className="grid gap-[14px] items-start lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
-            <section aria-label="Modules" className="min-w-0 flex flex-col gap-2 lg:sticky lg:top-4">
+          <div className="grid gap-[14px] items-start xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+            <section aria-label="Modules" className="min-w-0 flex flex-col gap-2 xl:sticky xl:top-4">
               <ModuleTable rows={rows} selected={selected?.path ?? ""}
                            onSelect={(path) => filters.set("module", [path])}
                            header={<>
                              <p aria-live="polite" className="m-0 text-[13.5px]">
-                               <strong className="font-semibold">{filters.q.trim() || filters.state || filters.topics.length || filters.reads.length || filters.makes.length ? "Matches" : "Best matches"}</strong>{" "}
+                               <strong className="font-semibold">{filters.q.trim() || filters.states.length || filters.sources.length || filters.suites.length || filters.topics.length || filters.reads.length || filters.makes.length ? "Matches" : "Best matches"}</strong>{" "}
                                <span className="text-ink-3">{rows.length.toLocaleString("en")} shown{first.total > rows.length ? ` of ${first.total.toLocaleString("en")}` : ""}</span>
                              </p>
                              <select aria-label="Sort" value={filters.sort} onChange={(e) => filters.set("sort", [e.target.value])}
@@ -116,6 +92,8 @@ export function Catalogue() {
               )}
             </section>
             <div className="min-w-0"><Selected row={selected} /></div>
+          </div>
+          </div>
           </div>
         </>
       )}

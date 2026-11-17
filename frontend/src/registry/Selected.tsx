@@ -55,7 +55,9 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
   const forge = () => start.mutate({ source: row.source, path: row.path },
                                    { onSuccess: (view) => navigate(`/forge/${view.id}`) });
   const primary = "inline-flex items-center h-[36px] px-4 rounded-control border-0 bg-action text-on-action shadow-raise text-[13px] font-semibold no-underline cursor-pointer";
-  const action = row.state === "update_available"
+  const action = row.preview
+    ? <span className="text-[12.5px] text-ink-3">Forging from {row.source} is not built yet.</span>
+    : row.state === "update_available"
     ? <button type="button" className={primary} disabled={start.isPending} onClick={forge}>Update to {row.tool_version}</button>
     : row.state === "not_imported"
       ? <button type="button" className={primary} disabled={start.isPending} onClick={forge}>Forge this</button>
@@ -76,12 +78,15 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
               ? <Link to={`/registry/tools/${row.contract_id}`} className="font-data text-[20px] font-semibold text-ink no-underline hover:underline break-all">{row.path}</Link>
               : <span className="font-data text-[20px] font-semibold text-ink break-all">{row.path}</span>}
             <span className={`px-[9px] py-[2px] rounded-full text-[12px] font-semibold ${pillOf(row.state)}`}>{labelOf(row.state)}</span>
+            {row.preview && <span className="px-[9px] py-[2px] rounded-full border border-line bg-surface-2 text-[12px] text-ink-2">{row.source} · preview</span>}
           </span>
           {row.description && <span className="text-[13.5px] text-ink-2">{row.description}</span>}
+          {row.preview && <span className="text-[12.5px] text-ink-3">A sample of the {row.source} catalogue, shown for how it would look. It is not synced from {row.source}.</span>}
         </div>
         <span className="flex flex-wrap items-center gap-2">
           <a className="inline-flex items-center h-[36px] px-[14px] rounded-control border border-line-2 bg-surface text-[13px] text-ink no-underline"
-             href={`https://github.com/nf-core/modules/tree/master/modules/nf-core/${row.path}`} target="_blank" rel="noreferrer">nf-core page</a>
+             href={row.source === "pegi3s" ? `https://hub.docker.com/r/pegi3s/${row.path}` : `https://github.com/nf-core/modules/tree/master/modules/nf-core/${row.path}`}
+             target="_blank" rel="noreferrer">{row.source === "pegi3s" ? "Docker Hub page" : "nf-core page"}</a>
           {action}
         </span>
       </header>

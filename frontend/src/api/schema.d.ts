@@ -4222,6 +4222,11 @@ export interface components {
         ModuleRow: {
             /** Source */
             source: string;
+            /**
+             * Preview
+             * @default false
+             */
+            preview: boolean;
             /** Path */
             path: string;
             /** Name */
@@ -8353,14 +8358,14 @@ export interface operations {
     readCatalogue: {
         parameters: {
             query?: {
-                state?: components["schemas"]["State"] | null;
+                state?: components["schemas"]["State"][];
                 topic?: string[];
                 no_topic?: boolean;
                 suite?: string[];
                 reads?: string[];
                 makes?: string[];
                 mentioned?: boolean;
-                source?: string | null;
+                source?: string[];
                 q?: string | null;
                 sort?: components["schemas"]["Sort"];
                 offset?: number;
@@ -8397,11 +8402,12 @@ export interface operations {
             query?: {
                 show_reads?: string[];
                 show_makes?: string[];
-                state?: components["schemas"]["State"] | null;
+                state?: components["schemas"]["State"][];
                 topic?: string[];
                 no_topic?: boolean;
                 suite?: string[];
                 mentioned?: boolean;
+                source?: string[];
                 q?: string | null;
             };
             header?: never;
