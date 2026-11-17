@@ -6,7 +6,7 @@ import logging
 from typing import Literal
 
 from comeni_core.diagnostics import coded
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
 
 from mendel_api import identity, jobs
@@ -39,16 +39,22 @@ class Folders(BaseModel):
 
 @router.get("/tree", operation_id="readDataTree", summary="A folder under the data roots",
             responses=REFUSES)
-def read_tree(path: str | None = None) -> roots.FolderListing:
+def read_tree(path: str | None = None,
+              file_offset: int = Query(default=0, ge=0)) -> roots.FolderListing:
     """The folder's subfolders and file count, each saying what it looks like; no `path` lists
     the roots themselves."""
     from pathlib import Path
 
     from mendel_api.services.data import kinds
 
-    listing = roots.list_folder(path, settings.data_roots)
+    listing = roots.list_folder(path, settings.data_roots, offset=file_offset)
     for folder in listing.folders:
         folder.looks_like = kinds.looks_like(Path(folder.path))
+    if listing.entries:
+        tables = kinds._tables()
+        reference = Path(listing.path).name.lower() in kinds.REFERENCE_FOLDERS
+        for entry in listing.entries:
+            entry.type_id = kinds.kind_of(entry.name, reference_folder=reference, tables=tables)
     return listing
 
 
@@ -227,21 +233,28 @@ class FixRequest(BaseModel):
 
 
 @router.post("/{draft_id}/fixes", operation_id="applyDataFix",
-             summary="Use a file as a sample's mate, or leave a sample out; then scan again",
+             summary="Apply a sample choice using saved measurements",
              responses=REFUSES)
-async def apply_fix(draft_id: str, body: FixRequest) -> AnalysisDataView:
+def apply_fix(draft_id: str, body: FixRequest,
+              background_tasks: BackgroundTasks) -> AnalysisDataView:
     """A fix is kept and applied on every scan, so it survives the next one. **Recorded as the
     person's**: who made a change is the server's to say, never the page's."""
-    made = Fix(kind=body.kind, sample=body.sample, file=body.file, measurement=body.measurement)
-    with session_scope() as db:
-        _draft(db, draft_id)
-        row = db.get(AnalysisData, draft_id)
-        rule.validate(made, list(row.samples or []) if row else [],
-                      list(row.unfit or []) if row else [])
+    from mendel_api.services.data import edits
 
-    def keep(row):
-        row.fixes = [*(row.fixes or []), made.model_dump()]
-    return await _rescan(draft_id, keep)
+    made = Fix(kind=body.kind, sample=body.sample, file=body.file, measurement=body.measurement)
+    view = _view(draft_id, edits.change(draft_id, fix=made))
+    background_tasks.add_task(_rebuild_after_choice, draft_id)
+    return view
+
+
+def _rebuild_after_choice(draft_id: str) -> None:
+    """Keep an existing pipeline current after responding to the saved choice."""
+    from mendel_api.agent import chat
+
+    try:
+        chat.rebuild_for_data(draft_id, identity.default_author())
+    except Exception:  # noqa: BLE001 — a saved choice must survive a failed pipeline rebuild
+        log.exception("rebuild after a data choice on %s failed", draft_id)
 
 
 @router.post("/{draft_id}/fixes/{index}/keep", operation_id="keepDataFix",
@@ -403,11 +416,10 @@ def read_bindings(draft_id: str) -> Bindings:
 
 
 @router.delete("/{draft_id}/fixes/{index}", operation_id="undoDataFix",
-               summary="Undo a fix, and scan again", responses=REFUSES)
-async def undo_fix(draft_id: str, index: int) -> AnalysisDataView:
-    def drop(row):
-        kept = list(row.fixes or [])
-        if not 0 <= index < len(kept):
-            raise HTTPException(status_code=404, detail=f"no fix {index}")
-        row.fixes = kept[:index] + kept[index + 1:]
-    return await _rescan(draft_id, drop)
+               summary="Undo a sample choice using saved measurements", responses=REFUSES)
+def undo_fix(draft_id: str, index: int, background_tasks: BackgroundTasks) -> AnalysisDataView:
+    from mendel_api.services.data import edits
+
+    view = _view(draft_id, edits.change(draft_id, undo=index))
+    background_tasks.add_task(_rebuild_after_choice, draft_id)
+    return view

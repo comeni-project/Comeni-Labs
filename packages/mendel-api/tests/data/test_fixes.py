@@ -31,8 +31,12 @@ def test_a_persons_rule_is_tagged_you_and_unconfirmed_until_confirm(clean, clien
     tick(client, d, folder_with_a_stray_mate(root))
     got = client.put(f"/api/data/{d}/rule", json={"pattern": "{sample}_R{read}.fq.gz"})
     assert got.status_code == 200, got.text
-    assert got.json()["rule"] == {"pattern": "{sample}_R{read}.fq.gz", "origin": "you",
-                                  "confirmed": False, "reason": None}
+    assert got.json()["rule"] == {
+        "pattern": "{sample}_R{read}.fq.gz",
+        "origin": "you",
+        "confirmed": False,
+        "reason": None,
+    }
     scanning.scan(d, who="ana")
     after = view(client, d)
     assert [s["name"] for s in after["samples"]] == ["Y1", "Y2"]
@@ -52,8 +56,9 @@ def test_use_file_fix_pairs_the_mate_and_survives_a_rescan(clean, client, root):
     d = draft(client)
     tick(client, d, folder_with_a_stray_mate(root))
     scanning.scan(d, who="ana")
-    got = client.post(f"/api/data/{d}/fixes",
-                      json={"kind": "use_file", "sample": "Y4_R1", "file": "Y4_2.fq.gz"})
+    got = client.post(
+        f"/api/data/{d}/fixes", json={"kind": "use_file", "sample": "Y4_R1", "file": "Y4_2.fq.gz"}
+    )
     assert got.status_code == 200, got.text
     scanning.scan(d, who="ana")
     after = view(client, d)
@@ -77,13 +82,60 @@ def test_leave_out_keeps_the_sample_listed_but_out_of_the_facts(clean, client, r
     assert facts["paired"].value is True, "the lone halves no longer split the facts"
 
 
-def test_a_fix_queues_a_scan(clean, client, root):
+def test_a_fix_uses_saved_measurements_without_queueing_or_reading_files(
+    clean, client, root, monkeypatch
+):
     d = draft(client)
     tick(client, d, pairs(root / "a", "Y1"))
     scanning.scan(d, who="ana")
     client.queued.clear()
-    client.post(f"/api/data/{d}/fixes", json={"kind": "leave_out", "sample": "Y1"})
-    assert [name for name, _, _ in client.queued] == ["scan_analysis_data"]
+    from mendel_api.services.data import edits
+
+    def unexpected(*args):
+        raise AssertionError("a sample choice must not read files")
+
+    monkeypatch.setattr(edits, "_head", unexpected)
+    before = view(client, d)
+    for _ in range(5):
+        got = client.post(f"/api/data/{d}/fixes", json={"kind": "leave_out", "sample": "Y1"})
+        assert got.status_code == 200, got.text
+    after = got.json()
+    assert after["scan"] == before["scan"]
+    assert after["samples"][0]["left_out"] is True
+    assert len(after["fixes"]) == 1 and after["revision"] == before["revision"] + 1
+    assert client.queued == []
+    undone = client.delete(f"/api/data/{d}/fixes/0").json()
+    assert undone["samples"][0]["left_out"] is False and undone["fixes"] == []
+
+
+def test_pairing_and_undo_read_only_the_affected_sample(clean, client, root, monkeypatch):
+    from mendel_api.services.data import edits
+
+    d = stray(client, root)
+    read = []
+    original = edits._head
+    monkeypatch.setattr(
+        edits, "_head", lambda path, size: (read.append(path.name), original(path, size))[1]
+    )
+    client.queued.clear()
+    before = view(client, d)
+    got = client.post(
+        f"/api/data/{d}/fixes", json={"kind": "use_file", "sample": "Y4_R1", "file": "Y4_2.fq.gz"}
+    )
+    assert got.status_code == 200, got.text
+    assert set(read) == {"Y4_R1.fastq.gz", "Y4_2.fq.gz"} and len(read) == 2
+    assert got.json()["scan"]["finished_at"] == before["scan"]["finished_at"]
+    assert any(s["name"] == "Y4" and len(s["files"]) == 2 for s in got.json()["samples"])
+    # A retry still names the original singleton, which no longer exists, and is a no-op.
+    repeat = client.post(
+        f"/api/data/{d}/fixes", json={"kind": "use_file", "sample": "Y4_R1", "file": "Y4_2.fq.gz"}
+    )
+    assert repeat.status_code == 200 and len(repeat.json()["fixes"]) == 1 and len(read) == 2
+    read.clear()
+    undone = client.delete(f"/api/data/{d}/fixes/0")
+    assert undone.status_code == 200, undone.text
+    assert len(read) == 2 and set(read) == {"Y4_R1.fastq.gz", "Y4_2.fq.gz"}
+    assert client.queued == []
 
 
 def test_a_fix_can_be_undone(clean, client, root):
@@ -106,8 +158,10 @@ def test_a_file_named_as_a_reference_is_not_a_sample(clean, client, root):
     tick(client, d, folder)
     scanning.scan(d, who="ana")
     assert "genome" in [s["name"] for s in view(client, d)["samples"]]
-    client.post(f"/api/data/{d}/references",
-                json={"path": str(folder / "genome.fasta"), "type_id": "genome.fasta"})
+    client.post(
+        f"/api/data/{d}/references",
+        json={"path": str(folder / "genome.fasta"), "type_id": "genome.fasta"},
+    )
     scanning.scan(d, who="ana")
     after = view(client, d)
     assert [s["name"] for s in after["samples"]] == ["Y1"]
@@ -128,8 +182,10 @@ def test_an_ai_fix_is_kept_by_the_person(clean, client, root):
     from mendel_api.agent.tools import ToolContext
 
     d = stray(client, root)
-    apply_fix(ToolContext(draft_id=d, session_id=None, who="ana", expected_revision=0),
-              ApplyFixArgs(kind="use_file", sample="Y4_R1", file="Y4_2.fq.gz", because="same stem"))
+    apply_fix(
+        ToolContext(draft_id=d, session_id=None, who="ana", expected_revision=0),
+        ApplyFixArgs(kind="use_file", sample="Y4_R1", file="Y4_2.fq.gz", because="same stem"),
+    )
     assert view(client, d)["fixes"][0]["by"] == "ai"
     kept = client.post(f"/api/data/{d}/fixes/0/keep").json()
     assert kept["fixes"][0]["by"] == "you" and kept["fixes"][0]["reason"] == "same stem"
@@ -140,15 +196,18 @@ def test_a_fix_for_a_sample_that_is_not_there_is_refused(clean, client, root):
     d = stray(client, root)
     refused = client.post(f"/api/data/{d}/fixes", json={"kind": "leave_out", "sample": "nope"})
     assert refused.status_code in (400, 422) and "MI0226" in refused.text
-    wrong_file = client.post(f"/api/data/{d}/fixes",
-                             json={"kind": "use_file", "sample": "Y4_R1", "file": "Y1_R1.fq.gz"})
+    wrong_file = client.post(
+        f"/api/data/{d}/fixes", json={"kind": "use_file", "sample": "Y4_R1", "file": "Y1_R1.fq.gz"}
+    )
     assert wrong_file.status_code in (400, 422) and "MI0226" in wrong_file.text
 
 
 def test_the_route_records_every_fix_as_the_persons(clean, client, root):
     d = stray(client, root)
-    got = client.post(f"/api/data/{d}/fixes", json={"kind": "leave_out", "sample": "Y1",
-                                                    "by": "ai", "reason": "forged"})
+    got = client.post(
+        f"/api/data/{d}/fixes",
+        json={"kind": "leave_out", "sample": "Y1", "by": "ai", "reason": "forged"},
+    )
     assert got.json()["fixes"][0]["by"] == "you" and got.json()["fixes"][0]["reason"] is None
 
 
@@ -156,9 +215,16 @@ def test_keeping_an_odd_value_dismisses_its_check(clean, client, root):
     """Checkpoint C, 9: 'Keep it' — the person decided the value is fine."""
     from mendel_api.services.data.rule import Fix, checks
 
-    samples = [{"name": n, "files": ["a", "b"], "type_id": "fastq.reads", "left_out": False,
-                "facts": [{"measurement": "read_length", "value": v}]}
-               for n, v in (("Y1", 101), ("Y2", 101), ("Y3", 50))]
+    samples = [
+        {
+            "name": n,
+            "files": ["a", "b"],
+            "type_id": "fastq.reads",
+            "left_out": False,
+            "facts": [{"measurement": "read_length", "value": v}],
+        }
+        for n, v in (("Y1", 101), ("Y2", 101), ("Y3", 50))
+    ]
     assert [c.sample for c in checks(samples, [])] == ["Y3"]
     keep = Fix(kind="keep", sample="Y3", measurement="read_length")
     assert checks(samples, [], [keep]) == []
