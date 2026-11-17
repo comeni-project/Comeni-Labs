@@ -5,16 +5,15 @@ import { Panel } from "../../ui/Panel";
 import { Segmented } from "../../ui/Segmented";
 import { SourceTag } from "../../ui/SourceTag";
 import { useTypeNames } from "../../build/living/useTypeNames";
+import { useBuildCanvas } from "../run/useRuns";
+import { FileLocation } from "./FileLocation";
 import type { AnalysisData } from "./types";
 import { plain } from "./values";
 
 type Sample = AnalysisData["samples"][number];
 
 const words = (id: string) => id.replace(/[_.]/g, " ").replace(/^./, (c) => c.toUpperCase());
-const base = (path: string) => path.split("/").pop() ?? path;
-/** Data · Samples (#511): how the files were read into samples, as examples you can confirm or
- *  change, and the samples table. Its columns follow the kind of data. */
-export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColumn }: {
+type SamplesProps = {
   data: AnalysisData;
   /** Resolves once the rule is saved; rejects when it is refused, and the editor stays open. */
   setRule: (pattern: string | null) => Promise<unknown>;
@@ -22,23 +21,40 @@ export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColum
   undoFix: (index: number) => void;
   setCell: (column: string, sample: string, value: string) => void;
   addColumn: (name: string) => void;
+  busy?: boolean;
+};
+
+/** Each dataset stays visible in its own table; viewing one never hides another. */
+export function Samples(props: SamplesProps) {
+  const { data, setRule, confirmRule } = props;
+  const [showRule, setShowRule] = useState(false);
+  const ruleOpen = showRule || (data.rule.origin === "ai" && !data.rule.confirmed) || data.rule_result.unfit > 0;
+  const kinds = [...new Set(data.samples.map((sample) => sample.type_id ?? null))]
+    .sort((a, b) => (a ?? "").localeCompare(b ?? ""));
+  return <div className="flex flex-col gap-4">
+    {ruleOpen && <ReadingRule data={data} setRule={setRule} confirmRule={confirmRule} />}
+    {kinds.map((kind) => <SampleTable key={kind ?? "other"} {...props} kind={kind}
+      ruleOpen={ruleOpen} onShowRule={() => setShowRule(true)} />)}
+  </div>;
+}
+
+function SampleTable({ data, undoFix, setCell, addColumn, busy = false, kind, ruleOpen, onShowRule }: SamplesProps & {
+  kind: string | null; ruleOpen: boolean; onShowRule: () => void;
 }) {
+  const pipeline = useBuildCanvas(data.draft_id);
+  const channels = pipeline.data?.canvas?.channels ?? [];
+  const usedTypes = new Set(channels.filter((c) => c.grain === "sample").map((c) => c.type_id));
   const typeName = useTypeNames();
   const [filter, setFilter] = useState<"all" | "check">("all");
   const [find, setFind] = useState("");
   const [adding, setAdding] = useState(false);
-  const [showRule, setShowRule] = useState(false);
   const flagged = useMemo(() => new Set(data.checks.map((c) => c.sample)), [data.checks]);
   // Flagged for one measurement, so only that column's bar is amber (an assembly odd in its
   // contigs is not odd in its length).
   const odd = useMemo(() => new Set(data.checks.map((c) => `${c.sample}|${c.measurement ?? ""}`)), [data.checks]);
-  // **One tab a kind of data** (board 2026-11-16): reads and assemblies have different columns.
-  const kinds = [...new Set(data.samples.map((s) => s.type_id).filter((t): t is string => !!t))].sort();
-  const [picked, setKind] = useState<string | null>(null);
-  const count = (k: string) => data.samples.filter((s) => s.type_id === k).length;
-  const most = [...kinds].sort((a, b) => count(b) - count(a))[0] ?? null;
-  const kind = picked && kinds.includes(picked) ? picked : most;
-  const ofKind = kinds.length > 1 ? data.samples.filter((s) => s.type_id === kind) : data.samples;
+  const ofKind = data.samples.filter((s) => (s.type_id ?? null) === kind);
+  const title = kind ? typeName(kind) : "Other samples";
+  const flaggedCount = ofKind.filter((sample) => flagged.has(sample.name)).length;
   const rows = ofKind.filter((s) => (filter === "all" || flagged.has(s.name))
     && s.name.toLowerCase().includes(find.trim().toLowerCase()));
 
@@ -49,19 +65,24 @@ export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColum
     const v = s.facts.find((f) => f.measurement === m)?.value;
     return typeof v === "number" ? v : 0;
   }))]));
-  // The rule shows itself while the AI's pattern waits for you, or files did not fit it.
-  const ruleOpen = showRule || (data.rule.origin === "ai" && !data.rule.confirmed) || data.rule_result.unfit > 0;
   const columns: Column<Sample>[] = [
     { id: "name", header: "Sample", width: "minmax(140px,1.2fr)", cell: (s) => (
       <span className="flex items-center gap-2 min-w-0">
         <span className={`truncate font-medium ${s.left_out ? "text-ink-3 line-through" : "text-ink"}`}>{s.name}</span>
-        {s.left_out && <BringBack sample={s.name} data={data} undoFix={undoFix} />}
+        {s.left_out && <BringBack sample={s.name} data={data} undoFix={undoFix} busy={busy} />}
       </span>
     ) },
+    { id: "usage", header: "Pipeline use", width: "180px", cell: (s) => {
+      const used = !s.left_out && usedTypes.has(s.type_id ?? "");
+      return <span title={s.left_out ? "You excluded this sample from runs." : used ? "This sample matches a sample input of the current pipeline." : "This pipeline does not take this type of sample."}
+        className={`inline-block px-2 py-1 rounded-control text-[12px] ${used ? "bg-done-soft text-done-ink" : "bg-surface-2 text-ink-3"}`}>
+        {s.left_out ? "Left out" : used ? "Used by this pipeline" : channels.length ? "Other data" : "No pipeline yet"}
+      </span>;
+    } },
     ...(paired
-      ? [{ id: "r1", header: "Read 1", cell: (s: Sample) => <Mono>{base(s.files[0] ?? "")}</Mono> },
-         { id: "r2", header: "Read 2", cell: (s: Sample) => <Mono>{s.files[1] ? base(s.files[1]) : "—"}</Mono> }]
-      : [{ id: "file", header: "File", cell: (s: Sample) => <Mono>{s.files.map(base).join(", ")}</Mono> }]),
+      ? [{ id: "r1", header: "Read 1", cell: (s: Sample) => s.files[0] ? <FileLocation path={s.files[0]} /> : <Mono>—</Mono> },
+         { id: "r2", header: "Read 2", cell: (s: Sample) => s.files[1] ? <FileLocation path={s.files[1]} /> : <Mono>—</Mono> }]
+      : [{ id: "file", header: "File", cell: (s: Sample) => <span className="flex gap-2 min-w-0">{s.files.map((path) => <FileLocation key={path} path={path} />)}</span> }]),
     ...facts.map((m) => ({ id: `fact-${m}`, header: words(m), width: top[m] > 0 ? "170px" : "110px", cell: (s: Sample) => {
       const value = s.facts.find((f) => f.measurement === m)?.value;
       if (typeof value !== "number" || top[m] <= 0) return <Mono>{plain(value, units[m])}</Mono>;
@@ -86,26 +107,19 @@ export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColum
   ];
 
   return (
-    <div className="flex flex-col gap-4">
-      {ruleOpen && <ReadingRule data={data} setRule={setRule} confirmRule={confirmRule} />}
-      <Panel title="Samples" hint={
+      <Panel title={title} hint={
         <span className="flex items-center gap-2 flex-wrap">
-          {kinds.length === 1 && <span className="px-2 py-[1px] rounded-xs border border-line bg-surface-2 text-[12px] text-ink-2">{typeName(kinds[0])}</span>}
-          <span>{data.rule.pattern ? `by the rule ${data.rule.pattern}` : paired ? "read 1 and 2 from the file names" : "one file each, named by the file"}</span>
+          <span>{ofKind.length} samples · {ofKind.reduce((n, s) => n + s.files.length, 0)} files · {ofKind.filter((s) => !s.left_out).length} included{paired ? " · 2 files per paired sample" : " · 1 file per sample"}</span>
           {!ruleOpen && (
-            <button type="button" onClick={() => setShowRule(true)}
+            <button type="button" onClick={onShowRule}
                     className="border-0 bg-transparent p-0 text-[12.5px] font-semibold text-now-ink cursor-pointer">How</button>
           )}
         </span>
       } actions={
         <span className="flex items-center gap-2 flex-wrap">
-          {kinds.length > 1 && (
-            <Segmented<string> label="Kind of data" value={kind ?? ""} onChange={setKind}
-                               options={kinds.map((k) => ({ id: k, label: `${typeName(k)} · ${count(k)}` }))} />
-          )}
-          <Segmented<"all" | "check"> label="Show" value={filter} onChange={setFilter}
-                                     options={[{ id: "all", label: "All" }, { id: "check", label: `To check · ${flagged.size}` }]} />
-          <input aria-label="Find a sample" placeholder="Find a sample" value={find} onChange={(e) => setFind(e.target.value)}
+          <Segmented<"all" | "check"> label={`Show ${title}`} value={filter} onChange={setFilter}
+                                     options={[{ id: "all", label: "All" }, { id: "check", label: `To check · ${flaggedCount}` }]} />
+          <input aria-label={`Find a sample in ${title}`} placeholder="Find a sample" value={find} onChange={(e) => setFind(e.target.value)}
                  className="h-[32px] w-[180px] px-[10px] border border-line-2 rounded-control bg-surface text-[13px] text-ink" />
           {adding ? <AddColumn onAdd={(name) => {
             // A column that exists is not added again: its values stay.
@@ -118,14 +132,15 @@ export function Samples({ data, setRule, confirmRule, undoFix, setCell, addColum
               </button>}
         </span>
       }>
-        <DataTable label="Samples" rows={rows} columns={columns} rowKey={(s) => s.name}
+        <DataTable label={`${title} samples`} rows={rows} columns={columns} rowKey={(s) => s.name}
                    height={Math.min(560, 38 * Math.max(rows.length, 3))} highlight={(s) => flagged.has(s.name)} />
         <p className="m-0 px-5 py-3 border-t border-line-soft text-[12.5px] text-ink-3">
+          Pipeline use shows which samples enter the current pipeline; left-out samples are excluded.
+          {" "}
           Columns follow the kind of data: paired reads get read 1 and read 2, assemblies one file. Add a column for a
           condition or a batch, or for a fact nothing measured, such as strandedness.
         </p>
       </Panel>
-    </div>
   );
 }
 
@@ -133,13 +148,13 @@ function Mono({ children }: { children: React.ReactNode }) {
   return <span className="font-data text-[12px] text-ink-2 truncate">{children}</span>;
 }
 
-function BringBack({ sample, data, undoFix }: { sample: string; data: AnalysisData; undoFix: (i: number) => void }) {
+function BringBack({ sample, data, undoFix, busy }: { sample: string; data: AnalysisData; undoFix: (i: number) => void; busy: boolean }) {
   const index = data.fixes.findIndex((f) => f.kind === "leave_out" && f.sample === sample);
   if (index < 0) return null;
   return (
     <>
     {data.fixes[index].by === "ai" && <SourceTag source="ai" />}
-    <button type="button" onClick={() => undoFix(index)} aria-label={`Bring ${sample} back`}
+    <button type="button" disabled={busy} onClick={() => undoFix(index)} aria-label={`Bring ${sample} back`}
             className="shrink-0 h-6 px-2 rounded-control border border-line-2 bg-surface text-[11.5px] text-ink-2 cursor-pointer">
       left out · undo
     </button>

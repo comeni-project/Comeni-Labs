@@ -4,8 +4,9 @@ import type { AnalysisData, DataFix } from "./types";
 
 /** What was done to how the files are read (#511): every fix, whose it is and why. The AI's stay
  *  AI until the person keeps them; any can be undone. A model's change stays reviewable. */
-export function Applied({ data, onKeep, onUndo }: {
+export function Applied({ data, onKeep, onUndo, busy = false, pendingFix }: {
   data: AnalysisData; onKeep: (index: number) => void; onUndo: (index: number) => void;
+  busy?: boolean; pendingFix?: string | null;
 }) {
   if (data.fixes.length === 0) return null;
   return (
@@ -20,14 +21,14 @@ export function Applied({ data, onKeep, onUndo }: {
             {fix.reason && <span className="text-[12px] text-ink-3">{fix.reason}</span>}
             <span className="ml-auto flex gap-[6px]">
               {fix.by === "ai" && (
-                <button type="button" aria-label={`Keep: ${said}`} onClick={() => onKeep(index)}
+                <button type="button" disabled={busy} aria-label={`Keep: ${said}`} onClick={() => onKeep(index)}
                         className="h-7 px-[10px] rounded-control border border-line-2 bg-surface text-[12px] text-ink cursor-pointer">
                   Keep
                 </button>
               )}
-              <button type="button" aria-label={`Undo: ${said}`} onClick={() => onUndo(index)}
+              <button type="button" disabled={busy} aria-label={`Undo: ${said}`} onClick={() => onUndo(index)}
                       className="h-7 px-[10px] rounded-control border border-line-2 bg-surface text-[12px] text-ink-2 cursor-pointer">
-                Undo
+                {pendingFix === `/fixes/${index}` ? "Undoing…" : "Undo"}
               </button>
             </span>
           </div>

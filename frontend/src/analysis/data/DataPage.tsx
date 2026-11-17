@@ -4,8 +4,10 @@ import { useAnalysis } from "../../app/AnalysisFrame";
 import { useTypeNames } from "../../build/living/useTypeNames";
 import { Failed, Loading } from "../../ui/States";
 import { Assistant } from "../Assistant";
+import { useBuildCanvas } from "../run/useRuns";
 import { Applied } from "./Applied";
 import { Files } from "./Files";
+import { FileLocationRoots } from "./FileLocation";
 import { Across, Checks, ReferencesCard, ScanState } from "./Overview";
 import { References } from "./References";
 import { Samples } from "./Samples";
@@ -23,6 +25,13 @@ export function DataPage() {
   const sub = asked && asked in TITLES ? asked : undefined;
   const { draftId } = useAnalysis();
   const data = useAnalysisData(draftId);
+  const pipeline = useBuildCanvas(draftId);
+  const channels = pipeline.data?.canvas?.channels ?? [];
+  const sampleTypes = new Set(channels.filter((c) => c.grain === "sample").map((c) => c.type_id));
+  const referenceTypes = new Set(channels.filter((c) => c.grain === "study").map((c) => c.type_id));
+  const used = (data.data?.samples ?? []).filter((s) => !s.left_out && sampleTypes.has(s.type_id ?? ""));
+  const usedReferences = (data.data?.references ?? []).filter((r) => referenceTypes.has(r.type_id));
+  const usedFiles = [...used.flatMap((s) => s.files), ...usedReferences.map((r) => r.path)];
   const folders = data.data?.folders ?? [];
   const picking = sub === "folders" || (data.data !== undefined && folders.length === 0);
   const navigate = useNavigate();
@@ -30,6 +39,7 @@ export function DataPage() {
   const read = data.data?.scan.finished_at;
 
   return (
+    <FileLocationRoots.Provider value={folders}>
     <div className="overflow-y-auto h-full">
       <Assistant draftId={draftId} />
       <div className="page">
@@ -42,6 +52,10 @@ export function DataPage() {
           </div>
           {!picking && folders.length > 0 && data.data?.scan.state !== "scanning" && (
             <span className="ml-auto flex items-center gap-2 text-[12.5px] text-ink-3">
+              <button type="button" onClick={() => navigate(`/a/${encodeURIComponent(draftId)}/data/folders`)}
+                      className="h-[34px] px-3 rounded-control border border-now-line bg-now-soft text-[13px] font-semibold text-now-ink cursor-pointer">
+                + Add dataset
+              </button>
               {read && `Read at ${new Date(read).toLocaleTimeString([], { timeStyle: "short" })}`}
               <button type="button" onClick={data.rescan} disabled={data.busy}
                       className="h-[30px] px-[11px] rounded-control border border-line-2 bg-surface text-[12.5px] text-ink cursor-pointer">
@@ -50,6 +64,11 @@ export function DataPage() {
             </span>
           )}
         </header>
+        {data.data && channels.length > 0 && <section aria-label="Used by this pipeline" className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 rounded-panel border border-done-line bg-done-soft text-[13px]">
+          <span className="font-semibold text-done-ink">Used by this pipeline</span>
+          <span className="text-ink">{used.length} samples · {used.reduce((n, s) => n + s.files.length, 0)} sample files · {usedReferences.length} references</span>
+          <span className="text-ink-2">{data.data.samples.filter((s) => !s.left_out && !sampleTypes.has(s.type_id ?? "")).length} other samples available · {data.data.samples.filter((s) => s.left_out).length} left out</span>
+        </section>}
         {data.error && (
           <p role="alert" className="m-0 flex items-start gap-3 px-4 py-3 rounded-panel bg-needs-you-soft text-[13px] text-needs-you-ink">
             <span className="flex-1">{data.error instanceof Error ? data.error.message : String(data.error)}</span>
@@ -61,7 +80,7 @@ export function DataPage() {
           : data.loadError && !data.data ? <Failed error={data.loadError} />
           : data.data && (
             picking ? (
-              <Start ticked={folders} onTick={(chosen) => { data.tick(chosen); toData(); }}
+              <Start ticked={folders} usedFiles={usedFiles} onTick={(chosen) => { data.tick(chosen); toData(); }}
                      onCancel={folders.length ? toData : undefined} />
             )
             : sub === "references" ? <References data={data.data} onAdd={data.addReference} onRemove={data.removeReference} />
@@ -69,20 +88,23 @@ export function DataPage() {
             : (
               <>
                 <ScanState data={data.data} onRescan={data.rescan} />
-                <Checks data={data.data} onFix={data.fix} />
+                <Checks data={data.data} onFix={data.fix} busy={data.busy || data.data.scan.state === "scanning"} pendingFix={data.pendingFix} />
                 <div className="grid gap-[14px] items-start lg:grid-cols-[minmax(0,1fr)_340px]">
                   <Samples data={data.data} setRule={data.setRule} confirmRule={data.confirmRule}
-                           undoFix={data.undoFix} setCell={data.setCell} addColumn={data.addColumn} />
+                           undoFix={data.undoFix} setCell={data.setCell} addColumn={data.addColumn}
+                           busy={data.busy || data.data.scan.state === "scanning"} />
                   <div className="flex flex-col gap-[14px] min-w-0">
                     <ReferencesCard data={data.data} />
                     <Across data={data.data} />
-                    <Applied data={data.data} onKeep={data.keepFix} onUndo={data.undoFix} />
+                    <Applied data={data.data} onKeep={data.keepFix} onUndo={data.undoFix}
+                             busy={data.busy || data.data.scan.state === "scanning"} pendingFix={data.pendingFix} />
                   </div>
                 </div>
               </>
             ))}
       </div>
     </div>
+    </FileLocationRoots.Provider>
   );
 }
 

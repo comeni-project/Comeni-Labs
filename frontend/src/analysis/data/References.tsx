@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { FileLocation } from "./FileLocation";
 
 import { get } from "../../api/client";
 import type { components } from "../../api/schema";
@@ -85,7 +86,7 @@ function Slot({ kind, data, choices, readers, files, onAdd, onRemove }: {
       {ref ? (
         <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center px-5 py-3 border-t border-line-soft">
           <span className="flex flex-col gap-[3px] min-w-0">
-            <span className="font-data text-[13px] font-semibold text-ink truncate">{ref.name}</span>
+            <FileLocation path={ref.path} />
             <span className="text-[12.5px] text-ink-2">
               {[size !== undefined ? bytes(size) : null, `in ${folderOf(ref.path)}`].filter(Boolean).join(" · ")}
               {ref.origin === "ai" ? " · set by the AI" : ""}
@@ -115,7 +116,7 @@ function Candidate({ file, label, onUse }: { file: File; label: string; onUse: (
   return (
     <div data-testid="candidate" className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center px-5 py-[10px] border-t border-line-soft">
       <span className="flex flex-col gap-[3px] min-w-0">
-        <span className="font-data text-[13px] font-semibold text-ink truncate">{file.name}</span>
+        <FileLocation path={file.path} />
         <span className="text-[12.5px] text-ink-2">in {folderOf(file.path)}{file.used_as === "candidate" ? ", a folder for references" : ""}</span>
       </span>
       <button type="button" onClick={onUse}

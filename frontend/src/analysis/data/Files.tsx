@@ -7,6 +7,7 @@ import { DataTable } from "../../ui/DataTable";
 import { Segmented } from "../../ui/Segmented";
 import { Panel } from "../../ui/Panel";
 import { allFiles } from "./files";
+import { FileLocation } from "./FileLocation";
 
 type FilesPage = components["schemas"]["FilesPage"];
 type File = FilesPage["files"][number];
@@ -35,7 +36,7 @@ export function Files({ draftId }: { draftId: string }) {
                                options={[{ id: "all", label: "All" }, { id: "unfit", label: `Did not fit · ${unfit.length}` }]} />}>
       <DataTable<File> label="Files" rows={rows} rowKey={(f) => f.path} height={Math.min(600, 38 * Math.max(rows.length, 3))}
         columns={[
-          { id: "name", header: "File", cell: (f) => <span className="font-data text-[12px] text-ink">{f.name}</span> },
+          { id: "name", header: "File", cell: (f) => <FileLocation path={f.path} /> },
           { id: "kind", header: "Recognised as", width: "160px",
             cell: (f) => <span className="text-ink-2">{f.recognised ?? "—"}</span> },
           { id: "use", header: "Used for", width: "180px", cell: (f) => (
