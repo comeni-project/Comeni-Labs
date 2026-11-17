@@ -3,15 +3,28 @@ import type { components } from "../api/schema";
 export type State = components["schemas"]["State"];
 
 /** A module's state as board 1 draws it: a word, a colour and an icon, never the colour alone. */
-export const STATES: { state: State; label: string; colour: string }[] = [
-  { state: "not_imported", label: "Not imported", colour: "text-ink-3" },
-  { state: "imported", label: "Imported", colour: "text-done-ink" },
-  { state: "update_available", label: "Update available", colour: "text-measured-ink" },
-  { state: "unknown", label: "Unknown version", colour: "text-ink-3" },
-  { state: "gone_upstream", label: "Gone upstream", colour: "text-measured-ink" },
-  { state: "in_review", label: "In review", colour: "text-now-ink" },
-  { state: "merged_not_released", label: "Merged, not released", colour: "text-ink-2" },
+export const STATES: { state: State; label: string; colour: string; dot: string; pill: string }[] = [
+  { state: "not_imported", label: "Not in your registry", colour: "text-ink-3", dot: "bg-ink-3", pill: "bg-surface-2 text-ink-2" },
+  { state: "imported", label: "In your registry", colour: "text-done-ink", dot: "bg-done", pill: "bg-done-soft text-done-ink" },
+  { state: "update_available", label: "Newer version upstream", colour: "text-measured-ink", dot: "bg-measured", pill: "bg-measured-soft text-measured-ink" },
+  { state: "unknown", label: "Unknown version", colour: "text-ink-3", dot: "bg-ink-3", pill: "bg-surface-2 text-ink-2" },
+  { state: "gone_upstream", label: "Gone upstream", colour: "text-measured-ink", dot: "bg-measured", pill: "bg-measured-soft text-measured-ink" },
+  { state: "in_review", label: "In review", colour: "text-now-ink", dot: "bg-now-mid", pill: "bg-now-soft text-now-ink" },
+  { state: "merged_not_released", label: "Waiting for a release", colour: "text-now-ink", dot: "bg-now-mid", pill: "bg-now-soft text-now-ink" },
 ];
+
+/** The board's state dot: a coloured circle, beside the word that carries the meaning. */
+export function StateDot({ state }: { state: State }) {
+  return <span aria-hidden="true" className={`inline-block shrink-0 w-[7px] h-[7px] rounded-full ${dotOf(state)}`} />;
+}
+
+export function dotOf(state: State): string {
+  return STATES.find((s) => s.state === state)?.dot ?? "bg-ink-3";
+}
+
+export function pillOf(state: State): string {
+  return STATES.find((s) => s.state === state)?.pill ?? "bg-surface-2 text-ink-2";
+}
 
 export function labelOf(state: State): string {
   return STATES.find((s) => s.state === state)?.label ?? state;

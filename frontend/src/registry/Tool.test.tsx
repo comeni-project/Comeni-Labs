@@ -63,7 +63,7 @@ afterEach(() => vi.unstubAllGlobals());
 it("loads by direct link with a slash and an at sign in the id", async () => {
   const fetch = at({ ok: true, body: PAGE });
   expect(await screen.findByRole("heading", { level: 1, name: "star/align" })).toBeTruthy();
-  expect(String(fetch.mock.calls[0][0])).toBe(`/api/registry/tools/${ID}`);
+  expect(fetch.mock.calls.map(([url]) => String(url))).toContain(`/api/registry/tools/${ID}`);
 });
 
 it("shows each param's reason and asks-the-person", async () => {

@@ -76,6 +76,16 @@ function useCounted(which: "filled" | "hidden") {
   }, [count, which]);
 }
 
+/** Whether the rail is collapsed; `false` outside the shell (a page drawn on its own in a test). */
+export function useRailMini(): boolean {
+  return useContext(RailContext)?.mini ?? false;
+}
+
+/** Whether there is a rail to fill: none outside the shell. */
+export function useHasRail(): boolean {
+  return useContext(RailContext) !== null;
+}
+
 /** Fills the rail's fixed slot: what is open. */
 export function RailSlot({ children }: { children: ReactNode }) {
   const { slot } = useRail();

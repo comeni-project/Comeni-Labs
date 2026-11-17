@@ -6,7 +6,6 @@ import { Failed, Loading } from "../../ui/States";
 import { ToolDiagram } from "../parts/ToolDiagram";
 import { toolShape } from "../parts/toolShape";
 import { Tracker, type TrackedPiece } from "../parts/Tracker";
-import { RegistryTabs } from "../RegistryTabs";
 import { Chat } from "./Chat";
 import { attemptNote, PIECE_HELP, pieceWaiting } from "./pieces";
 import { PieceItems, WriteItem } from "./PieceItems";
@@ -42,8 +41,8 @@ export function Adaptation() {
   }, [focus]);
   useTitle(view ? `Forging ${view.path}` : "Forging");
 
-  if (adaptation.isPending) return <><RegistryTabs /><Loading what="the adaptation" /></>;
-  if (adaptation.isError || !view) return <><RegistryTabs /><Failed error={adaptation.error} /></>;
+  if (adaptation.isPending) return <Loading what="the adaptation" />;
+  if (adaptation.isError || !view) return <Failed error={adaptation.error} />;
 
   const piece = chosen ?? view.next_piece ?? "tests";
   const items = view.items.filter((i) => i.piece === piece);
@@ -74,7 +73,6 @@ export function Adaptation() {
 
   return (
     <div className="min-h-full bg-paper">
-      <RegistryTabs />
       <div className="frame gutter pt-[18px] pb-7 flex flex-col gap-[14px]">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="m-0 text-[22px] font-semibold">Forging <span className="font-data font-medium">{view.path}</span>{" "}

@@ -42,7 +42,7 @@ export function Tool() {
       <RegistryTabs registryAt={tool?.registry_at} />
       <main className="frame gutter pt-6 pb-12">
         <nav aria-label="Breadcrumb" className="text-[13px] text-ink-3 mb-[14px]">
-          <Link to="/registry">Catalogue</Link> / <span className="font-data">{path}</span>
+          <Link to="/registry">Tools</Link> / <span className="font-data">{path}</span>
         </nav>
         {page.isPending && <Loading what="the tool" />}
         {page.isError && <Failed error={page.error} padded={false} />}

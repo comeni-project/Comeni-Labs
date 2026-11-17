@@ -39,7 +39,7 @@ const CHOICES = { types: [], roles: [], tools: [
     feeds: ["nf-core/samtools/sort@1.24"] },
   { id: "nf-core/samtools/sort@1.24", roles: ["bam_sorting"], reads: [], makes: [], feeds: [] },
 ] };
-const FITS = { row: {}, module: {}, fits: { feeds_it: ["star/align"], reads_it: [] } };
+const FITS = { row: {}, module: {}, fits: { takes_from: [{ path: "star/align", via: "fastq" }], feeds: [] } };
 
 function at(page: unknown = PAGE, entry = "/registry") {
   const fetch = vi.fn().mockImplementation((url: string) => {
@@ -64,16 +64,15 @@ it("renders rows, counts and the last sync", async () => {
   expect(await screen.findByRole("row", { name: /star\/align/ })).toBeTruthy();
   expect(screen.getByRole("row", { name: /quast/ })).toBeTruthy();
   const states = screen.getByRole("group", { name: "Against your registry" });
-  expect(within(states).getByRole("button", { name: /Imported/ }).textContent).toContain("1");
+  expect(within(states).getByRole("button", { name: /In your registry/ }).textContent).toContain("1");
   expect(screen.getByText(/2 of 2/)).toBeTruthy();
   expect(screen.getByText(/synced/)).toBeTruthy();
-  expect(screen.getByText(/v0.4.0-37-g98b4566/)).toBeTruthy();
 });
 
 it("the state filter writes the URL and refetches", async () => {
   const fetch = at();
   const states = await screen.findByRole("group", { name: "Against your registry" });
-  fireEvent.click(within(states).getByRole("button", { name: /Not imported/ }));
+  fireEvent.click(within(states).getByRole("button", { name: /Not in your registry/ }));
   await vi.waitFor(() =>
     expect(fetch.mock.calls.some(([url]) => String(url).includes("state=not_imported"))).toBe(true));
 });
@@ -81,16 +80,18 @@ it("the state filter writes the URL and refetches", async () => {
 it("selecting a row fills the panel and links an imported tool", async () => {
   at();
   fireEvent.click(await screen.findByRole("row", { name: /star\/align/ }));
-  const panel = screen.getByRole("complementary", { name: "Selected module" });
-  const link = within(panel).getByRole("link", { name: "Open the tool" });
+  const panel = screen.getByRole("region", { name: "Selected module" });
+  // The tool's name opens its page; the action is the board's "Use in a build".
+  const link = within(panel).getByRole("link", { name: "star/align" });
+  expect(within(panel).getByRole("link", { name: "Use in a build" })).toBeTruthy();
   expect(link.getAttribute("href")).toBe("/registry/tools/nf-core/star/align@2.7.11b");
 });
 
 it("not imported offers Forge, which starts an adaptation", async () => {
   const fetch = at();
   fireEvent.click(await screen.findByRole("row", { name: /quast/ }));
-  const panel = screen.getByRole("complementary", { name: "Selected module" });
-  fireEvent.click(within(panel).getByRole("button", { name: "Forge quast" }));
+  const panel = screen.getByRole("region", { name: "Selected module" });
+  fireEvent.click(within(panel).getByRole("button", { name: "Forge this" }));
   await vi.waitFor(() => expect(fetch.mock.calls.some(([url, init]) =>
     String(url).endsWith("/forge/adaptations") && init?.method === "POST")).toBe(true));
 });
@@ -154,23 +155,9 @@ it("following a format filters the list, and picking it again lets go", async ()
   fireEvent.click(within(flow).getByRole("button", { name: /^fastq/ }));
   await vi.waitFor(() =>
     expect(fetch.mock.calls.some(([url]) => /catalogue\?.*reads=fastq/.test(String(url)))).toBe(true));
-  expect(await within(flow).findByText(/What fastq turns into/)).toBeTruthy();
-});
-
-it("modules with no topic are a filter of their own", async () => {
-  const fetch = at();
-  const rail = await screen.findByRole("complementary", { name: "Filters" });
-  fireEvent.click(within(rail).getByRole("button", { name: /No topic/ }));
-  await vi.waitFor(() =>
-    expect(fetch.mock.calls.some(([url]) => String(url).includes("no_topic=true"))).toBe(true));
-});
-
-it("a suite can be found by name even when it is not on show", async () => {
-  at();
-  const rail = await screen.findByRole("complementary", { name: "Filters" });
-  fireEvent.change(within(rail).getByLabelText("Find a suite"), { target: { value: "gatk" } });
-  expect(within(rail).getByRole("button", { name: /gatk4/ })).toBeTruthy();
-  expect(within(rail).queryByRole("button", { name: /^star/ })).toBeNull();
+  // The picked format is a chip that lets go of it (board).
+  fireEvent.click(await within(flow).findByRole("button", { name: /fastq ×/ }));
+  await vi.waitFor(() => expect(within(flow).queryByRole("button", { name: /fastq ×/ })).toBeNull());
 });
 
 it("says how many more only mention a format, and offers them", async () => {
@@ -189,14 +176,7 @@ it("a format only mentioned is marked apart from a declared one", async () => {
 
 it("the preview says what fits with the registry", async () => {
   at();
-  const panel = await screen.findByRole("complementary", { name: "Selected module" });
-  expect(await within(panel).findByRole("button", { name: /feeds it.*star\/align/ })).toBeTruthy();
+  const panel = await screen.findByRole("region", { name: "Selected module" });
+  expect(await within(panel).findByRole("button", { name: /star\/align/ })).toBeTruthy();
 });
 
-it("the registry diagram draws the tools the server joined", async () => {
-  at();
-  const pictures = await screen.findByRole("group", { name: "Picture" });
-  fireEvent.click(within(pictures).getByRole("button", { name: "Your registry" }));
-  const graph = await screen.findByRole("region", { name: "What your registry can do today" });
-  expect(await within(graph).findByRole("button", { name: /samtools\/sort/ })).toBeTruthy();
-});

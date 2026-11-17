@@ -3469,16 +3469,23 @@ export interface components {
              */
             axis_because: string;
         };
+        /** Fit */
+        Fit: {
+            /** Path */
+            path: string;
+            /** Via */
+            via: string;
+        };
         /**
          * Fits
          * @description Registry tools sharing a file format with a module. By format only, so a suggestion of
          *     where it might go rather than a checked connection: its types are not decided yet.
          */
         Fits: {
-            /** Feeds It */
-            feeds_it: string[];
-            /** Reads It */
-            reads_it: string[];
+            /** Takes From */
+            takes_from: components["schemas"]["Fit"][];
+            /** Feeds */
+            feeds: components["schemas"]["Fit"][];
         };
         /** Fix */
         Fix: {
@@ -4176,6 +4183,11 @@ export interface components {
             mentions_in: string[];
             /** Mentions Out */
             mentions_out: string[];
+            /**
+             * Topics
+             * @default []
+             */
+            topics: string[];
             /** Tool Version */
             tool_version: string | null;
             state: components["schemas"]["State"];

@@ -202,6 +202,7 @@ class ModuleRow(BaseModel):
     formats_out: list[str]
     mentions_in: list[str]
     mentions_out: list[str]
+    topics: list[str] = []
     tool_version: str | None
     state: State
     registry_version: str | None
@@ -248,12 +249,20 @@ class CataloguePage(BaseModel):
     """Other spellings of a format, so a person typing `fa` finds `fasta`."""
 
 
+class Fit(BaseModel):
+    path: str
+    via: str
+    """The format the two share (`fastq`): the board's "trimgalore · fastq"."""
+
+
 class Fits(BaseModel):
     """Registry tools sharing a file format with a module. By format only, so a suggestion of
     where it might go rather than a checked connection: its types are not decided yet."""
 
-    feeds_it: list[str]
-    reads_it: list[str]
+    takes_from: list[Fit]
+    """Tools whose output it can take."""
+    feeds: list[Fit]
+    """Tools that can take its output."""
 
 
 class ModuleDetail(BaseModel):
@@ -471,7 +480,8 @@ def _row_view(module: CatalogueModule, state: State, held: dict[str, Held]) -> M
         source=module.source, path=module.path, name=module.name,
         description=document.description, formats_in=module.formats_in,
         formats_out=module.formats_out, mentions_in=module.mentions_in,
-        mentions_out=module.mentions_out, tool_version=module.tool_version, state=state,
+        mentions_out=module.mentions_out, topics=list(module.topics or []),
+        tool_version=module.tool_version, state=state,
         registry_version=here.version if here else None,
         contract_id=here.contract_id if here else None, problems=document.problems,
     )
@@ -488,8 +498,10 @@ def _fits(session, module: CatalogueModule, held: dict[str, Held]) -> Fits:
     takes = {*module.formats_in, *module.mentions_in} - GENERIC
     makes = set(module.formats_out) - GENERIC
     return Fits(
-        feeds_it=[o.path for o in others if takes & set(o.formats_out)],
-        reads_it=[o.path for o in others if makes & {*o.formats_in, *o.mentions_in}],
+        takes_from=[Fit(path=o.path, via=sorted(shared)[0]) for o in others
+                    if (shared := takes & set(o.formats_out))],
+        feeds=[Fit(path=o.path, via=sorted(shared)[0]) for o in others
+               if (shared := makes & {*o.formats_in, *o.mentions_in})],
     )
 
 

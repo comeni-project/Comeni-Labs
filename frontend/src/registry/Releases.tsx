@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
@@ -16,17 +17,19 @@ export function Releases() {
   if (page.isError || !page.data) return <><RegistryTabs /><Failed error={page.error} /></>;
   const view = page.data;
   return (
-    <div className="min-h-full bg-paper">
+    <div className="overflow-y-auto h-full">
       <RegistryTabs />
-      <div className="frame gutter py-[18px] flex flex-wrap gap-5 items-start">
-        <div className="flex-[999_1_520px] min-w-0 flex flex-col gap-5">
+      <div className="page">
+      <div className="grid gap-[14px] items-start lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 flex flex-col gap-[14px]">
           <h1 className="m-0 text-[22px] font-semibold">Releases</h1>
           <p className="m-0 text-[13.5px] text-ink-2">{view.in_use}</p>
           {view.problem && <p className="m-0 text-[13px] text-needs-you-ink">{view.problem}</p>}
           <Unreleased view={view} />
           <Cut view={view} />
         </div>
-        <aside aria-label="Releases" className={`flex-[1_1_280px] max-w-[400px] ${panel}`}>
+        <div className="flex flex-col gap-[14px] min-w-0">
+        <aside aria-label="Releases" className={panel}>
           <h2 className={heading}>Published</h2>
           {view.published.length === 0
             ? <p className="m-0 px-5 py-4 text-ink-2">No release has been published yet.</p>
@@ -48,6 +51,13 @@ export function Releases() {
             </ul>
           )}
         </aside>
+        <section aria-label="Learned rules" className={`${panel} px-5 py-4 flex flex-col gap-2`}>
+          <h2 className="m-0 text-[15px] font-semibold">Learned rules</h2>
+          <p className="m-0 text-[12.5px] text-ink-2">Rules proposed from answers people keep giving, waiting for your approval before a release carries them.</p>
+          <Link to="/registry/learned" className="text-[12.5px] font-semibold text-now-ink no-underline">Review learned rules</Link>
+        </section>
+        </div>
+      </div>
       </div>
     </div>
   );

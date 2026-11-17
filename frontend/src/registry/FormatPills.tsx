@@ -1,3 +1,5 @@
+import { toneOf } from "./families";
+
 const MANY = 3;
 const KNOWN = ["fastq", "fasta", "bam", "cram", "vcf", "bed", "gff", "table", "report"];
 
@@ -22,7 +24,9 @@ export function FormatPills({ declared, mentioned, tone = "reads", all = false }
   return (
     <>
       {shown.map(({ format, mention }) => (
-        <span key={format} className={`pill ${mention ? "pill-mention" : tone === "makes" ? "pill-makes" : ""}`}
+        <span key={format} className={`pill ${mention ? "pill-mention" : ""}`}
+              style={mention ? undefined : { background: toneOf(format).soft, color: toneOf(format).ink }}
+              data-tone={tone}
               title={mention ? "Mentioned in its description, not declared" : undefined}>{format}</span>
       ))}
       {found.length > shown.length && <span className="pill pill-mention">+{found.length - shown.length}</span>}
