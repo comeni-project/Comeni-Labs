@@ -5610,4 +5610,6 @@ removed (builder protocol v4: a tool-free reply is the answer; `docs/superpowers
 other slip tests asserted the removed rule and were deleted. Their replacement,
 `test_a_tool_free_reply_is_the_answer_and_ends_the_turn`, records the current contract: one
 model call, the text as the answer (not narration), no reminder, no required tool choice. It
-is a behaviour test, not an invariant guard. MI0227 stays declared for earlier records.
+is a behaviour test, not an invariant guard. MI0227 is retired: nothing emits it, so
+`test_every_declared_code_is_emitted` refused it; its band comment in `diagnostics.yml` keeps it
+from being reused.

@@ -225,7 +225,6 @@ decline to curate one.
 | `MI0224` | a reference's type is not one the registry declares |
 | `MI0225` | a column is named after a fact the data already measured |
 | `MI0226` | a fix names a sample or file this data does not have |
-| `MI0227` | the builder replied without tools twice instead of completing its turn |
 | `MI0500` | a rule proposal cannot be approved as it stands |
 | `MI0501` | no model is set to propose rules |
 

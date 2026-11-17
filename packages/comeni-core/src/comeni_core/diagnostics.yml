@@ -30,6 +30,8 @@
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MI0100-MI0199  the API: retired with the old forge (#361), except MI0106
 #   MI0200-MI0299  the API: the builder — sessions, turns and the agent's tools (#463)
+#   MI0227         retired: a builder turn that replied without tools twice (2026-11-17, removed
+#                  with the slip rule the same day; never reused)
 #   MI0300-MI0399  the API: settings — what the menu may change
 #   MI0400-MI0499  the API: what is stored — shapes and retention
 #   MI0500-MI0599  the API: rules proposed from people's answers (#462)
@@ -3897,19 +3899,3 @@ MW0103:
     A run reads a person's files only from the installation's data folders. Every path a run's
     parameters name, in a value, a samplesheet's cells or the samples it stages, is resolved,
     following links, and must sit inside one of them or the run's own folders.
-
-MI0227:
-  emitted_by: api
-  concern: workflow
-  says: "the builder replied without tools twice instead of completing its turn"
-  fires_on: [authoring]
-  refuses: true
-  fix: |
-    Press Retry on the failed turn. The builder must continue with the tools and end with
-    reply or ask; no extra model or provider configuration is required.
-  explanation: |
-    A tool-free response is progress narration, not evidence that the request was handled.
-    The loop permits one retry with a fixed protocol reminder. A second consecutive slip
-    fails visibly while retaining prior tool results and both recorded model replies.
-    Successful tool calls reset the consecutive-slip counter. This rule also applies to
-    local endpoints that cannot enforce required tool choice.
