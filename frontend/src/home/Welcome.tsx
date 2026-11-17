@@ -18,14 +18,14 @@ export function Welcome() {
   const dark = painted(theme) === "dark";
 
   return (
-    <div className="relative min-h-full overflow-auto bg-canvas">
+    <div className="welcome relative min-h-full overflow-auto bg-canvas isolate flex flex-col">
       <NoRail />
       <Drawing />
       <button type="button" onClick={() => setTheme(dark ? "light" : "dark")} aria-label="Light or dark theme"
               className="absolute top-5 right-5 p-2 border-0 bg-transparent rounded-control text-ink-2 cursor-pointer hover:bg-hover">
         <Icon name="moon" size={16} />
       </button>
-      <main className="relative min-h-screen flex flex-col items-center justify-center gap-6 gutter py-16">
+      <main className="relative flex-1 flex flex-col items-center justify-center gap-7 gutter pt-16 pb-9">
         <div className="flex flex-col items-center gap-3 text-center">
           <Mark />
           <h1 className="m-0 text-[44px] leading-none font-bold tracking-[-.03em] text-ink">Comeni</h1>
@@ -45,7 +45,7 @@ export function Welcome() {
           {byHand.error && <p role="alert" className="m-0 text-center text-[12.5px] text-needs-you-ink">{byHand.error.message}</p>}
         </div>
       </main>
-      <p className="absolute bottom-5 inset-x-0 m-0 flex items-center justify-center gap-2 text-[12.5px] text-ink-3">
+      <p className="relative m-0 px-4 pb-5 flex items-center justify-center gap-2 text-[12.5px] text-ink-3">
         <span aria-hidden className="w-[7px] h-[7px] rounded-full bg-done" />
         Running on this machine · {model.configured ? "a model is set up" : "no model set up"}
       </p>
@@ -68,23 +68,27 @@ function Mark() {
   );
 }
 
-/** A faint pipeline behind the page, in the line colour; decoration only. */
+/** Fixed-size pipeline fragments frame the question without scaling with a wide monitor. */
 function Drawing() {
-  const box = (x: number, y: number, w = 90) =>
-    <rect key={`${x}-${y}`} x={x} y={y} width={w} height={40} rx={10} className="fill-surface stroke-line" />;
   return (
-    <svg aria-hidden className="absolute inset-0 w-full h-full pointer-events-none opacity-70" preserveAspectRatio="xMidYMid slice"
-         viewBox="0 0 1440 900">
-      <g fill="none" className="stroke-line" strokeWidth="1.5">
-        <path d="M150 170C230 170 240 120 310 120M150 170C230 170 240 230 310 230M410 120H520M410 230C470 230 460 120 520 120" />
-        <path d="M1060 150H1170M1270 150C1310 150 1310 220 1350 220" />
-        <path d="M120 690H230M330 690C380 690 380 760 430 760" />
-        <path d="M1040 690C1110 690 1110 640 1180 640M1040 690L1180 750M1280 640H1340" />
-      </g>
-      {[box(70, 150), box(310, 100, 100), box(310, 210, 100), box(520, 100), box(970, 130), box(1170, 130, 100),
-        box(40, 670, 80), box(230, 670, 100), box(430, 740), box(950, 670), box(1180, 620, 100), box(1180, 730, 100)]}
-      <circle cx="360" cy="170" r="4" className="fill-measured" />
-      <circle cx="1230" cy="690" r="4" className="fill-measured" />
-    </svg>
+    <div aria-hidden className="welcome-drawing">
+      {["welcome-pipeline-start", "welcome-pipeline-end"].map((position) => (
+        <svg key={position} className={`welcome-pipeline ${position}`} viewBox="0 0 480 240" fill="none">
+          <g stroke="var(--line-2)" strokeWidth="1">
+            <path d="M0 120h64m88 0c48 0 44-72 92-72m-92 72c48 0 44 72 92 72m88-144c48 0 44 72 92 72m-92 72c48 0 44-72 92-72h56" />
+            <rect x="64" y="96" width="88" height="48" rx="10" fill="var(--canvas)" />
+            <rect x="244" y="24" width="88" height="48" rx="10" fill="var(--canvas)" />
+            <rect x="244" y="168" width="88" height="48" rx="10" fill="var(--canvas)" />
+            <path d="M94 114h36m-36 12h22m158-84h36m-36 12h22m-22 132h36m-36 12h22" />
+          </g>
+          <g fill="var(--now)">
+            <circle cx="82" cy="114" r="3" />
+            <circle cx="262" cy="42" r="3" />
+            <circle cx="262" cy="186" r="3" />
+            <circle cx="424" cy="120" r="4" />
+          </g>
+        </svg>
+      ))}
+    </div>
   );
 }

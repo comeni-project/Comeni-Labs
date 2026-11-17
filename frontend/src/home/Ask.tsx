@@ -34,9 +34,9 @@ export function Ask({ starters, large = false }: { starters: string[]; large?: b
                         ${large ? "flex-col px-[18px] pt-4 pb-3 shadow-e2" : "flex-wrap items-center pl-4 pr-2 py-2"}`}>
         <input ref={input} value={prompt} onChange={(e) => setPrompt(e.target.value)}
                disabled={begin.isPending} aria-label={QUESTION} placeholder={QUESTION}
-               className={`min-w-0 grow basis-[200px] bg-transparent border-0 outline-none text-ink placeholder:text-ink-3
-                           ${large ? "text-[17px]" : "text-[15px]"}`} />
-        <div className="flex items-center gap-2 shrink-0 ml-auto">
+               className={`min-w-0 bg-transparent border-0 outline-none text-ink placeholder:text-ink-3
+                           ${large ? "w-full h-12 flex-none text-[17px]" : "grow basis-[200px] text-[15px]"}`} />
+        <div className={`flex items-center gap-2 shrink-0 ${large ? "w-full" : "ml-auto"}`}>
           <button type="button" onClick={() => folder.mutate()} disabled={folder.isPending}
                   className={`flex items-center gap-2 px-2 py-[6px] border-0 bg-transparent rounded-control
                               text-[13px] text-ink-2 cursor-pointer hover:bg-hover ${large ? "order-first mr-auto" : ""}`}>

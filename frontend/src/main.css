@@ -890,3 +890,38 @@ body {
   .connection-setup { padding: 16px; }
   .connection-steps { gap: 12px; flex-wrap: wrap; }
 }
+
+/* Welcome decoration keeps its own scale; the centre stays clear for the question. */
+.welcome {
+  background-image: radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--now) 5%, transparent), transparent 65%);
+}
+.welcome-drawing {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+.welcome-drawing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--line-2) .7px, transparent .7px);
+  background-size: 24px 24px;
+  opacity: .3;
+  mask-image: radial-gradient(ellipse at center, transparent 30%, black 100%);
+}
+.welcome-pipeline {
+  position: absolute;
+  width: clamp(280px, 34vw, 480px);
+  height: auto;
+  opacity: .45;
+  mask-image: linear-gradient(90deg, black 55%, transparent);
+}
+.welcome-pipeline-start { top: 10%; left: -32px; }
+.welcome-pipeline-end { bottom: 10%; right: -32px; transform: rotate(180deg); }
+@media (max-width: 760px) {
+  .welcome-pipeline { opacity: .2; }
+  .welcome-pipeline-start { top: 0; left: -140px; }
+  .welcome-pipeline-end { bottom: 0; right: -140px; }
+}
