@@ -57,7 +57,7 @@ export function AnalysisFrame() {
     run: latest ? `Run ${latest.n} · ${phaseWords(latest.run.phase).toLowerCase()}` : "Not run yet",
   };
   const counts = data.data
-    ? { samples: data.data.samples.length, references: data.data.references.length, files: data.data.files }
+    ? { folders: data.data.folders.length, samples: data.data.samples.length, references: data.data.references.length, files: data.data.files }
     : {};
   const after = location.pathname.split("/").slice(3);
   const page: AnalysisPage = after[0] === "build" || after[0] === "run" ? after[0] : "data";

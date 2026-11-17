@@ -1,7 +1,6 @@
-import { Link, useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 
 import { useAnalysis } from "../../app/AnalysisFrame";
-import { RailControls } from "../../app/rail/RailContext";
 import { useTypeNames } from "../../build/living/useTypeNames";
 import { Failed, Loading } from "../../ui/States";
 import { Assistant } from "../Assistant";
@@ -14,34 +13,25 @@ import { Start } from "./Start";
 import type { AnalysisData } from "./types";
 import { useAnalysisData } from "./useAnalysisData";
 
-const TITLES: Record<string, string> = { references: "References", files: "All files" };
-// A folder's last two parts: the rest is the data root, the same for every analysis.
-const short = (path: string) => path.split("/").slice(-2).join("/");
+const TITLES: Record<string, string> = { folders: "Folders", references: "References", files: "All files" };
 
 /** **Data** (#511, board 2026-11-16): nothing ticked, the folders on the page to pick; read, the
- *  samples are the page, with what to check, the references and the facts beside them. The rail
- *  lists the folders read, and "Change folders" opens the picker again. */
+ *  samples are the page, with what to check, the references and the facts beside them. **Folders**
+ *  is Data's own page in the rail (walk 2026-11-17), the picker with what is read ticked. */
 export function DataPage() {
   const { sub: asked } = useParams();
   const sub = asked && asked in TITLES ? asked : undefined;
-  const [search, setSearch] = useSearchParams();
   const { draftId } = useAnalysis();
   const data = useAnalysisData(draftId);
   const folders = data.data?.folders ?? [];
-  const picking = search.has("folders") || (data.data !== undefined && folders.length === 0);
+  const picking = sub === "folders" || (data.data !== undefined && folders.length === 0);
+  const navigate = useNavigate();
+  const toData = () => navigate(`/a/${encodeURIComponent(draftId)}/data`, { replace: true });
   const read = data.data?.scan.finished_at;
 
   return (
     <div className="overflow-y-auto h-full">
       <Assistant draftId={draftId} />
-      {folders.length > 0 && (
-        <RailControls label="Folders">
-          <div className="flex flex-col">
-            {folders.map((f) => <span key={f} className="px-[10px] py-[3px] font-data text-[12px] text-ink-2 truncate">{short(f)}</span>)}
-            <Link to="?folders" className="px-[10px] py-[5px] text-[12.5px] font-semibold text-now-ink no-underline">Change folders</Link>
-          </div>
-        </RailControls>
-      )}
       <div className="page">
         <header className="flex flex-wrap items-end gap-[14px]">
           <div className="flex flex-col gap-1 min-w-0">
@@ -71,8 +61,8 @@ export function DataPage() {
           : data.loadError && !data.data ? <Failed error={data.loadError} />
           : data.data && (
             picking ? (
-              <Start ticked={folders} onTick={(chosen) => { data.tick(chosen); setSearch({}, { replace: true }); }}
-                     onCancel={folders.length ? () => setSearch({}, { replace: true }) : undefined} />
+              <Start ticked={folders} onTick={(chosen) => { data.tick(chosen); toData(); }}
+                     onCancel={folders.length ? toData : undefined} />
             )
             : sub === "references" ? <References data={data.data} onAdd={data.addReference} onRemove={data.removeReference} />
             : sub === "files" ? <Files draftId={draftId} />

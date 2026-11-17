@@ -16,6 +16,7 @@ export type AnalysisPage = "data" | "build" | "run";
 export const SUB_PAGES: Record<AnalysisPage, { sub: string | null; label: string }[]> = {
   // Data itself is the samples (board 2026-11-16).
   data: [
+    { sub: "folders", label: "Folders" },
     { sub: "references", label: "References" },
     { sub: "files", label: "All files" },
   ],
