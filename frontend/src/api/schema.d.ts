@@ -145,6 +145,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tool-tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cases */
+        get: operations["listRegisteredTestCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tool-tests/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare */
+        post: operations["prepareRegisteredTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tool-tests/check-outputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check Outputs */
+        post: operations["checkRegisteredTestOutputs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/example": {
         parameters: {
             query?: never;
@@ -854,6 +905,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/models/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discover */
+        post: operations["discoverConnectionModels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/models/detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Detect */
+        post: operations["detectLocalModelServers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/models/chatgpt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Signin Status */
+        get: operations["chatgptSigninStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/models/chatgpt/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Subscription Models */
+        post: operations["listSubscriptionModels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/models/chatgpt/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Signin */
+        post: operations["startChatgptSignin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/models/chatgpt/sign-in/{session}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Poll Signin */
+        post: operations["pollChatgptSignin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/retention/last": {
         parameters: {
             query?: never;
@@ -1145,7 +1298,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Use a file as a sample's mate, or leave a sample out; then scan again
+         * Apply a sample choice using saved measurements
          * @description A fix is kept and applied on every scan, so it survives the next one. **Recorded as the
          *     person's**: who made a change is the server's to say, never the page's.
          */
@@ -1304,7 +1457,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Undo a fix, and scan again */
+        /** Undo a sample choice using saved measurements */
         delete: operations["undoDataFix"];
         options?: never;
         head?: never;
@@ -2669,6 +2822,13 @@ export interface components {
             /** Says */
             says: string;
         };
+        /** CheckedOutputs */
+        CheckedOutputs: {
+            /** Passed */
+            passed: boolean;
+            /** Problems */
+            problems: string[];
+        };
         /** ChoiceOption */
         ChoiceOption: {
             /** Value */
@@ -2765,6 +2925,24 @@ export interface components {
             name: string;
             /** Version */
             version: string;
+        };
+        /** ConnectionDraft */
+        ConnectionDraft: {
+            /**
+             * Server
+             * @enum {string}
+             */
+            server: "ollama" | "openai_compatible" | "hosted";
+            /**
+             * Provider
+             * @default custom
+             * @enum {string}
+             */
+            provider: "custom" | "ollama" | "lmstudio" | "openai" | "anthropic" | "gemini" | "openrouter";
+            /** Endpoint */
+            endpoint: string;
+            /** Key */
+            key?: string | null;
         };
         /**
          * ConsoleContext
@@ -3048,6 +3226,31 @@ export interface components {
             where: string;
             /** Says */
             readonly says: string;
+        };
+        /** DetectedServer */
+        DetectedServer: {
+            /** Endpoint */
+            endpoint: string;
+            /** Models */
+            models: string[];
+        };
+        /** DeviceSignin */
+        DeviceSignin: {
+            /** Session */
+            session: string;
+            /** User Code */
+            user_code: string;
+            /** Verification Url */
+            verification_url: string;
+            /** Interval */
+            interval: number;
+            /** Expires At */
+            expires_at: number;
+            /**
+             * State
+             * @constant
+             */
+            state: "pending";
         };
         /**
          * DomainView
@@ -3595,6 +3798,15 @@ export interface components {
              */
             looks_like: components["schemas"]["Looks"][];
         };
+        /** FolderFile */
+        FolderFile: {
+            /** Name */
+            name: string;
+            /** Size */
+            size: number;
+            /** Type Id */
+            type_id?: string | null;
+        };
         /** FolderListing */
         FolderListing: {
             /** Path */
@@ -3603,6 +3815,11 @@ export interface components {
             folders: components["schemas"]["Folder"][];
             /** Files */
             files: number;
+            /**
+             * Entries
+             * @default []
+             */
+            entries: components["schemas"]["FolderFile"][];
         };
         /** Folders */
         Folders: {
@@ -3909,6 +4126,14 @@ export interface components {
          * @enum {string}
          */
         Level: "illegal" | "unmet" | "advisory";
+        /** LocalProvider */
+        LocalProvider: {
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "ollama" | "lmstudio";
+        };
         /**
          * Looks
          * @description How many of a folder's files are of one kind, by extension (`kinds.looks_like`).
@@ -4380,6 +4605,17 @@ export interface components {
             /** Setting */
             setting: string;
         };
+        /** OutputCheck */
+        OutputCheck: {
+            /** Contract */
+            contract: string;
+            /** Name */
+            name: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Files */
+            files: string[];
+        };
         /**
          * ParamOverride
          * @description A validated human parameter override.
@@ -4604,6 +4840,17 @@ export interface components {
              * @default false
              */
             gathers: boolean;
+        };
+        /** PreparedTest */
+        PreparedTest: {
+            /** Bundle */
+            bundle: string;
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+            /** Run Name */
+            run_name: string;
         };
         /** Preview */
         Preview: {
@@ -4907,6 +5154,8 @@ export interface components {
              * @enum {string}
              */
             origin: "you" | "ai";
+            /** Reason */
+            reason?: string | null;
             /**
              * Facts
              * @default []
@@ -5384,6 +5633,19 @@ export interface components {
              */
             checks: boolean;
         };
+        /** SigninProgress */
+        SigninProgress: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "connected" | "expired";
+        };
+        /** SigninStatus */
+        SigninStatus: {
+            /** Signed In */
+            signed_in: boolean;
+        };
         /**
          * Site
          * @description A routing location identified by output type and required states.
@@ -5554,6 +5816,24 @@ export interface components {
             error: string | null;
             /** Stale */
             stale: boolean;
+        };
+        /** TestCase */
+        TestCase: {
+            /** Name */
+            name: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Run Name */
+            run_name: string;
+        };
+        /** TestRequest */
+        TestRequest: {
+            /** Contract */
+            contract: string;
+            /** Name */
+            name: string;
+            /** Fingerprint */
+            fingerprint: string;
         };
         /** TestRunView */
         TestRunView: {
@@ -6037,6 +6317,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModulePage"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    listRegisteredTestCases: {
+        parameters: {
+            query: {
+                contract: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestCase"][];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    prepareRegisteredTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreparedTest"];
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    checkRegisteredTestOutputs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutputCheck"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckedOutputs"];
                 };
             };
             /** @description The id in the path names nothing. */
@@ -7423,6 +7827,163 @@ export interface operations {
             };
         };
     };
+    discoverConnectionModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectionDraft"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detectLocalModelServers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LocalProvider"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectedServer"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chatgptSigninStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigninStatus"];
+                };
+            };
+        };
+    };
+    listSubscriptionModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResult"];
+                };
+            };
+        };
+    };
+    startChatgptSignin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceSignin"];
+                };
+            };
+        };
+    };
+    pollChatgptSignin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigninProgress"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     readLastRetentionSweep: {
         parameters: {
             query?: never;
@@ -7613,6 +8174,7 @@ export interface operations {
         parameters: {
             query?: {
                 path?: string | null;
+                file_offset?: number;
             };
             header?: never;
             path?: never;
