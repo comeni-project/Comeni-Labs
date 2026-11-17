@@ -95,14 +95,25 @@ def _after_measurers(order: list[str], pipeline) -> list[str]:
     return placed
 
 
-def resolve(goal: Goal, *, roots: Sequence[Path] | None = None) -> tuple[Blueprint, list]:
+def resolve(goal: Goal, *, roots: Sequence[Path] | None = None, ai=None) -> tuple[Blueprint, list]:
     """Resolve `goal` once and fix the reveal order. **Tier 4 is resolved with the flag**: the
     questions stay open, visibly, for a person in the walk; nothing is guessed. The second value
     is the model calls made, always none now, kept so a later Tier-4 answers fork can return
     them for `ai_invocation`."""
     stack = list(roots or registry_roots())
-    built = orchestrate.build(goal, registry_roots=stack, resolver=FlagOnlyResolver())
-    placed = layout.of(built.ir)
+    built = orchestrate.build(goal, registry_roots=stack, resolver=FlagOnlyResolver(), ai=ai)
+    # **Each step's declared ports, not only its wired ones** (plan 2 review): a step is drawn
+    # as tall as its declared ports (#494), so its rank's next step must be placed below that.
+    routing = registry.stack().routing
+    declared = {}
+    measuring = set()
+    for step in built.pipeline.steps:
+        contract = routing.get(step.module.contract_id)
+        declared[step.id] = ([p.name for p in contract.consumes],
+                             [p.name for p in contract.produces])
+        if "measurement" in contract.roles:
+            measuring.add(step.id)
+    placed = layout.of(built.ir, ports=declared, hangs=measuring)
     order = _after_measurers(
         [node.id for node in sorted(placed.nodes, key=lambda n: (n.rank, n.order, n.id))],
         built.pipeline)

@@ -33,4 +33,5 @@ def installation() -> Installation:
         secrets_need=key_problem(os.environ),
     )
     inst.reporters = {"privacy.where": lambda: where_purposes(inst), **reports.REPORTERS}
+    inst.checks = dict(reports.CHECKS)
     return inst

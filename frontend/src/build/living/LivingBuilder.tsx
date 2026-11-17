@@ -1,65 +1,43 @@
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useReducer, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 
-import { post } from "../../api/client";
-import type { AuthoringBlock, AuthoringSession, Built, DraftGraph } from "../../api/types";
-import { idFor, withNode, withoutNode, withParam } from "../graphOps";
-import { authoringReducer, initialAuthoring } from "./authoringReducer";
-import { CONFLICT_SESSION, COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_SESSION, FAKE_STEPS, FAKE_VOCABULARY, readFakePreview } from "./fake";
-import { guidedDecide, guidedStart } from "./guided";
-import { RunSheet } from "../RunSheet";
-import { entryChannels } from "../Sources";
-import { withTypedValues } from "../useBuilder";
+import type { AuthoringSession, DraftGraph } from "../../api/types";
+import { idFor, withNode, withParam } from "../graphOps";
+import { COLLECT_CHANNELS, COLLECT_SESSION, COLLECT_STEPS, FAKE_CHANNELS, FAKE_FILE, FAKE_SESSION, FAKE_STEPS, PORTS_SESSION, PORTS_STEPS } from "./fake";
 import { useGate } from "../useGate";
 import { useKeep } from "../useKeep";
 import { useRun } from "../useRun";
 import { framed } from "./frame";
 import { LivingSurface } from "./LivingSurface";
-import { lastSeen, markSeen, revealPlan } from "./replay";
 import { useAuthoringSession } from "./useAuthoringSession";
-
-type ChangeBlock = Extract<AuthoringBlock, { kind: "change_set" }>;
 
 const EMPTY_GRAPH: DraftGraph = { nodes: [], edges: [] };
 
-/** The one builder at `/build` (#395; `BuildRoute` opens every pipeline here).
+/** The static builder at `/build?fake=`, for looking at the page without a server. A live
+ *  pipeline opens at `/a/:draft/build` (`LiveLiving`, from `BuildPage`).
  *
- * `?session=<id>` restores a live authoring session. `?fake=1` opens a static session carrying
- * every block state (Task 9's checkpoint, and what the artboard comparison renders); `?fake=guided`
- * opens one that answers itself, for completing a pipeline by keyboard or by touch (Task 10's).
- * Anything else says what to add rather than opening a default pipeline.
+ * `?fake=1` opens a static session carrying every state
+ * the agent's thread can be in, for looking at the page without a server; `?fake=collect` and
+ * `?fake=question` open the collection shapes and a step with an open value. Anything else says what to add rather than opening a default pipeline.
  */
 export function LivingBuilder() {
   const [params] = useSearchParams();
-  const session = params.get("session");
   const fake = params.get("fake");
-  if (fake === "guided") return <GuidedLiving />;
-  if (fake === "collect") return <CollectLiving />;
-  if (fake === "conflict") return <FakeLiving session={CONFLICT_SESSION} />;
-  if (fake === "sheet") return <FakeLiving sheet />;
+  if (fake === "collect") return <FakeLiving session={COLLECT_SESSION} steps={COLLECT_STEPS} channels={COLLECT_CHANNELS} />;
+  if (fake === "ports") return <FakeLiving session={PORTS_SESSION} steps={PORTS_STEPS} channels={[]} />;
   if (fake === "question") return <FakeLiving steps={QUESTION_STEPS} selected="star_align" />;
   if (fake) return <FakeLiving />;
-  if (session) return <LiveLiving key={session} sessionId={session} />;
   return (
     <p className="gutter py-10 text-[13px] text-ink-2" data-testid="living-empty">
-      Open a session with <span className="font-data">?session=&lt;id&gt;</span>.
+      Open a static builder with <span className="font-data">?fake=1</span>.
     </p>
   );
 }
 
-function LiveLiving({ sessionId }: { sessionId: string }) {
+export function LiveLiving({ sessionId }: { sessionId: string }) {
   const living = useAuthoringSession(sessionId);
-  const [sheet, setSheet] = useState(false);
-  // **The run sheet reads the saved draft**, never the frame's preview metadata, and is asked
-  // only when it opens: the canvas itself never calls the draw endpoint.
+  const navigate = useNavigate();
   const saved = living.session?.graph ?? EMPTY_GRAPH;
-  const sheetView = useQuery({
-    queryKey: ["living-run-sheet", living.session?.id, living.session?.revision],
-    queryFn: () => post<Built>("/pipeline/draw", saved),
-    enabled: sheet && saved.nodes.length > 0,
-  });
-  const reveal = useFirstArrival(sessionId, living.session);
   // **The session's own draft**, so Keep neither creates a second one nor re-saves the graph.
   const keeper = useKeep(saved, living.session ? { draftId: living.session.draft_id } : null);
   const gate = useGate(living.session?.draft_id ?? null);
@@ -67,7 +45,9 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
     keep: keeper.keepAsync,
     lint: () => gate.start("lint"),
     gatePassed: gate.passed,
-    openSheet: () => setSheet(true),
+    // **Run opens Run** (#508, #511): the pipeline is kept, and the analysis's Run page sends it
+    // with its inputs answered from Data. There is no run sheet.
+    openSheet: () => { if (living.session) navigate(`/a/${encodeURIComponent(living.session.draft_id)}/run?new`); },
   });
 
   if (living.loading) {
@@ -86,210 +66,80 @@ function LiveLiving({ sessionId }: { sessionId: string }) {
     <LivingSurface
       session={living.session}
       graph={graph}
-      onPlayed={living.consumed}
-      reveal={reveal}
       run={{
         onRun: () => void runner.run(),
         busy: runner.busy,
         stage: runner.stage,
         error: runner.error ?? keeper.error,
         kept: keeper.keptAt !== null,
-        sheet: sheet && sheetView.data ? (
-          <RunSheet inline
-            name={living.session.name || "this pipeline"}
-            // **Open human decisions come first on the sheet** — it counts what nobody answered
-            // before it asks where the data is, which is the order Build's Run has always had.
-            steps={sheetView.data.steps.map((step) => withTypedValues(step, graph))}
-            sources={entryChannels(sheetView.data)}
-            draftId={living.session.draft_id}
-            blocked={keeper.blocked}
-            gated={gate.passed}
-            onClose={() => setSheet(false)}
-          />
-        ) : null,
+        sheet: null,
       }}
-      state={living.state}
       preview={living.preview}
-      busy={living.busy}
-      vocabulary={living.vocabulary}
-      declarations={living.measurements}
-      onCorrect={living.correct}
-      onRelease={living.releaseTool}
-      onUnits={living.spanRows}
-      onTable={living.severalItems}
-      onDisagreement={living.answerDisagreement}
-      correcting={living.correcting}
-      onAccept={living.accept}
-      onReject={living.reject}
-      onPreviewOption={living.previewOption}
+      selected={living.selected}
       onSelect={living.select}
+      composer={living.composer}
       onCompose={living.compose}
+      sending={living.sending}
       onSay={living.say}
+      onAnswer={living.answer}
       onRetry={living.retry}
-      onApplySuggestion={living.applySuggestion}
-      onDismissSuggestion={living.dismissSuggestion}
-      suggesting={living.suggesting}
-      onUpload={living.upload}
+      onReviewed={living.review}
+      notice={living.notice}
       onDismiss={living.dismiss}
-      // **Every direct edit goes through the session's edit verb**, which saves the draft, stamps
-      // it as the person's and writes the receipt the server composes. A plain draft `PUT` would
-      // change the pipeline and leave the log saying nothing about it.
+      // **Every direct edit goes through the session's edit verb**, which reads it as the person's
+      // changes and builds again. A plain draft `PUT` would change the pipeline unrecorded.
       onAddStep={(contract) =>
         living.edit(withNode(graph, { id: idFor(graph, contract), contract_id: contract, params: [] }))}
       onSetParam={(node, setting, value, why) => living.edit(withParam(graph, node, setting, value, why))}
       onSwitchInput={living.switchInput}
       onWhole={living.keepWhole}
-      onApplyChange={(block: ChangeBlock) =>
-        living.edit(block.removes.reduce(withoutNode, graph))}
       onEdit={living.edit}
       onRename={living.rename}
+      onTidy={living.tidy}
     />
   );
-}
-
-/** Spawn's reveal plan, computed **once** when the session first arrives in this tab.
- *
- * Held in a ref, because the count is written to `sessionStorage` straight away: recomputing on the
- * next render would read the count just written and plan nothing, cutting the reveal off mid-play.
- */
-export function useFirstArrival(sessionId: string, session: AuthoringSession | null) {
-  const plan = useRef<Record<string, number> | null>(null);
-  const accepted = session
-    ? session.history.filter((d) => d.kind === "step" && d.state === "accepted")
-    : [];
-
-  if (plan.current === null && session !== null) {
-    const seen = lastSeen(sessionId) ?? 0;
-    const fresh = accepted
-      .slice(seen)
-      .map((d) => (d.block.kind === "step_proposal" ? d.block.node : ""))
-      .filter((node) => node && session.placement[node]);
-    plan.current = revealPlan(fresh, (node) => session.placement[node]?.x ?? 0);
-  }
-
-  useEffect(() => {
-    if (session !== null) markSeen(sessionId, accepted.length);
-  }, [sessionId, session, accepted.length]);
-
-  return plan.current ?? {};
 }
 
 /** `?fake=question`: STAR_ALIGN opened with one value nobody has settled — what the *Question*
  *  board is compared against. */
 const QUESTION_STEPS = { ...FAKE_STEPS, star_align: { ...FAKE_STEPS.star_align, settings: [
   ...FAKE_STEPS.star_align.settings,
-  { name: "outSAMstrandField", value: null, via: "ext", tier: 4, because: "", axis_reason: "", optional: false, premise: [],
+  { name: "outSAMstrandField", value: null, via: "ext", tier: 4, because: "", explain: "", axis_reason: "", optional: false, premise: [],
     reason: "No rule settles it: your description does not say which tools read the alignments next, "
       + "and nothing measured it.",
     domain: { kind: "enum", values: ["None", "intronMotif"] } },
 ] } };
 
-/** `?fake=sheet` opens the run sheet over the static session — what the *Run sheet* board is
- *  compared against, since a fake never keeps or lints. */
-function FakeLiving({ session: given = FAKE_SESSION, sheet = false, steps = FAKE_STEPS, selected = null }: {
-  session?: AuthoringSession; sheet?: boolean; steps?: typeof FAKE_STEPS; selected?: string | null;
+/** A static session: what is said is drawn as sending, and nothing else moves. */
+function FakeLiving({ session: given = FAKE_SESSION, steps = FAKE_STEPS,
+  channels = FAKE_CHANNELS, selected: first = null }: {
+  session?: AuthoringSession; steps?: typeof FAKE_STEPS;
+  channels?: typeof FAKE_CHANNELS; selected?: string | null;
 }) {
-  const session = framed(given, steps, FAKE_CHANNELS);
-  const [state, dispatch] = useReducer(authoringReducer, {
-    ...initialAuthoring,
-    snapshot: session,
-    selected,
-  });
+  const session = framed(given, steps, channels);
+  const [selected, setSelected] = useState<string | null>(first);
+  const [composer, setComposer] = useState("");
+  const [sending, setSending] = useState<string[]>([]);
+  const nothing = () => undefined;
   return (
     <LivingSurface
       session={session}
       graph={session.graph}
-      readPreview={readFakePreview(session)}
-      onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
-      state={state}
       preview={{ revision: session.revision, state: "ready", findings: [],
-        text: "version: 6\ngoal:\n  want: [counts.matrix]\n" }}
-      busy={(id) => state.inFlight === id}
-      onAccept={(proposal, option = "keep") =>
-        dispatch({ type: "accept", proposal, option, expectedRevision: session.revision })}
-      onDisagreement={async () => undefined}
-      onReject={(proposal) => dispatch({ type: "reject", proposalId: proposal.id })}
-      onPreviewOption={(option) => dispatch({ type: "preview", option })}
-      onSelect={(node) => dispatch({ type: "select", node })}
-      onCompose={(text) => dispatch({ type: "compose", text })}
-      onSay={(text) => dispatch({ type: "sent", text })}
-      onRetry={() => undefined}
-      onAddStep={() => undefined}
-      onSetParam={() => undefined}
-      onApplyChange={() => undefined}
-      onEdit={() => undefined}
-      onDismiss={() => dispatch({ type: "dismiss" })}
-      run={sheet ? {
-        onRun: () => undefined, busy: false, stage: null, error: null, kept: false,
-        sheet: <RunSheet inline name={session.name} steps={Object.values(FAKE_STEPS)}
-                         sources={entryChannels({ channels: FAKE_CHANNELS } as unknown as Built)}
-                         draftId={null} gated={false} onClose={() => undefined} />,
-      } : null}
-    />
-  );
-}
-
-/** The guided fake — a session that moves when a proposal is decided. Exported for its tests. */
-export function GuidedLiving() {
-  const [session, setSession] = useState<AuthoringSession>(guidedStart);
-  const [state, dispatch] = useReducer(authoringReducer, { ...initialAuthoring, snapshot: session });
-
-  const guided = framed(session, FAKE_STEPS, FAKE_CHANNELS);
-  const advance = (next: AuthoringSession) => {
-    setSession(next);
-    dispatch({ type: "snapshot", session: next });
-  };
-
-  return (
-    <LivingSurface
-      session={guided}
-      graph={session.graph}
-      readPreview={readFakePreview(guided)}
-      onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
-      state={state}
-      preview={null}
-      busy={() => false}
-      vocabulary={FAKE_VOCABULARY}
-      onAccept={(proposal, option = "keep") =>
-        advance(guidedDecide(session, proposal.id, "accepted", option))}
-      onReject={(proposal) => advance(guidedDecide(session, proposal.id, "rejected"))}
-      onPreviewOption={(option) => dispatch({ type: "preview", option })}
-      onSelect={(node) => dispatch({ type: "select", node })}
-      onCompose={(text) => dispatch({ type: "compose", text })}
-      onSay={(text) => dispatch({ type: "sent", text })}
-      onRetry={() => undefined}
-      onAddStep={() => undefined}
-      onSetParam={() => undefined}
-      onApplyChange={() => undefined}
-      onEdit={() => undefined}
-      onDismiss={() => dispatch({ type: "dismiss" })}
-    />
-  );
-}
-
-/** 1→1, N→N and N→1 on one canvas — Task 11's browser checkpoint, beside `LivingCollect`. */
-function CollectLiving() {
-  const [state, dispatch] = useReducer(authoringReducer, { ...initialAuthoring, snapshot: COLLECT_SESSION });
-  return (
-    <LivingSurface
-      session={framed(COLLECT_SESSION, COLLECT_STEPS, COLLECT_CHANNELS)}
-      graph={COLLECT_SESSION.graph}
-      onPlayed={(event) => dispatch({ type: "consumed", seq: event.seq })}
-      state={state}
-      preview={null}
-      busy={() => false}
-      onAccept={() => undefined}
-      onReject={() => undefined}
-      onPreviewOption={(option) => dispatch({ type: "preview", option })}
-      onSelect={(node) => dispatch({ type: "select", node })}
-      onCompose={(text) => dispatch({ type: "compose", text })}
-      onSay={(text) => dispatch({ type: "sent", text })}
-      onRetry={() => undefined}
-      onAddStep={() => undefined}
-      onSetParam={() => undefined}
-      onApplyChange={() => undefined}
-      onEdit={() => undefined}
-      onDismiss={() => dispatch({ type: "dismiss" })}
+        text: FAKE_FILE }}
+      selected={selected}
+      onSelect={setSelected}
+      composer={composer}
+      onCompose={setComposer}
+      sending={sending}
+      onSay={(text) => { setSending([...sending, text]); setComposer(""); }}
+      onAnswer={nothing}
+      onRetry={nothing}
+      onReviewed={nothing}
+      onDismiss={nothing}
+      onAddStep={nothing}
+      onSetParam={nothing}
+      onEdit={nothing}
     />
   );
 }

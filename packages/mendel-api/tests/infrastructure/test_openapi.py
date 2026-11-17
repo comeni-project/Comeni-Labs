@@ -79,38 +79,28 @@ def test_every_operation_is_named_by_hand():
         ("/api/pipeline/validate", "post"): "validatePipeline",
         ("/api/pipeline/compare", "post"): "comparePipeline",
         ("/api/pipeline/draw", "post"): "drawPipeline",
-        # **The living pipeline.** Two of these six are answered by the AI worker and return
-        # before the answer exists (201 and 202); the other four answer in the response, because
-        # a button click is not put behind the slow queue.
+        # **The builder agent** (#463). Saying something and answering its question are answered
+        # by the AI worker and return before the answer exists; the person's own changes answer
+        # in the response, because a click is not put behind the slow queue.
         ("/api/pipeline/authoring", "post"): "beginAuthoring",
         ("/api/pipeline/authoring/{session_id}", "get"): "readAuthoring",
         ("/api/pipeline/authoring/{session_id}/messages", "post"): "sayToAuthoring",
         (
-            "/api/pipeline/authoring/{session_id}/proposals/{proposal_id}/decide",
+            "/api/pipeline/authoring/{session_id}/questions/{question_id}",
             "post",
-        ): "decideAuthoringProposal",
-        (
-            "/api/pipeline/authoring/{session_id}/proposals/{proposal_id}/alternatives/{option_id}",
-            "get",
-        ): "previewAuthoringAlternative",
-        ("/api/pipeline/authoring/{session_id}/retry", "post"): "retryAuthoring",
-        ("/api/pipeline/authoring/{session_id}/samples", "post"): "uploadAuthoringSample",
+        ): "answerAgentQuestion",
+        ("/api/pipeline/authoring/{session_id}/turns/{seq}/retry", "post"): "retryAgentTurn",
+        ("/api/pipeline/authoring/{session_id}/reviewed", "post"): "reviewAiChoices",
         ("/api/pipeline/authoring/{session_id}/preview", "get"): "previewAuthoring",
         ("/api/pipeline/authoring/{session_id}/edits", "post"): "editAuthoringDraft",
+        ("/api/pipeline/authoring/{session_id}/tidy", "post"): "tidyAuthoringCanvas",
+        ("/api/data/readers", "get"): "readDataReaders",
         ("/api/pipeline/authoring/{session_id}/facts/{subject}", "post"): "correctAuthoringFact",
         ("/api/pipeline/authoring/{session_id}/changes", "post"): "changeAuthoring",
-        (
-            "/api/pipeline/authoring/{session_id}/suggestions/{suggestion_id}",
-            "post",
-        ): "decideAuthoringSuggestion",
         (
             "/api/pipeline/authoring/{session_id}/facts/{subject}/history",
             "get",
         ): "authoringFactHistory",
-        (
-            "/api/pipeline/authoring/{session_id}/disagreements/{proposal_id}",
-            "post",
-        ): "answerAuthoringDisagreement",
         ("/api/pipeline/authoring/{session_id}/release-tool", "post"): "releaseAuthoringTool",
         ("/api/pipeline/authoring/vocabulary", "get"): "authoringVocabulary",
         # 14.7.4 (#191): the call panel, fetched when opened, never polled.
@@ -135,7 +125,25 @@ def test_every_operation_is_named_by_hand():
         ("/api/health/ai", "get"): "aiHealth",
         ("/api/health", "get"): "liveness",
         ("/api/health/registry", "get"): "registryHealth",
+        ("/api/data/tree", "get"): "readDataTree",
+        ("/api/data/reference-types", "get"): "readReferenceTypes",
+        ("/api/data/machine", "get"): "readMachine",
+        ("/api/data/{draft_id}", "get"): "readAnalysisData",
+        ("/api/data/{draft_id}/files", "get"): "readAnalysisFiles",
+        ("/api/data/{draft_id}/folders", "put"): "tickDataFolders",
+        ("/api/data/{draft_id}/rule", "put"): "setReadingRule",
+        ("/api/data/{draft_id}/rule/confirm", "post"): "confirmReadingRule",
+        ("/api/data/{draft_id}/fixes", "post"): "applyDataFix",
+        ("/api/data/{draft_id}/fixes/{index}", "delete"): "undoDataFix",
+        ("/api/data/{draft_id}/fixes/{index}/keep", "post"): "keepDataFix",
+        ("/api/data/{draft_id}/rescan", "post"): "rescanData",
+        ("/api/data/{draft_id}/columns/{name}/{sample}", "put"): "setDataCell",
+        ("/api/data/{draft_id}/references", "post"): "addReference",
+        ("/api/data/{draft_id}/references/{index}", "delete"): "removeReference",
+        ("/api/data/{draft_id}/columns", "put"): "setDataColumn",
+        ("/api/data/{draft_id}/bindings", "get"): "readRunBindings",
         ("/api/settings", "get"): "readSettings",
+        ("/api/settings/{key}/check", "get"): "checkSetting",
         ("/api/settings/retention/last", "get"): "readLastRetentionSweep",
         # Whether a model is configured, from settings alone: the describe box's question,
         # apart from `/health/ai`'s probe (issue 268).

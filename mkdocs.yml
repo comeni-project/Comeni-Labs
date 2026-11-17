@@ -99,7 +99,8 @@ nav:
       - Use Comeni:
           - Install and open the app: how-to/install.md
           - Work with the builder: how-to/pipelines/build.md
-          - Answer with a sample: how-to/pipelines/answer-with-sample.md
+          - Add your data: how-to/pipelines/add-your-data.md
+          - Build from another agent: how-to/pipelines/build-from-another-agent.md
           - Review decisions: how-to/pipelines/review.md
           - Run a pipeline: how-to/pipelines/run.md
           - Watch a run: how-to/pipelines/watch.md
@@ -116,6 +117,7 @@ nav:
           - Configure a model: how-to/development/configure-model.md
           - Walk and investigate behavior: how-to/development/investigate.md
           - Walk the forge live: how-to/development/forge-live-walk.md
+          - Walk the demo: how-to/development/demo-walk.md
           - Release a package: how-to/development/release.md
           - Maintain documentation: how-to/development/documentation.md
   - Reference:
@@ -156,8 +158,7 @@ nav:
       - Mendel AI ownership: explanation/mendel-ai-ownership.md
       - Design boundaries:
           - Invariants: explanation/invariants.md
-          - Authoring protocol: explanation/authoring-protocol.md
+          - Builder agent: explanation/builder-agent.md
           - Product voice: explanation/product-language.md
           - Visual identity: explanation/visual-identity.md
-          - Protocol diagram: explanation/diagrams/authoring-protocol.md
           - Forging protocol diagram: explanation/diagrams/forging-protocol.md

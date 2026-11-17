@@ -32,6 +32,9 @@ x-mendel-environment: &mendel-environment
   MENDEL_WIENER_URL: http://wiener-api:8001
   # Where forged tools are published and releases read from: a fork, for a test walk.
   MENDEL_REGISTRY_REPO: ${MENDEL_REGISTRY_REPO:-comeni-project/comeni-registry}
+  # The folder Data reads a person's files from, in place (#511). Mounted read-only at the same
+  # path here and in wiener-worker, so a run reads the very path Data found.
+  MENDEL_DATA_ROOTS: '["${COMENI_DATA_ROOT:-${PWD}/.run/data}"]'
   # Fetched registry releases. Until one exists, Mendel reads MENDEL_REGISTRY_ROOT.
   MENDEL_REGISTRIES_ROOT: /app/registries
   MENDEL_REGISTRY_ROOT: /app/registry
@@ -112,7 +115,10 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
-    environment: *mendel-environment
+    environment:
+      <<: *mendel-environment
+      # The engine's tools over MCP for other agents (#463). Unset, MCP is off.
+      MENDEL_MCP_TOKEN: ${MENDEL_MCP_TOKEN:-}
     ports: ["127.0.0.1:${API_HOST_PORT:-8000}:8000"]
     volumes:
       # Mount local code for development.
@@ -127,6 +133,8 @@ services:
       # The forge assembles draft layers here and reads module files to check values (#364).
       - ./.run/forge:/app/forge
       - ./.run/chatgpt:/app/chatgpt
+      # A person's data, read where it is and never written (#511): same path on host and here.
+      - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
     # Migrate the database before serving; exec forwards shutdown signals to Uvicorn.
     # Use sh -c to preserve the virtualenv PATH, and keep command flags on one line.
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000 --reload"
@@ -165,9 +173,11 @@ services:
       - ./.run/drafts:/app/drafts
       # The forge's clone of nf-core/modules, kept between restarts (MENDEL_FORGE_CACHE).
       - ./.run/forge:/app/forge
+      # A person's data, read where it is and never written (#511): same path on host and here.
+      - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
     command: arq mendel_api.worker.WorkerSettings
 
-  # Run model calls for pipeline conversations, sample characterisation, and Forge.
+  # Run model calls for pipeline conversations and Forge.
   # A separate queue keeps long model calls from delaying other background jobs.
   ai-worker:
     build: *python-build
@@ -299,15 +309,44 @@ services:
       WIENER_INGEST_BASE_URL: http://wiener-ingest:8099
       WIENER_CONTAINER_PROFILE: docker
       WIENER_API_TOKEN: ${WIENER_API_TOKEN:-}
+      WIENER_DATA_ROOTS: '["${COMENI_DATA_ROOT:-${PWD}/.run/data}"]'
     volumes:
       # Let Nextflow launch task containers through the host Docker daemon.
       # Socket access grants host-level control; run trusted pipelines.
       - /var/run/docker.sock:/var/run/docker.sock
       # Keep host and container paths identical: the host daemon mounts task directories.
       - ${PWD}/.run/wiener:${PWD}/.run/wiener
+      # A person's data, read where it is and never written (#511): same path on host and here.
+      - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
     # Use the host Docker socket group so the worker can open it.
     group_add: ["${DOCKER_GID_SOCK:-957}"]
     command: arq wiener_api.worker.WorkerSettings
+
+  # Run → Console's terminals (#511): Nextflow's own output and shells in a run's folder, with the
+  # worker's mounts so a shell sees what the run saw. Host-level control behind the Wiener token
+  # (#525): a local tool's choice, revisited before any hosted use.
+  wiener-term:
+    build: *python-build
+    container_name: ${WIENER_TERM_CONTAINER_NAME:-wiener-term}
+    restart: unless-stopped
+    user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    depends_on:
+      wiener-api: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    environment:
+      WIENER_DATABASE_URL: postgresql+psycopg://wiener:${WIENER_DB_PASSWORD:-wiener}@postgres:5432/wiener
+      WIENER_REDIS_URL: redis://redis:6379/1
+      WIENER_ARTIFACT_ROOT: ${PWD}/.run/wiener/artifacts
+      WIENER_WORK_ROOT: ${PWD}/.run/wiener/work
+      WIENER_CONTAINER_PROFILE: docker
+      WIENER_API_TOKEN: ${WIENER_API_TOKEN:-}
+      WIENER_DATA_ROOTS: '["${COMENI_DATA_ROOT:-${PWD}/.run/data}"]'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}/.run/wiener:${PWD}/.run/wiener
+      - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
+    group_add: ["${DOCKER_GID_SOCK:-957}"]
+    command: uvicorn wiener_api.terminal:create_app --factory --host 0.0.0.0 --port 8002
 
   # Serve run submission, monitoring, artifact uploads, and execution settings.
   wiener-api:
@@ -325,6 +364,7 @@ services:
       WIENER_WORK_ROOT: ${PWD}/.run/wiener/work
       # Require a bearer token for run-management requests; unset disables authentication.
       WIENER_API_TOKEN: ${WIENER_API_TOKEN:-}
+      WIENER_DATA_ROOTS: '["${COMENI_DATA_ROOT:-${PWD}/.run/data}"]'
     # Share run artifacts and work paths with the worker and event receiver.
     volumes: ["${PWD}/.run/wiener:${PWD}/.run/wiener"]
     # Migrate before serving. The web service proxies requests to this internal API.

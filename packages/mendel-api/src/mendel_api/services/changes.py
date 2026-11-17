@@ -159,7 +159,12 @@ def _apply_input(draft_id: str, change: DecisionChange, stack, *, said, heard) -
     if change.retract:
         if old is None or (not old.present and old.origin is FactOrigin.OPEN):
             return False
-        if old.present:
+        if old.present and old.origin is FactOrigin.MEASURED:
+            # An input the data has (#511) is not a logged decision: withdrawing it is saying so.
+            decisions.set_input(draft_id, old.model_copy(update={"present": False,
+                                                                "origin": FactOrigin.PERSON_SAID}),
+                                **said)
+        elif old.present:
             decisions.withdraw_input(draft_id, old.key, who=said["who"])
         else:
             # *I don't have one*, forgotten (review I5): nobody knows again.
@@ -240,19 +245,21 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
         if change.retract or kind == "producer":
             if pinned.get((subject, frozenset(change.states))) is None:
                 return False
-            decisions.release_producer(draft_id, site, who=who)
+            decisions.release_producer(draft_id, site, **said)
         else:
             _tool(stack, str(change.value))
-            decisions.pin_producer(draft_id, site, str(change.value), **said, **heard)
+            decisions.pin_producer(draft_id, site, str(change.value), **said, **heard,
+                                   because=change.because)
     elif kind == "parameter":
         _parameter(stack, subject)
         if change.retract:
             current = {p.name: p.value for p in decisions.read(draft_id).parameters}
             if current.get(subject) is None:
                 return False
-            decisions.release_parameter(draft_id, subject, who=who)
+            decisions.release_parameter(draft_id, subject, **said)
         else:
-            decisions.set_parameter(draft_id, subject, change.value, **said, **heard)
+            decisions.set_parameter(draft_id, subject, change.value, **said, **heard,
+                                    because=change.because)
     elif kind == "asked":
         if change.retract:
             return decisions.retract_asked(draft_id, subject, **said) is not None
@@ -266,7 +273,7 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
                       "optional_input": "optional_input", "whole": "whole"}[kind]
             key = (decisions.exclusion_key(_site(change), change.value) if kind == "exclude"
                    else subject)
-            decisions.release_intent(draft_id, family, key, who=who)
+            decisions.release_intent(draft_id, family, key, **said)
         elif kind == "role":
             decisions.switch_off_role(draft_id, subject, **said)
         elif kind == "exclude":
@@ -287,8 +294,8 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             raise ValueError(coded("MI0204", f"this pipeline takes no {subject} to span rows"))
         if current.units == bool(change.value):
             return False
-        decisions.set_input(draft_id, current.model_copy(update={"units": bool(change.value)}),
-                            **said)
+        decisions.set_input(draft_id, current.model_copy(update={
+            "units": bool(change.value), **_theirs(current)}), **said)
     elif kind == "tables":
         # A study input supplied as several items, such as several databases (#466).
         _type(stack, subject)
@@ -298,18 +305,19 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
             raise ValueError(coded("MI0204", f"this pipeline takes no {subject} to be a table"))
         if current.table == bool(change.value):
             return False
-        decisions.set_input(draft_id, current.model_copy(update={"table": bool(change.value)}),
-                            **said)
+        decisions.set_input(draft_id, current.model_copy(update={
+            "table": bool(change.value), **_theirs(current)}), **said)
     elif kind == "retain":
         decisions.retain_fact(draft_id, subject, who=who)
     elif kind == "observation":
         decisions.select_observation(draft_id, subject, change.observation_id, who=who)
-    moved = _revision(draft_id) != before
-    if moved:
-        from mendel_api.services import suggestions
+    return _revision(draft_id) != before
 
-        suggestions.stale_for(draft_id, change)
-    return moved
+
+def _theirs(current) -> dict:
+    """An input the data has (#511), once a person decides something about it, is theirs: it is
+    logged as what they said, never as `measured` (Checkpoint B)."""
+    return {"origin": FactOrigin.PERSON_SAID} if current.origin is FactOrigin.MEASURED else {}
 
 
 def describe(change: DecisionChange) -> str:

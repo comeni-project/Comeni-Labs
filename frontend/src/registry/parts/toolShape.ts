@@ -1,4 +1,4 @@
-import { nameOf, type ItemView } from "../forging/useAdaptation";
+import { nameOf, type ItemView } from "../../forge/useAdaptation";
 
 export type Pin = {
   key: string; name: string; type: string | null; format?: string[];

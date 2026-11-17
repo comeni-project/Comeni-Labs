@@ -201,27 +201,6 @@ MODELS = Section(
 
 RO = ReadOnlyHere(why="reported by the server; not changed here")
 
-PROTECTION = Setting.choice(
-    key="privacy.protection",
-    label="Protection level",
-    help=(
-        "How much of your data a model may see. Level 0 lets you upload a sample, measured on "
-        "this server, and a model may read it. Open, guarded and sealed send less, down to "
-        "nothing at all."
-    ),
-    env="COMENI_PROTECTION_LEVEL",
-    options=[
-        ("level_0", "Level 0: a sample may be uploaded and read"),
-        ("open", "Open"),
-        ("guarded", "Guarded"),
-        ("sealed", "Sealed"),
-    ],
-    # Unimplemented protection levels remain visible but cannot be selected.
-    designed={o: "designed, not built (issue 71)" for o in ("open", "guarded", "sealed")},
-    default="level_0",
-)
-
-
 def _reported(key: str, label: str, help: str, why: ReadOnlyHere = RO) -> Setting:
     return Setting.readonly(key=key, label=label, help=help, unavailable=why)
 
@@ -272,9 +251,9 @@ MODEL_SERVER = _reported(
 PRIVACY = Section(
     key="privacy",
     title="Privacy & data",
-    lede="What a model may see, and where each purpose's data goes.",
+    lede="Where each purpose's data goes.",
     order=4,
-    settings=(PROTECTION, WHERE_PURPOSES),
+    settings=(WHERE_PURPOSES,),
 )
 def _limit(key: str, label: str, help: str, default: str, env: str,
            *, when_it_ends: bool = False) -> Setting:

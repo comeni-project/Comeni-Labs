@@ -138,7 +138,7 @@ describe("what the pipeline is for", () => {
     const box = container
       .querySelector('[data-testid="terminal"] > div:last-child') as HTMLElement;
     // `align` is at rank 1, which is the last: x + NODE_W + GAP.
-    expect(parseInt(box.style.left, 10)).toBe(360 + 172 + 90);
+    expect(parseInt(box.style.left, 10)).toBe(360 + 145 + 90);
   });
 
   it("carries a TYPE and offers nothing to type into", () => {

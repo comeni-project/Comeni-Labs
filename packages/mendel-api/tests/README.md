@@ -10,7 +10,7 @@ Use the [repository test index](../../../tests/README.md) for environment setup.
 |---|---|---|
 | [authoring/](authoring/README.md) | Session commands, handlers, HTTP conversation, build plans, preview and canvas. | Fake model/queue; persistence cases require Postgres. |
 | [authoring/decisions/](authoring/decisions/README.md) | Facts, grounded changes, suggestions, corrections, revisions, forks and deletion. | Most require Postgres and authored session scenarios. |
-| [authoring/samples/](authoring/samples/README.md) | Upload admission, inspection, characterisation, gaps and protection rules. | Controlled inspection/model responses; session cases require Postgres. |
+| [authoring/samples/](authoring/samples/README.md) | Sample inspection, measurers and gaps. | Controlled inspection/model responses; session cases require Postgres. |
 | [settings/](settings/README.md) | Settings actions, reports, model purposes, codecs and persistence. | Memory store by default; persistent-store cases use `real_settings`. |
 | [pipelines/](pipelines/README.md) | Drafts, saved bundles, build services and gate services. | Temporary artifacts; route/persistence cases require Postgres; subprocesses are stubbed where appropriate. |
 | [infrastructure/](infrastructure/README.md) | Transactions, migrations, identity, shapes, health, OpenAPI and worker scheduling. | Mix of pure checks and PostgreSQL-specific behavior. |
@@ -50,7 +50,6 @@ The namespace is test support and must not be imported by production code.
 | `gathering.py` | Waiting questions, replies and gathered facts. |
 | `http.py` | HTTP clients, fake queues/model responses and conversation request helpers. |
 | `samples.py` | Sample observations, data questions and inspection-result builders. |
-| `characterisation.py` | Bounded model-reading scenarios and recorded responses. |
 | `changes.py` | Versioned change commands and version reads. |
 | `corrections.py` | Explicit correction commands. |
 | `disagreements.py` | Conflicting observations and disagreement choices. |
@@ -58,4 +57,3 @@ The namespace is test support and must not be imported by production code.
 
 Helper fixtures keep scenario-specific cleanup where their starting states differ. Test files
 contain their behavior checks and small local setup. Repository paths come from `support.paths`;
-shape goldens stay in `golden/shapes/` regardless of where their tests are grouped.

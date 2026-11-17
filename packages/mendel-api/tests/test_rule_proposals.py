@@ -76,7 +76,7 @@ def keep(answer=HISAT2) -> str:
 def installation(tmp_path, monkeypatch):
     with session_scope() as db:
         db.execute(sa.text("DELETE FROM rule_proposal"))
-        db.execute(truncate("TRUNCATE TABLE pipeline_authoring_proposal, pipeline_authoring_turn, "
+        db.execute(truncate("TRUNCATE TABLE pipeline_authoring_turn, "
                             "pipeline_authoring_session, pipeline_draft, gate_run"))
         db.execute(sa.text("DELETE FROM ai_invocation WHERE prompt_id = 'rules.propose.v1'"))
     monkeypatch.setattr(settings, "draft_root", tmp_path / "drafts")

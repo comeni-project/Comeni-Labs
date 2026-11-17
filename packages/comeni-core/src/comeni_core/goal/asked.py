@@ -18,6 +18,7 @@ from comeni_core.spell.marks import (
     ChannelName,
     ContractId,
     HumanParamValue,
+    Line,
     MeasurementId,
     PortName,
     RoleName,
@@ -56,6 +57,13 @@ class GoalInput(BaseModel):
         return sorted(states)
 
 
+class Author(StrEnum):
+    """Who made a choice in the goal: a person, or the builder agent (#463)."""
+
+    PERSON = "person"
+    MODEL = "model"
+
+
 class ParamOverride(BaseModel):
     """A validated human parameter override.
 
@@ -66,6 +74,11 @@ class ParamOverride(BaseModel):
 
     name: PortName
     value: HumanParamValue
+    by: Author = Field(default=Author.PERSON, exclude_if=lambda by: by is Author.PERSON)
+    """Who made it: a person, or the builder agent (#463). The AI's is resolved as its own,
+    tier 4 and flagged, never as a person's settled intent."""
+    because: Line = Field(default="", exclude_if=lambda because: not because)
+    """The reason the AI gave; empty for a person's."""
     """A value accepted from a person-authored goal file."""
 
 
@@ -110,6 +123,11 @@ class ProducerPin(BaseModel):
 
     site: Site
     contract: ContractId
+    by: Author = Field(default=Author.PERSON, exclude_if=lambda by: by is Author.PERSON)
+    """Who made it: a person, or the builder agent (#463). The AI's is resolved as its own,
+    tier 4 and flagged, never as a person's settled intent."""
+    because: Line = Field(default="", exclude_if=lambda because: not because)
+    """The reason the AI gave; empty for a person's."""
 
 
 class RoleAbsence(BaseModel):

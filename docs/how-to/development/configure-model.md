@@ -56,6 +56,11 @@ provider, with no API key. Calls count against the plan's usage limits.
 5. Open the purpose's **Call settings** and set **Temperature** to 1. A reasoning model
    refuses any other temperature unless its reasoning effort is `none`.
 
+The subscription route does not cache prompts: the builder agent resends its prompt and tool
+definitions on every round of a turn, and each is billed in full against the plan. A provider that
+caches (the OpenAI API caches on its own; Claude models are sent the system prompt marked for
+caching) bills that repeated part at a fraction. Cached input shows in a session's call list.
+
 ## Tune a purpose's calls
 
 Each purpose's **Call settings** can set its own temperature, reasoning effort and timeout.

@@ -17,7 +17,7 @@ from comeni_core.plan.draft import (
     ParamSettled,
     Settled,
 )
-from comeni_core.plan.tiers import Tier, ValueSource
+from comeni_core.plan.tiers import ValueSource
 from pydantic import BaseModel, ConfigDict
 
 from mendel_authoring.decisions import ActorKind
@@ -93,7 +93,7 @@ def committed(
     - a step settled at tiers 1 to 3 keeps the resolver's tier and reason;
     - a person's pinned tool keeps its own reason (*you chose … over …*), credited to the person;
     - a model's tier-4 choice keeps the model as its author;
-    - a person accepting a tier-4 default is the author of that choice, and says so.
+    - a tie the resolver broke without judgement stays the resolver's, at tier 4, for review.
     """
     step = blueprint.step(node_id)
     contract_id = step.module.contract_id
@@ -133,7 +133,14 @@ def committed(
         key = f"{node_id}.{setting.name}"
         if key in keys:
             settled_params.append(
-                ParamSettled(key=key, settled=_settled(setting.why, by=_model_of(blueprint, key)))
+                # A value a model settled names who: its decision record's model, else the builder
+                # agent, as the router credits the agent's tool pins. Never the committing actor:
+                # a person's rebuild must not re-stamp the AI's value as theirs (final review).
+                ParamSettled(key=key, settled=_settled(
+                    setting.why,
+                    by=_model_of(blueprint, key)
+                    or (MODEL_AUTHOR if setting.why.source is ValueSource.MODEL else ""),
+                ))
             )
 
     return (
@@ -180,15 +187,15 @@ def _selection(blueprint: Blueprint, step: Step, *, by: str, actor_kind: ActorKi
             "",
         )
         return _settled(step.why, by=chooser)
-    if step.why.tier is Tier.AMBIGUOUS:
-        return Settled(
-            source=ValueSource.HUMAN,
-            tier=Tier.AMBIGUOUS,
-            reason="accepted by a person where no rule could decide",
-            axis_reason=step.why.axis_reason or SELECTION_AXIS,
-            by=by,
-        )
+    # **A tie nobody answered stays the resolver's, at tier 4, flagged** (#463 review): committing
+    # a step is the agent's projection, not a person's acceptance. A person answers a tie by
+    # choosing a tool (a pin, above) or reviewing the step, never by its being in the draft.
     return _settled(step.why)
+
+
+MODEL_AUTHOR = "builder-agent"
+"""Who a model-set value is credited to when its decision record names no model: the agent, as
+`mendel_resolver.router` credits the agent's tool pins."""
 
 
 def _settled(why, *, by: str = "") -> Settled:

@@ -17,8 +17,8 @@ from pathlib import Path
 
 from comeni_ai import Client
 from comeni_ai.prompts import PromptTemplate
-from comeni_core.egress.authoring import AuthoringRole
 from comeni_core.egress.forge import (
+    AuthoringRole,
     ForgeFinding,
     ForgeItemStatus,
     ForgeItemText,
@@ -53,7 +53,7 @@ from mendel_api.services import forge_checks, forging, registry
 from mendel_api.settings import model_access
 
 PROMPTS = Path(__file__).parent.parent / "forge" / "prompts"
-ITEM_SHAPES = PROMPTS / "parts" / "items.v6.md"
+ITEM_SHAPES = PROMPTS / "parts" / "items.v7.md"
 """Every item kind and its value's shape, in one place, for each prompt that writes items
 (#468). A prompt shown only the adaptation's items cannot add the first item of a new kind."""
 CHAT_TAIL = 12

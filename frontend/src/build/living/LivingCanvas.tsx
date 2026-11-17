@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import type { components } from "../../api/schema";
 import type { DraftEdge, DraftGraph, PortView, Step } from "../../api/types";
 import { Canvas } from "../Canvas";
-import { elbow, NODE_H, NODE_W, path, portOffset, SPINE, type Point, type Positions } from "../geometry";
+import { elbow, MEASURE_W, NODE_W, path, portOffset, type Point, type Positions } from "../geometry";
 import { idFor, withEdge, withNode, withoutEdge, withoutNode } from "../graphOps";
 import { Minimap } from "../Minimap";
 import { Picker } from "../Picker";
@@ -11,16 +11,17 @@ import { Port } from "../Port";
 import { place } from "../Sources";
 import { accepts, useCompatibility } from "../useCompatibility";
 import { useView } from "../useView";
-import type { MotionEvent } from "./authoringReducer";
-import { Flowline, flowLabel, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "./CollectionChannel";
+import { chipName, Flowline, flowLabel, ResultNode, SOURCE_H, SOURCE_W, SourceNode, type Flow } from "./CollectionChannel";
+import { useTypeNames } from "./useTypeNames";
 import { valuesOf } from "./values";
 import type { Author } from "./format";
-import { LivingNode, type ReviewState } from "./LivingNode";
-import { motionFor, wireSubject } from "./motion";
+import { anchorOf, cardHeight, foldedInputs, LivingNode, OUT_W, shownPorts, type ReviewState, type StepProgress } from "./LivingNode";
+import { StepMenu } from "./StepMenu";
 
 type Channel = components["schemas"]["ChannelView"];
+type Rule = components["schemas"]["InputRule"];
 
-/** The accepted pipeline, the step on offer as a ghost, and how its data moves.
+/** The pipeline as it stands, and how its data moves.
  *
  * **Draws; decides nothing.** Positions are the blueprint's `dag-core` layout, so a step appears
  * where it will stay; a hand-added step takes the drawn layout's. How many times each part runs is
@@ -38,16 +39,26 @@ type Channel = components["schemas"]["ChannelView"];
 const CONTROL = "px-[14px] py-[6px] rounded-button border border-line-2 bg-surface text-[13px] font-semibold "
   + "text-ink cursor-pointer hover:bg-[var(--hover)] focus-visible:shadow-[var(--ring)]";
 
-/** What the canvas's colours mean, as the boards' legend says it. */
-const LEGEND: [string, string][] = [
-  ["settled", "var(--line-2)"], ["measured", "var(--measured)"], ["needs you", "var(--needs-you)"],
-];
+/** **What each layer the canvas draws means**: the legend is the layers shown, so a canvas that
+ *  draws something new (a living board's layer) adds its own entry and nothing else changes. */
+export const LAYERS = {
+  /** Build: how settled each step is. */
+  build: [["settled", "var(--line-2)"], ["measured", "var(--measured)"], ["needs you", "var(--needs-you)"]],
+  /** Run: how far each step has got. */
+  run: [["done", "var(--done)"], ["running", "var(--now)"], ["waiting", "var(--line-2)"], ["failed", "var(--needs-you)"]],
+  /** A lit path (Outputs): the way a file came. */
+  path: [["this file's path", "var(--path)"]],
+} satisfies Record<string, [string, string][]>;
+
+export function legendOf(layers: (keyof typeof LAYERS)[]): [string, string][] {
+  return layers.flatMap((layer) => LAYERS[layer] as [string, string][]);
+}
+
+/** How far a shared input runs as one line before its branches split off. */
+const TRUNK = 72;
 
 export function LivingCanvas({
   graph,
-  ghost,
-  ghostProposal = null,
-  ghostEdges = [],
   positions,
   steps,
   channels = [],
@@ -56,23 +67,28 @@ export function LivingCanvas({
   onSelect,
   footer,
   readOnly = false,
-  events = [],
-  onPlayed = () => undefined,
-  reveal = {},
-  empty,
   stale = false,
   reviews = {},
+  aiChosen = [],
   working = false,
   focus = null,
   onEdit,
   shown,
+  onMenu,
+  beside = null,
+  samples,
+  onAddHere,
+  connect = null,
+  onConnected,
+  progress,
+  fitOnOpen = false,
+  given = {},
+  showTool = true,
+  showPorts = true,
+  onTidy,
+  lit = null,
 }: {
   graph: DraftGraph;
-  /** The node id of the step on offer, when there is one. */
-  ghost: string | null;
-  /** The proposal that put it there — what its `proposal_shown` event is about. */
-  ghostProposal?: string | null;
-  ghostEdges?: DraftEdge[];
   positions: Positions;
   steps: Record<string, Step>;
   channels?: Channel[];
@@ -82,16 +98,12 @@ export function LivingCanvas({
   footer?: React.ReactNode;
   /** A complete preview: nothing here can be moved, selected or changed. */
   readOnly?: boolean;
-  events?: MotionEvent[];
-  onPlayed?: (event: MotionEvent) => void;
-  /** Spawn's first-arrival reveal: a delay per step, in ms. Empty on reload. */
-  reveal?: Record<string, number>;
-  /** What the empty canvas says instead of the invitation — after an honest stop, why. */
-  empty?: string;
   /** The frame is the last pipeline built, and answers have changed since: said, never hidden. */
   stale?: boolean;
   /** Whether each drawn step's review still holds — said in words, never by repainting its tier. */
   reviews?: Record<string, ReviewState>;
+  /** Steps where the AI chose something nobody has reviewed yet (#463). */
+  aiChosen?: string[];
   /** A decision is on its way: the last complete frame stays, marked as being updated. */
   working?: boolean;
   /** The step the engine or the person is looking at — brought on screen when it changes. */
@@ -100,17 +112,59 @@ export function LivingCanvas({
   onEdit?: (next: DraftGraph) => void;
   /** Changes when the page shows the canvas again (a phone's tab); the canvas fits itself then. */
   shown?: string;
+  /** Open a step's menu (#499): a right-click, a long press, `⋯`, or the keyboard. */
+  onMenu?: (node: string) => void;
+  /** What opens beside a step — its menu or its card (#499) — placed next to it on screen, so it
+   *  moves with pan and zoom without scaling; on a phone a sheet from the bottom (`.step-beside`). */
+  beside?: { node: string; content: React.ReactNode } | null;
+  /** The analysis's kept samples, for ×N and *all N*. */
+  samples?: number;
+  /** Right-click on the empty canvas: *Add step here*, with where on the drawing it goes. */
+  onAddHere?: (at: Point) => void;
+  /** Open the port picker on this step's input (Connect, from the Step tab). */
+  connect?: { node: string; port: string } | null;
+  onConnected?: () => void;
+  /** **On Run**: each step's progress in the run, drawn on its node in place of its values. */
+  progress?: Record<string, StepProgress>;
+  /** Fit the drawing to the frame when it first has steps (Run's panels, which open small). */
+  fitOnOpen?: boolean;
+  /** What Data answers each input type with (a reference's file name), for its chip. */
+  given?: Record<string, string>;
+  /** The rail's *On the steps*: each step's tool and version, and its port names. */
+  showTool?: boolean;
+  showPorts?: boolean;
+  /** **Tidy**: the server lays the drawing out again with the current geometry. */
+  onTidy?: () => void;
+  /** **A path lit** (Run → Outputs): these steps, and the wires between them, stay as drawn; the
+   *  rest fade, so a file's way through the pipeline reads at a glance. `null` lights everything. */
+  lit?: string[] | null;
 }) {
+  const [here, setHere] = useState<{ x: number; y: number } | null>(null);
+  /** The step under the pointer, whose details show beside it. */
+  const [hovered, setHovered] = useState<string | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hover = (id: string, on: boolean) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHovered(on ? id : null), on ? 250 : 80);
+  };
   const view = useView();
   const probe = useRef<HTMLSpanElement>(null);
   const [moved, setMoved] = useState<Positions>({});
   const drag = useRef<{ id: string; from: Point; origin: Point; travelled: boolean } | null>(null);
+  const press = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Which output a wire is being dragged from. */
   const [wiring, setWiring] = useState<{ node: string; port: string } | null>(null);
   /** The port whose candidates are open, and where on screen. */
   const [picking, setPicking] = useState<{ node: string; port: PortView; at: Point } | null>(null);
   const index = useCompatibility();
   const editable = onEdit !== undefined && !readOnly;
+  useEffect(() => {
+    if (!connect) return;
+    const port = steps[connect.node]?.ports.find((p) => p.side === "in" && p.name === connect.port);
+    const where = positions[connect.node];
+    if (port && where) setPicking({ node: connect.node, port, at: onScreen({ x: where.x - 356, y: where.y }) });
+    onConnected?.();
+  }, [connect, steps, positions, onConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** **Delete removes the selected step**, not while a field has focus — typing a value into a
    *  setting would delete the step being configured. */
@@ -140,6 +194,28 @@ export function LivingCanvas({
   }, [wiring]);
 
   const at: Positions = { ...positions, ...moved };
+  const typeName = useTypeNames();
+  const measuring = (id: string) => !!(steps[id] as { measures?: boolean } | undefined)?.measures;
+  /** The value a measurement set at this step, for its card's row: `sa_index_nbases 8`, or
+   *  *in the run* when the run measures it. */
+  const setRowOf = (id: string): string | undefined => {
+    const settings = steps[id]?.settings ?? [];
+    const measured = settings.find((x) => x.tier === 3 && x.evidence === "measured" && x.value != null);
+    if (measured) return `${measured.name} ${String(measured.value)}`;
+    const atRun = settings.find((x) => x.at_run);
+    return atRun ? `${atRun.name} · set in the run` : undefined;
+  };
+  /** A step's drawn height: its ports (#494), its measured value's row, Run's progress row. */
+  const tall = (id: string) => cardHeight(steps[id]?.ports ?? [],
+    { measures: measuring(id), setRow: !!setRowOf(id), progress: !!progress?.[id],
+      more: foldedInputs(steps[id]?.ports ?? []) > 0 });
+  /** The tool's rules this step breaks, in a few words for its card's tags. */
+  const brokenOf = (id: string): string[] => ((steps[id] as { rules?: Rule[] } | undefined)?.rules ?? [])
+    .filter((r) => r.broken)
+    .map((r) => r.kind === "requires" ? `needs ${r.names.join(", ")}`
+      : r.kind === "forbids" ? `not with ${r.names.join(", ")}`
+      : r.kind === "one_of" ? "pick one input" : r.kind === "any_of" ? "needs one input" : "both or neither");
+  const widthOf = (id: string) => (measuring(id) ? MEASURE_W : NODE_W);
 
   // **The canvas follows the engine**: when the step in focus changes, or the server places it,
   // it is brought on screen. Read from the server's placement, not a drag's, so moving a step by
@@ -150,44 +226,43 @@ export function LivingCanvas({
     const frame = probe.current?.closest<HTMLElement>("[data-testid='canvas']");
     if (!target || !frame) return;
     const rect = frame.getBoundingClientRect();
-    bringIntoView({ x: target.x, y: target.y, w: NODE_W, h: NODE_H }, { w: rect.width, h: rect.height });
+    bringIntoView({ x: target.x, y: target.y, w: NODE_W, h: tall(focus!) }, { w: rect.width, h: rect.height });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a step moves by its coordinates, not its object
   }, [focus, target?.x, target?.y, bringIntoView]);
-  // **Each step once.** A frame's graph already holds the step on offer; the ghost names which one
-  // it is, and its wires are drawn dashed, not also solid.
-  const ids = [...new Set([...graph.nodes.map((n) => n.id), ...(ghost ? [ghost] : [])])];
+  const ids = [...new Set(graph.nodes.map((n) => n.id))];
   const visible = new Set(ids);
-  const wireKey = (e: DraftEdge) => `${e.from_node}.${e.from_port}>${e.to_node}.${e.to_port}`;
-  const dashed = new Set(ghostEdges.map(wireKey));
-  const solid = graph.edges.filter((e) => !dashed.has(wireKey(e)));
-
-  if (ids.length === 0) {
-    return (
-      <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-2"
-           data-testid="canvas-empty">
-        <span className="text-label text-ink-3">Nothing built yet</span>
-        <span className="text-[12.5px] text-ink-2">
-          {empty ?? "The steps arrive here one at a time as you answer in the conversation"}
-        </span>
-        {footer}
-      </div>
-    );
-  }
+  /** A measuring pill hung under the step it reads (#517) needs no wire: being under it says so. */
+  const hung = (e: DraftEdge) => !!(steps[e.to_node] as { measures?: boolean } | undefined)?.measures
+    && at[e.to_node] !== undefined && at[e.to_node]?.x === at[e.from_node]?.x;
+  /** Each hung pill and the step it hangs under, joined by a short connector instead of a wire. */
+  const hangers = graph.edges.filter((e) => hung(e));
+  const solid = graph.edges.filter((e) => !hung(e));
+  /** **A fact one step measures for another** (walk 2026-11-15): genome length, measured in the
+   *  run, sets STAR's index size. It travels on the samples' metadata, not a port, so no wire
+   *  shows it; a dotted line does, labelled with the fact and the setting it decides. */
+  const byContract = new Map(ids.map((id) => [steps[id]?.contract_id, id] as const));
+  const factLinks = ids.flatMap((to) => (steps[to]?.settings ?? []).flatMap((setting) =>
+    (setting.at_run?.facts ?? []).flatMap((fact) => {
+      const from = fact.measured_by ? byContract.get(fact.measured_by) : undefined;
+      return from && from !== to ? [{ from, to, label: `${fact.fact} → ${setting.name}` }] : [];
+    })));
 
   const count = channels.find((c) => c.grain === "sample")?.count ?? null;
+  /** The ports a card draws — the ones its wires reach — in the card's own order. */
   const portsOf = (node: string, side: "in" | "out") =>
-    (steps[node]?.ports ?? []).filter((p) => p.side === side);
+    shownPorts(steps[node]?.ports ?? []).filter((p) => p.side === side);
   const tipIn = (node: string, port: string): Point | null => {
     const box = at[node];
     if (!box) return null;
     const index = portsOf(node, "in").findIndex((p) => p.name === port);
-    return { x: box.x, y: box.y + (index < 0 ? SPINE : portOffset(index)) };
+    return { x: box.x, y: box.y + anchorOf(measuring(node), Math.max(0, index)) };
   };
   const tipOut = (node: string, port: string): Point | null => {
     const box = at[node];
     if (!box) return null;
     const index = portsOf(node, "out").findIndex((p) => p.name === port);
-    return { x: box.x + NODE_W, y: box.y + (index < 0 ? SPINE : portOffset(index)) };
+    // From the output triangle's tip (`OUT_W - 1` past the edge), where the arrow points.
+    return { x: box.x + widthOf(node) + OUT_W - 1, y: box.y + anchorOf(measuring(node), Math.max(0, index)) };
   };
   const gathers = (node: string, port: string) =>
     portsOf(node, "in").some((p) => p.name === port && p.gathers);
@@ -210,7 +285,7 @@ export function LivingCanvas({
       if (!other || other === anchor) return true;
       return (
         box.x + SOURCE_W <= other.x || other.x + NODE_W <= box.x ||
-        box.y + SOURCE_H <= other.y || other.y + NODE_H <= box.y
+        box.y + SOURCE_H <= other.y || other.y + tall(id) <= box.y
       );
     });
   };
@@ -221,11 +296,51 @@ export function LivingCanvas({
     const anchor = at[feeds[0][0]];
     const index = perNode.get(feeds[0][0]) ?? 0;
     perNode.set(feeds[0][0], index + 1);
-    const geometry = place("Input", anchor, index, gutterClear(anchor, index), { w: SOURCE_W, h: SOURCE_H });
-    return [{ channel, box: geometry.box, edge: geometry.edge, feeds }];
+    const geometry = place("Input", anchor, index, gutterClear(anchor, index), { w: SOURCE_W, h: SOURCE_H },
+                           tall(feeds[0][0]));
+    // **Dragged on its own** (walk 2026-11-17): where a person put it, its wire's start with it.
+    const put = moved[`source:${channel.name}`];
+    const dx = put ? put.x - geometry.box.x : 0, dy = put ? put.y - geometry.box.y : 0;
+    return [{ channel, box: put ?? geometry.box, edge: { x: geometry.edge.x + dx, y: geometry.edge.y + dy }, feeds }];
   });
 
-  const drawn = ids.filter((id) => id !== ghost).length;
+  /** **Results**: a chip after each step nothing else reads (not a measuring step), named for what
+   *  it makes, with how many — or, on Run, how far it has got. */
+  const read = new Set(graph.edges.map((e) => e.from_node));
+  const results = ids.filter((id) => at[id] && !read.has(id) && !measuring(id) && portsOf(id, "out").length > 0)
+    .map((id) => {
+      const out = portsOf(id, "out")[0];
+      const perItem = steps[id]?.runs === "per_item";
+      return {
+        id,
+        at: moved[`result:${id}`] ?? { x: at[id].x + NODE_W + 48, y: at[id].y + portOffset(0) - SOURCE_H / 2 },
+        name: chipName(typeName(out.type_id)),
+        detail: progress?.[id]?.label ?? (perItem && samples ? `${samples} files` : "1 file"),
+      };
+    });
+
+  /** Moving an input or a result on its own, as a step is moved: kept in `moved` beside the steps,
+   *  so Tidy gives every one back. */
+  const chipDrag = (key: string, origin: Point): React.HTMLAttributes<HTMLDivElement> | undefined =>
+    readOnly ? undefined : {
+      onPointerDown: (e) => {
+        drag.current = { id: key, from: { x: e.clientX, y: e.clientY }, origin, travelled: false };
+        (e.target as Element).setPointerCapture?.(e.pointerId);
+        e.stopPropagation();
+      },
+      onPointerMove: (e) => {
+        const d = drag.current;
+        if (!d || d.id !== key) return;
+        const dx = (e.clientX - d.from.x) / view.view.k;
+        const dy = (e.clientY - d.from.y) / view.view.k;
+        if (!d.travelled && Math.abs(dx) + Math.abs(dy) < 3) return;
+        d.travelled = true;
+        setMoved((m) => ({ ...m, [key]: { x: Math.round(d.origin.x + dx), y: Math.round(d.origin.y + dy) } }));
+      },
+      onPointerUp: () => { setTimeout(() => { drag.current = null; }, 0); },
+    };
+
+  const drawn = ids.length;
   /** Fit the whole drawing, inputs included, in the frame the probe sits in. */
   const fitView = () => {
     const frame = probe.current?.closest<HTMLElement>("[data-testid='canvas']");
@@ -233,8 +348,8 @@ export function LivingCanvas({
     const xs = [...ids.map((id) => at[id]?.x ?? 0), ...sources.map((s) => s.box.x)];
     const ys = [...ids.map((id) => at[id]?.y ?? 0), ...sources.map((s) => s.box.y)];
     const left = Math.min(...xs), top = Math.min(...ys);
-    const right = Math.max(...ids.map((id) => (at[id]?.x ?? 0) + NODE_W));
-    const bottom = Math.max(...ids.map((id) => (at[id]?.y ?? 0) + NODE_H), ...sources.map((s) => s.box.y + SOURCE_H));
+    const right = Math.max(...ids.map((id) => (at[id]?.x ?? 0) + NODE_W), ...results.map((r) => r.at.x + SOURCE_W));
+    const bottom = Math.max(...ids.map((id) => (at[id]?.y ?? 0) + tall(id)), ...sources.map((s) => s.box.y + SOURCE_H));
     const rect = frame.getBoundingClientRect();
     view.fit(right - left, bottom - top, rect.width, rect.height - 96, { x: left, y: top - 40 });
   };
@@ -249,13 +364,43 @@ export function LivingCanvas({
     if (shown === firstShown.current || touched.current) return;
     fitLatest.current();
   }, [shown]);
+  // **Fitted as the agent builds** (walk 2026-11-16): a pipeline that grows on a canvas nobody
+  // has moved is fitted each time its step count changes; a person's own view is kept.
+  const lastDrawn = useRef(drawn);
+  useEffect(() => {
+    if (drawn === lastDrawn.current) return;
+    lastDrawn.current = drawn;
+    if (drawn === 0 || touched.current) return;
+    requestAnimationFrame(() => fitLatest.current());
+  }, [drawn]);
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!fitOnOpen || opened.current || drawn === 0) return;
+    opened.current = true;
+    requestAnimationFrame(() => fitLatest.current());
+  }, [fitOnOpen, drawn]);
+  // **Tidy fits the drawing** once the server's new layout is drawn.
+  const placedKey = JSON.stringify(positions);
+  const fitWhenPlaced = useRef(false);
+  useEffect(() => {
+    if (!fitWhenPlaced.current) return;
+    fitWhenPlaced.current = false;
+    requestAnimationFrame(() => fitLatest.current());
+  }, [placedKey]);
+  // **Tidy fits the drawing** once the server's layout is back, the next frame.
+  const tidied = useRef(false);
+  useEffect(() => {
+    if (!tidied.current || Object.keys(moved).length > 0) return;
+    tidied.current = false;
+    fitLatest.current();
+  }, [moved]);
   const moving = (e: React.SyntheticEvent) => {
     if (!(e.target as HTMLElement).closest("[data-node]")) touched.current = true;
   };
-  const width = Math.max(0, ...ids.map((id) => (at[id]?.x ?? 0) + NODE_W + 80));
+  const width = Math.max(0, ...ids.map((id) => (at[id]?.x ?? 0) + NODE_W + 80), ...results.map((r) => r.at.x + SOURCE_W + 20));
   const height = Math.max(
     0,
-    ...ids.map((id) => (at[id]?.y ?? 0) + 200),
+    ...ids.map((id) => (at[id]?.y ?? 0) + tall(id) + 88),
     ...sources.map((s) => s.box.y + SOURCE_H + 20),
   );
 
@@ -273,18 +418,66 @@ export function LivingCanvas({
     return { x: (r?.left ?? 0) + p.x * view.view.k + view.view.x, y: (r?.top ?? 0) + p.y * view.view.k + view.view.y };
   };
 
+  // **After every hook**: the canvas starts empty and fills while mounted, so returning early
+  // above a hook changed their order on the first step (#463).
+  if (ids.length === 0) {
+    return (
+      <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center" data-testid="canvas-empty">
+        {footer}
+      </div>
+    );
+  }
+
   return (
     <Canvas
       view={view.view}
-      onWheel={(e) => { touched.current = true; view.onWheel(e); }}
-      onPointerDown={(e) => { moving(e); view.onPointerDown(e); }}
+      onWheel={(e) => {
+        // A wheel over a step's menu or card scrolls it; it never zooms the canvas under it.
+        if ((e.target as HTMLElement).closest(".step-beside")) return;
+        touched.current = true; view.onWheel(e);
+      }}
+      onPointerDown={(e) => {
+        // A pointer inside the step's menu or card is not a pan of the canvas.
+        if ((e.target as HTMLElement).closest(".step-beside")) return;
+        moving(e); view.onPointerDown(e);
+      }}
       dots
+      onContextMenu={onAddHere && !readOnly ? (e) => {
+        if ((e.target as HTMLElement).closest("[data-node], .step-beside")) return;
+        e.preventDefault();
+        const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        setHere({ x: e.clientX - box.left, y: e.clientY - box.top });
+      } : undefined}
       onClick={(e) => {
-        if (!(e.target as HTMLElement).closest("[data-node]")) onSelect(null);
+        // A click on the empty canvas lets go of the step; one inside its menu or card does not.
+        const target = e.target as HTMLElement;
+        if (!target.closest("[data-node]") && !target.closest(".step-beside")) onSelect(null);
       }}
       footer={
         <>
           <span ref={probe} hidden />
+          {here && onAddHere && (
+            <div className="step-beside absolute z-20" style={{ left: here.x, top: here.y }}>
+              <StepMenu label="canvas menu" items={[{ id: "add", label: "Add step here" }]}
+                        onChoose={() => {
+                          setHere(null);
+                          // The click, from the screen into the drawing's own coordinates.
+                          onAddHere({ x: (here.x - view.view.x) / view.view.k, y: (here.y - view.view.y) / view.view.k });
+                        }} onClose={() => setHere(null)} />
+            </div>
+          )}
+          {beside && at[beside.node] && (
+            // Beside the step on screen, kept inside the frame by CSS alone (no measuring).
+            <div className="step-beside absolute z-10 overflow-auto select-text cursor-auto"
+                 // Where the step is on screen; `.step-beside` (main.css) keeps the card inside
+                 // the frame on every side, and no taller than the room below its top.
+                 style={{
+                   ["--card-x" as string]: `${Math.round(view.view.x + (at[beside.node].x + NODE_W + 36) * view.view.k)}px`,
+                   ["--card-y" as string]: `${Math.round(view.view.y + at[beside.node].y * view.view.k)}px`,
+                 }}>
+              {beside.content}
+            </div>
+          )}
           {/* **The boards' frame**: what is drawn and over how many samples, along the top; the
               view's controls bottom-left, what the colours mean bottom-right. */}
           <div className="absolute left-4 right-4 top-3 flex items-baseline gap-3 pointer-events-none">
@@ -305,12 +498,12 @@ export function LivingCanvas({
           </div>
           {/* **The minimap, above the legend** (issue 389): the whole graph, each step marked in the
               colour of what it needs, so where the open value is reads without panning. */}
-          <Minimap place="right-4 bottom-[64px]" offsets={{}}
+          {!progress && <Minimap place="right-4 bottom-[64px]" offsets={{}}
                    nodes={ids.map((id) => {
                      const counted = steps[id] ? valuesOf([steps[id]]) : null;
                      return { id, x: at[id]?.x ?? 0, y: at[id]?.y ?? 0,
                               tier: counted?.open ? 4 : counted?.measured ? 3 : 1 };
-                   })} />
+                   })} />}
           {/* One wrapping row: where the legend cannot sit beside the controls it goes above them. */}
           <div className="absolute left-4 right-4 bottom-4 flex flex-wrap-reverse items-end gap-2 pointer-events-none
                           [&>*]:pointer-events-auto">
@@ -319,14 +512,16 @@ export function LivingCanvas({
             <button type="button" aria-label="zoom in" onClick={() => { touched.current = true; view.nudge(0.1); }} className={CONTROL}>+</button>
             <button type="button" aria-label="reset the view" onClick={() => { touched.current = true; view.reset(); }} className={CONTROL}>1:1</button>
             {footer}
-            {Object.keys(moved).length > 0 && (
-              <button type="button" data-testid="tidy" onClick={() => setMoved({})} className={CONTROL}>
+            {(onTidy || Object.keys(moved).length > 0) && (
+              <button type="button" data-testid="tidy" title="Lay the steps out again, tidily"
+                      onClick={() => { setMoved({}); touched.current = false; tidied.current = true; fitWhenPlaced.current = !!onTidy; onTidy?.(); }}
+                      className={CONTROL}>
                 Tidy
               </button>
             )}
             <ul aria-label="legend" className="ml-auto m-0 flex items-center gap-3 px-3 py-[6px]
                                                rounded-button border border-line bg-surface text-[12.5px] text-ink-2">
-              {LEGEND.map(([word, colour]) => (
+              {legendOf([progress ? "run" : "build", ...(lit !== null ? ["path" as const] : [])]).map(([word, colour]) => (
                 <li key={word} className="list-none flex items-center gap-[6px]">
                   <span aria-hidden className="w-[10px] h-[5px] rounded-full" style={{ background: colour }} />
                   {word}
@@ -339,39 +534,104 @@ export function LivingCanvas({
     >
       <svg aria-hidden width={width} height={height}
            className="absolute left-0 top-0 overflow-visible pointer-events-none">
-        {sources.flatMap(({ channel, edge, feeds }) =>
-          feeds.map(([node, port]) => {
-            const tip = tipIn(node, port);
-            if (!tip) return null;
-            const flow: Flow =
-              gathers(node, port) ? "gather" : channel.grain === "sample" ? "many" : "one";
-            return (
-              <Flowline key={`src-${channel.name}-${node}-${port}`} testId={`flow-${channel.name}-${node}`}
-                        from={edge} to={tip} flow={flow}
-                        label={selected === node ? flowLabel(flow, channel.count ?? null) : undefined} />
-            );
-          }),
-        )}
+        {sources.flatMap(({ channel, edge, feeds }) => {
+          // **One trunk for an input several steps read** (#517): a single run out of the input,
+          // named, and each step's wire branching off its end.
+          const shared = feeds.length > 1;
+          const branch = shared ? { x: edge.x + TRUNK, y: edge.y } : edge;
+          return [
+            shared && (
+              <g key={`trunk-${channel.name}`} data-testid={`trunk-${channel.name}`}>
+                <line x1={edge.x} y1={edge.y} x2={branch.x} y2={branch.y} stroke="var(--port-line)" strokeWidth={2} />
+                <text x={edge.x + 4} y={edge.y - 6} className="font-data" fontSize={10} fill="var(--now-ink)">
+                  {channel.name} · shared
+                </text>
+              </g>
+            ),
+            ...feeds.map(([node, port]) => {
+              const tip = tipIn(node, port);
+              if (!tip) return null;
+              const flow: Flow =
+                gathers(node, port) ? "gather" : channel.grain === "sample" ? "many" : "one";
+              return (
+                <Flowline key={`src-${channel.name}-${node}-${port}`} testId={`flow-${channel.name}-${node}`}
+                          from={branch} to={tip} flow={flow} pulse={lit !== null && lit.includes(node)}
+                          lit={lit !== null && lit.includes(node)}
+                          label={selected === node ? flowLabel(flow, channel.count ?? null) : undefined} />
+              );
+            }),
+          ];
+        })}
+        {results.map((r) => {
+          const from = tipOut(r.id, portsOf(r.id, "out")[0].name);
+          if (!from) return null;
+          return (
+            <Flowline key={`result-wire-${r.id}`} testId={`result-wire-${r.id}`} from={from}
+                      to={{ x: r.at.x, y: r.at.y + SOURCE_H / 2 }} pulse={lit !== null && lit.includes(r.id)}
+                      lit={lit !== null && lit.includes(r.id)}
+                      flow={steps[r.id]?.runs === "per_item" ? "many" : "one"} />
+          );
+        })}
         {solid.map((edge) => {
           const from = tipOut(edge.from_node, edge.from_port);
           const to = tipIn(edge.to_node, edge.to_port);
           if (!from || !to) return null;
           const flow = flowOf(edge);
-          const played = motionFor(events, ["edge_committed"], wireSubject(edge));
+          const faded = lit !== null && !(lit.includes(edge.from_node) && lit.includes(edge.to_node));
           return (
-            <Flowline key={`${edge.from_node}.${edge.from_port}-${edge.to_node}.${edge.to_port}`}
+            <g key={`${edge.from_node}.${edge.from_port}-${edge.to_node}.${edge.to_port}`}
+               data-lit={lit === null ? undefined : String(!faded)} opacity={faded ? 0.3 : 1}>
+            <Flowline pulse={lit !== null && !faded} lit={lit !== null && !faded}
                       testId={`wire-${edge.from_node}-${edge.to_node}`} from={from} to={to} flow={flow}
                       label={
                         selected === edge.from_node || selected === edge.to_node
                           ? flowLabel(flow, count)
                           : undefined
-                      }
-                      className={played?.className}
-                      onDrawn={played ? () => onPlayed(played.event) : undefined} />
+                      } />
+            </g>
           );
         })}
         {/* **A wide invisible path under each wire** to detach it: a 1.5px stroke is not a thing
             a hand can hit. */}
+        {/* The fact links: out of the measuring step's side, down the gap between columns, along
+            the gap above the decided step's row, and into its top — so the line runs between
+            steps, never through them, and its label sits on the run along the row gap. */}
+        {factLinks.map(({ from, to, label }) => {
+          const a = at[from], b = at[to];
+          if (!a || !b) return null;
+          // **Out of the measuring step's output**, always: from its triangle's tip, a short run
+          // along the flow, then down (or up) to the gap above the decided step, along it, and in.
+          const out = portsOf(from, "out")[0];
+          // A measuring step with no declared output still says its fact from its right edge.
+          const start = out ? tipOut(from, out.name)
+            : { x: a.x + widthOf(from), y: a.y + anchorOf(measuring(from), 0) };
+          if (!start) return null;
+          const gx = start.x + 14;
+          const leftward = b.x + NODE_W / 2 < gx;
+          const tx = b.x + NODE_W / 2;
+          const ly = b.y - 16;
+          const d = `M ${start.x} ${start.y} H ${gx} V ${ly} H ${tx} V ${b.y}`;
+          return (
+            <g key={`fact-${from}-${to}-${label}`} data-testid={`fact-link-${from}-${to}`}>
+              <path d={d} fill="none" stroke="var(--measured)" strokeWidth={1.25} strokeDasharray="4 4" />
+              <text x={leftward ? gx - 6 : gx + 6} y={ly - 5} textAnchor={leftward ? "end" : "start"}
+                    className="font-data"
+                    style={{ fontSize: 10.5, fill: "var(--measured-ink)" }}>
+                {label}
+              </text>
+            </g>
+          );
+        })}
+        {hangers.map((e) => {
+          const above = at[e.from_node], pill = at[e.to_node];
+          if (!above || !pill) return null;
+          const x = pill.x + MEASURE_W / 2;
+          return (
+            <line key={`hang-${e.from_node}-${e.to_node}`} data-testid={`hang-${e.from_node}-${e.to_node}`}
+                  x1={x} y1={above.y + tall(e.from_node)} x2={x} y2={pill.y}
+                  stroke="var(--measured)" strokeWidth={1.25} />
+          );
+        })}
         {editable && solid.map((edge) => {
           const from = tipOut(edge.from_node, edge.from_port);
           const to = tipIn(edge.to_node, edge.to_port);
@@ -386,28 +646,20 @@ export function LivingCanvas({
             </path>
           );
         })}
-        {ghostEdges.map((edge) => {
-          const from = tipOut(edge.from_node, edge.from_port);
-          const to = tipIn(edge.to_node, edge.to_port);
-          return from && to ? (
-            <Flowline key={`ghost-${edge.from_node}-${edge.to_node}-${edge.to_port}`}
-                      testId={`ghost-wire-${edge.from_node}-${edge.to_node}`}
-                      from={from} to={to} flow="one" dashed />
-          ) : null;
-        })}
       </svg>
 
       {sources.map(({ channel, box }) => (
         <SourceNode key={channel.name} at={box} name={channel.name} typeId={channel.type_id}
-                    states={channel.states} grain={channel.grain} count={channel.count ?? null} />
+                    states={channel.states} grain={channel.grain} count={channel.count ?? samples ?? null}
+                    given={given[channel.type_id]} drag={chipDrag(`source:${channel.name}`, box)} />
+      ))}
+      {results.map((r) => (
+        <ResultNode key={`result-${r.id}`} testId={`living-result-${r.id}`} at={r.at} name={r.name} detail={r.detail}
+                    drag={chipDrag(`result:${r.id}`, r.at)} />
       ))}
 
       {ids.map((id) => {
         if (!at[id]) return null;
-        const isGhost = id === ghost;
-        const played = isGhost
-          ? (ghostProposal ? motionFor(events, ["proposal_shown"], ghostProposal) : null)
-          : motionFor(events, ["proposal_accepted"], id);
         return (
           <Fragment key={id}>
           <LivingNode
@@ -415,20 +667,34 @@ export function LivingCanvas({
             at={at[id]}
             author={authors[id] ?? "resolver"}
             ports={steps[id]?.ports ?? []}
-            counts={steps[id] && !isGhost ? valuesOf([steps[id]]) : undefined}
-            reviewState={isGhost ? (reviews[id] === "again" ? "again" : "proposed") : reviews[id] ?? "unknown"}
+            counts={steps[id] ? valuesOf([steps[id]]) : undefined}
+            reviewState={reviews[id] ?? "unknown"}
+            aiChoice={aiChosen.includes(id)}
             perItem={steps[id]?.runs === "per_item"}
             takes={steps[id]?.takes_samples?.samples}
-            ghost={isGhost}
+            samples={samples}
+            version={steps[id]?.contract_id.split("@")[1]}
+            tool={steps[id]?.contract_id.split("@")[0].replace(/^[^/]+\//, "").replaceAll("/", " ")}
+            does={(steps[id] as { does?: string | null } | undefined)?.does}
+            measures={measuring(id)}
+            setRow={setRowOf(id)}
+            showTool={showTool}
+            showPorts={showPorts}
+            progress={progress?.[id]}
+            onHover={(on) => hover(id, on)}
+            broken={brokenOf(id)}
             selected={selected === id}
-            className={id in reveal ? "living-reveal" : played?.className}
-            delay={reveal[id]}
-            onAnimationEnd={played ? () => onPlayed(played.event) : undefined}
+            className={lit !== null && !lit.includes(id) ? "opacity-40" : undefined}
             onSelect={() => {
               if (!readOnly && !drag.current?.travelled) onSelect(id);
             }}
+            onMenu={onMenu && !readOnly ? () => onMenu(id) : undefined}
             onPointerDown={(e) => {
               if (readOnly) return;
+              // **A long press is a right-click** on a touch screen (#499).
+              if (e.pointerType === "touch" && onMenu) {
+                press.current = setTimeout(() => { press.current = null; drag.current = null; onMenu(id); }, 550);
+              }
               drag.current = { id, from: { x: e.clientX, y: e.clientY }, origin: at[id], travelled: false };
               (e.target as Element).setPointerCapture?.(e.pointerId);
             }}
@@ -439,9 +705,11 @@ export function LivingCanvas({
               const dy = (e.clientY - d.from.y) / view.view.k;
               if (!d.travelled && Math.abs(dx) + Math.abs(dy) < 3) return;
               d.travelled = true;
+              if (press.current) { clearTimeout(press.current); press.current = null; }
               setMoved((m) => ({ ...m, [id]: { x: Math.round(d.origin.x + dx), y: Math.round(d.origin.y + dy) } }));
             }}
             onPointerUp={() => {
+              if (press.current) { clearTimeout(press.current); press.current = null; }
               // **A macrotask, not a microtask.** The click that ends a drag is dispatched after this
               // handler returns, and a microtask would clear the drag before it — so dragging a
               // node would also select it.
@@ -450,13 +718,24 @@ export function LivingCanvas({
               }, 0);
             }}
           />
-          {editable && !isGhost && (
+          {/* **`⋯` opens the menu** on the step that is selected — the way in on a phone, where
+              there is no right-click (#499). */}
+          {onMenu && !readOnly && selected === id && (
+            <button type="button" aria-label={`menu for ${id.toUpperCase()}`} onClick={() => onMenu(id)}
+                    className="absolute w-[24px] h-[24px] grid place-items-center p-0 rounded-control border
+                               border-line-2 bg-surface text-ink-2 text-[14px] leading-none cursor-pointer
+                               hover:text-ink focus-visible:shadow-[var(--ring)]"
+                    style={{ left: at[id].x + NODE_W + 6, top: at[id].y }}>
+              ⋯
+            </button>
+          )}
+          {editable && (
             <div data-testid={`ports-${id}`} className="absolute pointer-events-none"
-                 style={{ left: at[id].x, top: at[id].y, width: NODE_W, height: NODE_H }}>
+                 style={{ left: at[id].x, top: at[id].y, width: widthOf(id), height: tall(id) }}>
               {(["in", "out"] as const).flatMap((side) =>
                 portsOf(id, side).map((port, i) => (
                   <span key={`${side}.${port.name}`} className="pointer-events-auto">
-                    <Port port={port} side={side} y={portOffset(i)}
+                    <Port port={port} side={side} y={anchorOf(measuring(id), i)}
                           verdict={side === "in" ? verdictFor(id, port.name) : undefined}
                           onStartWire={() => setWiring({ node: id, port: port.name })}
                           onFinishWire={() => {
@@ -475,6 +754,10 @@ export function LivingCanvas({
           </Fragment>
         );
       })}
+      {hovered && at[hovered] && steps[hovered] && hovered !== beside?.node && (
+        <HoverCard step={steps[hovered]} at={{ x: at[hovered].x + widthOf(hovered) + 14, y: at[hovered].y }}
+                   samples={samples} measuring={measuring(hovered)} typeName={typeName} />
+      )}
       {picking && editable && (
         <Picker port={picking.port} node={picking.node} at={picking.at}
                 onClose={() => setPicking(null)}
@@ -490,5 +773,44 @@ export function LivingCanvas({
                 }} />
       )}
     </Canvas>
+  );
+}
+
+/** **A step's details on hover** (#511): the tool and version, how often it runs, and what goes in
+ *  and comes out, by type — what the card leaves out to stay small. */
+function HoverCard({ step, at, samples, measuring, typeName }: {
+  step: Step; at: Point; samples?: number; measuring: boolean; typeName: (id: string) => string;
+}) {
+  const [tool, version] = step.contract_id.split("@");
+  const ins = step.ports.filter((p) => p.side === "in");
+  const outs = step.ports.filter((p) => p.side === "out");
+  const does = (step as { does?: string | null }).does;
+  return (
+    <div role="tooltip" data-testid={`hover-${step.id}`}
+         className="absolute z-30 w-[240px] pointer-events-none flex flex-col gap-[6px] px-3 py-[10px] rounded-panel border border-line bg-surface shadow-e2"
+         style={{ left: at.x, top: at.y }}>
+      <span className="text-[13px] font-semibold text-ink">{measuring ? `Measures ${outs[0]?.name.replaceAll("_", " ") ?? "a fact"}` : does ?? step.process}</span>
+      <span className="font-data text-[11px] text-ink-2">{tool.replace(/^[^/]+\//, "").replaceAll("/", " ")} {version}</span>
+      <span className="text-[12px] text-ink-2">
+        {step.runs === "per_item" ? `Runs once per sample${samples ? `, ×${samples}` : ""}` : "Runs once"}
+        {measuring && " · in the run, from the data"}
+      </span>
+      {ins.length > 0 && (
+        <span className="flex flex-col gap-[2px] text-[11.5px]">
+          <span className="font-semibold text-ink-3">In</span>
+          {ins.map((p) => (
+            <span key={p.name} className="text-ink-2"><span className="font-data">{p.name}</span> · {typeName(p.type_id)}{p.optional ? " · optional" : ""}</span>
+          ))}
+        </span>
+      )}
+      {outs.length > 0 && (
+        <span className="flex flex-col gap-[2px] text-[11.5px]">
+          <span className="font-semibold text-ink-3">Out</span>
+          {outs.map((p) => (
+            <span key={p.name} className="text-ink-2"><span className="font-data">{p.name}</span> · {typeName(p.type_id)}</span>
+          ))}
+        </span>
+      )}
+    </div>
   );
 }

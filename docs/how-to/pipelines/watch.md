@@ -1,66 +1,60 @@
 # Watching runs
 
-The run pages turn Nextflow events into a lab-readable view of what happened. Use them to answer
+A run's pages turn Nextflow's events into a lab-readable view of what happened. Use them to answer
 the practical questions first: is work still moving, what failed, what retried, and where is the
 evidence?
 
-![Runs board in the alpha app](../../assets/screenshots/run-page-alpha.png)
+![A finished run's Overview in the alpha app](../../assets/screenshots/run-overview.jpg)
 
-## Runs board
+## Find a run
 
-Open `/runs` to see recent runs. The board is for comparison and triage:
-
-| View | Use |
-|---|---|
-| Phase filter | separate running, succeeded, failed, cancelled, and lost runs |
-| Time bands | see whether recent work looks normal |
-| Rows | open the run that needs attention |
-
-Start on the board when you are comparing runs. Open a single run when you need evidence about
-one execution.
+Runs belong to their analysis. Open the analysis, then **Run**: the rail lists **Runs of this
+analysis**, newest first, each with its state. **Home** lists analyses that need you, including
+a run that went wrong. A new run opens on its Overview as soon as it is sent.
 
 ## One run
 
-A run page shows the state folded from the event stream. The important areas are:
-
-| Area | What it answers |
+| Page | What it answers |
 |---|---|
-| Header | which run this is, its phase, elapsed time, and executor |
-| Overview | how many tasks are done, running, waiting, failed, or cached |
-| Failure panel | the most useful failure detail when a run fails |
-| Timeline | when attempts started and ended |
-| Tasks | filterable task-level detail |
-| Console | event stream and logs |
+| Overview | how many samples have finished; the pipeline as Build draws it, each step with its progress; what is worth a look (a step that asked for far more memory than it used, retries, failures); results so far; and the cores and memory the run reserved and the cores it used |
+| Steps | when each step ran, task by task, and each task's attempts |
+| Outputs | what the run published, by the step that made it; **Open** shows a file in a new tab |
+| Console | Nextflow's own terminal output, a shell in the run's folder, a searchable list of commands, and the assistant |
+
+While the run is going, Overview's machine card is titled **Now**; once it is over it becomes
+**What it used**, with each figure's peak.
+
+The Console's shell has full access to this machine, as the run did. The assistant on Console sees
+what the console and shell show, with paths shortened. It may run commands that only read files
+inside the run's folder itself, and shows you each one; anything else it suggests, you run.
 
 ## Healthy run example
 
-For the shared [RNA-seq example](../../tutorials/rnaseq-example.md), a healthy run should move through phases
-without needing you to inspect every task:
+For the shared [RNA-seq example](../../tutorials/rnaseq-example.md), a healthy run moves through its
+states without needing you to inspect every task:
 
 | What you see | Meaning |
 |---|---|
-| phase is `running` | Nextflow has accepted the work and tasks are reporting |
-| task counts increase | the event stream is still moving |
-| cached count appears | Nextflow reused work from a previous compatible run |
-| phase becomes `succeeded` | every required task completed |
+| state is **Running** | Nextflow has accepted the work and tasks are reporting |
+| samples finished go up | the event stream is still moving |
+| on a second run, steps finish almost at once | Nextflow reused finished tasks from the previous run; they count as done |
+| state becomes **Done** | every required task completed |
 
-The overview answers “is the run broadly okay?” before the task table answers “what happened to
-each unit of work?”
+The Overview answers "is the run broadly okay?" before Steps answers "what happened to each unit
+of work?"
 
 ## Failed runs
 
-Start with the failure panel. It is meant to pull together the task, exit code, attempts,
-memory evidence, and report text when the run produced one. Then use Tasks and Console for the
-full record.
-
-## Failed run example
+When a run goes wrong, its Overview and Console say which step failed and why. Console's banner
+names the failed task, opens its folder in the shell, and offers **Resume the run**, which runs
+the same command Nextflow ran with `-resume`, so finished tasks are kept.
 
 | Symptom | First place to look | Why |
 |---|---|---|
-| one process failed | Failure panel | it gathers the likely cause and attempt history |
-| many tasks failed immediately | Console | launch or input path errors often show there first |
-| tasks keep retrying | Tasks filtered by attempt | retries can reveal resource escalation or repeated failure |
-| no task reports for a long time | Timeline and header | the run may be queued, stalled, or unable to reach the executor |
+| one step failed | Overview's *Worth a look*, then Console | it names the task, its exit and its attempts |
+| many tasks failed immediately | Console | launch or input errors show there first |
+| tasks keep retrying | Steps | each task's attempts show resource escalation or repeated failure |
+| no task reports for a long time | Overview's machine card and Steps | the run may be queued, stalled, or unable to reach the executor |
 
 Do not start by reading raw logs line by line. Start from the folded state, then drill down.
 
@@ -70,6 +64,6 @@ answer, go to [Making a choice depend on your data](../registry/write-rule.md).
 
 ## Alpha note
 
-The watch surface is useful today, but it is still local-stack oriented. Cluster and production
-deployment guidance belongs in the environment-specific run documentation as the platform
-matures.
+Runs go to this machine. Running on a cluster is shown in New run and not yet available. Memory
+*used* over time is not drawn: Nextflow reports one peak per task, and adding peaks together would
+draw a moment that never happened.

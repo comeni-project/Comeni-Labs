@@ -172,3 +172,16 @@ def test_only_a_piece_folder_beside_a_piece_declaration_is_code(tmp_path):
     data = _write(tmp_path, "tools/acme/piece/types/acme.piece.yml", "declares: vocabulary\n")
     assert _in_source(code, tmp_path)
     assert not _in_source(data, tmp_path)
+
+
+def test_an_assembly_is_read_as_contigs_not_reads():
+    """A FASTA assembly's records are contigs (#511): a read measure must not fold them."""
+    from comeni_core.declared.inspection import FormatPiece
+
+    fasta = FormatPiece.model_validate(
+        {"id": "fasta", "version": "1.0.0", "reads": ["assembly.fasta"],
+         "extensions": [".fna"], "record": "contig", "files": "1..1", "entry": "piece/f.py"})
+    n50 = Measurer.model_validate(
+        {"id": "n50", "version": "1.0.0", "measures": "n50", "by": "code", "record": "contig",
+         "runs": ["server"], "entry": "piece/n50.py"})
+    assert fasta.record == n50.record == "contig"

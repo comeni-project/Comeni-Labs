@@ -8,6 +8,11 @@ cites its entry; the long form is in [the archive](journal/archive/).
 
 ## Where the work is
 
+- **Frontend redesign (#511) is built** on feat/frontend-redesign: Data → Build → Run, Registry (Tools,
+  Vocabulary, Measurers, Releases), the Forge (home, Tool · Tests · Publish) and Settings, all to the board
+  (`docs/superpowers/plans/2026-11-17-*`). Walked 11-17 on the yeast demo, desktop light and dark;
+  the defects found are fixed or on #535. Left: the phone walk, Outputs' design, the final branch
+  review. Deferred: memory used on Run (#532), "Your registry can't yet" (#534), #533. (11-17)
 - **Task 14, step 14.7: walking the living pipeline with a real model.** The tree is #119.
 - **One builder (#395) plans 1–5 and Part I.2 (#293) are built** (journal 10-27, 10-28, not yet
   compacted); their browser checks are #404. Also #357, #302. (10-22, 10-28)
@@ -17,7 +22,7 @@ cites its entry; the long form is in [the archive](journal/archive/).
   After merge, bump the registry's `ENGINE_REF` (no MD0027 in its CI until then). (11-14)
 - **Walks run on GPT** through the ChatGPT subscription (#457), not local models. (11-10)
 - **All of it is on `main`** (PR #402, with a behaviour-preserving refactoring campaign). Left for
-  an authorised behaviour pass: `SampleUpload.tsx`'s hook warning, Node under Vite's floor. (10-26)
+  an authorised behaviour pass: Node under Vite's floor. (10-26)
 
 ## How work is done now
 
@@ -29,51 +34,35 @@ cites its entry; the long form is in [the archive](journal/archive/).
 
 ## The living pipeline (describe → build)
 
+- **The builder is an agent** (#463, on the builder-agent branch): it reads, chooses through
+  tools, builds and explains; the engine validates, routes, offers rules as advice and emits.
+  How it works: `docs/explanation/builder-agent.md`; design:
+  `docs/superpowers/specs/2026-11-14-builder-agent-design.md`; plan:
+  `docs/superpowers/plans/2026-11-14-builder-agent.md`.
+  The scripted walk (stages, proposals, suggestions, pacing, the protocol) is deleted. (11-15)
 - A researcher types a sentence and builds beside a conversation at `/build?session=<id>`;
   `/build?draft=<id>` and a bare `/build` open one too: every pipeline has one. (09-13, 10-22)
-- **The authoring protocol** is `docs/design/authoring-protocol.md`: the engine decides what is
-  missing, a model only phrases and reads answers, nothing is guessed, an open measurement falls
-  to tier 4, and stage ④ (the consultant build) is knowingly optimistic. (2026-09-28)
-- **The diagram runs the engine:** protocol, interpreter and commands are the pure
-  `mendel-authoring`; a session moves only by a drawn arrow, one command in one transaction through
-  `mendel_api/services/session.py`, one module per stage. One build; tier 4 always stops. (2026-10-05, 10-06)
-- **Protection level 0** (everything open) is the MVP; invariant 15 does not hold at level 0 and
-  characterisation is a fourth AI point, both recorded loosenings. (2026-09-28, 2026-10-04)
-- **The want is two calls:** `builder.family.v4` answers `fits`, then `builder.goal.v9` reads the
-  chosen families (also the one-step path); a want nothing makes asks the person. (2026-09-30)
-- **The model phrases and returns grounded changes:** `ask.v3` words each gap, `readback.v2` reads
-  the goal back, `chat.v7` reads typed words. A change quoting the turn being answered is *heard*:
-  recorded before the goal is confirmed, offered after; others are offered. (2026-10-13, 10-18)
-- **One writer for every change** (`mendel_api/services/changes.py`); the decision rows are the only home of
-  the want, confirmation is recorded, and every prompt is shown *what is known*. (2026-10-13)
-- **Whatever a chosen tool reads comes from somewhere, or is tier 4** (#338): derived from the
-  module's code (`conformance.facts_read`); strandedness stops once, on the step card. (2026-10-16)
-- **A value against a measured one is asked about, then followed** (#345); a not-offered request is
-  a note that changes nothing (#347, #355); `measurement.*` types reach no builder door (#346). (10-18)
-- **Every data question explains itself:** *What is this?* (the registry's curated `name` and
-  `explain`) and why it is asked (the engine's). The voice is `docs/design/voice.md`. (2026-10-13)
-- **Replies are enforced formats** (`comeni_ai/formats.py`, one per provider), so a shape is never
-  refused; a raw JSON Schema in the prompt made models echo it. (2026-09-29)
+- **Every AI choice is the AI's**: tier 4, source model, with its `because`, and any rule it
+  overrode beside it; flagged for review, never blocking. The person's direct actions go
+  through the same writer (`mendel_api/services/changes.py`) and rebuild at once. (11-14)
+- **The same tools over MCP** at `/api/mcp`, behind `MENDEL_MCP_TOKEN`; off without one. (11-14)
+- **A hand edit is read as intent** (`read_edit`): applied as the person's change and kept as
+  structural intent (`absent_roles`, `exclusions`, `sources`; `MD0319`–`MD0321`). (2026-10-22)
+- **An unanswered tier-4 setting is optional** when its route leaves the tool its own behaviour
+  (`OMITTABLE`: `ext`, `directive`): still flagged, it stops nothing (#384). Tier 3 is never
+  called *measured* (#387, #397). (2026-10-22)
 - **Current decisions are retained rows**, one pointer per subject; corrections cascade reviews,
   truthful unbuildable answers stay. (2026-10-11)
-- **A hand edit is read, not saved** (`read_edit`): readings the engine words, applied on *Yes*,
-  kept as structural intent (`absent_roles`, `exclusions`, `sources`; `MD0319`–`MD0321`). No
-  fork. A drawn pipeline's first reading gathers its inputs (#399). (2026-10-22)
-- **An unanswered tier-4 setting is optional** when its route leaves the tool its own behaviour
-  (`OMITTABLE`: `ext`, `directive`): still flagged, it stops nothing; `positional` and `meta`
-  still need the person (#384). Tier 3 is never called *measured* (#387, #397). (2026-10-22)
-- **The canvas is the session's frame**, read from recorded rows and never re-resolved; progress
-  counts the plan (*Step 4 of 5*); an alternative previews as the whole saved pipeline. (2026-10-12)
-- **Open:** `MD0225` does not cover step selections; the `comeni-core` version bump for goal pins,
-  missing-premise records and provenance. (2026-09-13, 2026-10-06, 2026-10-07)
+- **Open:** the frontend's agent thread (task 12); AI reading a file as a tool (#501); tier-4
+  structure for the agent (#502); how samples differ, as a spread (#503); `MD0225` does not
+  cover step selections. (2026-11-15)
 
-## Samples (protection level 0)
+## Samples
 
-- **A gap can be answered with a sample**, one file or a pair: each file's first 4 MB, measured in
-  memory by a child process with no secrets and hard limits; facts are kept, never bytes. A
-  disagreement asks keep, use, correct or unknown. (2026-10-03, 2026-10-04)
-- **A sample nothing reads is read by the AI** (door 6): up to 8 KB; a family, then a type; each
-  property **quotes its line**, checked, then *read by AI*. Open: #238, #239. (2026-10-04)
+- **Data is ticked folders, read in place** (#511): each file's first 4 MB, measured by a child
+  process with no secrets and hard limits; facts are derived from the analysis's data at every
+  read, never logged. Upload, protection levels, characterisation (door 6) and shape versions were
+  removed on 2026-11-16; AI reading an unrecognised file returns as an agent tool (#501).
 - **Measurers are composed pieces** in `registry/measurers/` (codecs, formats, measurers), run
   only from trusted layers in one pass; below a threshold a measurer says *undetermined*. (11-10)
 - **A measured fact is `MEASURED`**, naming its pieces and evidence. Adding a piece:
@@ -87,7 +76,7 @@ cites its entry; the long form is in [the archive](journal/archive/).
   typed in the menu are sealed with `COMENI_SETTINGS_KEY`. (2026-10-01)
 - **On the RX 7600 (8 GiB):** gemma3:4b and qwen2.5:7b fit (0.5–3 s a call); gemma3:12b spills
   36% to the CPU (3–7 s, about 20 s a chat reply) and is what the walks run. (2026-09-29, 10-18)
-- Pacing is live; tier 4 by a model, protection levels and k8s/awsbatch remain designed. (10-01)
+- Pacing is live; tier 4 by a model and k8s/awsbatch remain designed; a privacy posture is #71. (10-01)
 
 ## The screens
 

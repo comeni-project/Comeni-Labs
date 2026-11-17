@@ -5,6 +5,9 @@ never select themselves: only an explicit selection changes the goal.
 """
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -86,10 +89,29 @@ def _heard(fields, heard, heard_seq):
     return {**fields, "heard": heard, "heard_seq": heard_seq} if heard is not None else fields
 
 
+_EXPECTED: ContextVar[int | None] = ContextVar("expected_decision_revision", default=None)
+"""The decision revision the writes in this context were read at (`expecting`)."""
+
+
+@contextmanager
+def expecting(revision: int | None) -> Iterator[None]:
+    """**Writes in this block are refused unless the decisions are still at `revision`**
+    (#463 review), checked under the draft's row lock in the write's own transaction, so a
+    change landing between a check and a write cannot slip through. Each write moves the
+    expectation on, so one caller's several writes do not refuse each other. `None` lifts it."""
+    token = _EXPECTED.set(revision)
+    try:
+        yield
+    finally:
+        _EXPECTED.reset(token)
+
+
 def _draft(db, draft_id, expected_revision=None):
     row = db.get(PipelineDraft, draft_id, with_for_update=True, populate_existing=True)
     if row is None:
         raise KeyError(draft_id)
+    if expected_revision is None:
+        expected_revision = _EXPECTED.get()
     if expected_revision is not None and row.decision_revision != expected_revision:
         raise ValueError(coded("MI0201", "the selected decisions changed; read them again"))
     return row
@@ -108,7 +130,18 @@ def _changed(db, draft):
     if stamps.get(key) != draft.decision_revision:
         draft.decision_revision += 1
         stamps[key] = draft.decision_revision
+    if _EXPECTED.get() is not None:
+        _EXPECTED.set(draft.decision_revision)
     draft.projection_current = False
+
+
+def data_changed(draft_id) -> None:
+    """The analysis's data changed, so the facts and inputs derived from it did (#511): the goal
+    moved, and the drawn pipeline is no longer current until it is built again."""
+    with session_scope() as db:
+        draft = db.get(PipelineDraft, draft_id)
+        if draft is not None:
+            _changed(db, draft)
 
 
 def _current(db, draft_id, family):
@@ -362,60 +395,93 @@ def retain_fact(draft_id, subject, *, who, expected_revision=None):
 
 
 def read(draft_id):
+    """The draft's decisions, **with what its data measured beside them** (#511): facts about the
+    data are derived from `analysis_data` at every read, never logged (`services.data.facts`)."""
     with session_scope() as db:
         _draft(db, draft_id)
-        return Decisions(
-            inputs=[
-                InputDecision(
-                    key=s.subject_key,
-                    type_id=r.type_id,
-                    name=r.name,
-                    states=r.states,
-                    present=r.present,
-                    origin=r.origin,
-                    units=r.units,
-                    table=r.table,
-                )
-                for s, r in _current(db, draft_id, "input")
-            ],
-            wants=[
-                WantDecision(
-                    type_id=r.type_id,
-                    states=r.states,
-                    present=r.present,
-                    states_order=r.states_order,
-                )
-                for s, r in _current(db, draft_id, "want")
-            ],
-            facts=[
-                _fact(_observation(db, r.observation_id), s.subject_key)
-                for s, r in _current(db, draft_id, "fact")
-            ],
-            producers=[
-                ProducerChoice(site=Site(type_id=r.type_id, states=r.states), contract=r.contract)
-                for s, r in _current(db, draft_id, "producer")
-            ],
-            parameters=[
-                ParameterChoice(name=r.name, value=r.value)
-                for s, r in _current(db, draft_id, "parameter")
-            ],
-            roles=[RoleChoice(role=r.role, absent=r.absent)
-                   for s, r in _current(db, draft_id, "role")],
-            exclusions=[
-                ExclusionChoice(site=Site(type_id=r.type_id, states=r.states),
-                                contract=r.contract, excluded=r.excluded)
-                for s, r in _current(db, draft_id, "exclusion")
-            ],
-            sources=[SourceChoice(consumer=r.consumer, port=r.port, producer=r.producer)
-                     for s, r in _current(db, draft_id, "source")],
-            optional_inputs=[
-                OptionalInputChoice(contract=r.contract, port=r.port,
-                                    state=InputState(r.state) if r.state else None)
-                for s, r in _current(db, draft_id, "optional_input")
-            ],
-            wholes=[WholeChoice(contract=r.contract, whole=r.whole)
-                    for s, r in _current(db, draft_id, "whole")],
-        )
+        return _with_data(db, draft_id, _decided(db, draft_id))
+
+
+def _with_data(db, draft_id, decided):
+    from mendel_api.models import AnalysisData
+    from mendel_api.services.data.facts import merge
+
+    # Only the two columns facts come from: the file list of a large analysis is not read here.
+    found = db.execute(select(AnalysisData.samples, AnalysisData.references)
+                       .where(AnalysisData.draft_id == draft_id)).first()
+    if found is None or not (found.samples or found.references):
+        return decided
+    facts, inputs = merge(decided.facts, decided.inputs, list(found.samples or []),
+                          list(found.references or []))
+    return decided.model_copy(update={"facts": facts, "inputs": inputs})
+
+
+def _decided(db, draft_id):
+    return Decisions(
+        inputs=[
+            InputDecision(
+                key=s.subject_key,
+                type_id=r.type_id,
+                name=r.name,
+                states=r.states,
+                present=r.present,
+                origin=r.origin,
+                units=r.units,
+                table=r.table,
+            )
+            for s, r in _current(db, draft_id, "input")
+        ],
+        wants=[
+            WantDecision(
+                type_id=r.type_id,
+                states=r.states,
+                present=r.present,
+                states_order=r.states_order,
+            )
+            for s, r in _current(db, draft_id, "want")
+        ],
+        facts=[
+            _fact(_observation(db, r.observation_id), s.subject_key)
+            for s, r in _current(db, draft_id, "fact")
+        ],
+        producers=[
+            ProducerChoice(site=Site(type_id=r.type_id, states=r.states), contract=r.contract,
+                           **_authored(r))
+            for s, r in _current(db, draft_id, "producer")
+        ],
+        parameters=[
+            ParameterChoice(name=r.name, value=r.value, **_authored(r))
+            for s, r in _current(db, draft_id, "parameter")
+        ],
+        roles=[RoleChoice(role=r.role, absent=r.absent)
+               for s, r in _current(db, draft_id, "role")],
+        exclusions=[
+            ExclusionChoice(site=Site(type_id=r.type_id, states=r.states),
+                            contract=r.contract, excluded=r.excluded)
+            for s, r in _current(db, draft_id, "exclusion")
+        ],
+        sources=[SourceChoice(consumer=r.consumer, port=r.port, producer=r.producer)
+                 for s, r in _current(db, draft_id, "source")],
+        optional_inputs=[
+            OptionalInputChoice(contract=r.contract, port=r.port,
+                                state=InputState(r.state) if r.state else None)
+            for s, r in _current(db, draft_id, "optional_input")
+        ],
+        wholes=[WholeChoice(contract=r.contract, whole=r.whole)
+                for s, r in _current(db, draft_id, "whole")],
+    )
+
+
+def _authored(revision) -> dict:
+    """Who made a tool choice or a setting, and the AI's reason (#463)."""
+    model = revision.actor_kind == ActorKind.MODEL.value
+    return {"by": "model" if model else "person", "because": revision.because or ""}
+
+
+def revision(draft_id) -> int:
+    """The decisions' revision: it moves with every change, whoever made it."""
+    with session_scope() as db:
+        return _draft(db, draft_id).decision_revision
 
 
 def goal(draft_id):
@@ -448,7 +514,9 @@ def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):
                 )
                 for p in decisions.producers
             ],
-            "parameter": [(p.name, p.model_dump(mode="json")) for p in decisions.parameters],
+            # An imported goal is the importer's: who made each choice is not carried in.
+            "parameter": [(p.name, p.model_dump(mode="json", exclude={"by", "because"}))
+                          for p in decisions.parameters],
             "role": [(r.role, {"role": r.role, "absent": True}) for r in decisions.roles],
             "exclusion": [
                 (exclusion_key(e.site, e.contract),
@@ -666,7 +734,8 @@ _WITHDRAWN = {
 """The field a retraction sets, and to what, per family."""
 
 
-def _release(draft_id, family, key, *, who, expected_revision=None):
+def _release(draft_id, family, key, *, who, expected_revision=None,
+             actor_kind=ActorKind.PERSON):
     with session_scope() as db:
         draft = _draft(db, draft_id, expected_revision)
         for subject, revision in _current(db, draft_id, family):
@@ -674,7 +743,8 @@ def _release(draft_id, family, key, *, who, expected_revision=None):
                 fields = {name: getattr(revision, name) for name in _FIELDS[family]}
                 field, withdrawn = _WITHDRAWN[family]
                 fields[field] = withdrawn
-                return _write(db, draft, family, key, fields, who=who, action="retract").id
+                return _write(db, draft, family, key, fields, who=who, action="retract",
+                              actor_kind=actor_kind).id
         raise ValueError(f"there is no current {family} choice for {key}")
 
 
@@ -682,13 +752,17 @@ def withdraw_input(draft_id, key, *, who, expected_revision=None):
     return _release(draft_id, "input", key, who=who, expected_revision=expected_revision)
 
 
-def release_parameter(draft_id, name, *, who, expected_revision=None):
-    return _release(draft_id, "parameter", name, who=who, expected_revision=expected_revision)
+def release_parameter(draft_id, name, *, who, expected_revision=None,
+                      actor_kind=ActorKind.PERSON):
+    return _release(draft_id, "parameter", name, who=who, expected_revision=expected_revision,
+                    actor_kind=actor_kind)
 
 
-def release_producer(draft_id, site: Site, *, who, expected_revision=None):
+def release_producer(draft_id, site: Site, *, who, expected_revision=None,
+                     actor_kind=ActorKind.PERSON):
     return _release(
-        draft_id, "producer", _site_key(site), who=who, expected_revision=expected_revision
+        draft_id, "producer", _site_key(site), who=who, expected_revision=expected_revision,
+        actor_kind=actor_kind,
     )
 
 
@@ -778,14 +852,15 @@ def require_states(draft_id, type_id, states, *, who, actor_kind=ActorKind.PERSO
 
 
 def pin_producer(draft_id, site: Site, contract, *, who, actor_kind=ActorKind.PERSON, heard=None,
-                 heard_seq=None, proposal_id=None):
+                 heard_seq=None, proposal_id=None, because=None):
     with session_scope() as db:
         draft = _draft(db, draft_id)
         # **Pinning a tool withdraws its exclusion at that site** (A1): the later intent wins,
         # and the two are never both applied.
         _withdraw(db, draft, "exclusion", exclusion_key(site, contract), who=who,
                   actor_kind=actor_kind)
-        fields = {"type_id": site.type_id, "states": sorted(site.states), "contract": contract}
+        fields = {"type_id": site.type_id, "states": sorted(site.states), "contract": contract,
+                  "because": because}
         return _write(db, draft, "producer", _site_key(site), _heard(fields, heard, heard_seq),
                       who=who, actor_kind=actor_kind, proposal_id=proposal_id).id
 
@@ -866,11 +941,13 @@ def keep_whole(draft_id, contract, *, who, actor_kind=ActorKind.PERSON, proposal
 _INTENTS = ("role", "exclusion", "source", "optional_input", "whole")
 
 
-def release_intent(draft_id, family, key, *, who, expected_revision=None):
-    """Withdraw a person's structural intent (A1); its history stays."""
+def release_intent(draft_id, family, key, *, who, expected_revision=None,
+                   actor_kind=ActorKind.PERSON):
+    """Withdraw a structural intent (A1), as whoever withdrew it; its history stays."""
     if family not in _INTENTS:
         raise ValueError(f"{family!r} is not a structural intent")
-    return _release(draft_id, family, key, who=who, expected_revision=expected_revision)
+    return _release(draft_id, family, key, who=who, expected_revision=expected_revision,
+                    actor_kind=actor_kind)
 
 
 def intent_history(draft_id, family, key) -> list[dict]:
@@ -891,11 +968,12 @@ def intent_history(draft_id, family, key) -> list[dict]:
 
 
 def set_parameter(draft_id, name, value, *, who, actor_kind=ActorKind.PERSON, heard=None,
-                  heard_seq=None, proposal_id=None):
+                  heard_seq=None, proposal_id=None, because=None):
     with session_scope() as db:
         draft = _draft(db, draft_id)
         return _write(db, draft, "parameter", name,
-                      _heard({"name": name, "value": value}, heard, heard_seq), who=who,
+                      _heard({"name": name, "value": value, "because": because}, heard,
+                             heard_seq), who=who,
                       actor_kind=actor_kind, proposal_id=proposal_id).id
 
 

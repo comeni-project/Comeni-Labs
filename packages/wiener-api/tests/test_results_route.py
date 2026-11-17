@@ -17,10 +17,13 @@ def _publish(run_id: str, files: dict[str, str]) -> None:
 
 
 def test_a_run_lists_what_it_published(client, a_run):
-    _publish(a_run.id, {
-        "trimgalore/sample_1_trimmed.fq.gz": "x",
-        "subread_featurecounts/counts.txt": "gene\tcount\n",
-    })
+    _publish(
+        a_run.id,
+        {
+            "trimgalore/sample_1_trimmed.fq.gz": "x",
+            "subread_featurecounts/counts.txt": "gene\tcount\n",
+        },
+    )
 
     body = client.get(f"/api/runs/{a_run.id}/results").json()
 
@@ -102,3 +105,88 @@ def test_a_name_is_relative_and_never_a_path_on_this_machine(client, a_run):
     for entry in body["files"]:
         assert not entry["name"].startswith("/")
         assert str(launcher.results_dir(a_run.id)) not in entry["name"]
+
+
+def test_a_published_file_is_served(client, a_run):
+    """**Open** on Run's Outputs (#511): the QC report, read from where the run published it."""
+    _publish(a_run.id, {"multiqc/multiqc_report.html": "<html>report</html>"})
+
+    served = client.get(
+        f"/api/runs/{a_run.id}/results/file",
+        params={"process": "multiqc", "name": "multiqc_report.html"},
+    )
+
+    assert served.status_code == 200
+    assert served.text == "<html>report</html>"
+    assert served.headers["content-type"].startswith("text/html")
+
+
+def test_a_path_outside_the_results_is_refused(client, a_run):
+    """A name that climbs out of the run's results is not a file of this run."""
+    _publish(a_run.id, {"multiqc/multiqc_report.html": "x"})
+    launcher.results_dir(a_run.id).parent.joinpath("secret.txt").write_text("no")
+
+    for process, name in (
+        ("multiqc", "../../secret.txt"),
+        ("..", "secret.txt"),
+        ("multiqc", "/etc/passwd"),
+        ("multiqc", "missing.html"),
+    ):
+        served = client.get(
+            f"/api/runs/{a_run.id}/results/file", params={"process": process, "name": name}
+        )
+        assert served.status_code == 404, (process, name)
+
+
+def test_a_report_opens_sandboxed_so_its_scripts_cannot_reach_the_app(client, a_run):
+    """Checkpoint D, I1: opened as a blob, a QC report's scripts ran with the app's origin and
+    could open the terminal. HTML, SVG and XML are served in their own sandboxed origin."""
+    _publish(
+        a_run.id,
+        {
+            "multiqc/report.html": "<html>r</html>",
+            "quast/plot.svg": "<svg/>",
+            "featurecounts/counts.tsv": "g\t1\n",
+        },
+    )
+    for process, name in (("multiqc", "report.html"), ("quast", "plot.svg")):
+        served = client.get(
+            f"/api/runs/{a_run.id}/results/file", params={"process": process, "name": name}
+        )
+        assert served.headers["content-security-policy"].startswith("sandbox"), name
+        assert "allow-same-origin" not in served.headers["content-security-policy"]
+        assert served.headers["x-content-type-options"] == "nosniff"
+    table = client.get(
+        f"/api/runs/{a_run.id}/results/file",
+        params={"process": "featurecounts", "name": "counts.tsv"},
+    )
+    assert "content-security-policy" not in table.headers
+
+
+def test_a_text_table_opens_in_the_browser_and_a_binary_is_not_offered(client, a_run):
+    """**Open shows the file, it does not download it** (walk 2026-11-17): a featureCounts table
+    (`text/tab-separated-values`) was downloaded by the browser. Text is served as plain text;
+    a BAM or a gzip cannot be shown, so it is listed as not viewable instead."""
+    _publish(
+        a_run.id, {"featurecounts/counts.tsv": "g\t1\n", "star/WT.Log.final.out": "Reads | 5\n"}
+    )
+    launcher.results_dir(a_run.id).joinpath("star", "WT.bam").write_bytes(b"BAM\x01\x00\x00\x07")
+    launcher.results_dir(a_run.id).joinpath("star", "WT.fq.gz").write_bytes(b"\x1f\x8b\x08\x00ab")
+    for process, name in (("featurecounts", "counts.tsv"), ("star", "WT.Log.final.out")):
+        served = client.get(
+            f"/api/runs/{a_run.id}/results/file", params={"process": process, "name": name}
+        )
+        assert served.headers["content-type"].startswith("text/plain"), name
+        assert served.headers["content-disposition"].startswith("inline"), name
+        assert served.headers["x-content-type-options"] == "nosniff", name
+    listed = {
+        f["name"]: f["viewable"]
+        for f in client.get(f"/api/runs/{a_run.id}/results").json()["files"]
+    }
+    assert listed, "nothing was listed"
+    assert listed == {
+        "counts.tsv": True,
+        "WT.Log.final.out": True,
+        "WT.bam": False,
+        "WT.fq.gz": False,
+    }

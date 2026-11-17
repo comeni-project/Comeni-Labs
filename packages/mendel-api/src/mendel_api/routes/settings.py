@@ -8,7 +8,7 @@ from typing import Annotated
 
 from comeni_core.diagnostics import coded
 from comeni_core.settings import IllegalValue, Installation, Menu, Shown
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 from mendel_api.identity import default_author
@@ -35,6 +35,23 @@ def last_retention_sweep() -> retention.LastSweep | None:
 @router.get("", operation_id="readSettings", summary="Every setting, its value and its source")
 def read_settings(inst: Annotated[Installation, Depends(installation)]) -> Menu:
     return inst.menu("mendel")
+
+
+class Checked(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    says: str
+
+
+@router.get("/{key}/check", operation_id="checkSetting",
+            summary="The slower check of one value, asked after the menu")
+def check_setting(key: str, inst: Annotated[Installation, Depends(installation)]) -> Checked:
+    """**The page never waits for it** (walk 2026-11-17): a value whose `shown.checks` is set is
+    tried here, on its own, so an unreachable server holds its row and not the menu."""
+    try:
+        return Checked(says=str(inst.check(key)))
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"{key} has no check") from None
 
 
 class AiConfigured(BaseModel):

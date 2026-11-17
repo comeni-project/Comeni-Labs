@@ -26,6 +26,7 @@ from comeni_core.spell.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
 from comeni_core.spell.marks import (
     ContainerRef,
     ContractId,
+    Line,
     MeasurementId,
     NfIdentifier,
     NfPath,
@@ -285,6 +286,10 @@ class Param(BaseModel):
     default: Any = None
     because: str = ""
     """Why the declared default is appropriate; empty means no reason was declared."""
+    explain: str = Field(default="", exclude_if=lambda text: not text)
+    """What the setting is, in one plain sentence for the person setting it (*The lowest mapping
+    quality a read needs to be counted.*): no reasons, defaults or caveats — `because` keeps those,
+    and the assistant explains more when asked."""
     via: Via
     """Which emission site carries this. No default: a setting with no route is the defect."""
     key: ExtKey | None = None
@@ -574,6 +579,10 @@ class ModuleContract(BaseModel):
 
     priority: int = 0
     priority_because: str = ""
+    does: Line | None = Field(default=None, max_length=200, exclude_if=lambda d: d is None)
+    """What this step does, in one line: "Index a FASTA reference so tools can read regions of
+    it", where the tool's description covers the whole suite (#463). Context for the builder
+    agent; never shown in the chat as written."""
     """Why priority is an appropriate selection axis for this contract."""
 
     container: ContainerRef | None = None

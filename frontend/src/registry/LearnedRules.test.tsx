@@ -49,12 +49,6 @@ function at(body: object) {
 
 afterEach(() => vi.unstubAllGlobals());
 
-it("the tab links here", async () => {
-  at(PAGE);
-  const tab = await screen.findByRole("link", { name: "Learned rules" });
-  expect(tab.getAttribute("href")).toBe("/registry/learned");
-});
-
 it("a proposal shows its row, the model's reason, its evidence, check and replay", async () => {
   at(PAGE);
   expect(await screen.findByText("Which tool fills alignment")).toBeTruthy();

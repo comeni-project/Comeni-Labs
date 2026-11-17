@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 
 import { type View } from "./useView";
 
@@ -48,6 +48,17 @@ export function Canvas({
   dots?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
+  // **A wheel over the canvas is the canvas's** (walk 2026-11-17): React's wheel listener is
+  // passive, so it zoomed the canvas and scrolled the page as well. This one is not, and keeps it.
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const keep = (e: WheelEvent) => {
+      if (!(e.target as HTMLElement).closest?.(".step-beside")) e.preventDefault();
+    };
+    el.addEventListener("wheel", keep, { passive: false });
+    return () => el.removeEventListener("wheel", keep);
+  }, []);
 
   return (
     <div

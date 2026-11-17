@@ -299,6 +299,7 @@ def _why(value: ResolvedValue) -> Why:
         for_value=value.value,
         from_layer=value.from_layer,
         displaced_layer=value.displaced_layer,
+        overrode=value.overrode,
     )
 
 

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Run console on a phone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#174C9B}a:hover{color:#15181D}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; display: flex; flex-direction: column; background: #F5F6F8; font-family: Inter, system-ui, sans-serif; color: #15181D; overflow: hidden">
+  <header style="display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px">
+    <button type="button" aria-label="Open the menu" style="width: 44px; height: 44px; border-radius: 10px; border: 1px solid #E2E5EA; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#3B424D" stroke-width="1.6" stroke-linecap="round"><path d="M3 5h12M3 9h12M3 13h12"></path></svg>
+    </button>
+    <div style="display: flex; flex-direction: column">
+      <span style="font-size: 17px; font-weight: 600">Run 3 · Console</span>
+      <span style="font-size: 12px; color: #174C9B">Running · 6 min 40 s</span>
+    </div>
+  </header>
+  <div role="tablist" aria-label="Console" style="display: flex; gap: 6px; margin: 0 16px 10px; padding: 3px; border-radius: 10px; background: #FFFFFF; border: 1px solid #E2E5EA">
+    <button type="button" role="tab" aria-selected="false" style="flex: 1; height: 38px; border-radius: 8px; border: 0; background: transparent; color: #3B424D; font: 600 13.5px Inter, sans-serif; cursor: pointer">Nextflow</button>
+    <button type="button" role="tab" aria-selected="true" style="flex: 1; height: 38px; border-radius: 8px; border: 0; background: #EDF3FC; color: #174C9B; font: 600 13.5px Inter, sans-serif; cursor: pointer">Shell</button>
+  </div>
+  <section aria-label="Shell" style="flex: 1; min-height: 0; margin: 0 16px; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; background: #FFFFFF; border: 1px solid #E2E5EA">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #F8F9FB; border-bottom: 1px solid #EEF0F3">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #5F6773">in runs/run-3</span>
+      <span style="padding: 2px 7px; border-radius: 6px; background: #FFF3DC; color: #8A4B0B; font-size: 11px; font-weight: 600">full access</span>
+      <button type="button" style="margin-left: auto; height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 12px Inter, sans-serif; cursor: pointer">Commands</button>
+    </div>
+    <pre style="margin: 0; flex: 1; min-height: 0; overflow: auto; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; color: #3B424D; white-space: pre-wrap; word-break: break-all"><span style="color: #1C6B3E; font-weight: 600">run-3</span> <span style="color: #1D5FC2">$</span> <span style="color: #15181D">du -sh work</span>
+1.4G	work
+<span style="color: #1C6B3E; font-weight: 600">run-3</span> <span style="color: #1D5FC2">$</span> <span style="color: #15181D">tail -2 .nextflow.log</span>
+Nov-16 14:08:51 [Task monitor] INFO  Submitted process &gt; STAR_ALIGN (WT_REP3)
+Nov-16 14:08:52 [Task monitor] INFO  Task completed &gt; SAMTOOLS_SORT (WT_REP2)
+<span style="color: #1C6B3E; font-weight: 600">run-3</span> <span style="color: #1D5FC2">$</span> <span style="background: #6FA0E6; color: #FFFFFF"> </span></pre>
+    <div style="display: flex; gap: 6px; padding: 8px; background: #F8F9FB; border-top: 1px solid #EEF0F3; overflow-x: auto">
+      <button type="button" style="min-width: 48px; height: 40px; border-radius: 8px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 12px 'JetBrains Mono', monospace; cursor: pointer">Tab</button>
+      <button type="button" style="min-width: 48px; height: 40px; border-radius: 8px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 12px 'JetBrains Mono', monospace; cursor: pointer">Ctrl</button>
+      <button type="button" style="min-width: 48px; height: 40px; border-radius: 8px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 12px 'JetBrains Mono', monospace; cursor: pointer">Esc</button>
+      <button type="button" aria-label="Previous command" style="min-width: 44px; height: 40px; border-radius: 8px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 13px 'JetBrains Mono', monospace; cursor: pointer">↑</button>
+      <button type="button" aria-label="Next command" style="min-width: 44px; height: 40px; border-radius: 8px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 13px 'JetBrains Mono', monospace; cursor: pointer">↓</button>
+      <button type="button" style="min-width: 56px; height: 40px; border-radius: 8px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 12px 'JetBrains Mono', monospace; cursor: pointer">Ctrl-C</button>
+    </div>
+  </section>
+  <div style="height: 16px"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

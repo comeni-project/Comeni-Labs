@@ -1,14 +1,15 @@
 @import "tailwindcss";
 
 /* ═══ THE FONTS ARE BUNDLED, NOT FETCHED ═══════════════════════════════════════════════════
-   Lexend sets the interface and headings, and Geist Mono sets data (`--font-data`).
+   Inter sets the interface and headings, and JetBrains Mono sets data (`--font-data`), as on
+   the redesign board (#511).
 
    **`@fontsource`, not a Google Fonts `<link>`**, and that is invariant 13 rather than a
    preference: self-hosted is not a degraded tier, and a clinical laboratory with no egress
    would have got the fallback stack while the hosted instance got the design. Vite bundles
    these, so both installs render the same page. */
-@import "@fontsource-variable/lexend";
-@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
 @import "./tokens.css";
 
 /* Tailwind MIRRORS the tokens; it does not redefine them.
@@ -89,19 +90,32 @@
   --color-done: var(--done);
   --color-done-soft: var(--done-soft);
   --color-done-ink: var(--done-ink);
+  --color-done-line: var(--done-line);
   --color-action: var(--action);
   --color-on-action: var(--on-action);
   --color-action-edge: var(--action-edge);
   --color-measured: var(--measured);
   --color-measured-soft: var(--measured-soft);
   --color-measured-ink: var(--measured-ink);
+  --color-measured-line: var(--measured-line);
   --color-needs-you: var(--needs-you);
   --color-needs-you-soft: var(--needs-you-soft);
   --color-needs-you-ink: var(--needs-you-ink);
+  --color-needs-you-line: var(--needs-you-line);
   --color-now: var(--now);
   --color-now-soft: var(--now-soft);
   --color-now-ink: var(--now-ink);
   --color-now-line: var(--now-line);
+  --color-now-mid: var(--now-mid);
+  --color-mark: var(--mark);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-ai-line: var(--ai-line);
+  --color-report: var(--report);
+  --color-report-soft: var(--report-soft);
+  --color-regions: var(--regions);
+  --color-regions-soft: var(--regions-soft);
+  --color-path: var(--path);
   --color-hover: var(--hover);
   --color-hover-strong: var(--hover-strong);
 
@@ -325,46 +339,33 @@ body {
    conversation first by `order`, not by DOM order — the canvas is still what the page is about,
    so it stays first for a screen reader — and the rail never overlays the graph it is about. */
 .living { display: grid; grid-template-columns: minmax(0, 1fr) 420px; }
+/* **The rail's height is the layout's** (#497): beside the canvas it is the grid row's; stacked and
+   on a phone a fixed share of the screen. Never its content's, so a reply does not move the page. */
+.living { --rail-h: auto; }
 .living > .living-canvas { min-height: 0; }
-/* The pipeline file (#379): the values and their reasons, beside the file. Values first when stacked. */
-/* The pipeline file, file first (one builder plan 5): the file, and the reason beside it. On a
-   phone the reason is a sheet from the bottom. */
-.pipeline-file { display: grid; grid-template-columns: minmax(0, 1fr) 340px; height: 100%; }
-.pipeline-file > .file-column { position: sticky; top: 0; max-height: 100%; }
-@media (max-width: 999px) { .pipeline-file { grid-template-columns: minmax(0, 1fr) 300px; } }
-@media (max-width: 640px) { .pipeline-file { grid-template-columns: minmax(0, 1fr); }
-  .pipeline-file > .file-column { position: fixed; left: 0; right: 0; bottom: 0; top: auto; max-height: 45dvh;
-    border-left: 0 !important; border-top: 1px solid var(--line); z-index: 20; } }
+/* The pipeline file (#499, direction A with the AI): an outline, the file, and the AI panel. Below
+   900px the outline goes and the AI panel stacks under the file, so its answers stay in view. */
+.pipeline-file { display: grid; grid-template-columns: 240px minmax(0, 1fr); height: 100%; }
+.pipeline-file[data-aside="open"] { grid-template-columns: 240px minmax(0, 1fr) 400px; }
+@media (max-width: 1180px) {
+  .pipeline-file[data-aside="open"] { grid-template-columns: 200px minmax(0, 1fr) 340px; }
+}
+@media (max-width: 900px) {
+  .pipeline-file, .pipeline-file[data-aside="open"] { grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto; }
+  .pipeline-file > .file-outline { display: none; }
+  /* The AI stays where its answers land: under the file, a fixed share of the screen. */
+  .pipeline-file > .file-aside { height: 45dvh; border-left: 0 !important; border-top: 1px solid var(--line); }
+}
 @media (max-width: 1180px) { .living { grid-template-columns: minmax(0, 1fr) 360px; } }
 @media (max-width: 1000px) {
   .living { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(260px, 1fr);
             overflow: auto; }
   .living > .living-canvas { order: 2; height: 430px; }
   .living > .living-rail { order: 1; }
+  .living { --rail-h: 64dvh; }
   /* Stacked, the two cards take the page's 16px gutter rather than the side-by-side insets. */
   .living > .living-canvas, .living > .living-rail { margin: 0 16px 16px; }
-}
-
-/* ── The living canvas's motion — one class per domain event, and nothing else moves ──────
-   §1.11: animate proposal_shown, proposal_accepted and edge_committed. Never fetch completion,
-   never model tokens. The curve is the product's one curve. Under `prefers-reduced-motion` every
-   state change still happens — the step is placed and highlighted where it lands — and nothing
-   travels: `animation: none`, so the end state is simply there. */
-@keyframes living-pop { from { opacity: 0; transform: translateY(-6px) scale(.985); } }
-@keyframes living-settle { from { opacity: .55; transform: translateY(4px); } }
-/* A wire is drawn over its OWN length: `pathLength="1"` on the path makes one dash exactly the whole
-   wire. It was a fixed 400 behind an undefined custom property, which the token guard refused —
-   and which would have left a gap in every wire longer than 400px once the animation ended. */
-@keyframes living-draw { from { stroke-dashoffset: 1; } }
-.living-pop { animation: living-pop 180ms var(--ease) backwards; }
-.living-settle { animation: living-settle 220ms var(--ease) backwards; }
-.living-draw { stroke-dasharray: 1; animation: living-draw 520ms var(--ease) backwards; }
-/* The first-arrival reveal (steps placed before this tab looked): invisible until its delay, then placed. `both`, so a step waiting
-   its turn is not drawn early. */
-@keyframes living-reveal { from { opacity: 0; transform: translateY(4px); } }
-.living-reveal { animation: living-reveal 260ms var(--ease) both; }
-@media (prefers-reduced-motion: reduce) {
-  .living-pop, .living-settle, .living-draw, .living-reveal { animation: none !important; stroke-dasharray: none; }
 }
 
 /* **On a phone, one pane at a time** (one builder plan 3): the conversation, the canvas, or what was
@@ -373,18 +374,33 @@ body {
 @media (max-width: 640px) {
   .phone-tabs { display: flex; }
   .living[data-pane="chat"] > .living-canvas { display: none; }
-  .living[data-pane="canvas"] > .living-rail, .living[data-pane="understood"] > .living-rail { display: none; }
+  .living[data-pane="canvas"] > .living-rail { display: none; }
   .living > .living-canvas { height: calc(100dvh - 240px); }
   /* One pane, so one row that fills the screen (issue 496): stacked, the conversation took the
      `auto` row and shrank to a line once the canvas beside it was hidden. */
   .living { grid-template-rows: minmax(0, 1fr); }
-  .living > .living-rail { height: calc(100dvh - 240px); }
-  /* The phone's own tabs already choose canvas or understood (issue 496). */
-  .beside-switch { display: none !important; }
+  .living { --rail-h: calc(100dvh - 240px); }
 }
-/* The plan's step strip scrolls sideways without drawing a bar (issue 496). */
-.no-scrollbar { scrollbar-width: none; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
+/* A step's menu and card beside it (#499); on a phone, a sheet along the bottom of the canvas. */
+.step-beside {
+  /* Where the step is on screen, set inline by the canvas; these are only defaults. */
+  --card-x: 8px;
+  --card-y: 12px;
+  width: 360px;
+  left: max(8px, min(var(--card-x), calc(100% - 372px)));
+  top: max(12px, min(var(--card-y), calc(100% - 160px)));
+  max-height: calc(100% - max(12px, min(var(--card-y), calc(100% - 160px))) - 12px);
+}
+@media (max-width: 640px) {
+  .step-beside { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 70%; }
+}
+/* The agent's working dot (#463). Still under reduced motion: the words say it is working. */
+@keyframes agent-pulse { 50% { opacity: .35; } }
+.agent-pulse { animation: agent-pulse 1.2s var(--ease) infinite; }
+/* A new thread item fades in (#496): opacity only, so nothing above it moves. */
+@keyframes agent-arrive { from { opacity: 0; } }
+.agent-arrive { animation: agent-arrive 160ms var(--ease) both; }
+@media (prefers-reduced-motion: reduce) { .agent-pulse, .agent-arrive { animation: none; } }
 
 /* ═══ THE REGISTRY'S PARTS ═════════════════════════════════════════════════════════════════
    One frame, so a registry page's logo, tabs, tracker and panels share their edges, and one set
@@ -699,3 +715,21 @@ body {
 .option-more:hover { background: var(--hover); color: var(--ink); }
 /* On a phone the two likeliest options show; the rest fold under "N more". */
 @media (max-width: 639px) { .option-card.is-folded { display: none; } }
+
+/* Run → Console's terminals (#511): xterm paints its scroll area black; follow the theme instead. */
+.xterm .xterm-viewport {
+  background-color: var(--surface) !important;
+  scrollbar-color: var(--line-2) var(--surface);
+  scrollbar-width: thin;
+}
+.xterm .xterm-viewport::-webkit-scrollbar { width: 10px; background: var(--surface); }
+.xterm .xterm-viewport::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 5px; border: 2px solid var(--surface); }
+
+/* **One page frame** (#511): every page in the analysis frame and Home uses the whole width, with
+   the same gutters and the same space above, so nothing sits in a narrow column or drifts. */
+.page { display: flex; flex-direction: column; gap: 12px; padding: 16px 16px 32px; min-width: 0; }
+@media (min-width: 760px) { .page { padding: 16px 24px 32px; } }
+
+/* A data table's least row width: DataTable sets it on each table from its columns' minimums, so
+   the header and every row share one width and the columns line up. */
+[role="table"] { --least: 0px; }

@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 
 from comeni_core.diagnostics import coded
 from comeni_core.plan.draft import DraftGraph, DraftProvenance
-from sqlalchemy import select
 
 from mendel_api.db import session_scope
 from mendel_api.models import PipelineAuthoringSession, PipelineDraft
@@ -42,7 +41,13 @@ def touch(db, draft):
     draft.updated_at = datetime.now(UTC)
 
 
-def project(db, draft, graph, *, provenance):
+def project(db, draft, graph, *, provenance, resolved_from: int | None = None):
+    """The pipeline built from the decisions, into the locked draft, marked current.
+    `resolved_from` is the decision revision it was built from: **a build the decisions moved
+    past is refused** (#463 review), never drawn as current over a newer change."""
+    if resolved_from is not None and draft.decision_revision != resolved_from:
+        raise ValueError(coded("MI0201", "the pipeline's decisions changed while it was being "
+                                         "built; build it again"))
     dumped = graph.model_dump(mode="json")
     if dumped != draft.graph or provenance != draft.provenance:
         draft.graph = dumped
@@ -66,11 +71,6 @@ def save_in(db, draft, *, graph=None, name=None):
     """Apply a locked save in the caller's unit of work, without opening another session."""
     from mendel_api.services import drafts
 
-    authoring = db.scalar(select(PipelineAuthoringSession).where(
-        PipelineAuthoringSession.draft_id == draft.id).with_for_update())
-    if (graph is not None and authoring is not None and not authoring.retired
-            and authoring.phase not in ("complete", "stopped")):
-        raise Conflict(coded("MI0217", "editing opens when the authored work is done"))
     before = DraftGraph.model_validate(draft.graph)
     if graph is not None and graph != before:
         draft.graph = graph.model_dump(mode="json")

@@ -25,7 +25,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from mendel_api.db import Base
 from mendel_api.models import _one_of
-from mendel_api.shape_versions import stamp
 from mendel_api.shapes import Json
 
 
@@ -133,7 +132,6 @@ def _revision_keys(family):
 
 class PipelineObservation(Base):
     __tablename__ = "pipeline_observation"
-    shape_version: Mapped[int] = stamp("pipeline_observation")
     __table_args__ = (
         UniqueConstraint(
             "draft_id", "ingestion_key", "subject", name="uq_pipeline_observation_ingestion_subject"
@@ -199,7 +197,6 @@ class PipelineInput(_Subject):
 
 class PipelineInputRevision(_Revision):
     __tablename__ = "pipeline_input_revision"
-    shape_version: Mapped[int] = stamp("pipeline_input_revision")
     __table_args__ = _revision_keys("input")
 
     type_id: Mapped[str] = mapped_column(String(128))
@@ -222,7 +219,6 @@ class PipelineWant(_Subject):
 
 class PipelineWantRevision(_Revision):
     __tablename__ = "pipeline_want_revision"
-    shape_version: Mapped[int] = stamp("pipeline_want_revision")
     __table_args__ = _revision_keys("want")
 
     states_order: Mapped[int | None] = mapped_column(
@@ -262,12 +258,13 @@ class PipelineProducer(_Subject):
 
 class PipelineProducerRevision(_Revision):
     __tablename__ = "pipeline_producer_revision"
-    shape_version: Mapped[int] = stamp("pipeline_producer_revision")
     __table_args__ = _revision_keys("producer")
 
     type_id: Mapped[str] = mapped_column(String(128))
     states: Mapped[list] = mapped_column(Json, default=list)
     contract: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    because: Mapped[str | None] = mapped_column(Text, nullable=True)
+    """The AI's reason for the tool it chose (#463); empty for a person's."""
 
 
 class PipelineRole(_Subject):
@@ -294,7 +291,6 @@ class PipelineExclusion(_Subject):
 
 class PipelineExclusionRevision(_Revision):
     __tablename__ = "pipeline_exclusion_revision"
-    shape_version: Mapped[int] = stamp("pipeline_exclusion_revision")
     __table_args__ = _revision_keys("exclusion")
 
     type_id: Mapped[str] = mapped_column(String(128))
@@ -359,11 +355,12 @@ class PipelineParameter(_Subject):
 
 class PipelineParameterRevision(_Revision):
     __tablename__ = "pipeline_parameter_revision"
-    shape_version: Mapped[int] = stamp("pipeline_parameter_revision")
     __table_args__ = _revision_keys("parameter")
 
     name: Mapped[str] = mapped_column(String(128))
     value: Mapped[object] = mapped_column(Json, nullable=True)
+    because: Mapped[str | None] = mapped_column(Text, nullable=True)
+    """The AI's reason for the value it set (#463); empty for a person's."""
 
 
 class PipelineReview(_Subject):
@@ -396,16 +393,3 @@ class PipelineAskedRevision(_Revision):
 
     phrase: Mapped[str] = mapped_column(Text)
     present: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
-
-
-class PipelinePhrasing(Base):
-    __tablename__ = "pipeline_phrasing"
-    shape_version: Mapped[int] = stamp("pipeline_phrasing")
-
-    draft_id: Mapped[str] = mapped_column(
-        String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True
-    )
-    subject: Mapped[str] = mapped_column(String(128), primary_key=True)
-    decision_revision: Mapped[int] = mapped_column(Integer, primary_key=True)
-    context_digest: Mapped[str] = mapped_column(String(64), primary_key=True)
-    asked: Mapped[dict | None] = mapped_column(Json, nullable=True)

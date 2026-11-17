@@ -228,6 +228,8 @@ export function place(
   /** The box being placed. The living canvas draws a 120×80 source where this canvas draws a
    *  150×62 socket — one placement rule for both, which is why it takes the size. */
   size: { w: number; h: number } = { w: SOCKET_W, h: SOCKET_H },
+  /** The node's height: a step with many ports is taller (#494), and below means below all of it. */
+  height: number = NODE_H,
 ) {
   // **The first socket is level with the first port; the rest stack clear of it.** `portOffset`
   // steps by 22, which is right for a 7px port and puts two 62px cards on top of each other —
@@ -241,7 +243,7 @@ export function place(
     }
     : {
       x: kind === "Input" ? anchor.x : anchor.x + NODE_W - size.w,
-      y: anchor.y + NODE_H + 20 + stacked,
+      y: anchor.y + height + 20 + stacked,
     };
   // Where the stub meets the box: its near edge, at its middle. Where it meets the node: the
   // port's own offset on the node's edge — the same derivation the wires use, so a socket

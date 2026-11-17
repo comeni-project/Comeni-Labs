@@ -19,7 +19,13 @@ from functools import lru_cache
 from typing import Literal
 
 from comeni_core.artifact.pipeline import Pipeline
-from comeni_core.declared.constraints import condition_words
+from comeni_core.declared.constraints import (
+    Setup,
+    condition_words,
+    evaluate,
+    group_sentence,
+    sentence,
+)
 from comeni_core.goal.premise import PremiseRecord
 from comeni_core.plan.draft import DraftGraph
 from comeni_core.plan.tiers import PremiseOrigin
@@ -238,6 +244,8 @@ class SettingView(BaseModel):
     """The contract author's own note on the default. Distinct from `reason`, which is why THIS
     pipeline got this value: `because` survives even when a rule or a person overrode it, so a
     reader can see what the convention was that they departed from."""
+    explain: str = ""
+    """What the setting is, in one line (the registry's `explain`), shown behind a (?)."""
 
     axis_reason: str
     """Why this parameter is being decided at all, as distinct from why it got this answer.
@@ -344,6 +352,26 @@ class ModuleView(BaseModel):
     container: str
 
 
+class InputRule(BaseModel):
+    """One of the tool's rules between its inputs and settings (#460, #511), said in words, with
+    whether this step as it is set up breaks it — so the Step tab can lay optional inputs out by
+    what they need, block and come in groups of."""
+
+    kind: Literal["requires", "forbids", "one_of", "any_of", "all_or_none"]
+    when: list[str] = []
+    """The inputs or settings the rule is on; none for a rule that always holds."""
+    names: list[str]
+    """What it requires or forbids, or a group's members."""
+    says: str
+    """The rule as a person reads it, with its reason."""
+    applies: bool = False
+    """Its condition holds for this step as it is set up."""
+    broken: bool = False
+    """This setup breaks it at every run: what it needs is off, or what it forbids is on."""
+    at_run: bool = False
+    """Only each run (or each sample) can settle it: an input it reads may be left empty."""
+
+
 class StepView(BaseModel):
     """One step, as a canvas needs it — **not the whole `Step`.**
 
@@ -355,6 +383,10 @@ class StepView(BaseModel):
     id: str
     process: str
     contract_id: str
+    does: str | None = None
+    """What the step does, in a few words: its first role's label (*Align reads*)."""
+    measures: bool = False
+    """Its job is measurement: it reads a fact for another step, and hangs under its source."""
     runs: Literal["once", "per_item"] = "once"
     """Whether this step runs once for the run, or once per item — `runs 12×` against `runs once`.
 
@@ -379,6 +411,8 @@ class StepView(BaseModel):
     """Whether this step runs on parts of each sample, and the switch's state (#466); `None`
     for a step that cannot."""
     settings: list[SettingView]
+    rules: list[InputRule] = []
+    """The tool's rules between its inputs and settings, and how this setup stands with each."""
     """**The parameters themselves, not a count.** A node shows `N settings` from `len()`; the
     card needs the rows, and a second request to fetch them would make opening a card a network
     round trip for data the build already had in hand."""
@@ -468,6 +502,11 @@ def _domain(layers, contract_id: str, name: str) -> DomainView | None:
     )
 
 
+def _explain(layers, contract_id: str, name: str) -> str:
+    param = _param(layers, contract_id, name)
+    return param.explain if param else ""
+
+
 def _because(layers, contract_id: str, name: str) -> str:
     param = _param(layers, contract_id, name)
     return param.because if param else ""
@@ -496,6 +535,45 @@ def _connected_type(pipeline, layers, step, port) -> str:
             made = layers.routing.get(upstream.module.contract_id).produces
             return next((o.type_id for o in made if o.name == output), "")
     return ""
+
+
+def _plain(said: str) -> str:
+    return said.replace("`", "")
+
+
+def rules_of(step, contract) -> list[InputRule]:
+    """Each of the tool's rows and groups, evaluated alone over this step's setup: required inputs
+    and those switched on are given, an input each run may leave empty is unknown."""
+    if not contract.constraints and not contract.groups:
+        return []
+    states = {r.port: r.state.value for r in step.input_states}
+    setup = Setup(
+        given=frozenset({p.name for p in contract.consumes if p.required}
+                        | {p for p, v in states.items() if v == "required"}),
+        unknown=frozenset(p for p, v in states.items() if v == "optional"),
+        params={x.name: x.value for x in step.settings},
+    )
+    bare = contract.model_copy(update={"constraints": [], "groups": []})
+    base = set(evaluate(bare, setup).missing)
+
+    def judged(**only) -> tuple[bool, bool, bool]:
+        v = evaluate(contract.model_copy(update={"constraints": [], "groups": [], **only}), setup)
+        broken = bool(set(v.missing) - base or v.forbidden)
+        return bool(v.sentences) or broken, broken, bool(v.holds_at_run_time or v.per_sample)
+
+    out = []
+    for row in contract.constraints:
+        applies, broken, at_run = judged(constraints=[row])
+        out.append(InputRule(kind="requires" if row.requires else "forbids",
+                            when=[k.partition(".")[2] for k in row.when],
+                            names=list(row.requires or row.forbids), says=_plain(sentence(row)),
+                            applies=applies, broken=broken, at_run=at_run))
+    for group in contract.groups:
+        applies, broken, at_run = judged(groups=[group])
+        out.append(InputRule(kind=group.kind.value, when=[k.partition(".")[2] for k in group.when],
+                            names=list(group.members), says=_plain(group_sentence(group)),
+                            applies=applies or not group.when, broken=broken, at_run=at_run))
+    return out
 
 
 def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[StepView]:
@@ -541,11 +619,14 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
 
     return [
         StepView(id=step.id, process=step.process, contract_id=step.module.contract_id,
+                 does=_does(layers, step.module.contract_id),
+                 measures=_measures(layers, step.module.contract_id),
                  tier=int(step.why.tier), runs=runs[step.id], reason=step.why.reason,
                  ports=ports_of(step.id),
                  checked_per_sample=[rule.says for rule in step.sample_rules],
                  takes_samples=guard_view(step.guard),
                  parts=parts_view(step.parts),
+                 rules=rules_of(step, layers.routing.get(step.module.contract_id)),
             settings=[
                 SettingView(
                     name=setting.name,
@@ -556,6 +637,7 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
                     axis_reason=setting.why.axis_reason,
                     domain=_domain(layers, step.module.contract_id, setting.name),
                     because=_because(layers, step.module.contract_id, setting.name),
+                    explain=_explain(layers, step.module.contract_id, setting.name),
                     premise=[record.prose() for record in setting.why.premise],
                     optional=setting.via in OMITTABLE,
                     evidence=evidence_of(setting.why.premise),
@@ -567,6 +649,18 @@ def step_views(pipeline, layers, *, ids=None, fed=None, entered=None) -> list[St
         for node_id in (ids if ids is not None else list(by_id))
         for step in [by_id[node_id]]
     ]
+
+
+def _does(layers, contract_id: str) -> str | None:
+    """The first of a contract's roles that has a label, in the stack's words."""
+    contract = layers.routing.get(contract_id)
+    labels = layers.roles.labels
+    return next((labels[r] for r in (contract.roles if contract else []) if r in labels), None)
+
+
+def _measures(layers, contract_id: str) -> bool:
+    contract = layers.routing.get(contract_id)
+    return contract is not None and "measurement" in contract.roles
 
 
 def _view(ir, pipeline, layers) -> BuiltPipeline:

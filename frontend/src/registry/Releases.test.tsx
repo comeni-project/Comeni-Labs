@@ -29,6 +29,12 @@ function at(body: object) {
 
 afterEach(() => vi.unstubAllGlobals());
 
+it("learned rules are reached from Releases (rules are per tool on the board)", async () => {
+  at(PAGE);
+  const learned = await screen.findByRole("link", { name: "Review learned rules" });
+  expect(learned.getAttribute("href")).toBe("/registry/learned");
+});
+
 it("the tab links here", async () => {
   at(PAGE);
   const tab = await screen.findByRole("link", { name: "Releases" });

@@ -107,10 +107,21 @@ def test_production_proxy_adds_no_token_on_a_public_port(tmp_path):
     assert web["environment"]["WIENER_PROXY_AUTHORIZATION"] == ""
 
 
+def test_production_refuses_to_serve_mcp_without_a_token(tmp_path):
+    """#463: in production the API is public and Mendel has no accounts."""
+    result = _compose(tmp_path, production=True, token="synthetic-test-token",
+                      extra_env={"MENDEL_MCP_TOKEN": ""})
+    assert result.returncode != 0
+    assert "MENDEL_MCP_TOKEN" in result.stderr
+    served = _compose(tmp_path, production=True, token="synthetic-test-token")
+    assert served.returncode == 0, served.stderr
+
+
 def test_the_proxy_prefers_the_browsers_own_token_and_adds_its_own_otherwise():
     conf = (ROOT / "ops/nginx/default.conf.template").read_text()
     assert '"" "${WIENER_PROXY_AUTHORIZATION}";' in conf
-    assert conf.count("proxy_set_header Authorization $wiener_authorization;") == 3
+    # The API, artifacts, settings, and Run → Console's terminals (#511).
+    assert conf.count("proxy_set_header Authorization $wiener_authorization;") == 4
 
 
 @pytest.mark.slow

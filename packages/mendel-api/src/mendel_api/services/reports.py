@@ -113,18 +113,30 @@ def _redis() -> str:
 
 
 def _model() -> str:
-    from mendel_api.services import probe
+    """What is configured, not whether it answers: probing on every read held Settings for an
+    unreachable server's timeout (walk 2026-11-17). **Test** on the connection tries it."""
     from mendel_api.settings import model_access
 
     access = model_access()
     if access is None:
         return "no model configured"
     if not access.base_url:
-        return f"{access.model}: a hosted provider, not probed"
+        return f"{access.model}: a hosted provider"
+    return f"{access.model} at {access.base_url}"
+
+
+def _model_answers() -> str:
+    """Whether the configured model's server answers: the row's check, asked after the menu."""
+    from mendel_api.services import probe
+    from mendel_api.settings import model_access
+
+    access = model_access()
+    if access is None or not access.base_url:
+        return "nothing to try"
     with contextlib.suppress(Exception):
         if asyncio.run(probe.answers(access.base_url)):
-            return f"{access.model}: answers"
-    return f"{access.model}: nothing answered"
+            return "answers"
+    return "nothing answered"
 
 
 def _release_in_use() -> str:
@@ -148,4 +160,8 @@ REPORTERS: dict[str, Callable[[], object]] = {
     "system.database": _database,
     "system.redis": _redis,
     "system.model": _model,
+}
+
+CHECKS: dict[str, Callable[[], object]] = {
+    "system.model": _model_answers,
 }

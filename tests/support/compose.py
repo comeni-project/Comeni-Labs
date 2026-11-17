@@ -20,6 +20,8 @@ def configuration(tmp_path, production=False, token="", extra_env=None):
         "PWD": str(ROOT),
         "COMPOSE_PROJECT_NAME": "comeni-boundary-test",
         "WIENER_API_TOKEN": token,
+        # Production refuses to start without one (#463); a test that needs it absent blanks it.
+        "MENDEL_MCP_TOKEN": "synthetic-mcp-token",
         "POSTGRES_ADMIN_PASSWORD": "synthetic-admin",
         "MENDEL_DB_PASSWORD": "synthetic-mendel",
         "WIENER_DB_PASSWORD": "synthetic-wiener",

@@ -180,6 +180,10 @@ class AdaptationSummary(BaseModel):
     drafting: bool
     started_by: str
     started_at: datetime
+    tests_failed: int = 0
+    """Tests of the latest attempt that failed."""
+    pull_request: str | None = None
+    """The newest pull request's state (`open`, `merged`, `closed`), or none."""
 
 
 class AdaptationList(BaseModel):
@@ -772,6 +776,9 @@ def summaries() -> AdaptationList:
     found = []
     for adaptation_id in ids:
         state, row = load(adaptation_id), meta[adaptation_id]
+        with db.session_scope() as session:
+            tests = _test_views(session, adaptation_id)
+            pull = _pull_request_view(session, adaptation_id)
         statuses = [i.status for i in state.items.values() if i.status is not Status.REMOVED]
         nxt = rules.next_piece(state)
         found.append(AdaptationSummary(
@@ -781,6 +788,8 @@ def summaries() -> AdaptationList:
             waiting=sum(s in {Status.PROPOSED, Status.REOPENED} for s in statuses),
             drafting=row.phase in {Phase.DRAFTING, Phase.ASKING},
             started_by=row.started_by, started_at=row.started_at,
+            tests_failed=sum(t.state == "failed" for t in tests),
+            pull_request=pull.state if pull else None,
         ))
     return AdaptationList(adaptations=found)
 

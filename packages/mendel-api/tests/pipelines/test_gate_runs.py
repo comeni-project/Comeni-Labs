@@ -30,7 +30,7 @@ def clean():
     with session_scope() as session:
         session.execute(
             truncate(
-                "TRUNCATE TABLE gate_run, pipeline_authoring_proposal, pipeline_authoring_turn, "
+                "TRUNCATE TABLE gate_run, pipeline_authoring_turn, "
                 "pipeline_authoring_session, pipeline_draft"
             )
         )

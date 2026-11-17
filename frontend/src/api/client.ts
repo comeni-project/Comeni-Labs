@@ -48,22 +48,17 @@ export async function put<T>(path: string, payload: unknown): Promise<T> {
   return send<T>("PUT", path, payload);
 }
 
+/** A DELETE that answers with what is left, such as an analysis's data after an undo. */
+export async function del<T>(path: string): Promise<T> {
+  return answered<T>(path, await fetch(ROOT + path, { method: "DELETE" }));
+}
+
 /** `DELETE`, for what a person deletes (Part H). Answers nothing on success (204); a refusal is
  *  a `Refused` with its coded sentence, as everywhere. */
-/** Delete a resource. A 204 returns no body; other responses use the JSON/refusal handler. */
 export async function remove(path: string): Promise<void> {
   const r = await fetch(ROOT + path, { method: "DELETE" });
   if (r.status === 204) return;
   await answered<unknown>(path, r);
-}
-
-/** A multipart form — today, an uploaded sample (issue 134).
- *
- * **No `Content-Type` header**: the browser writes it, with the boundary the body needs. The
- * answer goes through `answered`, so a coded refusal is a `Refused` here as everywhere. */
-/** Send FormData using the browser-generated Content-Type and multipart boundary. */
-export async function postForm<T>(path: string, form: FormData): Promise<T> {
-  return answered<T>(path, await fetch(ROOT + path, { method: "POST", body: form }));
 }
 
 async function send<T>(method: string, path: string, payload: unknown): Promise<T> {
@@ -77,7 +72,7 @@ async function send<T>(method: string, path: string, payload: unknown): Promise<
 
 async function answered<T>(path: string, r: Response): Promise<T> {
   // **422, 409 and 403 are refusals with a coded reason**: a setting locked between reading
-  // and saving (409, `MI0300`), the protection level refusing an upload (403, `MI0213`). The
+  // and saving (409, `MI0300`), a refusal with its coded reason (403). The
   // person needs that sentence, not a status code. **A 403 with no reason is not ours**: a
   // proxy's own page stays an error naming the path (issue 228).
   // Preserve application refusal sentences. A 403 without one remains a path/status error.

@@ -205,6 +205,21 @@ def artifact_names(session: Session, lab_id: str, artifact_ids: list[str]) -> di
     return {artifact_id: name for artifact_id, name in rows}
 
 
+def artifact_analyses(session: Session, lab_id: str, artifact_ids: list[str]) -> dict[str, str]:
+    """`{artifact_id: analysis}` for a page of runs, in one query (#536); a hand upload, with no
+    analysis, is absent."""
+    if not artifact_ids:
+        return {}
+    rows = session.execute(
+        select(RunArtifact.id, RunArtifact.analysis).where(
+            RunArtifact.lab_id == lab_id,
+            RunArtifact.id.in_(artifact_ids),
+            RunArtifact.analysis != "",
+        )
+    ).all()
+    return {artifact_id: analysis for artifact_id, analysis in rows}
+
+
 def durations_by_pipeline(session: Session, lab_id: str, *, days: int = 14,
                           floor: int = 3) -> dict[str, int]:
     """`{pipeline_digest: median_ms}` over finished runs — what *vs usual* is measured against.

@@ -16,7 +16,9 @@ rules** turns it into one. A model proposes the rule, the engine checks it, and 
 2. Open **Registry → Learned rules** and choose **Propose**.
 
 Mendel looks at every question a person answered in a kept pipeline, where there were two or more
-options to choose from. A question answered in **three** kept pipelines is sent to the model. The
+options to choose from. A choice the builder agent made counts as your answer once you reviewed
+it (**Looks right**) before keeping; one nobody reviewed does not. A question answered in
+**three** kept pipelines is sent to the model. The
 model sees the facts each pipeline was built on (an organism, a read length), the answer, and any
 reason you typed with it. It never sees sample names, file names or your data.
 

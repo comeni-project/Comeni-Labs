@@ -112,7 +112,7 @@ class Protocol(_Frozen):
     retry: InstanceOf[StrEnum] | None = None
     """The event that resumes out of `failed`; `None` with it."""
     refusal_code: str
-    """The declared diagnostic the interpreter refuses with (`MI0216` for the builder)."""
+    """The declared diagnostic the interpreter refuses with (`MF0506` for the forge)."""
     stages: tuple[Stage, ...]
     nodes: tuple[Node, ...]
     edges: tuple[Edge, ...]

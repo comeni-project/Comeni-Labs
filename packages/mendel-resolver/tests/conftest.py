@@ -70,7 +70,7 @@ def resolve_rnaseq(stack):
     from support.example import example_mapping
 
     def run(*, read_length=True, pins=(), absent_roles=(), exclusions=(), sources=(),
-            resolver=None, profile=None):
+            resolver=None, profile=None, params=()):
         data = example_mapping()
         if not read_length:
             data["profile"].pop("read_length")
@@ -78,7 +78,8 @@ def resolve_rnaseq(stack):
             data["profile"].update(profile)
         constraints = data.setdefault("constraints", {})
         for field, values in (("producers", pins), ("absent_roles", absent_roles),
-                              ("exclusions", exclusions), ("sources", sources)):
+                              ("exclusions", exclusions), ("sources", sources),
+                              ("params", params)):
             constraints[field] = [v.model_dump(mode="json") for v in values]
         return resolve(
             Goal.model_validate(data),

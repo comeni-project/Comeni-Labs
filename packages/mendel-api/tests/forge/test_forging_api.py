@@ -158,7 +158,7 @@ def test_constructor_fixture_tracks_the_fields_the_browser_renders():
     from mendel_api.services.forge_constructors import kinds
     from support.paths import ROOT
 
-    fixture = ROOT / "frontend/src/registry/forging/constructors.fixture.json"
+    fixture = ROOT / "frontend/src/forge/constructors.fixture.json"
     assert json.loads(fixture.read_text())["kinds"] == [k.model_dump(mode="json") for k in kinds()]
 
 
@@ -266,3 +266,26 @@ def test_rejected_question_removal_records_the_reason_and_allows_the_next_piece(
     assert saved["revisions"][-1]["because"] == "Metadata, not a file"
     assert saved["revisions"][-1]["by"]
     assert [r["move"] for r in saved["revisions"]] == ["draft", "reject", "remove"]
+
+
+def test_a_summary_says_failed_tests_and_the_pull_request_state(client):
+    """Forge home's Needs you and forging cards (board "5 · Forge") read these without a
+    fetch per forging."""
+    from datetime import UTC, datetime
+
+    from mendel_api.models import ForgePullRequest, ForgeTestRun
+
+    started = _start(client)
+    fresh = client.get("/api/forge/adaptations").json()["adaptations"][0]
+    assert fresh["tests_failed"] == 0 and fresh["pull_request"] is None
+    with session_scope() as db:
+        for name, state in (("a", "passed"), ("b", "failed")):
+            db.add(ForgeTestRun(adaptation=started["id"], attempt=1, name=name, digest="d",
+                                run_id=None, state=state, started_at=datetime.now(UTC),
+                                heard_at=datetime.now(UTC)))
+        db.add(ForgePullRequest(adaptation=started["id"], number=3, url="https://x/3",
+                                branch="b", state="merged", checks="green", head="h", digest="d",
+                                opened_by="person", opened_at=datetime.now(UTC)))
+    summary = client.get("/api/forge/adaptations").json()["adaptations"][0]
+    assert summary["tests_failed"] == 1
+    assert summary["pull_request"] == "merged"

@@ -58,6 +58,9 @@ class DecisionChange(_Payload):
     heard: str | None = Field(default=None, max_length=500)
     heard_seq: int | None = None
     actor: Literal["person", "model"] = "person"
+    because: str | None = Field(default=None, max_length=500)
+    """The AI's reason for a tool it chose or a value it set (#463): recorded with the decision
+    and carried into the pipeline's reason. `heard` stays the person's own words."""
     invocation_id: str | None = None
     observation_id: str | None = None
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { postForm, put, Refused } from "./client";
+import { put, Refused } from "./client";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -16,10 +16,10 @@ describe("the client", () => {
 
   it("turns a coded 403 into a Refused", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: false, status: 403, json: async () => ({ detail: "MI0213: the level is sealed" }),
+      ok: false, status: 403, json: async () => ({ detail: "MI0221: not a folder Comeni can read" }),
     }));
-    await expect(postForm("/x/samples", new FormData()))
-      .rejects.toEqual(new Refused("MI0213: the level is sealed"));
+    await expect(put("/x/samples", {}))
+      .rejects.toEqual(new Refused("MI0221: not a folder Comeni can read"));
   });
 
   // Issue 228: a proxy's own 403 page is not this API refusing anything.
@@ -27,7 +27,7 @@ describe("the client", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: false, status: 403, json: async () => { throw new SyntaxError("<html>"); },
     }));
-    const failed = postForm("/x/samples", new FormData());
+    const failed = put("/x/samples", {});
     await expect(failed).rejects.not.toBeInstanceOf(Refused);
     await expect(failed).rejects.toThrow("/x/samples → 403");
   });

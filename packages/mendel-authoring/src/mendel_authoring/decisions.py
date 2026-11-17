@@ -6,7 +6,7 @@ validates the profile through its existing constructor, including heterogeneous 
 
 from collections.abc import Sequence
 from enum import StrEnum
-from typing import Protocol, Self
+from typing import Literal, Protocol, Self
 
 from comeni_core.declared.measurement import MeasuredEntry
 from comeni_core.goal.asked import (
@@ -110,11 +110,17 @@ class FactDecision(_Value):
 class ProducerChoice(_Value):
     site: Site
     contract: ContractId | None = None
+    by: Literal["person", "model"] = "person"
+    because: str = ""
+    """The AI's reason, for a tool it chose (#463)."""
 
 
 class ParameterChoice(_Value):
     name: PortName
     value: ParamValue | None = None
+    by: Literal["person", "model"] = "person"
+    because: str = ""
+    """The AI's reason, for a value it set (#463)."""
 
 
 class RoleChoice(_Value):
@@ -202,12 +208,12 @@ class Decisions(_Value):
                     if w.present and w.states
                 ],
                 params=[
-                    ParamOverride(name=p.name, value=p.value)
+                    ParamOverride(name=p.name, value=p.value, by=p.by, because=p.because)
                     for p in self.parameters
                     if p.value is not None
                 ],
                 producers=[
-                    ProducerPin(site=p.site, contract=p.contract)
+                    ProducerPin(site=p.site, contract=p.contract, by=p.by, because=p.because)
                     for p in self.producers
                     if p.contract is not None
                 ],

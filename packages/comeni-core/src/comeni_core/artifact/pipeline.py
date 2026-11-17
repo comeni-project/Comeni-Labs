@@ -44,7 +44,7 @@ from comeni_core.plan.at_run import (
     SampleRule,
 )
 from comeni_core.plan.decision import DecisionKind, DecisionRecord
-from comeni_core.plan.ir import InputRecord, Parts
+from comeni_core.plan.ir import InputRecord, Overrode, Parts
 from comeni_core.plan.tiers import (
     Grain,
     InputForm,
@@ -156,6 +156,9 @@ class Why(BaseModel):
     from_layer: LayerName | None = None
     displaced_layer: LayerName | None = None
     """Lower-priority layer whose declaration was superseded, if any."""
+
+    overrode: Overrode | None = Field(default=None, exclude_if=lambda o: o is None)
+    """For a value the AI set over a rule's: the rule's result, kept beside it (#463)."""
 
 
 def _no_flags_why() -> Why:
@@ -616,6 +619,20 @@ class AiProvenance(BaseModel):
     """AI points reported as consulted; None if unrecorded, [] if none."""
 
 
+class AiChoice(BaseModel):
+    """One thing the builder agent chose at a step (#463), and whether a person has reviewed it
+    as it now stands. Review never blocks keeping; it is what rule learning counts as a person's
+    answer (`mendel_resolver.proposals`)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    node: NodeId
+    """The step's id."""
+    what: Line
+    """What was chosen, in words: `chose <contract>`, `set <setting> to <value>`."""
+    reviewed: bool
+
+
 # ---------------- PIPELINE ----------------
 
 
@@ -670,6 +687,9 @@ class Pipeline(EgressPayload):
     """Facts each sample's samplesheet row states (#466), sorted by column."""
     channels: list[Channel] = Field(default_factory=list)
     decisions: list[DecisionRecord] = Field(default_factory=list)
+    ai_choices: list[AiChoice] = Field(default_factory=list, exclude_if=lambda c: not c)
+    """What the builder agent chose, by step, sorted by step and words; absent when it chose
+    nothing."""
     emitted: Emitted | None = None
     """Generated-file digests and their source artifact digest; None when unrecorded."""
     gate: Gate | None = None
@@ -963,8 +983,9 @@ class Pipeline(EgressPayload):
     # ---------------- DIGEST AND CONSTRUCTION ----------------
 
     def content_digest(self) -> str:
-        """Hash the pipeline with emitted set to None, avoiding a self-referential digest."""
-        return digest_of(self.model_copy(update={"emitted": None}))
+        """Hash the pipeline without `emitted` and `gate`: both are verdicts about the emitted
+        files, stamped after keep, not part of which pipeline this is (#529)."""
+        return digest_of(self.model_copy(update={"emitted": None, "gate": None}))
 
     @classmethod
     def of(

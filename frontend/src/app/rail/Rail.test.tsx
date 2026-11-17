@@ -1,0 +1,108 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { useState, type ReactNode } from "react";
+import { MemoryRouter } from "react-router";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { AnalysisSlot } from "./AnalysisSlot";
+import { Rail } from "./Rail";
+import { RailControls, RailProvider, RailSlot } from "./RailContext";
+
+vi.mock("../../api/client", () => ({
+  get: vi.fn(async (path: string) =>
+    path.startsWith("/pipeline/drafts/")
+      ? { id: "d1", name: "Liver RNA-seq counts" }
+      : { drafts: [{ id: "d1", name: "Liver RNA-seq counts" }] }),
+}));
+
+function at(path: string, page: ReactNode = null) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[path]}>
+        <RailProvider>
+          <Rail />
+          {page}
+        </RailProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+const rail = () => screen.getByRole("navigation", { name: "Comeni" });
+
+afterEach(() => localStorage.clear());
+
+describe("the rail", () => {
+  it("places are always Home, Forge, Registry", () => {
+    at("/");
+    const places = within(rail()).getByRole("list", { name: "Places" });
+    expect(within(places).getAllByRole("link").map((a) => a.textContent)).toEqual(["Home", "Forge", "Registry"]);
+  });
+
+  it('the slot shows "Open an analysis…" when no analysis is open', () => {
+    at("/");
+    expect(within(rail()).getByText("Open an analysis…")).toBeTruthy();
+  });
+
+  it("inside an analysis the active page's sub-pages are indented under it", async () => {
+    // Data itself is the samples (board 2026-11-16): its sub-pages are Folders (walk 2026-11-17),
+    // References and All files.
+    at("/a/d1/data/references", <RailSlot><AnalysisSlot draftId="d1" page="data" /></RailSlot>);
+    expect(within(rail()).queryByText("Open an analysis…")).toBeNull();
+    const data = within(rail()).getByRole("list", { name: "Data pages" });
+    expect(within(data).getAllByRole("link").map((a) => a.getAttribute("aria-label"))).toEqual(
+      ["Folders", "References", "All files"]);
+    expect(within(data).getByRole("link", { name: "References" }).getAttribute("aria-current")).toBe("page");
+    expect(within(rail()).getByRole("link", { name: /Build/ })).toBeTruthy();
+    expect(within(rail()).getByRole("link", { name: /Run/ })).toBeTruthy();
+    expect(await within(rail()).findByText("Liver RNA-seq counts")).toBeTruthy();
+  });
+
+  it("controls render under a divider with their label", () => {
+    at("/", <RailControls label="Folders"><p>tree</p></RailControls>);
+    const group = within(rail()).getByRole("group", { name: "Folders" });
+    expect(within(group).getByText("tree")).toBeTruthy();
+    expect(group.previousElementSibling?.getAttribute("role")).toBe("separator");
+  });
+
+  it("the bottom row is Settings, theme, Local", () => {
+    at("/");
+    const foot = within(rail()).getByRole("group", { name: "This machine" });
+    expect(within(foot).getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/settings");
+    expect(within(foot).getByRole("button", { name: /theme/i })).toBeTruthy();
+    expect(within(foot).getByText("Local")).toBeTruthy();
+  });
+
+  it("collapsed rail hides labels and sub-pages", () => {
+    at("/a/d1/data", <RailSlot><AnalysisSlot draftId="d1" page="data" /></RailSlot>);
+    fireEvent.click(within(rail()).getByRole("button", { name: "Collapse sidebar" }));
+    expect(within(rail()).queryByRole("list", { name: "Data pages" })).toBeNull();
+    expect(within(rail()).getByRole("link", { name: "Home" }).textContent).toBe("");
+    expect(within(rail()).getByRole("button", { name: "Expand sidebar" })).toBeTruthy();
+  });
+
+  it("on a phone starts as icons, and opens over the page", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query.includes("max-width"), addEventListener: () => {}, removeEventListener: () => {},
+    }));
+    at("/a/d1/data", <RailSlot><AnalysisSlot draftId="d1" page="data" /></RailSlot>);
+    expect(within(rail()).queryByRole("list", { name: "Data pages" })).toBeNull();
+    fireEvent.click(within(rail()).getByRole("button", { name: "Expand sidebar" }));
+    expect(within(rail()).getByRole("list", { name: "Data pages" })).toBeTruthy();
+    expect(rail().className).toContain("fixed");
+    vi.unstubAllGlobals();
+  });
+});
+
+it("keeps the page's controls mounted while the rail is collapsed", () => {
+  function Counter() {
+    const [n, setN] = useState(0);
+    return <button type="button" onClick={() => setN(n + 1)}>count {n}</button>;
+  }
+  at("/", <RailControls label="Folders"><Counter /></RailControls>);
+  fireEvent.click(within(rail()).getByRole("button", { name: "count 0" }));
+  fireEvent.click(within(rail()).getByRole("button", { name: "Collapse sidebar" }));
+  fireEvent.click(within(rail()).getByRole("button", { name: "Expand sidebar" }));
+  expect(within(rail()).getByRole("button", { name: "count 1" })).toBeTruthy();
+});

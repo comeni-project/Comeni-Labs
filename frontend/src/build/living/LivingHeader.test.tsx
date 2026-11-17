@@ -40,24 +40,23 @@ describe("the header as the boards draw it", () => {
     </QueryClientProvider>,
   );
 
-  it("says where the build is as a chip, with the step being offered", () => {
+  it("says the agent is working as a chip, in the now colour", () => {
     draw(FAKE_SESSION);
     const chip = screen.getByTestId("living-status");
-    expect(chip).toHaveTextContent(/^building · step 4 of 5$/);
+    expect(chip).toHaveTextContent(/^working$/);
     expect(chip.getAttribute("data-tone")).toBe("now");
   });
 
-  it("says complete in the done colour, and never claims the pipeline is valid", () => {
-    draw({ ...FAKE_SESSION, phase: "complete", pending_proposal: null,
-           progress: { reviewed: 5, total: 5, active: null } } as typeof FAKE_SESSION);
+  it("says built in the done colour, and never claims the pipeline is valid", () => {
+    draw({ ...FAKE_SESSION, working: false } as typeof FAKE_SESSION);
     const chip = screen.getByTestId("living-status");
-    expect(chip).toHaveTextContent(/^complete$/);
+    expect(chip).toHaveTextContent(/^built$/);
     expect(chip.getAttribute("data-tone")).toBe("done");
     expect(screen.queryByText(/valid/i)).toBeNull();
   });
 
-  it("says a stop in the needs-you colour", () => {
-    draw({ ...FAKE_SESSION, phase: "stopped", pending_proposal: null } as typeof FAKE_SESSION);
+  it("says an outdated pipeline in the needs-you colour", () => {
+    draw({ ...FAKE_SESSION, working: false, projection_current: false } as typeof FAKE_SESSION);
     expect(screen.getByTestId("living-status").getAttribute("data-tone")).toBe("needs-you");
   });
 
@@ -71,8 +70,7 @@ describe("the header as the boards draw it", () => {
     expect(screen.getByTestId("living-header")).not.toHaveTextContent(/revision/);
   });
 
-  const complete = { ...FAKE_SESSION, phase: "complete", pending_proposal: null,
-                     progress: { reviewed: 5, total: 5, active: null } } as typeof FAKE_SESSION;
+  const complete = { ...FAKE_SESSION, working: false } as typeof FAKE_SESSION;
 
   it("keeps Run locked while a value needs the person, even when every step is added (issue 385)", () => {
     draw(complete, true, 1);
@@ -84,7 +82,12 @@ describe("the header as the boards draw it", () => {
     expect(screen.getByTestId("living-run")).toBeEnabled();
   });
 
-  it("does not say complete while a value needs the person (issue 385)", () => {
+  it("keeps Run locked while the agent is working", () => {
+    draw(FAKE_SESSION, true, 0);
+    expect(screen.getByTestId("living-run")).toBeDisabled();
+  });
+
+  it("does not say built in the done colour while a value needs the person (issue 385)", () => {
     draw(complete, true, 1);
     const chip = screen.getByTestId("living-status");
     expect(chip).toHaveTextContent(/^built$/);
@@ -95,8 +98,7 @@ describe("the header as the boards draw it", () => {
 describe("an empty pipeline's chip (issue 399)", () => {
   it("does not call a pipeline with no steps complete", async () => {
     const { StatusChip } = await import("./LivingHeader");
-    const empty = { ...FAKE_SESSION, phase: "complete", history: [], graph: { nodes: [], edges: [] },
-      pending_proposal: null, progress: null } as unknown as typeof FAKE_SESSION;
+    const empty = { ...FAKE_SESSION, working: false, graph: { nodes: [], edges: [] } } as typeof FAKE_SESSION;
     render(<StatusChip session={empty} />);
     expect(screen.getByTestId("living-status")).not.toHaveTextContent(/complete/i);
     expect(screen.getByTestId("living-status")).toHaveTextContent(/nothing built yet/i);

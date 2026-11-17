@@ -12,9 +12,7 @@ type Value = string | number | boolean | null;
 
 /** What a person can do to a step that is already drawn: swap it, set its values, remove it.
  *
- * **Still no inspector.** This is a block in the conversation, opened by selecting the step and
- * drawn under the line that says who decided it — the log stays the one place a step is
- * explained, and now it is also where a step is changed by hand. The manual builder's `Swap` and
+ * Opened from a step's card beside it on the canvas (#499). The manual builder's `Swap` and
  * `Settings` are reused rather than redrawn, so the consequences shown before a swap and the bands
  * a value sits in are the same code on both builders.
  *
@@ -28,19 +26,26 @@ type Value = string | number | boolean | null;
  * staged is the *answers*, not a copy of the graph, so they are laid over whatever graph is
  * current when the person presses — a poll that moved the draft meanwhile is not overwritten.
  */
+type Mode = "menu" | "swap" | "settings" | "remove";
+
 export function StepTools({
   node,
   step,
   graph,
   onEdit,
+  start = "menu",
+  onDone,
 }: {
   node: string;
   /** The drawn view of this step — its ports and settings. Absent until the server has drawn it. */
   step: Step | undefined;
   graph: DraftGraph;
   onEdit: (graph: DraftGraph) => void;
+  /** Open straight on one tool, as a step's card does (#499); `onDone` then closes the card. */
+  start?: Mode;
+  onDone?: () => void;
 }) {
-  const [mode, setMode] = useState<"menu" | "swap" | "settings" | "remove">("menu");
+  const [mode, setMode] = useState<Mode>(start);
   const [answers, setAnswers] = useState<Record<string, Value>>({});
   const name = processName(node);
   const label = `change ${name}`;
@@ -48,12 +53,13 @@ export function StepTools({
     Object.entries(answers).reduce((acc, [setting, value]) => withParam(acc, node, setting, value), g);
   const back = () => {
     setAnswers({});
-    setMode("menu");
+    if (start !== "menu" && onDone) onDone();
+    else setMode("menu");
   };
 
   if (mode === "swap" && step) {
     return (
-      <BlockFrame label={label} title={`swap ${name}`}>
+      <BlockFrame label={`swap ${name}`} title={`swap ${name}`}>
         <Swap
           step={step}
           graph={graph}
@@ -71,7 +77,7 @@ export function StepTools({
     const staged = Object.keys(answers).length;
     return (
       <BlockFrame
-        label={label}
+        label={`values for ${name}`}
         title={`values for ${name}`}
         aside={staged ? `${staged} not yet sent` : undefined}
         actions={
@@ -96,7 +102,7 @@ export function StepTools({
     const wires = graph.edges.filter((e) => e.from_node === node || e.to_node === node).length;
     return (
       <BlockFrame
-        label={label}
+        label={`remove ${name}`}
         title={`remove ${name}`}
         actions={
           <>

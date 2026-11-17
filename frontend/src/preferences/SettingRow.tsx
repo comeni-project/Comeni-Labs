@@ -8,6 +8,8 @@ import { useBrowserSetting } from "./useBrowserSetting";
 import { Collection } from "./Collection";
 import { ModelPicker } from "./ModelPicker";
 import { Report } from "./Report";
+import { useQuery } from "@tanstack/react-query";
+import { get } from "../api/client";
 import type { Entry, Menu } from "./usePreferences";
 
 /** One setting, any kind (spec §4, §5).
@@ -187,7 +189,9 @@ function Control({
     case "model":
       return menu ? <ModelPicker entry={entry} menu={menu} onWrite={onWrite} /> : null;
     case "readonly":
-      return <Report value={value} />;
+      return shown.checks
+        ? <span className="flex flex-col gap-[2px]"><Report value={value} /><Checked settingKey={setting.key} /></span>
+        : <Report value={value} />;
     default:
       return <span className="font-data text-secondary text-ink-2">{value === null ? "—" : String(value)}</span>;
   }
@@ -247,6 +251,21 @@ function Secret({
       <button type="button" disabled={disabled || !draft}
               onClick={() => onWrite(draft, () => { setDraft(""); setReplacing(false); })}
               className="bg-transparent text-now-ink cursor-pointer">Save</button>
+    </span>
+  );
+}
+
+/** A value's slower check (`shown.checks`), asked after the menu so it holds only this row: an
+ *  unreachable model server took the whole page with it (walk 2026-11-17). */
+function Checked({ settingKey }: { settingKey: string }) {
+  const check = useQuery({
+    queryKey: ["settings", "check", settingKey],
+    queryFn: () => get<{ says: string }>(`/settings/${encodeURIComponent(settingKey)}/check`),
+    retry: false,
+  });
+  return (
+    <span role="status" className="text-[12px] text-ink-3">
+      {check.isPending ? "checking…" : check.error ? "could not be checked" : check.data?.says}
     </span>
   );
 }

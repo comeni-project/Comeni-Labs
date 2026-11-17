@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     container. It shipped as a bare relative `Path("examples/…")`, passed every test, and answered
     500 the first time the stack came up. Checkpoint 1 is what found it.
     """
+    data_roots: list[Path] = []
+    """The folders Comeni may read a person's files from (`MENDEL_DATA_ROOTS`, a JSON list), each
+    mounted read-only at the same absolute path in Mendel and in Wiener's worker (#511, #508).
+    Files are read where they are, never copied. Empty: Data says no folder is configured."""
     forge_cache: Path = Path("./.run/forge")
     """Where the forge keeps its clone of each catalogue source between syncs, so a restart does
     not re-clone nf-core/modules. Only the worker that syncs reads it. `MENDEL_FORGE_CACHE`."""
@@ -95,6 +99,12 @@ class Settings(BaseSettings):
     a limit they know, not a default worth tuning — and work waiting in a queue is visible,
     where work failing on a rate limit is a retry storm.
     """
+    mcp_token: str = ""
+    """The bearer token an MCP client presents (`MENDEL_MCP_TOKEN`, #463). Unset, MCP is off."""
+    agent_max_steps: int = 24
+    """The most model calls one builder-agent turn makes before it stops and says so (#463)."""
+    agent_max_tokens: int = 200_000
+    """The most tokens, in and out, one builder-agent turn spends before it stops (#463)."""
     ai_job_timeout_seconds: int = 900
     """The ceiling on one AI job, and the age at which a claimed adaptation is reclaimed.
 

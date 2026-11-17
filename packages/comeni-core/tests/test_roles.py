@@ -124,3 +124,18 @@ def test_a_vocabulary_cannot_declare_a_role_no_contract_could_name(tmp_path):
     )
     with pytest.raises(ValueError, match="is not a role name"):
         RoleVocabulary.load([REGISTRY, overlay])
+
+
+def test_a_role_carries_a_short_label_for_the_canvas(tmp_path):
+    overlay = tmp_path / "lab"
+    (overlay / "roles").mkdir(parents=True)
+    body = ("roles:\n  - id: ribo_depletion\n    label: Remove ribosomal reads\n"
+            "    explain: Remove ribosomal reads.\n")
+    (overlay / "roles" / "extra.yml").write_text(_declared(overlay / "roles" / "extra.yml", body))
+    labels = RoleVocabulary.load([REGISTRY, overlay]).labels
+    assert labels["ribo_depletion"] == "Remove ribosomal reads"
+
+
+def test_every_shipped_role_has_a_label():
+    vocabulary = RoleVocabulary.load(REGISTRY)
+    assert set(vocabulary.labels) == set(vocabulary.names)

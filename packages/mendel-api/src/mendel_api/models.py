@@ -13,8 +13,6 @@ from enum import StrEnum
 from typing import Any
 
 from comeni_core.artifact.gates import Gate
-from mendel_authoring.decisions import ActorKind
-from mendel_authoring.pacing import Pacing
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -30,19 +28,15 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Mapped, mapped_column, validates
+from sqlalchemy.orm import Mapped, mapped_column
 
 from mendel_api.authoring.types import (
-    Phase,
-    ProposalKind,
-    ProposalState,
     Purpose,
     TurnRole,
     TurnState,
 )
 from mendel_api.db import Base
 from mendel_api.invocations import Agent, InvocationPurpose, InvocationState
-from mendel_api.shape_versions import stamp
 from mendel_api.shapes import Json
 
 
@@ -111,7 +105,6 @@ class InstallationSetting(Base):
     """
 
     __tablename__ = "installation_setting"
-    shape_version: Mapped[int] = stamp("installation_setting")
 
     key: Mapped[str] = mapped_column(String(120), primary_key=True)
     value: Mapped[Any] = mapped_column(Json)
@@ -142,7 +135,6 @@ class PipelineDraft(Base):
     """
 
     __tablename__ = "pipeline_draft"
-    shape_version: Mapped[int] = stamp("pipeline_draft")
 
     decision_revision: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     confirmed_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -268,7 +260,6 @@ class AiInvocation(Base):
     """
 
     __tablename__ = "ai_invocation"
-    shape_version: Mapped[int] = stamp("ai_invocation")
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     agent: Mapped[str] = mapped_column(_one_of(Agent, 32, "agent"), index=True)
@@ -299,7 +290,7 @@ class AiInvocation(Base):
     """Input tokens the provider served from its prompt cache (#183). Null when it said nothing."""
     response: Mapped[str | None] = mapped_column(Text, nullable=True)
     """Exactly what the model returned, admitted or refused (#182). A level-0 store: a reply can
-    echo the person's words, and each future protection level decides whether it is kept."""
+    echo the person's words."""
     response_cleared: Mapped[str | None] = mapped_column(
         _one_of(ReplyCleared, 16, "response_cleared"), nullable=True
     )
@@ -366,29 +357,21 @@ class PipelineAuthoringSession(Base):
     `test_the_registry_is_not_in_the_database`); a credential of any kind (the provider key
     lives in the environment and reaches `comeni_ai.access` and nothing else); a provider's own
     error text (`failure_code` on `ai_invocation` carries a declared code instead); and any
-    runtime sample data, which is invariant 15 and is Wiener's anyway.
+    runtime sample data, which is invariant 15: an analysis's samples are `AnalysisData`'s.
 
-    `blueprint` is what the **resolver** produced, stored whole. §1.4 — resolve the whole
-    blueprint, reveal it incrementally — so the reveal is a cursor over something already
-    computed rather than a series of fresh resolutions that could each answer differently.
-    `reviewed` is how far the walk has got.
+    `blueprint` is what the **resolver** produced when the pipeline was last built, stored
+    whole, so the canvas draws one resolution rather than a fresh one per read.
 
     `row_version` is optimistic concurrency on the session itself: two tabs on one conversation
     is the ordinary case.
     """
 
     __tablename__ = "pipeline_authoring_session"
-    shape_version: Mapped[int] = stamp("pipeline_authoring_session")
-    samples: Mapped[Any] = mapped_column(Json, nullable=True)
-    """Every sample of the last upload, with its name, its files and its measurements (#466).
-    Deleted with the session; never copied into a goal, a pipeline or a model's payload."""
 
     retired: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     retirement_reason: Mapped[str | None] = mapped_column(
         _one_of(RetirementReason, 32, "retirement_reason"), nullable=True
     )
-    pacing: Mapped[str | None] = mapped_column(_one_of(Pacing, 32, "pacing"), nullable=True)
-    show_gaps: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     draft_id: Mapped[str] = mapped_column(
@@ -396,32 +379,7 @@ class PipelineAuthoringSession(Base):
     )
     """**Unique**, because the MVP does not support several sessions on one draft.
 
-    Task 3 asks for this constraint if the design does not support several, and it does not:
-    §2 gives a session one phase and one cursor, so two sessions on one draft would be two
-    answers to *where are we* with nothing to arbitrate between them. A second conversation is
-    a second draft."""
-    phase: Mapped[str] = mapped_column(_one_of(Phase, 16, "phase"), index=True)
-    """A `Phase` value. Indexed because sweeping for sessions stuck in `understanding` is how a
-    job that never came back is found."""
-    failed_from: Mapped[str | None] = mapped_column(
-        _one_of(Phase, 16, "failed_from"), nullable=True
-    )
-    """The phase it was in when it failed, so retry resumes *that* one.
-
-    **§2 draws two arrows out of `failed`** — back to `understanding` and to `resolving` — and
-    `phase` alone cannot choose between them. Retry resumes the stage that failed rather than
-    assuming every failure came from the model, and without the column a failed build would be
-    retried as a prompt call.
-
-    Nullable, and null is not a sentinel: a session that has never failed has no such phase, and
-    `""` would be a phase name that is not one."""
-    at: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    """The protocol node this session rests on (14.7.8.1): `mendel_authoring.protocol`'s id,
-    written only by the dispatcher (`services/session.py`). The phase is read off that node.
-
-    **Null on a row from before it existed**, and on a row a test moved by event: the node is
-    then derived from the phase, the pending proposal and the pending turn
-    (`session.rests_at`), and the first move writes it."""
+    One conversation per draft: a second conversation is a second draft."""
     blueprint: Mapped[dict] = mapped_column(Json, default=dict)
     registry_digest: Mapped[str] = mapped_column(String(80), default="")
     """Which layer stack the blueprint was resolved against. A blueprint outlives the registry
@@ -457,7 +415,6 @@ class PipelineAuthoringTurn(Base):
     """
 
     __tablename__ = "pipeline_authoring_turn"
-    shape_version: Mapped[int] = stamp("pipeline_authoring_turn")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     session_id: Mapped[str] = mapped_column(
@@ -491,132 +448,6 @@ class PipelineAuthoringTurn(Base):
     )
 
 
-class PipelineAuthoringProposal(Base):
-    """Something the engine offered, and what became of it.
-
-    **The fourteenth table.** A proposal is separate from the turn that carried it because the
-    two have different lifetimes: the turn is an immutable line of transcript, and the proposal
-    is answered later — possibly after the draft has moved underneath it.
-
-    `state` carries `stale` as a named member rather than as a comparison somebody remembers to
-    perform. A proposal made against revision 4 and answered after revision 5 landed was not
-    rejected — nobody rejected it — and applying it would write over work done in between.
-
-    `draft_revision` is what that comparison is against, and `chosen_option` records which
-    option id won, never a value: the browser posts ids, and a proposal that recorded a *value*
-    would be a place for something outside the offered set to enter.
-
-    `by` was meant to distinguish a person from the model for the reason `model_override`
-    exists on all three decision kinds — a pipeline an agent assembled must not read as one a
-    person drew by hand (A130). **It does not yet:** it holds a name (issue 295).
-    """
-
-    __tablename__ = "pipeline_authoring_proposal"
-    shape_version: Mapped[int] = stamp("pipeline_authoring_proposal")
-
-    id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    session_id: Mapped[str] = mapped_column(
-        String(32), ForeignKey("pipeline_authoring_session.id", ondelete="RESTRICT"), index=True
-    )
-    turn_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("pipeline_authoring_turn.id", ondelete="RESTRICT"), nullable=True
-    )
-    kind: Mapped[str] = mapped_column(_one_of(ProposalKind, 24, "kind"), index=True)
-    """A `BlockKind` value — which of the discriminated payloads `payload` holds."""
-    payload: Mapped[dict] = mapped_column(Json, default=dict)
-    """The block itself, stored whole and validated back through `authoring.types.parse_block`.
-    Whole rather than shredded for `PipelineDraft.graph`'s reason: a schema that could hold half
-    a proposal would be a second definition of what a proposal is."""
-    @validates("payload")
-    def _validated_payload(self, _key, payload):
-        from mendel_api.authoring.envelopes import parse
-
-        return parse(payload, kind=payload.get("offer")).model_dump(mode="json")
-
-    preview_views: Mapped[dict | None] = mapped_column(
-        Json, nullable=True, deferred=True, deferred_raiseload=True,
-    )
-    """Immutable derived alternatives. Ordinary reads must not load this large column."""
-
-    @validates("preview_views")
-    def _validated_previews(self, _key, value):
-        from mendel_api.authoring.canvas import checked_previews
-
-        return None if value is None else checked_previews(value, self.payload, self.id)
-
-    state: Mapped[str] = mapped_column(_one_of(ProposalState, 16, "state"), index=True)
-    """A `ProposalState` value — `pending`, `accepted`, `rejected` or `stale`."""
-    chosen_option: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    """An option **id**, never a value. See the class docstring."""
-    actor_kind: Mapped[str | None] = mapped_column(
-        _one_of(ActorKind, 16, "actor_kind"), nullable=True
-    )
-    by: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    """Who settled it, once answered: an author's name or a model's id. Null while pending.
-
-    **Not a vocabulary.** It once said `person`, `model` or `resolver`; the writers store a name,
-    so whether a person or a model decided is not recorded here (issue 295)."""
-    draft_revision: Mapped[int] = mapped_column(Integer)
-    """The revision this was proposed against. Staleness is equality against this."""
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    __table_args__ = (
-        Index(
-            "ix_pipeline_authoring_proposal_one_pending",
-            "session_id",
-            unique=True,
-            postgresql_where=text("state = 'pending'"),
-        ),
-    )
-    """At most one pending proposal per session, which is §2's MVP rule made unraceable.
-
-    **A partial unique index where supported, and a service-level refusal everywhere**: the
-    service answers with a sentence, and the
-    index is the half that holds when two requests arrive together. The literal `'pending'` is
-    `ProposalState.PENDING` spelled in SQL, and
-    `test_the_pending_proposal_index_names_the_pending_state` holds the two together rather than
-    this sentence doing it — a comment claiming a guard exists is worse than no comment.
-    """
-
-
-class SuggestionState(StrEnum):
-    PENDING = "pending"
-    APPLIED = "applied"
-    DISMISSED = "dismissed"
-    STALE = "stale"
-
-
-class PipelineAuthoringSuggestion(Base):
-    """A change the model offered and the person has not yet taken or set aside (Part I.0 §5.3).
-
-    **Its own table, not a proposal**: a session holds one pending proposal — the open question
-    or the goal card — and suggestions sit beside it. `change` is a `payloads.DecisionChange` dump;
-    `heard` says whether it quoted the person (offered rather than recorded only because the goal
-    was already confirmed). Applying one is the person's own change; the model is named by
-    `invocation_id`, never recorded as the author.
-
-    **A hand edit is offered here too** (one builder, #395): the engine reads the edit
-    (`intent.read_edit`) and each reading is a suggestion with `edit` set — shared by every
-    reading of one edit, taken or set aside together — and `says`, the engine's own sentence."""
-
-    __tablename__ = "pipeline_authoring_suggestion"
-    shape_version: Mapped[int] = stamp("pipeline_authoring_suggestion")
-
-    id: Mapped[str] = mapped_column(String(32), primary_key=True)
-    session_id: Mapped[str] = mapped_column(
-        String(32), ForeignKey("pipeline_authoring_session.id", ondelete="RESTRICT"), index=True
-    )
-    change: Mapped[dict] = mapped_column(Json)
-    heard: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
-    state: Mapped[str] = mapped_column(_one_of(SuggestionState, 16, "state"), index=True)
-    invocation_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    edit: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
-    says: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
 # Register draft-owned decisions in the same metadata Alembic and existing consumers read.
 from mendel_api.decision_models import (  # noqa: E402, F401
     PipelineAsked,
@@ -633,7 +464,6 @@ from mendel_api.decision_models import (  # noqa: E402, F401
     PipelineOptionalInputRevision,
     PipelineParameter,
     PipelineParameterRevision,
-    PipelinePhrasing,
     PipelineProducer,
     PipelineProducerRevision,
     PipelineReview,
@@ -664,7 +494,6 @@ class PipelineDecisionMigration(Base):
     """Frozen legacy provenance; an archive, never a current decision fallback."""
 
     __tablename__ = "pipeline_decision_migration"
-    shape_version: Mapped[int] = stamp("pipeline_decision_migration")
     draft_id: Mapped[str] = mapped_column(
         String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True
     )
@@ -711,7 +540,6 @@ class CatalogueModule(Base):
     """
 
     __tablename__ = "catalogue_module"
-    shape_version: Mapped[int] = stamp("catalogue_module")
 
     source: Mapped[str] = mapped_column(String(32), primary_key=True)
     path: Mapped[str] = mapped_column(String(255), primary_key=True)
@@ -749,7 +577,6 @@ class ForgeAdaptation(Base):
     who decided what, and a later adaptation may depend on it."""
 
     __tablename__ = "forge_adaptation"
-    shape_version: Mapped[int] = stamp("forge_adaptation")
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     source: Mapped[str] = mapped_column(String(32))
@@ -785,7 +612,6 @@ class ForgeRevision(Base):
     against the same revision cannot both land."""
 
     __tablename__ = "forge_revision"
-    shape_version: Mapped[int] = stamp("forge_revision")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     adaptation: Mapped[str] = mapped_column(
@@ -897,7 +723,6 @@ class ForgeStep(Base):
     these as they happen and reads them back later, so progress and history are one record."""
 
     __tablename__ = "forge_step"
-    shape_version: Mapped[int] = stamp("forge_step")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     adaptation: Mapped[str] = mapped_column(
@@ -916,7 +741,6 @@ class ForgeMessage(Base):
     notes (an invalid reply, an assembly result). `commands` are the AI's proposals it carried."""
 
     __tablename__ = "forge_message"
-    shape_version: Mapped[int] = stamp("forge_message")
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     adaptation: Mapped[str] = mapped_column(
@@ -946,7 +770,6 @@ class RuleProposal(Base):
     force when a person approves them."""
 
     __tablename__ = "rule_proposal"
-    shape_version: Mapped[int] = stamp("rule_proposal")
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     target_key: Mapped[str] = mapped_column(String(200), index=True)
@@ -962,3 +785,39 @@ class RuleProposal(Base):
     decided_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class AnalysisData(Base):
+    """An analysis's data (#511): the folders a person ticked, every file in them, the samples
+    they pair into and what was measured on each. **One row per draft**, because an analysis is
+    a draft; deleted with it (`deletion.delete_draft`), never cascaded.
+
+    **The level-0 exception to invariant 15, recorded in `invariants.md`:** these columns hold
+    paths and sample names on this server, so that a run can be bound to the data without a
+    person typing a path. They never reach a goal, a pipeline, a log, or a column of any other
+    table; a run's params are built from them when it is sent (`bindings`) and kept by Wiener.
+    """
+
+    __tablename__ = "analysis_data"
+
+    draft_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True)
+    folders: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    scan: Mapped[Any] = mapped_column(Json, nullable=False, default=dict)
+    files: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    samples: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    rule: Mapped[Any] = mapped_column(Json, nullable=True)
+    """How file names are read into samples (`services.data.rule.Rule`); `None` is the default."""
+    fixes: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    """Fixes applied on every scan, in order (`Fix`): a mate used, a sample left out."""
+    unfit: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    """File names the rule did not fit, from the last scan."""
+    references: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    """Study-wide files the person named, each with its type (`Reference`)."""
+    columns: Mapped[Any] = mapped_column(Json, nullable=False, default=dict)
+    """A person's columns: `{name: {sample: value}}`, such as condition or batch."""
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0,
+                                          server_default=text("0"))
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC))

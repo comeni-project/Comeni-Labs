@@ -7,7 +7,7 @@ opened values only through `get` or `record` as `SecretStr` instances.
 from collections.abc import Callable, Mapping
 from typing import Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, JsonValue, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, SecretStr
 
 from comeni_core.settings.declare import IllegalValue, Kind, Setting, Where
 from comeni_core.settings.reasons import Designed, Needs, ReadOnlyHere, Reason
@@ -62,6 +62,9 @@ class Shown(BaseModel):
     reason: Reason | None = None
     set: bool | None = None
     last4: str | None = None
+    checks: bool = Field(default=False, exclude_if=lambda on: not on)
+    """A slower check of this value follows at `GET /settings/<key>/check`, so the menu need not
+    wait for it (an unreachable model server held the whole page for its timeout)."""
 
 
 class Entry(BaseModel):
@@ -99,6 +102,7 @@ class Installation:
         server: Literal["mendel", "wiener"] = "mendel",
         secrets_need: str | None = None,
         reporters: Mapping[str, Callable[[], object]] | None = None,
+        checks: Mapping[str, Callable[[], object]] | None = None,
     ):
         """Create a settings facade for one serving process.
 
@@ -112,8 +116,17 @@ class Installation:
         self.server = server
         self.secrets_need = secrets_need
         self.reporters = dict(reporters or {})
+        self.checks = dict(checks or {})
 
     # Reading and presentation
+
+    def check(self, key: str) -> object:
+        """The slower check of one value; `KeyError` when it has none. Never raises otherwise."""
+        run = self.checks[key]
+        try:
+            return run()
+        except Exception as failed:  # a check must never take its row down
+            return f"could not be checked ({type(failed).__name__})"
 
     def resolved(self, setting: Setting) -> Resolved:
         if setting.kind is Kind.READONLY and setting.key in self.reporters:
@@ -222,7 +235,8 @@ class Installation:
         if setting.kind is not Kind.SECRET:
             # Build explicitly because serialized reasons include their computed `says` field.
             return Shown(
-                value=got.value, source=got.source, locked=got.locked, reason=got.reason
+                value=got.value, source=got.source, locked=got.locked, reason=got.reason,
+                checks=setting.key in self.checks,
             )
         try:
             secret = self.get(setting)

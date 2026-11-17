@@ -25,7 +25,7 @@ describe("what is kept in the browser", () => {
     // The prompt and the transcript are durable on the server. A browser copy would be a second
     // record of what somebody typed about their analysis, on a machine the platform does not
     // control, and it would outlive the session it came from.
-    const files = sources().filter((file) => file !== "replay.ts");
+    const files = sources();
     expect(files.length).toBeGreaterThan(5);
     for (const file of files) {
       // **Use, not the word.** The first version matched the bare name and fired on the hook's
@@ -57,25 +57,28 @@ describe("the layout does not assume JavaScript measured anything", () => {
 });
 
 describe("reduced motion", () => {
-  it("switches off every living animation and leaves the end state where it is", () => {
+  it("stills the agent's working dot, whose words already say it is working", () => {
     const css = readFileSync(join(HERE, "../../main.css"), "utf8");
-    const block = /@media \(prefers-reduced-motion: reduce\)\s*\{([^}]*\.living-pop[^}]*)\}/.exec(css);
-    expect(block, "no reduced-motion block names the living classes").not.toBeNull();
-    for (const name of ["living-pop", "living-settle", "living-draw"]) {
-      expect(block![1]).toContain(name);
-    }
-    expect(block![1]).toMatch(/animation:\s*none/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.agent-pulse, \.agent-arrive\s*\{\s*animation:\s*none/);
   });
 });
 
-describe("the one storage exception", () => {
-  it("is replay.ts, it is sessionStorage, and what it writes is a count", () => {
-    // Task 12 permits exactly this: the last-seen number, in `sessionStorage`, never transcript
-    // content. Held by reading the file rather than trusting its docstring.
-    const text = readFileSync(join(HERE, "replay.ts"), "utf8");
-    expect(text).not.toMatch(/\blocalStorage\s*[.[]/);
-    const writes = [...text.matchAll(/sessionStorage\.setItem\(([^;]*)\);/g)].map((m) => m[1]);
-    expect(writes).toHaveLength(1);
-    expect(writes[0]).toMatch(/String\(Math\.max\(0, Math\.floor\(count\)\)\)/);
+describe("a step's card stays inside the canvas (plan 2 review)", () => {
+  it("clamps its left, its top and its height in the stylesheet, from where the step is", () => {
+    const css = readFileSync(join(HERE, "../../main.css"), "utf8");
+    const rule = /\.step-beside \{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(rule).toMatch(/left: max\(8px, min\(var\(--card-x\)/);
+    expect(rule).toMatch(/top: max\(12px, min\(var\(--card-y\)/);
+    expect(rule).toMatch(/max-height: calc\(100% - max\(12px, min\(var\(--card-y\)/);
+  });
+});
+
+describe("the pipeline file's AI on a narrow screen (plan 2 review)", () => {
+  it("stacks the AI panel under the file rather than hiding where its answers land", () => {
+    const css = readFileSync(join(HERE, "../../main.css"), "utf8");
+    const narrow = /@media \(max-width: 900px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+    expect(narrow).toContain(".pipeline-file");
+    expect(narrow).not.toMatch(/file-aside[^}]*display: none/);
+    expect(narrow).toMatch(/\.file-aside \{[^}]*height/);
   });
 });

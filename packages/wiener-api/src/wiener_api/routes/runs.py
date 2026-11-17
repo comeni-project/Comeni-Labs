@@ -5,12 +5,15 @@ a field silently ignored — and the field somebody would try is a path.
 """
 
 import asyncio
+import mimetypes
 import secrets
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated, Literal
 
 from comeni_core.diagnostics import coded
 from fastapi import APIRouter, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from wiener_core.events import EventKind, RunEvent, TaskStatus
 from wiener_core.measured import DecidedValue, MeasuredView
@@ -40,11 +43,24 @@ from wiener_api.task_query import TaskQuery
 router = APIRouter(prefix="/api")
 
 
+class StagedSample(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sample: str
+    files: list[str]
+
+
+class Staged(BaseModel):
+    """Samples whose files the launcher links into the run's own folder (#511)."""
+
+    model_config = ConfigDict(extra="forbid")
+    stage: list[StagedSample]
+
+
 class SubmitRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     artifact_id: str
-    params: dict[str, str | list[str] | list[dict[str, str]]] = {}
+    params: dict[str, str | list[str] | list[dict[str, str]] | Staged] = {}
     """The values only the laboratory can supply, and **the artifact is the schema**.
 
     Mendel emits every value it can justify and `= null` for every value it cannot, so a
@@ -192,6 +208,9 @@ class RunRow(BaseModel):
     """**Tasks, not steps.** `steps_declared` is in the artifact and reading one per row is
     what the board could never afford; how many tasks a run has seen is one GROUP BY over the
     `run_task` projection W2 built."""
+    analysis: str = ""
+    """Which analysis sent it (#536): how a page lists an analysis's runs, its pipeline changed
+    since or not. `""` for a hand upload, which only its digest can place."""
     pipeline_digest: str | None = None
     """Which pipeline this run is of — **the join key the browser reads.**
 
@@ -243,10 +262,17 @@ class BoardSummary(BaseModel):
     """
 
 
+ANALYSIS_ID = r"^[A-Za-z0-9_-]{0,64}$"
+"""An analysis is an id (a Mendel draft's), never text or a path (#536)."""
+
+
 @router.post("/artifacts", status_code=201, operation_id="uploadArtifact",
              summary="Upload a gated pipeline directory")
-async def upload_artifact(bundle: UploadFile,
-                          name: Annotated[str, Form()] = "") -> ArtifactStored:
+async def upload_artifact(
+    bundle: UploadFile,
+    name: Annotated[str, Form()] = "",
+    analysis: Annotated[str, Form(pattern=ANALYSIS_ID)] = "",
+) -> ArtifactStored:
     """**`name` is optional and stays optional.** The browser is the courier and it has the
     draft's name to send; `curl -F bundle=@run.zip` has nothing to send and must keep working,
     because an air-gapped site uploading a `mendel build` artifact by hand is invariant 13's
@@ -261,6 +287,7 @@ async def upload_artifact(bundle: UploadFile,
         repository.add(session, settings.lab_id, RunArtifact(
             id=artifact_id, uploaded_by="operator", uploaded_at=datetime.now(UTC),
             digest=digest, size_bytes=size, name=name.strip()[:200],
+            analysis=analysis,
             # **The column stopped being decoration here.** Declared in W1 and never assigned;
             # it is the key that lets the browser put runs beside pipelines without either
             # server learning the other exists.
@@ -294,6 +321,17 @@ async def submit(body: SubmitRequest) -> RunAccepted:
                 "unknown": sorted(supplied - holes),
                 "missing": sorted(holes - supplied),
             })
+        # **A run reads only from the data folders** (#508): every path a value names resolves
+        # inside them, or this run's own pipeline, never another run's. Unconfigured, there is
+        # nothing to check against.
+        if settings.data_roots:
+            given = {k: v.model_dump() if isinstance(v, Staged) else v
+                     for k, v in body.params.items()}
+            outside = launcher.paths_outside(
+                given, [*settings.data_roots, settings.artifact_root / body.artifact_id])
+            if outside:
+                raise HTTPException(status_code=422, detail=coded(
+                    "MW0103", f"{outside[0]} is outside the folders runs read from"))
         # `""` means "run without it" only for an input the pipeline takes as optional (#460).
         optional = optional_holes(body.artifact_id)
         empty = sorted(name for name, value in body.params.items()
@@ -312,7 +350,8 @@ async def submit(body: SubmitRequest) -> RunAccepted:
         # parameters, and they live in its own directory rather than in the job, so a Redis
         # that loses the job loses a delay, not the run.
         try:
-            launcher.write_params(run_id, body.params)
+            launcher.write_params(run_id, {k: v.model_dump() if isinstance(v, Staged) else v
+                                           for k, v in body.params.items()})
         except OSError as exc:
             raise HTTPException(status_code=507, detail=coded(
                 "MW0101", f"the run's parameters could not be written: {exc.strerror}",
@@ -349,6 +388,9 @@ def board(phase: RunPhase | None = None, who: str | None = None, executor: str |
         names = repository.artifact_names(
             session, settings.lab_id, [r.artifact_id for r in page]
         )
+        analyses = repository.artifact_analyses(
+            session, settings.lab_id, [r.artifact_id for r in page]
+        )
         return RunsPage(
             runs=[
                 RunRow(id=r.id, phase=r.phase, executor=r.executor,
@@ -357,7 +399,8 @@ def board(phase: RunPhase | None = None, who: str | None = None, executor: str |
                        tasks_done=counts.get(r.id, (0, 0))[0],
                        tasks_seen=counts.get(r.id, (0, 0))[1],
                        pipeline_digest=digests.get(r.artifact_id),
-                       name=names.get(r.artifact_id, ""))
+                       name=names.get(r.artifact_id, ""),
+                       analysis=analyses.get(r.artifact_id, ""))
                 for r in page
             ],
             total=total,
@@ -831,6 +874,8 @@ class ResultFile(BaseModel):
     """Relative to the process directory, so nothing here is an absolute path."""
     size_bytes: int
     modified_ms: int
+    viewable: bool = False
+    """Whether a browser can show it: text, HTML, an image or a PDF. A BAM or a gzip cannot."""
 
 
 class ResultsOut(BaseModel):
@@ -885,12 +930,71 @@ def run_results(run_id: str, after: int = 0, limit: int = 200) -> ResultsOut:
                 name="/".join(path.relative_to(root).parts[1:]) or path.name,
                 size_bytes=path.stat().st_size,
                 modified_ms=int(path.stat().st_mtime * 1000),
+                viewable=_viewable(path),
             )
             for path in page
         ],
         total=len(found),
         published=True,
     )
+
+
+@router.get("/runs/{run_id}/results/file", operation_id="readResultFile",
+            summary="One file a run published", response_class=FileResponse)
+def run_result_file(run_id: str, process: str, name: str) -> FileResponse:
+    """**Open**, on Run's Outputs (#511): a file under this run's results, as `results` lists it.
+
+    Resolved and checked to stay under the run's own results folder, so a name that climbs out
+    (`..`, an absolute path, a link) is not served. `lab_id` scopes it as the list does."""
+    with db.session_scope() as session:
+        if repository.run(session, settings.lab_id, run_id) is None:
+            raise HTTPException(status_code=404)
+    root = launcher.results_dir(run_id).resolve()
+    path = (root / process / name).resolve()
+    if not path.is_relative_to(root) or path.parent == root.parent or not path.is_file():
+        raise HTTPException(status_code=404)
+    served = FileResponse(path, filename=path.name, content_disposition_type="inline")
+    kind = (served.media_type or "").split(";")[0]
+    # **Text is shown, not downloaded** (walk 2026-11-17): a browser downloads a
+    # `text/tab-separated-values` table or a `.out` log; as plain text it opens in the tab.
+    if kind not in _ACTIVE and not _shown(kind) and _is_text(path):
+        served = FileResponse(path, filename=path.name, content_disposition_type="inline",
+                              media_type="text/plain; charset=utf-8")
+    # **A report runs in its own origin** (Checkpoint D): a QC report carries a tool's scripts
+    # and text from the samples; sandboxed, without allow-same-origin, it cannot reach the app's
+    # API or its terminal, while its own charts still draw.
+    if (served.media_type or "").split(";")[0] in _ACTIVE:
+        served.headers["Content-Security-Policy"] = "sandbox allow-scripts allow-popups"
+    # Every result is what its type says, never sniffed into something else (final review).
+    served.headers["X-Content-Type-Options"] = "nosniff"
+    return served
+
+
+def _shown(kind: str) -> bool:
+    """A type a browser shows as it is: an image, a PDF, or text it renders."""
+    return kind.startswith("image/") or kind in {"application/pdf", "text/plain", "text/html"}
+
+
+def _is_text(path: Path) -> bool:
+    """Text, by its first bytes: no NUL, and UTF-8 (a character cut at the end is allowed)."""
+    with path.open("rb") as handle:
+        head = handle.read(4096)
+    if b"\0" in head or head.startswith(b"\x1f\x8b"):
+        return False
+    try:
+        head.decode("utf-8")
+    except UnicodeDecodeError as cut:
+        return cut.start >= len(head) - 3
+    return True
+
+
+def _viewable(path: Path) -> bool:
+    kind = mimetypes.guess_type(path.name)[0] or ""
+    return kind in _ACTIVE or _shown(kind) or _is_text(path)
+
+
+_ACTIVE = frozenset({"text/html", "application/xhtml+xml", "image/svg+xml", "text/xml",
+                     "application/xml"})
 
 
 TERMINAL = {"succeeded", "failed", "cancelled", "lost"}

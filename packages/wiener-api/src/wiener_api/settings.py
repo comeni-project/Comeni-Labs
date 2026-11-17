@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     """Where an uploaded pipeline directory lands. **Server-chosen, never client-supplied** —
     the same restraint `mendel_api.services.gates._directory` takes, for the same reason."""
     work_root: Path = Path("./var/wiener/work")
+    data_roots: list[Path] = []
+    """The folders a run's inputs may come from (`WIENER_DATA_ROOTS`, a JSON list): Mendel's data
+    roots, mounted read-only at the same path in the worker (#511, #508)."""
     ingest_base_url: str = "http://127.0.0.1:8099"
     """Where the head process posts its events. Loopback — spec §4."""
     api_token: str = ""

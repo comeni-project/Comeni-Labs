@@ -932,12 +932,19 @@ def _by_person(
     engine = decided.contract.id if isinstance(decided, Choice) else None
     if match is None or engine == pin.contract:
         return None
+    # **The AI's pin is the AI's** (#463): tier 4, source model, the engine's pick kept beside
+    # it as for a person's, and its own reason after; it stays flagged for review.
+    model = pin.by == "model"
+    who = "the AI" if model else "you"
+    because = f"; because {pin.because}" if model and pin.because else ""
     if isinstance(decided, Choice):
-        reason = f"you chose {pin.contract} over {engine}, the engine's pick: {decided.reason}"
-        why_open = "a person chose another tool than the engine's"
+        reason = (f"{who} chose {pin.contract} over {engine}, the engine's pick: "
+                  f"{decided.reason}{because}")
+        why_open = ("the AI chose another tool than the engine's" if model
+                    else "a person chose another tool than the engine's")
         unknown: tuple[str, ...] = ()
     else:
-        reason = f"you chose {pin.contract}; {decided.question.why_open}"
+        reason = f"{who} chose {pin.contract}; {decided.question.why_open}{because}"
         why_open, unknown = decided.question.why_open, decided.unknown
     question = ProducerAsked(
         node_id=_node_id(match),
@@ -947,18 +954,22 @@ def _by_person(
         candidates=sorted(c.id for c in here.candidates),
         states=sorted(here.states),
     )
+    authored = ({"model_override": pin.contract, "model_override_by": "builder-agent"} if model
+                else {"human_override": pin.contract})
     record = ProducerDecision(
         key=question.key(),
         subject=question.subject,
         candidates=question.candidates,
         chosen=pin.contract,
-        human_override=pin.contract,
         reason=reason,
         confidence=1.0,
-        resolved_by="person",
+        resolved_by="model" if model else "person",
         unknown=list(unknown),
+        **authored,
     )
-    choice = Choice(match, Tier.AMBIGUOUS, reason, ValueSource.HUMAN, pinned="your choice")
+    choice = Choice(match, Tier.AMBIGUOUS, reason,
+                    ValueSource.MODEL if model else ValueSource.HUMAN,
+                    pinned="the AI's choice" if model else "your choice")
     return choice, record
 
 

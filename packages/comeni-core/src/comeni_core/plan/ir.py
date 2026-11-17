@@ -39,6 +39,17 @@ def _still_open(value: "ResolvedValue") -> bool:
     )
 
 
+class Overrode(BaseModel):
+    """The rule's own result, kept beside a value the AI set over it (#463): which decision, the
+    value it gave, and its citation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    rule: Line
+    value: ParamValue
+    cite: Line = ""
+
+
 class ResolvedValue(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -68,6 +79,8 @@ class ResolvedValue(BaseModel):
     displaced_layer: LayerName | None = None
     """Lower layer displaced by this value, when an overlay changed an existing route."""
 
+    overrode: Overrode | None = Field(default=None, exclude_if=lambda o: o is None)
+    """For a value the AI set over a rule's: the rule's result, kept beside it (#463)."""
     at_run: AtRun | None = Field(default=None, exclude_if=lambda at_run: at_run is None)
     """For a setting decided at run time (#217): the lookup the pipeline runs over a measured
     fact. `value` is then the fallback."""

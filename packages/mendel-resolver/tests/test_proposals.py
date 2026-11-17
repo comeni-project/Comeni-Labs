@@ -51,9 +51,11 @@ def _setting(chosen, *, because="", key="samtools_sort.index_format"):
             "chosen": chosen, "human_override": chosen, "override_reason": because}
 
 
-def pipeline(decisions, facts=None) -> Pipeline:
+def pipeline(decisions, facts=None, ai_choices=None) -> Pipeline:
     data = yaml.safe_load(FIXTURE.read_text())
     data["decisions"] = decisions
+    if ai_choices is not None:
+        data["ai_choices"] = ai_choices
     if facts is not None:
         data["facts"]["measurements"] = [
             {"measurement": name, "value": value, "source": "said"}
@@ -76,6 +78,22 @@ def test_a_models_answer_is_a_case_but_not_evidence(registry):
     assert not case.by_person and not case.evidence
     assert cases_of(pipeline([_producer(candidates=(STAR,))]), registry, "p1") == [], \
         "a tool drawn with no alternative is not a choice"
+
+
+def test_rules_learn_only_from_answers_a_person_gave_or_reviewed(registry):
+    """#463: an AI choice a person looked at and kept counts as their answer; one nobody
+    reviewed stays a case the replay compares against."""
+    choice = {"node": "star_align", "what": f"chose {STAR}"}
+    model = [_producer(person=False)]
+    (unseen,) = cases_of(pipeline(model, ai_choices=[choice | {"reviewed": False}]), registry, "p1")
+    assert not unseen.evidence
+    (seen,) = cases_of(pipeline(model, ai_choices=[choice | {"reviewed": True}]), registry, "p1")
+    assert seen.evidence and seen.reviewed and not seen.by_person
+    setting = _setting("bai") | {"human_override": None, "model_override": "bai",
+                                 "model_override_by": "fake/model"}
+    reviewed = [choice | {"reviewed": True}]
+    (other,) = cases_of(pipeline([setting], ai_choices=reviewed), registry, "p1")
+    assert not other.evidence, "a review of one step is not a review of another"
 
 
 def test_candidates_sharing_no_single_role_are_skipped(registry):

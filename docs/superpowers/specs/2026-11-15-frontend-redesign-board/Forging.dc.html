@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Forging quast — Comeni</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{--c-paper:#F5F6F8;--c-surface:#FFFFFF;--c-surface-2:#F8F9FB;--c-line-soft:#EEF0F3;--c-line:#E2E5EA;--c-line-2:#D2D7DE;--c-mark:#A9B2BF;--c-ink:#15181D;--c-ink-2:#3B424D;--c-ink-3:#5F6773;--c-now:#1D5FC2;--c-now-mid:#6FA0E6;--c-now-ink:#174C9B;--c-now-soft:#EDF3FC;--c-now-line:#B8CDEE;--c-done:#2E9A5A;--c-done-ink:#1C6B3E;--c-done-soft:#E3F3E9;--c-done-line:#B9DCC6;--c-measured:#C48A1A;--c-measured-ink:#8A4B0B;--c-measured-soft:#FFF3DC;--c-measured-line:#F3DFB6;--c-needs-you:#C2410C;--c-needs-you-ink:#A0400B;--c-needs-you-soft:#FDEEE4;--c-needs-you-line:#F5CDB3;--c-ai:#5A3EAF;--c-ai-soft:#EEE9FB;--c-ai-line:#E3DBF6;--c-report:#9A2F5C;--c-report-soft:#FBE8F0;--c-regions:#156F6F;--c-regions-soft:#E2F5F4}
+.theme-root{background:var(--c-paper);color:var(--c-ink);min-height:900px;transition:background .2s}
+.theme-root.theme-dark{--c-paper:#12141B;--c-surface:#1A1D27;--c-surface-2:#161820;--c-line-soft:#232736;--c-line:#282C3A;--c-line-2:#3A3F52;--c-mark:#4A5068;--c-ink:#E8EAF2;--c-ink-2:#B0B5C8;--c-ink-3:#8C92A8;--c-now:#6EA2FF;--c-now-mid:#3D6FC0;--c-now-ink:#8FB6FF;--c-now-soft:#172642;--c-now-line:#2A4170;--c-done:#2FC79B;--c-done-ink:#5FD9B0;--c-done-soft:#113529;--c-done-line:#1E5A45;--c-measured:#F0B840;--c-measured-ink:#F0B840;--c-measured-soft:#35290F;--c-measured-line:#5A4618;--c-needs-you:#FF6E73;--c-needs-you-ink:#FF8A8E;--c-needs-you-soft:#3A1B20;--c-needs-you-line:#5A2A2F;--c-ai:#B39DFF;--c-ai-soft:#241D3A;--c-ai-line:#3A2F5C;--c-report:#F08DB8;--c-report-soft:#3A1A2A;--c-regions:#5FD9D9;--c-regions-soft:#0F3333}
+.theme-dark input,.theme-dark select,.theme-dark textarea{background:var(--c-surface);color:var(--c-ink)}
+
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--c-ink);-webkit-font-smoothing:antialiased}
+a{color:var(--c-now);text-decoration:none}
+button,input,select,textarea{font-family:inherit}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.rail{flex:0 0 244px;background:var(--c-surface);border-right:1px solid var(--c-line);display:flex;flex-direction:column;padding:12px 10px;box-sizing:border-box;height:900px;overflow-y:auto;overflow-x:hidden}
+.mode{display:flex;align-items:center;gap:11px;width:100%;box-sizing:border-box;padding:9px 10px;border:0;border-radius:8px;background:transparent;color:var(--c-ink-2);cursor:pointer;text-align:left}
+.mode:hover{background:var(--c-surface-2)}
+.mode.on{background:var(--c-now-soft);color:var(--c-now-ink)}
+.mt{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mn{font-size:14px;font-weight:600}
+.ms{font-size:12px;color:var(--c-ink-3)}
+.group{font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--c-ink-3);padding:14px 10px 4px}
+.rv{display:flex;align-items:flex-start;gap:8px;width:100%;box-sizing:border-box;padding:7px 10px;border:0;border-radius:7px;background:transparent;cursor:pointer;font-size:13px;color:var(--c-ink-2);text-align:left}
+.rv:hover{background:var(--c-surface-2)}
+.iconbtn{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--c-ink-2);border:0;background:transparent;cursor:pointer}
+.iconbtn:hover{background:var(--c-surface-2)}
+.iconbtn.on{background:var(--c-now-soft);color:var(--c-now-ink)}
+.card{background:var(--c-surface);border:1px solid var(--c-line);border-radius:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:30px;padding:0 12px;border-radius:8px;font-size:12.5px;font-weight:500;border:1px solid var(--c-line-2);background:var(--c-surface);color:var(--c-ink);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--c-surface-2)}
+.btn.primary{background:var(--c-now);border-color:var(--c-now);color:var(--c-surface)}
+.btn.small{height:26px;padding:0 9px;font-size:12px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--c-now)}
+.sub{font-size:12px;color:var(--c-ink-3)}
+.why{font-size:12.5px;line-height:1.5;color:var(--c-ink-2)}
+.k{font-size:11px;font-weight:650;color:var(--c-ink-3);text-transform:uppercase;letter-spacing:.07em}
+.ty{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;background:var(--c-now-soft);color:var(--c-now-ink);white-space:nowrap}
+.by{display:inline-flex;font-size:10px;font-weight:700;letter-spacing:.04em;border-radius:4px;padding:1px 5px;line-height:15px;white-space:nowrap}
+.by-ai{color:var(--c-ai);background:var(--c-ai-soft)}.by-you{color:var(--c-done-ink);background:var(--c-done-soft)}.by-up{color:var(--c-now-ink);background:var(--c-now-soft)}.by-new{color:var(--c-measured-ink);background:var(--c-measured-soft)}
+.tab{flex:1 1 0;height:40px;border:0;background:transparent;font-size:13.5px;font-weight:600;color:var(--c-ink-3);cursor:pointer;border-bottom:2px solid transparent}
+.tab.on{color:var(--c-now-ink);border-bottom-color:var(--c-now)}
+/* canvas */
+.tool{position:absolute;box-sizing:border-box;background:var(--c-surface);border:1.5px solid var(--c-mark);border-radius:14px;box-shadow:4px 4px 0 -1px var(--c-surface),4px 4px 0 0 var(--c-line-2)}
+.prow{position:absolute;display:flex;align-items:center;gap:6px;height:30px;padding:0 8px;border:0;border-radius:7px;background:transparent;cursor:pointer;font-size:12.5px;color:var(--c-ink);max-width:200px;white-space:nowrap}
+.prow:hover{background:var(--c-surface-2)}
+.prow.sel{background:var(--c-now-soft);outline:2px solid var(--c-now)}
+.pin{position:absolute;width:10px;height:10px;border-radius:5px;background:var(--c-surface);border:1.8px solid var(--c-mark);box-sizing:border-box}
+.pin.opt{border-style:dashed;border-color:var(--c-mark)}
+.addrow{position:absolute;display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 8px;border:1px dashed var(--c-line-2);border-radius:7px;background:var(--c-surface-2);color:var(--c-now);font-size:12px;font-weight:500;cursor:pointer}
+.addrow:hover{border-color:var(--c-now)}
+.ghost{position:absolute;box-sizing:border-box;width:150px;padding:8px 10px;border:1px dashed var(--c-mark);border-radius:10px;background:rgba(255,255,255,.7);display:flex;flex-direction:column;gap:2px}
+/* part cards */
+.pc{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border:1px solid var(--c-line);border-radius:12px;background:var(--c-surface);cursor:pointer;text-align:left;min-width:0}
+.pc:hover{border-color:var(--c-mark)}
+.pc.sel{border-color:var(--c-now);outline:3px solid rgba(29,95,194,.14)}
+.pcl{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--c-ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* forms */
+.fld{display:flex;flex-direction:column;gap:5px}
+.fl{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
+.ctl{height:30px;box-sizing:border-box;border:1px solid var(--c-line-2);border-radius:7px;padding:0 9px;font-size:13px;background:var(--c-surface);color:var(--c-ink);width:100%}
+.ask{margin-left:auto;display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border-radius:6px;border:1px solid var(--c-ai-line);background:var(--c-ai-soft);color:var(--c-ai);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--c-line-2);border-radius:7px;overflow:hidden;align-self:flex-start}
+.sg{height:28px;padding:0 11px;border:0;background:var(--c-surface);font-size:12px;color:var(--c-ink-2);cursor:pointer}
+.sg.on{background:var(--c-now);color:var(--c-surface)}
+.vopt{display:flex;flex-direction:column;gap:1px;padding:7px 10px;border:0;border-top:1px solid var(--c-line-soft);background:transparent;text-align:left;cursor:pointer;width:100%}
+.vopt:hover{background:var(--c-surface-2)}
+.vopt.on{background:var(--c-now-soft)}
+.tchip{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:7px;border:1px solid var(--c-line-2);background:var(--c-surface);font-size:12px;cursor:pointer;color:var(--c-ink-2)}
+.tchip.on{background:var(--c-now-soft);border-color:var(--c-now-line);color:var(--c-now-ink);font-weight:600}
+.rt{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+.rt th{text-align:left;font-size:10.5px;font-weight:650;color:var(--c-ink-3);text-transform:uppercase;letter-spacing:.06em;padding:6px 8px;background:var(--c-surface-2);border-bottom:1px solid var(--c-line-soft)}
+.rt td{padding:8px;border-bottom:1px solid var(--c-line-soft);vertical-align:top}
+.fact{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:var(--c-paper);border:1px solid var(--c-line);font-size:12px}
+/* tests */
+.case{display:flex;flex-direction:column;gap:4px;width:100%;padding:11px 14px;border:0;border-top:1px solid var(--c-line-soft);background:transparent;text-align:left;cursor:pointer}
+.case:hover{background:var(--c-surface-2)}
+.case.on{background:var(--c-now-soft);box-shadow:inset 3px 0 0 var(--c-now)}
+.okc{width:18px;height:18px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;flex:0 0 18px}
+.ex{display:grid;grid-template-columns:22px minmax(0,1.2fr) minmax(0,1.3fr) minmax(0,1fr);gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--c-line-soft);font-size:12.5px}
+.cov{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--c-line-soft);font-size:12.5px}
+.trk{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 18px;border-top:1px solid var(--c-line-soft)}
+.trk:first-child{border-top:0}
+.circ{width:24px;height:24px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+</style>
+</helmet>
+<div class="theme-root {{themeCls}}" style="display: flex; height: 900px; overflow: hidden">
+
+<nav class="rail" aria-label="Comeni">
+  <a class="place" href="Home.dc.html" title="Home" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"></path><path d="M10 20v-5h4v5"></path></svg><span class="mt">Home</span></a>
+  <a class="place" href="ForgeHome.dc.html" title="Forge" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-now-ink)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 4l6 6-8 8-6-6zM4 20l4-4"></path></svg><span class="mt">Forge</span></a>
+  <a class="place" href="Registry.dc.html" title="Registry" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"></path><path d="M9 10h6M9 14h6"></path></svg><span class="mt">Registry</span></a>
+  <div style="height: 1px; background: var(--c-line-soft); margin: 10px 4px"></div>
+  <button type="button" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 8px; padding: 9px 10px; border: 1px solid var(--c-line); border-radius: 9px; background: var(--c-surface); cursor: pointer; text-align: left">
+    <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0"><span style="font-size: 11.5px; color: var(--c-ink-3)">Forging</span><span style="font-size: 14px; font-weight: 600; color: var(--c-ink)">quast 5.3.0</span></span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--c-ink-3)" stroke-width="2" aria-hidden="true"><path d="M7 10l5-5 5 5M7 14l5 5 5-5"></path></svg>
+  </button>
+  <sc-for list="{{pages}}" as="p" hint-placeholder-count="3">
+    <button class="{{p.cls}}" type="button" onClick="{{p.go}}"><span style="width: 18px; display: flex; justify-content: center; font-size: 15px">{{p.icon}}</span><span class="mt"><span class="mn">{{p.label}}</span><span class="ms" style="{{p.statusStyle}}">{{p.status}}</span></span></button>
+  </sc-for>
+
+  <div style="height: 1px; background: var(--c-line-soft); margin: 12px 4px 0"></div>
+  <sc-if value="{{hasReview}}" hint-placeholder-val="{{ true }}">
+    <div class="group">Review</div>
+    <sc-for list="{{review}}" as="r" hint-placeholder-count="3">
+      <button class="rv" type="button" onClick="{{r.go}}"><span class="by by-ai" style="margin-top: 2px">AI</span><span style="display: flex; flex-direction: column; gap: 1px; min-width: 0"><span style="font-weight: 600">{{r.what}}</span><span class="sub">{{r.detail}}</span></span></button>
+    </sc-for>
+  </sc-if>
+  <sc-if value="{{noReview}}" hint-placeholder-val="{{ false }}"><span class="sub" style="padding: 12px 10px">Everything reviewed.</span></sc-if>
+
+  <div class="foot" style="margin-top: auto; padding-top: 10px; border-top: 1px solid var(--c-line-soft); display: flex; align-items: center; gap: 2px">
+    <a class="iconbtn" href="Settings.dc.html" aria-label="Settings" title="Settings" style="color: var(--c-ink-2); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"></path></svg></a>
+    <button class="iconbtn" type="button" onClick="{{toggleTheme}}" aria-label="Switch between light and dark" title="Light / dark" style="color: var(--c-ink-2); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></button>
+    <span class="local" style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--c-ink-3); padding-right: 6px"><span style="width: 7px; height: 7px; border-radius: 4px; background: var(--c-done)"></span>Local</span>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; height: 900px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 20px 20px 24px 24px; box-sizing: border-box">
+  <header style="display: flex; flex-direction: column; gap: 3px">
+    <h1 style="margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.01em">{{pageTitle}}</h1>
+    <span style="font-size: 13px; color: var(--c-ink-2)">quast 5.3.0 from nf-core <span class="mono" style="font-size: 12px">modules/nf-core/quast</span> · assembly quality, with or without a reference</span>
+  </header>
+
+  <sc-if value="{{onTool}}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; gap: 14px; align-items: stretch; flex: 1 1 auto">
+      <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+        <section class="card" aria-label="the tool" style="overflow: auto; background-image: radial-gradient(var(--c-line) 1px, transparent 1px); background-size: 18px 18px">
+          <div style="position: relative; width: 900px; height: 330px; margin: 6px auto">
+            <svg width="900" height="330" viewBox="0 0 900 330" aria-hidden="true" style="position: absolute; left: 0; top: 0">
+              <path d="M170 104 C200 104 200 112 236 112" fill="none" stroke="var(--c-mark)" stroke-width="1.6" stroke-dasharray="5 4"></path>
+              <path d="M666 156 C700 156 700 180 730 180" fill="none" stroke="var(--c-mark)" stroke-width="1.6" stroke-dasharray="5 4"></path>
+            </svg>
+            <span class="k" style="position: absolute; left: 16px; top: 8px">From your registry</span>
+            <div class="ghost" style="left: 18px; top: 82px"><span style="font-size: 12.5px; font-weight: 600; color: var(--c-ink-2)">spades</span><span class="sub">not in registry · makes fasta</span><a href="Registry.dc.html" style="font-size: 11.5px">Forge it too</a></div>
+            <div class="ghost" style="left: 730px; top: 158px"><span style="font-size: 12.5px; font-weight: 600; color: var(--c-ink-2)">multiqc</span><span class="sub">in registry · takes the summary</span></div>
+
+            <div class="tool" style="left: 236px; top: 40px; width: 430px; height: 262px">
+              <div style="position: absolute; left: 14px; right: 14px; top: 10px; display: flex; align-items: center; gap: 8px">
+                <button type="button" onClick="{{pickTool}}" style="border: 0; background: transparent; padding: 0; cursor: pointer; text-align: left; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">QUAST</span><span class="mono sub">5.3.0 · once per sample</span></button>
+                <button type="button" class="btn small" onClick="{{pickTool}}" style="margin-left: auto">6 parameters</button>
+              </div>
+              <div style="position: absolute; left: 0; right: 0; top: 54px; border-top: 1px solid var(--c-line-soft)"></div>
+              <span class="k" style="position: absolute; left: 14px; top: 62px">Takes</span>
+              <span class="k" style="position: absolute; right: 14px; top: 62px">Makes</span>
+              <sc-for list="{{ins}}" as="p" hint-placeholder-count="3">
+                <span class="{{p.pinCls}}" style="{{p.pin}}"></span>
+                <button type="button" class="{{p.cls}}" style="{{p.pos}}" onClick="{{p.pick}}"><span style="font-weight: 600">{{p.name}}</span><span class="ty">{{p.type}}</span><sc-if value="{{p.optional}}" hint-placeholder-val="{{ false }}"><span class="sub">opt</span></sc-if></button>
+              </sc-for>
+              <sc-for list="{{outs}}" as="p" hint-placeholder-count="4">
+                <span class="{{p.pinCls}}" style="{{p.pin}}"></span>
+                <button type="button" class="{{p.cls}}" style="{{p.pos}}" onClick="{{p.pick}}"><sc-if value="{{p.ai}}" hint-placeholder-val="{{ false }}"><span class="by by-ai">AI</span></sc-if><sc-if value="{{p.cond}}" hint-placeholder-val="{{ false }}"><span class="sub" title="only made with a reference">with ref</span></sc-if><span style="font-weight: 600">{{p.name}}</span></button>
+              </sc-for>
+              <button type="button" class="addrow" style="left: 14px; top: 216px" onClick="{{addInput}}">+ Add input</button>
+              <button type="button" class="addrow" style="right: 14px; top: 228px" onClick="{{addOutput}}">+ Add output</button>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 14px; padding: 0 14px 10px; font-size: 11.5px; color: var(--c-ink-3)">
+            <span>All outputs are <span class="ty" style="height: 18px">qc.report::assembly</span> <span class="by by-new">NEW STATE</span></span>
+            <span>Dashed pin: optional input</span>
+            <span>Right-click a port for more</span>
+          </div>
+        </section>
+
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+          <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+            <div class="{{c.cls}}" style="cursor: default">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <button type="button" onClick="{{c.pick}}" style="border: 0; background: transparent; padding: 0; cursor: pointer; display: flex; align-items: baseline; gap: 6px"><span style="font-size: 13.5px; font-weight: 650; color: var(--c-ink)">{{c.title}}</span><span class="sub">{{c.count}}</span></button>
+                <button type="button" class="btn small" onClick="{{c.add}}" style="margin-left: auto" title="{{c.addLabel}}" aria-label="{{c.addLabel}}">+ Add</button>
+              </div>
+              <button type="button" onClick="{{c.pick}}" style="border: 0; background: transparent; padding: 0; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+                <sc-for list="{{c.lines}}" as="l" hint-placeholder-count="2"><span class="pcl">{{l}}</span></sc-for>
+              </button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <aside aria-label="part and assistant" style="flex: 1 1 340px; max-width: 380px; min-width: 0; background: var(--c-surface); border: 1px solid var(--c-line); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden">
+        <div role="tablist" style="display: flex; border-bottom: 1px solid var(--c-line-soft)">
+          <button role="tab" class="{{partTabCls}}" type="button" onClick="{{showPart}}" aria-selected="{{onPart}}">Part</button>
+          <button role="tab" class="{{chatTabCls}}" type="button" onClick="{{showChat}}" aria-selected="{{onChat}}">Assistant</button>
+        </div>
+
+        <sc-if value="{{onPart}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 14px; padding: 16px; overflow: auto">
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <span class="k">{{part.kind}}</span>
+              <h2 style="margin: 0; font-size: 17px; font-weight: 650">{{part.title}}</h2>
+              <span style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap"><span class="{{part.byCls}}">{{part.by}}</span><span class="sub">{{part.source}}</span></span>
+            </div>
+
+            <sc-if value="{{isPort}}" hint-placeholder-val="{{ true }}">
+              <div class="fld"><span class="fl">Name<button class="ask" type="button">Ask AI</button></span><input class="ctl mono" type="text" value="{{port.name}}" aria-label="Name"></div>
+              <div class="fld">
+                <span class="fl">Data type<span class="sub" style="font-weight: 500">from the registry vocabulary</span><button class="ask" type="button">Ask AI</button></span>
+                <div style="border: 1px solid var(--c-line-2); border-radius: 8px; overflow: hidden">
+                  <label style="display: flex; align-items: center; gap: 6px; padding: 0 10px; height: 32px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--c-ink-3)" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Search data types</span><input type="text" placeholder="Search data types" style="flex: 1 1 auto; border: 0; outline: 0; font-size: 12.5px"></label>
+                  <sc-for list="{{port.types}}" as="t" hint-placeholder-count="3">
+                    <button type="button" class="{{t.cls}}"><span style="display: flex; align-items: center; gap: 6px"><span class="mono" style="font-size: 12px; font-weight: 600">{{t.id}}</span><sc-if value="{{t.isNew}}" hint-placeholder-val="{{ false }}"><span class="by by-new">NEW</span></sc-if></span><span class="sub">{{t.explain}}</span></button>
+                  </sc-for>
+                  <button type="button" class="vopt" style="color: var(--c-now); font-size: 12.5px">+ New data type or state…</button>
+                </div>
+              </div>
+              <div class="fld"><span class="fl">Format</span><input class="ctl mono" type="text" value="{{port.fmt}}" aria-label="Format"></div>
+              <div class="fld"><span class="fl">{{port.howLabel}}</span><span class="seg"><sc-for list="{{port.how}}" as="o" hint-placeholder-count="2"><button type="button" class="{{o.cls}}">{{o.v}}</button></sc-for></span></div>
+              <div class="fld"><span class="fl">{{port.reqLabel}}</span><span class="seg"><sc-for list="{{port.req}}" as="o" hint-placeholder-count="2"><button type="button" class="{{o.cls}}">{{o.v}}</button></sc-for></span><sc-if value="{{port.hasWhen}}" hint-placeholder-val="{{ false }}"><span style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px">Made when <span class="fact">input <b>reference</b> is connected</span><button class="btn small ghost" type="button" style="padding: 0">change</button></span></sc-if></div>
+            </sc-if>
+
+            <sc-if value="{{isParams}}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden">
+                <sc-for list="{{params}}" as="p" hint-placeholder-count="6">
+                  <button type="button" class="vopt" style="{{p.style}}" onClick="{{p.pick}}"><span style="display: flex; align-items: center; gap: 6px"><span style="font-size: 12.5px; font-weight: 600">{{p.label}}</span><span class="mono sub">{{p.flag}}</span><span class="by by-up" style="margin-left: auto">{{p.kind}}</span></span><span class="sub">{{p.summary}}</span></button>
+                </sc-for>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--c-now-line); border-radius: 10px; background: var(--c-surface-2)">
+                <span class="k">Editing · {{ep.label}}</span>
+                <div class="fld"><span class="fl">Kind</span><span style="display: flex; flex-wrap: wrap; gap: 4px"><sc-for list="{{ep.kinds}}" as="k" hint-placeholder-count="7"><button type="button" class="{{k.cls}}">{{k.v}}</button></sc-for></span></div>
+                <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+                  <div class="fld"><span class="fl">Label</span><input class="ctl" type="text" value="{{ep.label}}" aria-label="Label"></div>
+                  <div class="fld"><span class="fl">Tool flag</span><input class="ctl mono" type="text" value="{{ep.flag}}" aria-label="Tool flag"></div>
+                  <div class="fld"><span class="fl">Default</span><input class="ctl mono" type="text" value="{{ep.def}}" aria-label="Default"></div>
+                  <div class="fld"><span class="fl">{{ep.extraLabel}}</span><input class="ctl mono" type="text" value="{{ep.extra}}" aria-label="{{ep.extraLabel}}"></div>
+                </div>
+                <div class="fld"><span class="fl">Help shown to people<button class="ask" type="button">Ask AI</button></span><input class="ctl" type="text" value="{{ep.help}}" aria-label="Help"></div>
+                <div class="fld"><span class="fl">Who decides it</span><span class="seg"><sc-for list="{{ep.who}}" as="o" hint-placeholder-count="4"><button type="button" class="{{o.cls}}">{{o.v}}</button></sc-for></span><span class="sub">Chosen: picked while building, by the person or the AI. The AI’s picks are marked for review.</span></div>
+                <span class="sub">Preview: how it appears in Build’s Step tab</span>
+                <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px dashed var(--c-line-2); border-radius: 8px; background: var(--c-surface)"><span style="font-size: 12.5px; font-weight: 600">{{ep.label}} <span class="mono sub" style="font-weight: 400">{{ep.flag}}</span></span><span style="display: flex; align-items: center; gap: 6px"><span class="ctl mono" style="width: 100px; display: inline-flex; align-items: center">{{ep.def}}</span><span class="sub">{{ep.extra}}</span></span><span class="sub">{{ep.help}}</span></div>
+              </div>
+              <button class="btn" type="button" style="align-self: flex-start">+ Add parameter</button>
+            </sc-if>
+
+            <sc-if value="{{isRule}}" hint-placeholder-val="{{ false }}">
+              <div class="fld"><span class="fl">This rule decides</span><span class="seg"><button type="button" class="sg on">Which tool runs</button><button type="button" class="sg">A setting’s value</button></span></div>
+              <div style="border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden">
+                <table class="rt"><thead><tr><th style="width: 38%">When</th><th style="width: 26%">Choose</th><th>Because</th></tr></thead>
+                  <tbody>
+                    <tr><td><span class="fact">data is <b>assembly.fasta</b></span></td><td style="font-weight: 600">QUAST 5.3.0</td><td class="why">The standard report for assembly contiguity and, with a reference, correctness.<span style="display: block; font-size: 11px; color: var(--c-ink-3); font-style: italic">Gurevich et al. 2013</span></td></tr>
+                    <tr><td colspan="3"><button class="btn small ghost" type="button" style="padding: 0">+ Add row</button></td></tr>
+                  </tbody></table>
+              </div>
+              <div class="fld"><span class="fl">Facts you can use</span><span style="display: flex; flex-wrap: wrap; gap: 4px"><span class="fact">data type</span><span class="fact">genome length</span><span class="fact">read length</span><span class="fact">paired</span><span class="fact">organism</span><span class="sub" style="align-self: center">from the registry’s measurements</span></span></div>
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 9px; background: var(--c-surface-2); border: 1px solid var(--c-line); font-size: 12.5px">
+                <span><b style="font-weight: 600">Check</b> · loads, no gaps, no overlaps with other QC rules</span>
+                <span><b style="font-weight: 600">Replay</b> · over 6 saved pipelines: would change none</span>
+                <span style="display: flex; gap: 6px"><button class="btn small" type="button">Check again</button><button class="btn small" type="button">See replay</button></span>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{isMeasurer}}" hint-placeholder-val="{{ false }}">
+              <p class="why" style="margin: 0">A measurer reads a fact from this tool’s output so later steps and rules can use it. Most tools need none.</p>
+              <div class="fld"><span class="fl">Reads</span><select class="ctl"><option>summary · report.tsv</option><option>results · folder</option></select></div>
+              <div class="fld"><span class="fl">Measures</span><select class="ctl"><option>New measurement: assembly N50 (bp)</option><option>genome length (bp)</option></select></div>
+              <span style="display: flex; gap: 6px"><button class="btn small primary" type="button">Draft with the AI</button><button class="btn small" type="button">Write it myself</button></span>
+            </sc-if>
+
+            <sc-if value="{{isVocab}}" hint-placeholder-val="{{ false }}">
+              <div class="fld"><span class="fl">Adds state</span><input class="ctl mono" type="text" value="assembly" aria-label="State"></div>
+              <div class="fld"><span class="fl">To data type</span><span style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--c-line); border-radius: 8px"><span class="mono" style="font-size: 12.5px; font-weight: 600">qc.report</span><span class="sub">quality-control report · already has state aggregated</span></span></div>
+              <div class="fld"><span class="fl">What people read<button class="ask" type="button">Ask AI</button></span><textarea class="ctl" rows="3" style="height: auto; padding: 8px 9px">A quality report on an assembly: contig lengths, N50, misassemblies when a reference is given.</textarea></div>
+              <span class="sub">Changes the shared file vocabulary/types/qc.report.yml, so it goes into the pull request for review with the tool.</span>
+            </sc-if>
+
+            <sc-if value="{{part.isAi}}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 9px; background: var(--c-ai-soft); border: 1px solid var(--c-ai-line)">
+                <span class="why"><b style="font-weight: 700; color: var(--c-ai)">AI</b> · {{part.aiWhy}}</span>
+                <span style="display: flex; gap: 6px"><button class="btn small primary" type="button" onClick="{{confirm}}">Looks right</button><button class="btn small" type="button">Change</button></span>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{onChat}}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; overflow: auto">
+            <span style="align-self: flex-end; max-width: 85%; background: var(--c-now-soft); border-radius: 10px; padding: 8px 11px; font-size: 13px">forge quast for assembly QC</span>
+            <button type="button" style="align-self: flex-start; border: 0; background: transparent; padding: 0; font-size: 12px; color: var(--c-ink-3); cursor: pointer">▸ 9 tool calls · read main.nf, meta.yml and the nf-test</button>
+            <p style="margin: 0; font-size: 13.5px; line-height: 1.5">Drafted: 3 inputs (2 optional), 4 outputs, 6 parameters, 1 new state, 1 rule. Tests: 2 of 2 passed.</p>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap"><button class="btn small" type="button" onClick="{{goMis}}">misassemblies</button><button class="btn small" type="button" onClick="{{goVocab}}">new state</button><button class="btn small" type="button" onClick="{{goRule}}">rule</button></div>
+            <span style="align-self: flex-end; max-width: 85%; background: var(--c-now-soft); border-radius: 10px; padding: 8px 11px; font-size: 13px">add a test with gene finding on</span>
+            <p style="margin: 0; font-size: 13.5px; line-height: 1.5">Added test 3, <i>gene finding on</i>, using the same SARS-CoV-2 assembly. It runs next time you run the tests.</p>
+            <span style="font-size: 11px; color: var(--c-ink-3)">21.4k tokens · 11 calls</span>
+          </div>
+          <div style="border-top: 1px solid var(--c-line-soft); padding: 10px; display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 6px; border: 1px solid var(--c-line-2); border-radius: 9px; padding: 5px 5px 5px 4px">
+              <button class="iconbtn" type="button" aria-label="Attach a file" style="width: 30px; height: 30px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 11.5l-8.5 8.5a5 5 0 0 1-7-7L13 4.5a3.5 3.5 0 0 1 5 5L9.5 18a2 2 0 0 1-3-3l8-8"></path></svg></button>
+              <label style="flex: 1 1 auto; min-width: 0"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Message</span><input type="text" placeholder="Ask, or say what to change" style="width: 100%; border: 0; outline: 0; font-size: 13px"></label>
+              <button class="btn small primary" type="button">Send</button>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--c-ink-3)"><span>Also open to Claude Code over MCP</span><span>GPT · subscription</span></div>
+          </div>
+        </sc-if>
+      </aside>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{onTests}}" hint-placeholder-val="{{ false }}">
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600"><span class="okc" style="background: var(--c-done-soft); color: var(--c-done-ink)">✓</span>2 passed</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--c-ink-2)"><span class="okc" style="background: var(--c-line-soft); color: var(--c-ink-3)">•</span>1 not run yet</span>
+      <span class="sub">from nf-core’s test data, run through Comeni’s contract · last run 12:24</span>
+      <span style="margin-left: auto; display: flex; gap: 6px"><button class="btn" type="button">+ New test</button><button class="btn primary" type="button">Run all</button></span>
+    </div>
+    <div style="display: flex; gap: 14px; align-items: flex-start">
+      <section class="card" aria-label="test cases" style="flex: 0 0 300px; overflow: hidden">
+        <div style="padding: 12px 14px; font-size: 13.5px; font-weight: 650">Test cases</div>
+        <sc-for list="{{cases}}" as="c" hint-placeholder-count="3">
+          <button type="button" class="{{c.cls}}" onClick="{{c.pick}}">
+            <span style="display: flex; align-items: center; gap: 8px"><span class="okc" style="{{c.mark}}">{{c.sym}}</span><span style="font-size: 13px; font-weight: 600">{{c.name}}</span><span class="mono sub" style="margin-left: auto">{{c.time}}</span></span>
+            <span class="sub" style="padding-left: 26px">{{c.inputs}}</span>
+          </button>
+        </sc-for>
+      </section>
+
+      <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+        <section class="card" aria-label="selected test" style="overflow: hidden">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; flex-wrap: wrap"><span class="okc" style="{{t.mark}}">{{t.sym}}</span><h2 style="margin: 0; font-size: 15px; font-weight: 650">{{t.name}}</h2><span class="sub">{{t.status}}</span><span style="margin-left: auto; display: flex; gap: 6px"><button class="btn small" type="button">Log</button><button class="btn small" type="button">Run this test</button></span></div>
+          <div style="padding: 0 16px 12px; display: flex; flex-direction: column; gap: 6px">
+            <span class="k">Inputs</span>
+            <sc-for list="{{t.inputs}}" as="i" hint-placeholder-count="2"><span style="display: flex; align-items: center; gap: 8px; font-size: 12.5px"><span style="font-weight: 600; min-width: 90px">{{i.port}}</span><span class="mono sub">{{i.file}}</span></span></sc-for>
+            <sc-if value="{{t.hasParams}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12.5px"><b style="font-weight: 600">Parameters changed:</b> {{t.params}}</span></sc-if>
+          </div>
+          <div style="display: grid; grid-template-columns: 22px minmax(0,1.2fr) minmax(0,1.3fr) minmax(0,1fr); gap: 10px; padding: 8px 14px; font-size: 11px; font-weight: 650; color: var(--c-ink-3); text-transform: uppercase; letter-spacing: .06em; background: var(--c-surface-2); border-top: 1px solid var(--c-line-soft)"><span></span><span>Output</span><span>Expected</span><span>Got</span></div>
+          <sc-for list="{{t.exp}}" as="e" hint-placeholder-count="4">
+            <div class="ex"><span class="okc" style="{{e.mark}}">{{e.sym}}</span><span class="mono" style="font-size: 12px">{{e.out}}</span><span>{{e.want}}</span><span class="sub" style="color: var(--c-ink-2)">{{e.got}}</span></div>
+          </sc-for>
+          <div style="padding: 10px 14px; border-top: 1px solid var(--c-line-soft); display: flex; gap: 6px; flex-wrap: wrap"><button class="btn small" type="button">+ Expect a file</button><button class="btn small" type="button">+ Expect a value</button><button class="btn small" type="button">+ Match nf-core’s snapshot</button></div>
+        </section>
+        <span class="sub">“Got” is checked against what you expect. Passing proves the tool runs as declared; add a value or snapshot check to check the numbers too.</span>
+      </div>
+
+      <section class="card" aria-label="coverage" style="flex: 0 0 280px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 13.5px; font-weight: 650">What the tests cover</span>
+        <span class="sub" style="padding-bottom: 6px">Every part should be exercised by at least one test.</span>
+        <sc-for list="{{coverage}}" as="g" hint-placeholder-count="3">
+          <span class="k" style="padding-top: 8px">{{g.title}}</span>
+          <sc-for list="{{g.items}}" as="c" hint-placeholder-count="3">
+            <div class="cov"><span style="display: flex; align-items: center; gap: 7px; min-width: 0"><span class="okc" style="{{c.mark}}">{{c.sym}}</span><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{c.name}}</span></span><span style="justify-self: end; white-space: nowrap"><sc-if value="{{c.missing}}" hint-placeholder-val="{{ false }}"><button class="btn small" type="button">+ Add test</button></sc-if><sc-if value="{{c.covered}}" hint-placeholder-val="{{ true }}"><span class="sub">{{c.by}}</span></sc-if></span></div>
+          </sc-for>
+        </sc-for>
+      </section>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{onPublish}}" hint-placeholder-val="{{ false }}">
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; max-width: 1100px">
+      <section class="card" aria-label="track" style="flex: 3 1 480px; min-width: 0">
+        <sc-for list="{{track}}" as="s" hint-placeholder-count="5">
+          <div class="trk">
+            <span class="circ" style="{{s.circ}}">{{s.mark}}</span>
+            <span style="display: flex; flex-direction: column; gap: 3px"><span style="font-size: 14px; font-weight: 600">{{s.title}}</span><span class="sub">{{s.detail}}</span>
+              <sc-if value="{{s.hasFix}}" hint-placeholder-val="{{ false }}"><span style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding: 10px 12px; border-radius: 9px; background: var(--c-surface-2); border: 1px solid var(--c-line)"><span class="why"><b style="font-weight: 600">Blocker, resolved</b> · {{s.blocker}}</span><span class="sub">{{s.fixed}}</span></span></sc-if>
+            </span>
+            <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px"><span class="mono sub">{{s.time}}</span><sc-if value="{{s.hasAction}}" hint-placeholder-val="{{ false }}"><a class="btn small" href="{{s.href}}">{{s.action}}</a></sc-if></span>
+          </div>
+        </sc-for>
+      </section>
+      <section class="card" aria-label="pull request" style="flex: 2 1 320px; min-width: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+        <span class="k">In pull request #1</span>
+        <sc-for list="{{files}}" as="f" hint-placeholder-count="6"><span style="display: flex; align-items: center; gap: 8px; font-size: 12.5px"><span class="by" style="{{f.style}}">{{f.tag}}</span><span class="mono" style="font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.path}}</span></span></sc-for>
+        <a class="btn small" href="#" style="align-self: flex-start; margin-top: 4px">Open on GitHub</a>
+      </section>
+    </div>
+  </sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false,"tsType":"boolean"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { page: 'tool', sel: 'params', tab: 'part', ok: {}, ep: 'large', tc: 'gene' };
+}
+renderValsBase() {
+var s = this.state;
+var self = this;
+var pick = function (id) { return function () { self.setState({ sel: id, tab: 'part', page: 'tool' }); }; };
+var go = function (p) { return function () { self.setState({ page: p }); }; };
+// ports on the tool node (node at left 236, top 40; rows from y 84)
+var IN = [
+  { id: 'consensus', name: 'consensus', type: 'assembly.fasta', y: 84 },
+  { id: 'reference', name: 'reference', type: 'genome.fasta', y: 120, opt: true },
+  { id: 'gff', name: 'annotation', type: 'annotation.gff', y: 156, opt: true }
+];
+var OUT = [
+  { id: 'misassemblies', name: 'misassemblies', fmt: 'tsv', y: 84, cond: true, ai: true },
+  { id: 'results', name: 'results', fmt: 'folder', y: 120 },
+  { id: 'tsv', name: 'summary', fmt: 'tsv', y: 156 },
+  { id: 'unaligned', name: 'unaligned', fmt: 'tsv', y: 192, cond: true }
+];
+var ins = IN.map(function (p) { return { name: p.name, type: p.type, optional: !!p.opt, cls: 'prow' + (s.sel === p.id ? ' sel' : ''), pos: 'left:8px;top:' + (p.y - 15) + 'px', pinCls: 'pin' + (p.opt ? ' opt' : ''), pin: 'left:-6px;top:' + (p.y - 5) + 'px', pick: pick(p.id) }; });
+var outs = OUT.map(function (p) { return { name: p.name, fmt: p.fmt, cond: !!p.cond, ai: p.ai && !s.ok[p.id], cls: 'prow' + (s.sel === p.id ? ' sel' : ''), pos: 'right:8px;top:' + (p.y - 15) + 'px', pinCls: 'pin', pin: 'right:-6px;top:' + (p.y - 5) + 'px', pick: pick(p.id) }; });
+var portInfo = {
+  consensus: { side: 'in', name: 'consensus', type: 'assembly.fasta', fmt: 'fasta', each: true, opt: false, by: 'up' },
+  reference: { side: 'in', name: 'reference', type: 'genome.fasta', fmt: 'fasta', each: false, opt: true, by: 'up' },
+  gff: { side: 'in', name: 'annotation', type: 'annotation.gff', fmt: 'gff', each: false, opt: true, by: 'up' },
+  misassemblies: { side: 'out', name: 'misassemblies', type: 'qc.report::assembly', fmt: 'tsv', each: true, opt: true, when: true, by: 'ai', ai: 'The module only writes this file when a reference is given: its output is optional and named after --reference.' },
+  results: { side: 'out', name: 'results', type: 'qc.report::assembly', fmt: 'folder', each: true, opt: false, by: 'up' },
+  tsv: { side: 'out', name: 'summary', type: 'qc.report::assembly', fmt: 'tsv', each: true, opt: false, by: 'up' },
+  unaligned: { side: 'out', name: 'unaligned', type: 'qc.report::assembly', fmt: 'tsv', each: true, opt: true, when: true, by: 'up' }
+};
+var VT = [
+  { id: 'assembly.fasta', explain: 'Contigs or scaffolds from an assembler.' },
+  { id: 'genome.fasta', explain: 'A reference genome sequence.' },
+  { id: 'annotation.gff', explain: 'Where genes are, GFF3.' },
+  { id: 'qc.report', explain: 'A quality report, per sample or aggregated.' },
+  { id: 'qc.report::assembly', explain: 'A quality report on an assembly.', isNew: true }
+];
+var segs = function (opts, v) { return opts.map(function (o) { return { v: o, cls: 'sg' + (o === v ? ' on' : '') }; }); };
+var pi = portInfo[s.sel];
+var port = pi ? {
+  name: pi.name, fmt: pi.fmt,
+  types: VT.map(function (t) { return { id: t.id, explain: t.explain, isNew: !!t.isNew, cls: 'vopt' + (t.id === pi.type ? ' on' : '') }; }),
+  howLabel: pi.side === 'in' ? 'How it arrives' : 'How it leaves',
+  how: segs(['One per sample', 'All samples together', 'One shared file'], pi.each ? 'One per sample' : 'One shared file'),
+  reqLabel: pi.side === 'in' ? 'Needed' : 'Always made',
+  req: segs(pi.side === 'in' ? ['Required', 'Optional'] : ['Always', 'Only sometimes'], pi.side === 'in' ? (pi.opt ? 'Optional' : 'Required') : (pi.opt ? 'Only sometimes' : 'Always')),
+  hasWhen: !!pi.when
+} : { name: '', fmt: '', types: [], howLabel: '', how: [], reqLabel: '', req: [], hasWhen: false };
+var PRM = [
+  { id: 'min', label: 'Minimum contig length', flag: '--min-contig', kind: 'Number', def: '500', extraLabel: 'Unit and range', extra: 'bp · ≥ 0', help: 'Shorter contigs are left out of every statistic.', who: 'Default' },
+  { id: 'large', label: 'Large genome mode', flag: '--large', kind: 'Yes / no', def: 'no', extraLabel: 'When on', extra: 'for genomes over 100 Mbp', help: 'Faster settings for big genomes, such as plants and mammals.', who: 'A rule', ai: true },
+  { id: 'gene', label: 'Gene finding', flag: '--gene-finding', kind: 'Yes / no', def: 'no', extraLabel: 'When on', extra: 'predicts genes', help: 'Predicts genes when no annotation is given. Slower.', who: 'Chosen' },
+  { id: 'mode', label: 'Organism kind', flag: '--fungus / --eukaryote', kind: 'Mode', def: 'prokaryote', extraLabel: 'Choices', extra: 'prokaryote · eukaryote · fungus', help: 'Changes how genes are predicted.', who: 'Measured' },
+  { id: 'labels', label: 'Assembly labels', flag: '--labels', kind: 'Text', def: '{sample}', extraLabel: 'Pattern', extra: '{sample} = sample name', help: 'Names shown in the report.', who: 'A rule' },
+  { id: 'threads', label: 'Threads', flag: '--threads', kind: 'Number', def: 'task.cpus', extraLabel: 'Unit and range', extra: 'cores · from the runner', help: 'Set by where the run executes.', who: 'A rule' }
+];
+var cur = PRM.filter(function (p) { return p.id === s.ep; })[0];
+var params = PRM.map(function (p) { return { label: p.label, flag: p.flag, kind: p.kind, summary: 'default ' + p.def + ' · ' + ({ 'Default': 'tool default', 'A rule': 'set by a rule', 'Measured': 'measured from the data', 'Chosen': 'chosen when building' })[p.who], style: p.id === s.ep ? 'background:var(--c-now-soft)' : '', pick: function () { self.setState({ ep: p.id }); } }; });
+var ep = { label: cur.label, flag: cur.flag, def: cur.def, extraLabel: cur.extraLabel, extra: cur.extra, help: cur.help,
+  kinds: ['Number', 'Choice', 'Yes / no', 'Text', 'File', 'Mode', 'Repeat'].map(function (k) { return { v: k, cls: 'tchip' + (k === cur.kind ? ' on' : '') }; }),
+  who: segs(['Default', 'A rule', 'Measured', 'Chosen'], cur.who) };
+var meta = {
+  params: { kind: 'Parameters', title: 'QUAST 5.3.0 · 6 parameters', by: 'up', source: 'read from main.nf and the QUAST manual' },
+  rule: { kind: 'Rule', title: 'Assembly quality', by: 'ai', source: 'adds rules/qc.yml', ai: 'Nothing else in the registry reports on assemblies, so QUAST is the only answer; a rule makes the choice visible and citable.' },
+  measurer: { kind: 'Measurer', title: 'New measurer', by: 'you', source: 'none drafted yet' },
+  vocab: { kind: 'Vocabulary change', title: 'qc.report gains state assembly', by: 'ai', source: 'shared vocabulary file', ai: 'QUAST reports describe assemblies, not reads; a new state keeps them apart from FastQC reports.' }
+};
+var m = pi ? { kind: pi.side === 'in' ? 'Input' : 'Output', title: pi.name, by: pi.by, source: pi.by === 'up' ? 'nf-core meta.yml' : 'read from the module’s output block', ai: pi.ai } : meta[s.sel];
+var by = m.ai && s.ok[s.sel] ? 'you' : m.by;
+var tag = { ai: 'AI', you: 'YOU', up: 'NF-CORE' };
+var part = { kind: m.kind, title: m.title, by: tag[by], byCls: 'by by-' + by, source: m.source, isAi: !!m.ai && !s.ok[s.sel], aiWhy: m.ai || '' };
+var reviewAll = [
+  { id: 'misassemblies', what: 'misassemblies', detail: 'only made with a reference' },
+  { id: 'vocab', what: 'New state assembly', detail: 'on qc.report' },
+  { id: 'rule', what: 'Rule for assembly QC', detail: 'chooses QUAST' }
+];
+var review = reviewAll.filter(function (r) { return !s.ok[r.id]; }).map(function (r) { return Object.assign({}, r, { go: pick(r.id) }); });
+var C = [
+  { id: 'params', title: 'Parameters', count: '6', lines: ['Minimum contig length · 500 bp', 'Large genome mode · rule', 'Gene finding · chosen'], addLabel: 'Add parameter' },
+  { id: 'rule', title: 'Rules', count: '1', lines: ['When data is assembly.fasta → QUAST'], addLabel: 'Add rule' },
+  { id: 'measurer', title: 'Measurers', count: '0', lines: ['None yet. Optional.'], addLabel: 'Add measurer' },
+  { id: 'vocab', title: 'Vocabulary', count: '1 change', lines: ['qc.report + state assembly'], addLabel: 'Add type or state' }
+];
+var cards = C.map(function (c) { return { title: c.title, count: c.count, lines: c.lines, addLabel: c.addLabel, cls: 'pc' + (s.sel === c.id ? ' sel' : ''), pick: pick(c.id), add: pick(c.id) }; });
+// tests
+var G = 'background:var(--c-done-soft);color:var(--c-done-ink)', N = 'background:var(--c-line-soft);color:var(--c-ink-3)', X = 'background:var(--c-needs-you-soft);color:var(--c-needs-you-ink)';
+var T = {
+  plain: { name: 'Assembly only', sym: '✓', mark: G, time: '34 s', status: 'passed · 12:24', inputsLine: 'consensus',
+    inputs: [{ port: 'consensus', file: 'test-datasets/genomics/sarscov2/illumina/fasta/contigs.fasta' }], params: '',
+    exp: [{ out: 'results', want: 'folder exists', got: 'folder · 14 files', ok: 'y' }, { out: 'summary', want: 'tsv with a column N50', got: 'N50 = 29,764', ok: 'y' }, { out: 'misassemblies', want: 'absent (no reference)', got: 'absent', ok: 'y' }, { out: 'unaligned', want: 'absent (no reference)', got: 'absent', ok: 'y' }] },
+  ref: { name: 'With reference and annotation', sym: '✓', mark: G, time: '41 s', status: 'passed · 12:24', inputsLine: 'consensus, reference, annotation',
+    inputs: [{ port: 'consensus', file: 'test-datasets/…/contigs.fasta' }, { port: 'reference', file: 'test-datasets/…/genome.fasta' }, { port: 'annotation', file: 'test-datasets/…/genome.gff3' }], params: '',
+    exp: [{ out: 'results', want: 'folder exists', got: 'folder · 31 files', ok: 'y' }, { out: 'summary', want: 'tsv with a column N50', got: 'N50 = 29,764', ok: 'y' }, { out: 'misassemblies', want: 'tsv exists', got: 'tsv · 2 rows', ok: 'y' }, { out: 'unaligned', want: 'tsv exists', got: 'tsv · 1 row', ok: 'y' }] },
+  gene: { name: 'Gene finding on', sym: '•', mark: N, time: '—', status: 'not run yet · added by the assistant', inputsLine: 'consensus · gene finding on',
+    inputs: [{ port: 'consensus', file: 'test-datasets/…/contigs.fasta' }], params: 'Gene finding = yes',
+    exp: [{ out: 'results', want: 'folder exists', got: 'not run', ok: 'n' }, { out: 'summary', want: 'tsv with a column # predicted genes', got: 'not run', ok: 'n' }] }
+};
+var cases = ['plain', 'ref', 'gene'].map(function (k) { var c = T[k]; return { name: c.name, sym: c.sym, mark: c.mark, time: c.time, inputs: c.inputsLine, cls: 'case' + (s.tc === k ? ' on' : ''), pick: function () { self.setState({ tc: k }); } }; });
+var tc = T[s.tc];
+var t = { name: tc.name, sym: tc.sym, mark: tc.mark, status: tc.status, inputs: tc.inputs, hasParams: !!tc.params, params: tc.params,
+  exp: tc.exp.map(function (e) { return { out: e.out, want: e.want, got: e.got, sym: e.ok === 'y' ? '✓' : (e.ok === 'x' ? '✗' : '•'), mark: e.ok === 'y' ? G : (e.ok === 'x' ? X : N) }; }) };
+var cv = function (name, state, by) { return { name: name, sym: state === 'y' ? '✓' : (state === 'p' ? '•' : '–'), mark: state === 'y' ? G : N, covered: state !== 'n', missing: state === 'n', by: by || '' }; };
+var coverage = [
+  { title: 'Outputs', items: [cv('results', 'y', '2 tests'), cv('summary', 'y', '2 tests'), cv('misassemblies', 'y', '1 test'), cv('unaligned', 'y', '1 test')] },
+  { title: 'Optional inputs', items: [cv('reference', 'y', 'test 2'), cv('annotation', 'y', 'test 2')] },
+  { title: 'Parameter choices', items: [cv('Gene finding on', 'p', 'test 3, not run'), cv('Large genome mode on', 'n'), cv('Organism: eukaryote', 'n')] }
+];
+var green = 'background:var(--c-done-soft);color:var(--c-done-ink)', blue = 'background:var(--c-now-soft);color:var(--c-now-ink)';
+var track = [
+  { title: 'Drafted', detail: 'tool, 1 new state, 1 rule', time: '12:05', mark: '✓', circ: green },
+  { title: 'Tests passed', detail: '2 of 2', time: '12:24', mark: '✓', circ: green },
+  { title: 'Pull request #1 opened', detail: 'on comeni-registry, with the AI’s summary and your approvals', time: '12:33', mark: '✓', circ: green, hasFix: true, blocker: 'the draft changes a shared file, vocabulary/types/qc.report.yml.', fixed: 'Fixed by putting the vocabulary change in this pull request, for review with the tool.' },
+  { title: 'Merged', detail: 'in comeni-registry, not yet in a release', time: '13:19', mark: '✓', circ: green, hasFix: true, blocker: 'GitHub refused the push: no sign-in.', fixed: 'Fixed by connecting GitHub in Settings.' },
+  { title: 'Released', detail: 'reaches the builder with the next release', time: 'waiting', mark: '5', circ: blue, hasAction: true, action: 'Cut a release', href: 'Registry.dc.html' }
+].map(function (x) { return Object.assign({ hasFix: false, blocker: '', fixed: '', hasAction: false, action: '', href: '#' }, x); });
+var nt = 'background:var(--c-done-soft);color:var(--c-done-ink)', ch = 'background:var(--c-measured-soft);color:var(--c-measured-ink)';
+var files = [{ tag: 'NEW', style: nt, path: 'tools/nf-core/quast/contract.yml' }, { tag: 'NEW', style: nt, path: 'tools/nf-core/quast/module/ (vendored)' }, { tag: 'NEW', style: nt, path: 'tools/nf-core/quast/tests/ · 3 cases' }, { tag: 'CHANGED', style: ch, path: 'vocabulary/types/qc.report.yml · + assembly' }, { tag: 'NEW', style: nt, path: 'rules/qc.yml' }, { tag: 'NEW', style: nt, path: 'changelog.d/quast.md' }];
+var P = [
+  { id: 'tool', icon: '⚒', label: 'Tool', status: review.length ? review.length + ' to review' : 'reviewed', st: review.length ? 'color:var(--c-now-ink)' : '' },
+  { id: 'tests', icon: '✓', label: 'Tests', status: '2 passed · 1 not run', st: '' },
+  { id: 'publish', icon: '↗', label: 'Publish', status: 'merged · next release', st: '' }
+];
+var titles = { tool: 'Tool', tests: 'Tests', publish: 'Publish' };
+return {
+  pages: P.map(function (p) { return { icon: p.icon, label: p.label, status: p.status, statusStyle: p.st, cls: 'mode' + (s.page === p.id ? ' on' : ''), go: go(p.id) }; }),
+  pageTitle: titles[s.page], onTool: s.page === 'tool', onTests: s.page === 'tests', onPublish: s.page === 'publish',
+  review: review, hasReview: review.length > 0, noReview: review.length === 0,
+  ins: ins, outs: outs, cards: cards, part: part, port: port, params: params, ep: ep,
+  isPort: !!pi, isParams: s.sel === 'params', isRule: s.sel === 'rule', isMeasurer: s.sel === 'measurer', isVocab: s.sel === 'vocab',
+  pickTool: pick('params'), addInput: pick('consensus'), addOutput: pick('results'),
+  onPart: s.tab === 'part', onChat: s.tab === 'chat',
+  partTabCls: 'tab' + (s.tab === 'part' ? ' on' : ''), chatTabCls: 'tab' + (s.tab === 'chat' ? ' on' : ''),
+  showPart: function () { self.setState({ tab: 'part' }); }, showChat: function () { self.setState({ tab: 'chat' }); },
+  confirm: function () { var o = Object.assign({}, s.ok); o[s.sel] = true; self.setState({ ok: o }); },
+  goMis: pick('misassemblies'), goVocab: pick('vocab'), goRule: pick('rule'),
+  cases: cases, t: t, coverage: coverage, track: track, files: files
+};
+}
+renderVals() {
+var v = this.renderValsBase();
+var self = this;
+var dark = (this.state && this.state.dark !== undefined && this.state.dark !== null) ? this.state.dark : !!this.props.dark;
+v.themeCls = dark ? 'theme-dark' : '';
+v.toggleTheme = function () { self.setState({ dark: !dark }); };
+return v;
+}
+}
+</script>
+</body>
+</html>

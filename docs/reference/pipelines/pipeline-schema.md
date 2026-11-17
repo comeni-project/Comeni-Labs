@@ -152,6 +152,7 @@ Model: `comeni_core.artifact.pipeline.Pipeline`
 | `sheet_facts` | the facts each sample's samplesheet row states, with their allowed values; left out when there are none |
 | `channels` | how the steps are wired to each other |
 | `decisions` | the record of every ambiguity, so a rerun replays rather than re-asks |
+| `ai_choices` | what the builder agent chose, by step (`chose <tool>`, `set <setting> to <value>`), and whether a person reviewed it as it stands; left out when the agent chose nothing. Never a reason to refuse keeping; a reviewed choice counts as a person's answer when rules are learned |
 | `emitted` | the files that were written, each by digest |
 | `gate` | the strongest gate this pipeline actually passed |
 | `input_form` | what a laboratory must supply at run time |
@@ -265,8 +266,8 @@ no premise in the file to check. Each entry carries the fact, its value, and its
 | `goal` | the goal's own shape, such as `required_states` |
 | `unmeasured` | the fact is absent, and a row testing `absent` read that |
 
-The distinction between `measured` and `asserted` is the one a clinical reviewer needs and the
-one the `sealed` protection profile will act on: a measured 150bp read length is a fact a
+The distinction between `measured` and `asserted` is the one a clinical reviewer needs: a
+measured 150bp read length is a fact a
 profiling run established, and an asserted one is a claim by whoever wrote the goal. Both are
 legitimate; only one is checkable.
 

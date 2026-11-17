@@ -50,19 +50,15 @@ Contracts, rules and vocabulary states are drafted outside the build — by hand
 the forge once it is rebuilt (`docs/superpowers/specs/2026-10-19-forge-mvp-design.md`) — and a
 person approves them into the registry layer. Nothing writes there automatically.
 
-### 3. Runtime AI is confined to four declared points
+### 3. Runtime AI is confined to declared points
 
-They are prompt → goal extraction (user
-corrects the result before anything runs), tier-4 resolution (always flagged, always
-recorded), compiler repair (bounded to 3 attempts), and characterisation. Nothing else calls a
-model.
-**Characterisation is the fourth, since 2026-10-04 (14.7.7), and it is a recorded loosening**
-(`docs/explanation/authoring-protocol.md`, *Loosenings*). At protection level 0 only, a model reads
-the start of an uploaded sample that nothing here reads, and names its declared type, and the
-declared states and measurements a line of it states. Each id is admitted against the
-vocabulary. Each property must quote its line, which the engine checks is really in the file
-before anything is recorded. What it reads is labelled *read by AI* at tier 3. It is declared
-like the others: an `AiPoint`, a door, a prompt file and an `ai_invocation` row.
+They are the builder agent (since #463 it is both the conversation that becomes a goal and
+tier-4 resolution) and compiler repair (bounded to 3 attempts). Nothing else calls a model.
+The agent reads the person's words and chooses through tools; every choice it makes is recorded
+as the AI's, at tier 4 with the model as its source, with its reason, and flagged for review. A
+pipeline it built records both points (`AiPoint.PROMPT`, `AiPoint.TIER_4`). How it works is
+[the builder agent page](builder-agent.md). A new point is declared like these: an `AiPoint`, a
+door, a prompt file and an `ai_invocation` row.
 
 ### 4. A tier-3 rule miss demotes to tier 4. It never calls a model inside tier 3
 
@@ -148,144 +144,45 @@ Same registry, same resolver, byte-identical
 output. The hosted instance sells convenience, never capability. Anything that would only
 work on our infrastructure is a design error.
 
-### 14. Data leaves through declared doors only, on two paths
+### 14. Data reaches a model through declared doors only
 
-Five carry
-**pipeline** data — goal extraction, tier-4 resolution, compiler repair, publication and
-characterisation. The forge's path has no door declared: the old forge's review chat (door 5)
-went with it (#361), and the new forge declares its own. `BoundaryFlow` is the distinction and
-`payloads_for()` is how each path stays separately checkable.
-**Why this exists, in the order the reasons actually hold** — restated 2026-09-05, because
-the first reason below is the one that survives whether or not anybody is talking about
-clinical data, and a rule whose stated purpose has gone quiet is a rule the next reader
-deletes.
-**First: it is what makes a model call reproducible and auditable.** Every crossing has a
-declared input type, which is what lets a response be recorded and replayed, a prompt be
-held to a golden file, and `admit()` check an answer against the question that was asked.
-Untyped model calls take dicts, and nothing about a dict is reproducible. This is the
-differentiator's machinery, not a compliance feature: *a reader can see exactly which parts
-a model touched* is only true if there is a boundary to point at.
-**Second: the pipeline doors track the prompt taint path.** *Free text enters at exactly
-one door*, and the question for anything else is whether it is downstream of it — those
-four are one path, prompt → goal → build → pipeline → publish.
-**Third, and as a consequence rather than a purpose: clinical non-receipt.**
-`git show 83c873d^:docs/design/clinical-data-protection.md` §4.2 is the long form. The claim is real and it is
-*downstream* of the two above — the doors were not built to satisfy it, and it would not
-survive without them. **The expensive half of that story is deliberately unbuilt**: no
-`EgressRecord` exists for any door, and the three protection profiles are
-[#71](https://github.com/comeni-project/Comeni-Labs/issues/71), which nothing has started.
-Do not start them on privacy grounds alone.
-**A model call carrying words a person typed is a door, whichever path it is on.** The old
-forge's review chat became door 5 for exactly that reason: a curator's message reached a
-provider at request time, which is what `AuthoringRequest.prompt` is on the pipeline side. It
-was removed with the old forge (#361); a forge that sends a person's words to a model declares a
-door again rather than stretching an exemption.
-**Door 6, characterisation (2026-10-04, 14.7.7), is the first whose payload holds data from a
-person's file**: up to 8 KB and 200 lines of a sample's text, bounded by its own type
-(`marks.SampleText`), at protection level 0 only. That is why it is counted apart:
-`SAMPLE_FIELDS` sits beside `FREE_TEXT_FIELDS`, and a guard holds door 6 to be the only door
-that can reach a `Mark.SAMPLE`. The payload carries no file name, extension, session or
-conversation. The vocabulary the model chooses from is the public registry, rendered into the
-prompt as door 1's is.
-**A prompt composed only from public sources is not a door**, and the line drawn is *who
-authored the string* rather than *how much text crosses*: text composed entirely from vendored
-modules and registry files has the same public bound that keeps `Excerpt` honest.
-**One list rather than two.** A separate `FORGE_DOORS` was the tidy option and is the wrong
-one — the mechanism this buys is that widening the boundary means editing a file saying
-*these are all the ways data leaves*, and two files creates a cheaper file, which is where
-a door belonging on the other list eventually goes.
-Each door carries one declared payload type, and a **named set** of fields across the whole
-surface may hold free text: `AuthoringRequest.prompt`, `GateFailure.tool_message`,
-`ResolvedValue.reason`, one `reason` per decision kind, `Why.reason` — the citation beside
-every value in `pipeline.yml` — the `axis_reason` on `Why` and `ResolvedValue` plus
-`ParamDecision.override_reason` since Plan 1.14, and `AuthoringTurn.content` since door 1
-became a conversation on 2026-09-09.
-**Door 1's payload is `AuthoringRequest`, and it is still one door.** `PromptRequest` carried
-a single string because goal extraction was assumed to be a single call; it is not — a person
-reads back what the engine understood and corrects it, so the second call has to know what
-the first established. Everything it gained beside the bounded tail is typed vocabulary the
-engine itself issued: a `Goal` (which already crosses door 4 inside a `Pipeline`), node and
-contract ids, and the **option ids** a model must answer with. That last one is the product
-claim made enforceable at the boundary — a reply addressed by id cannot name a value nobody
-offered. `AiPoint.PROMPT` is unchanged, and invariant 3 still declares three runtime AI
-points.
-**The count is deliberately not written here any more** (2026-09-05). It said "exactly two"
-for a plan and a half, then four, six, seven, ten and fourteen, and it was wrong within a
-day of every one of those. `FREE_TEXT_FIELDS` in `tests/guards/test_egress.py` is the count,
-it is executable, and a number beside it is a second source of truth that only ever drifts —
-which is A33, in the file A33 is about.
-**The tenth is the first genuinely new author**: the nine before it are written by a
-contract author, a rule author or the resolver, and `override_reason` is written by the
-person answering a tier-4 question, in the artifact, after resolution. It exists because
-until Plan 1.14 that person had nowhere to say why, and `upgrade` replaced what they wrote
-with "selected the first of 1 candidates without judgement" (A77).
-**Every increase up to the ninth arrived by a refactor rather than by a new kind of string
-crossing** — A16 splitting `DecisionRecord` into three, `Pipeline` taking door 4, and Plan
-1.14 splitting `reason` in two because it was answering both *why this axis* and *why this
-answer*, which is how the registry came to cite the STAR paper as the reason HISAT2 was
-chosen (A79/A107). **The tenth broke that run**, and it is written down here rather than
-absorbed: `override_reason` is a new author writing at a new moment, and the argument for
-it is that the alternative is a reviewer's reasoning living nowhere. Whether that argument
-holds is the sort of thing a literal list exists to put in front of somebody, and it has
-now done so five times.
-**Eleven through fourteen arrived together, with Plan 2.5**, and they are a *refactor*
-increase of the A16 kind rather than four new kinds of string: `Ambiguity` became a
-`comeni_core.review.Question`, so `what` and `why_open` — which the forge had carried on
-every `Hole` since Phase 1 — reach door 2 too, along with `Excerpt.locator` and
-`Excerpt.text`. They were **let through rather than stripped**, on a measurement: the
-forge's prompt search took a local model from 69% to 88%, and two of the three fixes
-behind that were *the question never said what it was about* and *the evidence was not
-readable*. A door handing a model bare candidates rebuilds the 69% configuration on the
-build path. `test_the_door_carries_what_the_forge_measured_a_model_needs` holds it, so
-removing them fails rather than quietly regressing.
-**`Excerpt` is the first entry that is not an author.** Every other field is composed by
-somebody; these two are *quoted* — a source file already holds the text and an excerpt
-copies it. That is a weaker claim than the rest of the list makes, and it is written down
-because *"it is only quoted"* is exactly the reasoning that widens a boundary unnoticed.
-What bounds it is the source: excerpts come from vendored modules and registry files,
-which are public, and never from a prompt or a goal.
-**Door 4 carries a `Pipeline`**: the artifact on disk *is* the payload, so what a person
-reads before publishing and what crosses the boundary cannot disagree. `PublishBundle` is
-retired. The guard's roots come from `DOORS` rather than from what happens to live in
-the former egress module — scanning it found three doors out of four the moment the publication
-payload moved, and the one it missed was the door with no undo. Everything
-else is closed vocabulary; no payload may carry an `Any`-typed field, and none may carry
-a plain `str` — every string is a declared ID alias or marked `Mark.FREE_TEXT`, because a
-bare `str` bypasses the marker in one line and a prompt fits in it perfectly. The rule is
-now an **allowlist**: `test_every_payload_field_is_a_declared_shape` enumerates what a
-leaf may be rather than what it may not, because a blocklist can only forbid what
-somebody named — which is how `object`, `Path` and `Any` each arrived one audit apart.
-Enforced by `tests/guards/test_egress.py`, which holds both lists literally, so widening the
-boundary means editing a test that says these are all the ways data leaves. Publication
-is the door with no undo.
+Each door carries one declared payload type, listed in `comeni_core.egress.boundaries.BOUNDARIES`,
+on one of two paths (`BoundaryFlow`): the **pipeline** path (the builder agent, compiler repair,
+publication) and the **forge** path. `tests/guards/test_egress.py` holds the list literally, so
+widening the boundary means editing a test that says *these are all the ways data leaves*.
 
-### 15. Mendel does not receive patient data
+**Why:** a declared input type is what makes a model call reproducible and auditable. It lets a
+response be recorded and replayed, a prompt be held to a golden file, and `admit()` check an
+answer against the question that was asked. *A reader can see exactly which parts a model
+touched* is only true if there is a boundary to point at.
 
-No input accepts a sample identifier, filename or
-path. `Goal` holds type IDs, states and declared measurements — a shape, not data. Profiling
-happens where the data is; the emitted pipeline references `params.input` as a placeholder
-the lab fills at run time, and a fact measured in the pipeline comes back from the run as that
-fact, never as the data it was measured on.
-Since measurements became declared data the model can no longer refuse an undeclared key, so
-the guard moved rather than weakened: `MeasurementRegistry.profile()` is the only validating
-constructor, `tests/guards/test_construction.py` enforces that nothing else builds a `DataProfile`,
-and `mendel build` re-routes every goal's profile through it. Delete that one call and
-`profile: {sample_name: ...}` builds cleanly — which is how it was watched failing.
-**Protection level 0 loosens this twice, both recorded** (`docs/explanation/authoring-protocol.md`,
-*Loosenings*):
-- since 14.7.6, an uploaded sample's first 4 MB is held in memory and measured on this
-  server, and only the measured facts are kept;
-- since 14.7.7, when nothing reads its type, up to 8 KB of its text goes to a model through
-  door 6, waiting in the AI queue until the worker takes it (and in Redis's snapshot on
-  disk, which level 0 allows, #281). Only the ids it admits become
-  facts; the model's reply, with the lines it quoted from the file, is kept whole (#238).
+**The rules a payload follows:** no field is `Any`, `object` or a plain `str`. Every string is a
+declared id alias, or carries a mark: `Mark.FREE_TEXT` for what a person typed or a tool printed,
+`Mark.SAMPLE` for something of a person's data. The guard is an allowlist
+(`test_every_payload_field_is_a_declared_shape`), and `FREE_TEXT_FIELDS` and `SAMPLE_FIELDS` in
+`tests/support/egress.py` are the counts. Only the builder agent's door may reach a sample, and
+only by name. A prompt composed only from public sources (registry files, vendored modules) is not
+a door. Publication carries the `Pipeline` itself, so what a person reads before publishing and
+what crosses cannot disagree; it is the door with no undo.
 
-`guarded` and `sealed` will hold the invariant (#71).
+### 15. A pipeline never holds a person's data
 
-**No table holds a run's parameters** (Wiener's half of the same boundary). The samplesheet path
-and reference values a laboratory gives at submit are written to the run's own params file,
-in its directory beside its working files, and deleted with it. They are not in a column and no
-longer in the queued job: a queue that loses the job loses a delay, not the run (#273, Part H).
+No goal, `pipeline.yml`, emitted workflow or log holds a path, a sample's name or anything a
+file contains. A pipeline holds **shapes**: type ids, states and declared measurements; its
+inputs are typed sockets the run fills. `MeasurementRegistry.profile()` is the only validating
+constructor of a `DataProfile`, and `tests/guards/test_construction.py` holds that nothing else
+builds one: delete that call and `profile: {sample_name: ...}` builds cleanly, which is how it was
+watched failing.
+
+**A person's files are read where they are, never copied** (#511). Comeni reads only under the
+installation's data roots, mounted read-only, and every path is resolved and checked (`MI0221`).
+To measure a sample it reads at most the first 4 MB of each file. An analysis's data
+(`analysis_data`) keeps the folders ticked, the files by path, the samples by name and what was
+measured on each, and is deleted with the analysis. **Facts about the data are derived from it at
+every read, never logged as decisions**: change the data and the facts change. A run's params are
+built from it when the run is sent, and Wiener keeps them in the run's own directory, never in a
+table (#273). The builder agent's model may read sample names, so it can talk about them; never a
+path or a file's contents.
 
 ## The four tiers
 
@@ -301,53 +198,22 @@ Every module choice and parameter exits at exactly one tier and carries it forev
 Tier 3 is yellow rather than silent on purpose: a rule match is only as good as the
 measurement behind it. Yellow means "the machinery worked, check the premise."
 
+**Tiers are the engine's; the interface speaks sources** (#511). Every value on screen carries
+where it came from: MEASURED, RULE, DEFAULT, YOU, AI or NOT SET. A tier-4 choice is AI until a
+person keeps it, and NOT SET while open; the tier stays in `pipeline.yml` for review and replay.
+
 Module choices carry a tier too, in `IRNode.selection`, and `needs_review()` lists a tier-4 one
 by node rather than only as a `DecisionRecord` a reviewer would have to join by hand.
 
-## The three protection profiles
+## Public claims
 
-Clinical labs are a target user, not a later market. Three ladders now exist and must never be
-conflated: **four resolution tiers** (above), **three visibility tiers** (private / published /
-curated, federation §4.2), and **three protection profiles** — below.
-
-| | `open` | `guarded` (default) | `sealed` |
-|---|---|---|---|
-| prompt door | sends | shows the payload, waits for confirmation | closed — typed goals only |
-| `GateFailure.tool_message` | included | `None` | `None` |
-| repair | proposes and applies | proposes and applies | proposes only; a human applies |
-| tier 4 | flags | flags | **blocks the build** |
-| attribution | optional | when available | required |
-| reference pinning | tags | tags | digests required |
-
-Never configurable at any level: the declared doors, typed payloads, an `EgressRecord` per
-crossing, tier 4 always flagged, typed-only publish bundles, no patient data received.
-`guarded` is the default because the unconfigured install is the one most likely to exist.
-
-**None of this table is implemented yet, and saying so is the point** —
-[#71](https://github.com/comeni-project/Comeni-Labs/issues/71). A search for
-`ProtectionProfile`, `SEALED` or `GUARDED` across every package returns nothing, because every
-row describes a subsystem that does not exist. (Corrected 2026-09-28: goal extraction and tier-4
-resolution now exist, in the living pipeline; compiler repair is still declared and not built.
-The profiles themselves are still unbuilt.)
-
-**Deprioritised 2026-09-05, by the operator's PI**, and it costs nothing today because it was
-never started. Do not open #71 on privacy grounds alone; open it when a *user* needs a posture,
-or when a laboratory asks to seal a path. **The doors
-themselves stay** — they are cheap, and invariant 14 now states the reasons in the order that
-survives this decision: reproducibility of a model call first, the taint path second, clinical
-non-receipt as a consequence. **The profiles govern the build path.**
-A laboratory wanting no model calls from an installation does not configure `COMENI_AI_MODEL`,
-which is stronger than a check: there is nothing to reach a provider *with*.
-
-**Say "Mendel does not receive patient data" — never "anonymised".** Genetic data are not
-reliably anonymisable and pseudonymised data stays personal data under GDPR Art. 9. The accurate
-claim is also the stronger one: minimisation by non-receipt.
-
-**Scrubbing was considered and rejected.** Safe Harbor needs all 18 identifier classes gone;
-NLP de-identification leaves false negatives, and it fails silently. Pattern matching survives
-only inverted, in `guarded`, where it halts the send and asks a human.
+**Say "a pipeline never holds a person's data", never "anonymised".** Genetic data are not
+reliably anonymisable, and pseudonymised data stays personal data under GDPR Art. 9.
 
 **We are a tool; the lab is the manufacturer.** Never claim IVDR/CLIA/CAP/ISO 15189 compliance —
 those attach to a laboratory's processes. Mendel supplies the documentation substrate. Curated
 means reference material a lab validates, never a validated test, because distributing across
 legal entities forfeits the IVDR Art. 5(5) in-house exemption.
+
+A privacy posture for a laboratory (which data a model may see) is not built; it is #71, and it
+is built as one setting when a laboratory asks for one.

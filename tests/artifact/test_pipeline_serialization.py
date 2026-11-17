@@ -106,3 +106,15 @@ def test_from_digest_is_computed_with_emitted_excluded(tmp_path):
     assert pipeline.emitted.from_digest == pipeline.content_digest()
     without = pipeline.model_copy(update={"emitted": None})
     assert pipeline.content_digest() == without.content_digest()
+
+
+def test_a_passed_gate_does_not_change_which_pipeline_it_is(tmp_path):
+    """#529 (walk 2026-11-16): keep recorded the digest, then the gate stamped `gate: lint` into
+    pipeline.yml, so every run of a gated pipeline carried a digest its analysis never had and
+    was not listed under it. A gate is a verdict about the emitted files, like `emitted`."""
+    from comeni_core.artifact.pipeline import Gate
+
+    pipeline = _load(_build(tmp_path))
+    gated = pipeline.model_copy(update={"gate": next(iter(Gate))})
+    assert gated.gate is not None
+    assert gated.content_digest() == pipeline.content_digest()

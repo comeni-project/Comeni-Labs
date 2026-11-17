@@ -1,52 +1,54 @@
 # Your first pipeline
 
-You will open the app, inspect a pipeline draft, review its decisions, run it through the
-current alpha launch flow, and watch the run page.
+You will ask a question, point Comeni at your data, inspect the pipeline it builds, review its
+decisions, run it, and watch the run.
 
 This walkthrough uses the shared [RNA-seq example](rnaseq-example.md): gene counts from
-paired-end RNA-seq reads.
+paired-end RNA-seq reads. A copy of real yeast data for it can be downloaded with
+`python3 tools/demo_data.py` (see the [demo walk](../how-to/development/demo-walk.md)).
 
 If the words draft, artifact, gate, run, or registry are new, read [Core words](../explanation/pipeline-concepts.md)
 first. It is short and will make this walkthrough easier.
 
-## 1. Open Comeni
+## 1. Ask your question
 
 If the stack is not running yet, follow [Install and open the app](../how-to/install.md).
 Then open [http://localhost:5173](http://localhost:5173).
 
-On a fresh checkout, the first screen asks what you want to make. Natural-language entry
-is enabled when a model is configured. This walkthrough works without one: click **draw it
-yourself**, or open `/build` directly. A new, empty pipeline opens.
+**Home** asks *What do you want to find out?* Type the question, for example *Count genes in my
+yeast RNA-seq samples*, and press Enter. A new analysis opens on its **Data** page. With a model
+configured, the builder agent starts at once and asks for the data if it has none.
 
-Click **+ Add step** and choose **SUBREAD_FEATURECOUNTS**, the step that makes gene counts.
-The panel asks *So you also want counts.matrix, made by SUBREAD_FEATURECOUNTS — right?* under
-**From your edit**. Click **Yes**. The engine now asks which inputs you have (reads, genome,
-annotation) and the read facts it needs; answer them, confirm **What was understood**, and the
-engine offers the rest of the pipeline one step at a time. Click **Add it** for each.
+Without a model, open **Build** in the analysis and click **+ Add step**: choose
+**SUBREAD_FEATURECOUNTS**, the step that makes gene counts, and the engine builds the rest of the
+pipeline from the registry's rules.
 
-The first-screen illustration below is a placeholder; the current manual-entry label
-is **draw it yourself**.
+## 2. Add your data
 
-![Placeholder illustration of the first-run screen](../assets/screenshots/first-run-alpha.svg)
+On **Data**, tick the folders that hold your reads and your reference, then press **Read these
+folders**. Each folder says what its files look like before you tick it. Comeni reads the start
+of each file where it is, never copying it: it groups the files into samples, measures facts such
+as read length and pairing, and lists the genome and annotation files as candidate references.
 
-| Current alpha behavior | Expected to change | Stable concept |
-|---|---|---|
-| The prompt needs a configured model; drawing a step starts the same questions without one. | The exact authoring screens may change. | The user reviews the goal and pipeline choices. |
+![Data, read, in the alpha app](../assets/screenshots/data.jpg)
 
-## 2. Inspect the draft
+**Check these** lists anything that looks wrong, from what was measured: a read 1 with no read 2,
+or a sample whose read length differs from the rest. Each has a fix you choose. On **References**,
+choose the genome and the annotation the pipeline needs. Adding data is described in full in
+[Add your data](../how-to/pipelines/add-your-data.md).
 
-The builder now shows the whole pipeline. Treat the screen as three questions:
+## 3. Inspect the pipeline
+
+Open **Build**. The canvas shows the whole pipeline; the assistant beside it says what it built and
+why. Treat the screen as three questions:
 
 | Question | Where to look |
 |---|---|
 | What steps are in this pipeline? | the canvas |
-| What does each step consume and produce? | the ports and wires |
-| What still needs a person? | the status chip and the step panel |
+| What does each step consume and produce? | the ports: inputs are circles, outputs triangles |
+| What still needs a person? | the step's tags and its card |
 
-Select a step and read its settings. The point is not to memorize the module. The point is to
-see that settings and tool choices carry reasons.
-
-![RNA-seq draft in the alpha builder](../assets/screenshots/builder-rnaseq-alpha.png)
+![The RNA-seq pipeline in Build](../assets/screenshots/build-rnaseq.jpg)
 
 For the RNA-seq example, expect a graph shaped like this:
 
@@ -66,99 +68,74 @@ genome.fasta + annotation.gtf
 The exact layout may move as the builder changes, but the scientific chain should remain
 recognizable: prepare reads, prepare the index, align, sort, count.
 
-## 3. Read the decisions
+## 4. Read the decisions
 
-Look for values that need review. Green/conventional choices can be scanned. Yellow/data-backed
-choices deserve a premise check. Red/ambiguous choices need an answer before the pipeline is
-something to rely on.
+Click a step to open its card. Settings carry their source: a rule, a measured fact, the AI or
+you. A setting nothing could settle says **NOT SET**; each setting says what it is behind its
+**(?)**.
 
-The deeper rule is simple: Comeni may assist, but it must not hide a guess as if it were a
-scientific decision.
+![STAR align's card in Build](../assets/screenshots/step-card.jpg)
 
-For the full ladder, read [Reviewing decisions](../how-to/pipelines/review.md).
-
-![Selected STAR step in the alpha builder](../assets/screenshots/decision-panel-alpha.png)
+Comeni may assist, but it must not hide a guess as if it were a scientific decision. For the full
+ladder, read [Reviewing decisions](../how-to/pipelines/review.md).
 
 In this example, the decision story should look like this:
 
 | Decision | Why it is there | What you do |
 |---|---|---|
 | Trim Galore | structural when it is the only compatible producer | scan it |
-| STAR align | data-backed rule: 150 bp reads match the STAR rule | check the read-length premise |
+| STAR align | data-backed rule: the measured read length matches the STAR rule | check the read-length premise |
 | samtools sort | structural when it is the only compatible producer of the required sorted BAM | scan it |
 | featureCounts | structural when it is the only compatible producer of gene-level counts | scan it |
-| `seq_platform` | ambiguous: no declared fact proves the platform | answer or leave the pipeline unready |
+| `seq_platform` | ambiguous: no declared fact proves the platform | answer it, or leave it unset and the tool uses its own default |
 
-That last row is not a failure. It is the system refusing to guess a biological or platform
-fact it cannot defend.
+That last row is not a failure. It is the system refusing to guess a platform fact it cannot
+defend.
 
-## 4. Open the artifact
+## 5. Open the pipeline file
 
-Switch from **Canvas** to **Pipeline file**. The artifact view shows the materialized pipeline record.
-That record is the bridge between the low-code app and plain Nextflow.
-
-The important files are:
+Switch from **Canvas** to **Pipeline file**. It shows the materialized pipeline record, the bridge
+between the app and plain Nextflow.
 
 | File | Meaning |
 |---|---|
-| `pipeline.yml` | the pipeline record: steps, settings, decisions, provenance |
+| `pipeline.yml` | the saved pipeline: goal, facts, steps, settings and why each was chosen |
 | `main.nf` | emitted Nextflow workflow |
 | `nextflow.config` | execution configuration and declared inputs |
-| `modules/` | the module source used by this pipeline |
 
-![Artifact view in the alpha builder](../assets/screenshots/artifact-view-alpha.png)
+![The pipeline file in Build](../assets/screenshots/pipeline-file.jpg)
 
-Read the artifact as the evidence record. The app is the easier way to work with it, but the
-file is what makes the pipeline portable and reviewable outside the app.
+Read the artifact as the evidence record. The app is the easier way to work with it, but the file
+is what makes the pipeline portable and reviewable outside the app.
 
-## 5. Run it
+## 6. Run it
 
-Press **Run**. In the current alpha, the button keeps the draft, runs a lint gate, asks for the
-run inputs, and submits to the local run service.
+Press **Run**. **New run** shows what the run will read from Data, the pre-flight checks, what you
+will get and where it runs. When the checks pass, press **Run on this machine**. No path is typed:
+the run reads the files Data read, where they are. The details are in
+[Running pipelines](../how-to/pipelines/run.md).
 
-Inputs and samplesheets will change as the app matures. For now, focus on the shape of the
-workflow: the run sheet is where local data paths enter, after the pipeline has already been
-built and reviewed.
+![New run in the alpha app](../assets/screenshots/new-run.jpg)
 
-For the fuller explanation of what enters at design time versus run time, read
-[Inputs in the alpha](../explanation/inputs-and-data.md).
+## 7. Watch it
 
-![Run sheet in the alpha app](../assets/screenshots/run-sheet-alpha.png)
+The run opens on its **Overview**: samples finished, the pipeline with each step's progress,
+anything worth a look, and the cores and memory the run reserved and used. **Steps**, **Outputs**
+and **Console** hold the detail.
 
-For a local dry run, example values will look like ordinary Nextflow inputs:
-
-| Field | Example value |
-|---|---|
-| Reads | `data/*_R{1,2}.fastq.gz` |
-| Genome FASTA | `reference/genome.fa` |
-| Annotation GTF | `reference/genes.gtf` |
-
-Use paths that make sense on the machine running the local stack. The current form is an alpha
-surface; the stable idea is that data paths enter at run time, not while Comeni is choosing the
-pipeline.
-
-## 6. Watch it
-
-After submission, open the run from `/runs`. The run page shows phase, elapsed time, task
-counts, timeline, task table, and console events.
-
-![Runs board in the alpha app](../assets/screenshots/run-page-alpha.png)
-
-If a run fails, start with the failure panel, then use task filters and console lines for the
-full record.
-
-Expected first checks:
+![A finished run's Overview](../assets/screenshots/run-overview.jpg)
 
 | If you see | Start with |
 |---|---|
-| Running tasks but no completions | Overview and timeline |
-| One failed process | Failure panel |
-| Many retries | Tasks filtered by attempt |
-| Missing input errors | Console and run sheet values |
+| Running tasks but no completions | Overview's machine card and Steps |
+| One failed step | Overview's *Worth a look*, then Console |
+| Many retries | Steps, filtered to retried tasks |
+| Missing input errors | Console, and the inputs on Data |
 
 ## What you learned
 
 - Comeni is app-first and low-code; the CLI is not the main user path.
+- Your data is read where it is, and its measured facts steer the pipeline's choices.
 - The graph is editable, but the artifact is the durable record.
 - Decisions are labeled by how they were justified.
 - The output is still Nextflow, so your lab can run it outside Comeni.

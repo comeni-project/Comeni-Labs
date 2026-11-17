@@ -32,10 +32,10 @@ describe("routing", () => {
   });
 
   it("keeps the shell mounted across navigation", async () => {
-    at("/runs");
+    at("/registry/releases");
     // The shell is in the layout route, so it must be present on a child route too. Asserted
-    // on the wordmark, which belongs to the shell and to nothing else.
-    await waitFor(() => expect(screen.getByLabelText("Comeni — home")).toBeTruthy());
+    // on the rail, which belongs to the shell and to nothing else.
+    await waitFor(() => expect(screen.getByRole("navigation", { name: "Comeni" })).toBeTruthy());
   });
 
   it("has no destination left to disable", () => {
@@ -52,18 +52,16 @@ describe("routing", () => {
     expect(document.querySelectorAll('a[href="#"]').length).toBe(0);
   });
 
-  it("offers no way into the old forge", async () => {
-    // The old forge's screens went with it (#361); forge MVP part 1 (#362) builds the new
-    // Registry and puts its link back.
+  it("puts the Forge in the rail", async () => {
     at("/build");
     await waitFor(() => expect(screen.getByRole("navigation")).toBeTruthy());
     const into = Array.from(screen.getByRole("navigation").querySelectorAll("a"))
       .map((a) => a.getAttribute("href") ?? "")
       .filter((href) => href.startsWith("/forge"));
-    expect(into).toEqual([]);
+    expect(into).toEqual(["/forge"]);
   });
 
-  it.each([["/forge"], ["/forge/catalogue"], ["/forge/queue/question/consumes%5B0%5D.type_id"]])(
+  it.each([["/forge/queue/question/consumes%5B0%5D.type_id"], ["/registry/forging"]])(
     "answers %s as an unknown page",
     async (path) => {
       // No redirects are kept: before v0.1.0 there are no bookmarks to preserve.

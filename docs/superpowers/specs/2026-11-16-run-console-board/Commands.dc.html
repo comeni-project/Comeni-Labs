@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Run console, commands</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#174C9B}a:hover{color:#15181D}
+</style>
+</helmet>
+<div style="position: relative; width: 1440px; height: 900px; background: #F5F6F8; font-family: Inter, system-ui, sans-serif; color: #15181D; overflow: hidden">
+
+  <div aria-hidden="true" style="position: absolute; inset: 0; display: flex">
+    <div style="width: 220px; background: #FFFFFF; border-right: 1px solid #E2E5EA"></div>
+    <div style="flex: 1; padding: 16px 24px 20px; display: flex; flex-direction: column; gap: 12px">
+      <div style="height: 32px; width: 420px; border-radius: 8px; background: #E2E5EA"></div>
+      <div style="flex: 1; border-radius: 12px; background: #FFFFFF; border: 1px solid #E2E5EA"></div>
+    </div>
+  </div>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(21, 24, 29, .32)"></div>
+
+  <section role="dialog" aria-label="Commands" style="position: absolute; left: 50%; top: 96px; transform: translateX(-50%); width: 720px; max-height: 700px; display: flex; flex-direction: column; background: #FFFFFF; border-radius: 14px; border: 1px solid #E2E5EA; box-shadow: 0 24px 64px rgba(21, 24, 29, .22); overflow: hidden">
+    <header style="display: flex; align-items: center; gap: 12px; padding: 16px 20px 12px">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 600">Commands</h2>
+      <span style="font-size: 12.5px; color: #5F6773">run in the shell, in runs/run-3</span>
+      <button type="button" aria-label="Close" style="margin-left: auto; width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #5F6773; font-size: 18px; cursor: pointer">×</button>
+    </header>
+    <div style="padding: 0 20px 12px">
+      <label style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #B8CDEE; box-shadow: 0 0 0 3px #EDF3FC">
+        <svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#5F6773" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Search commands</span>
+        <input type="text" value="memory" style="flex: 1; border: 0; outline: 0; font: 14px Inter, sans-serif; color: #15181D; background: transparent">
+      </label>
+      <div style="display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap">
+        <button type="button" aria-pressed="true" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #B8CDEE; background: #EDF3FC; color: #174C9B; font: 600 12px Inter, sans-serif; cursor: pointer">All</button>
+        <button type="button" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 600 12px Inter, sans-serif; cursor: pointer">This run</button>
+        <button type="button" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 600 12px Inter, sans-serif; cursor: pointer">A step's task</button>
+        <button type="button" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 600 12px Inter, sans-serif; cursor: pointer">From this pipeline's tools</button>
+        <button type="button" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 600 12px Inter, sans-serif; cursor: pointer">Disk and machine</button>
+      </div>
+    </div>
+
+    <div style="flex: 1; min-height: 0; overflow: auto; border-top: 1px solid #EEF0F3">
+      <h3 style="margin: 0; padding: 12px 20px 6px; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #5F6773">This run</h3>
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; padding: 10px 20px; background: #F8F9FB">
+        <span style="display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 13.5px; font-weight: 600">Which steps used the most memory</span>
+          <span style="font-size: 12.5px; color: #3B424D">Each task's peak memory beside what it asked for, worst first.</span>
+          <code style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #5F6773">nextflow log focused_curie -f name,peak_rss,memory -s peak_rss</code>
+        </span>
+        <span style="display: flex; gap: 6px">
+          <button type="button" style="height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 600 12px Inter, sans-serif; cursor: pointer">Insert</button>
+          <button type="button" style="height: 30px; padding: 0 12px; border-radius: 6px; border: 0; background: #1D5FC2; color: #FFFFFF; font: 600 12px Inter, sans-serif; cursor: pointer">Run</button>
+        </span>
+      </div>
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; padding: 10px 20px; border-top: 1px solid #EEF0F3">
+        <span style="display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 13.5px; font-weight: 600">Resume with more memory for one step</span>
+          <span style="font-size: 12.5px; color: #3B424D">Starts the run again from where it stopped, giving the step you name more memory.</span>
+          <code style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #5F6773">nextflow run . -resume -params-file params.json --memory.STAR_ALIGN 16.GB</code>
+        </span>
+        <span style="display: flex; gap: 6px">
+          <button type="button" style="height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 600 12px Inter, sans-serif; cursor: pointer">Insert</button>
+        </span>
+      </div>
+
+      <h3 style="margin: 0; padding: 14px 20px 6px; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #5F6773">From this pipeline's tools</h3>
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; padding: 10px 20px">
+        <span style="display: flex; flex-direction: column; gap: 3px">
+          <span style="display: flex; align-items: center; gap: 8px"><span style="font-size: 13.5px; font-weight: 600">STAR's memory for sorting alignments</span><span style="padding: 1px 6px; border-radius: 5px; background: #F8F9FB; border: 1px solid #E2E5EA; font-size: 11px; color: #3B424D">Align reads · STAR 2.7.11b</span></span>
+          <span style="font-size: 12.5px; color: #3B424D">What STAR asked for to sort its BAM, read from each sample's log.</span>
+          <code style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #5F6773">grep -h limitBAMsortRAM work/*/*/*.Log.out</code>
+        </span>
+        <span style="display: flex; gap: 6px">
+          <button type="button" style="height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 600 12px Inter, sans-serif; cursor: pointer">Insert</button>
+          <button type="button" style="height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 12px Inter, sans-serif; cursor: pointer">Run</button>
+        </span>
+      </div>
+
+      <h3 style="margin: 0; padding: 14px 20px 6px; font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #5F6773">Disk and machine</h3>
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; padding: 10px 20px">
+        <span style="display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 13.5px; font-weight: 600">Memory free on this machine</span>
+          <span style="font-size: 12.5px; color: #3B424D">How much memory is in use now, and how much is left.</span>
+          <code style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #5F6773">free -h</code>
+        </span>
+        <span style="display: flex; gap: 6px">
+          <button type="button" style="height: 30px; padding: 0 10px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #3B424D; font: 600 12px Inter, sans-serif; cursor: pointer">Insert</button>
+          <button type="button" style="height: 30px; padding: 0 12px; border-radius: 6px; border: 1px solid #D2D7DE; background: #FFFFFF; color: #15181D; font: 600 12px Inter, sans-serif; cursor: pointer">Run</button>
+        </span>
+      </div>
+    </div>
+
+    <footer style="display: flex; align-items: center; gap: 10px; padding: 10px 20px; border-top: 1px solid #EEF0F3; background: #F8F9FB; font-size: 12px; color: #5F6773">
+      <span>4 of 23 commands · each comes from the registry, beside the tool it is for</span>
+      <span style="margin-left: auto; display: flex; gap: 12px"><span><b style="color: #3B424D">↑↓</b> choose</span><span><b style="color: #3B424D">Enter</b> run</span><span><b style="color: #3B424D">Tab</b> insert</span></span>
+    </footer>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

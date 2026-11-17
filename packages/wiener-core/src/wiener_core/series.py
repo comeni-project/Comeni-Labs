@@ -119,6 +119,7 @@ def series(attempts: Sequence[Attempt]) -> Series:
     in_flight: list[tuple[int, float]] = []
     cpus: list[tuple[int, float]] = []
     memory: list[tuple[int, float]] = []
+    used: list[tuple[int, float]] = []
     read: list[tuple[int, float]] = []
     write: list[tuple[int, float]] = []
     reported = False
@@ -152,6 +153,12 @@ def series(attempts: Sequence[Attempt]) -> Series:
         # the first completion.
         if end is not None and end > start:
             span = (end - start) / 1000.0
+            # `%cpu` is the task's MEAN over its run: spread over the window it is area-true and
+            # shape-false, the same as a byte total (walk 2026-11-16: cores used, not just held).
+            if a.pct_cpu is not None:
+                reported = True
+                cores = a.pct_cpu / 100.0
+                used += [(start, cores), (end, -cores)]
             for total, into in ((a.read_bytes, read), (a.write_bytes, write)):
                 if total is None:
                     continue
@@ -166,6 +173,9 @@ def series(attempts: Sequence[Attempt]) -> Series:
     if cpus:
         curves.append(Curve(name="cpu reserved", kind=Kind.EXACT, unit="cpus",
                             points=_sweep(cpus)))
+    if used:
+        curves.append(Curve(name="cpu used", kind=Kind.DERIVED, unit="cpus",
+                            points=_sweep(used)))
     if memory:
         curves.append(Curve(name="memory reserved", kind=Kind.EXACT, unit="bytes",
                             points=_sweep(memory)))

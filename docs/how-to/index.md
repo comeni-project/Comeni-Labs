@@ -13,7 +13,7 @@ start with the [pipeline tutorial](../tutorials/first-pipeline.md).
 | Task | Guide |
 |---|---|
 | Start the local app | [Install and open the app](install.md) |
-| Answer a data question with a file | [Sample upload](pipelines/answer-with-sample.md) |
+| Add your files to an analysis | [Add your data](pipelines/add-your-data.md) |
 | Work with the builder | [The builder](pipelines/build.md) |
 | Review pipeline choices | [Reviewing decisions](pipelines/review.md) |
 | Submit a local run | [Running pipelines](pipelines/run.md) |

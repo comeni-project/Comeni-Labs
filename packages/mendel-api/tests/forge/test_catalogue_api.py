@@ -178,5 +178,7 @@ def test_a_modules_detail_says_what_fits_it_in_the_registry(client):
     answer = client.get("/api/forge/catalogue/nf-core/bwa/mem")
     assert answer.status_code == 200, answer.text
     fits = answer.json()["fits"]
-    assert "samtools/sort" in fits["reads_it"]
-    assert "bwa/mem" not in fits["reads_it"] + fits["feeds_it"]
+    feeds = {f["path"]: f["via"] for f in fits["feeds"]}
+    assert feeds["samtools/sort"] == "bam", "each fit names the format the two tools share (board)"
+    assert "bwa/mem" not in feeds and "bwa/mem" not in {f["path"] for f in fits["takes_from"]}
+    assert isinstance(answer.json()["row"]["topics"], list)

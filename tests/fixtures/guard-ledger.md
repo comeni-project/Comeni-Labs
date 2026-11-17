@@ -5538,3 +5538,52 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   `test_a_piece_imports_only_the_allowlist` now calls `registry_lint.piece_problems`. With
   `import socket` appended to `fastq.py` it failed (`fastq.py reaches past the allowlist:
   ['socket']`); restored, pass.
+- 2026-11-14, #463 the builder agent's door: `test_only_the_characterisation_and_agent_doors_can_reach_a_sample`
+  and `test_the_builder_agent_door_is_one_typed_result_per_tool_call` failed before
+  `builder_agent` was declared (the set was `{"characterisation"}`; no such payload). A recorded
+  level-0 loosening, the operator's decision: the agent's tool results may carry a sample's name
+  (`SamplesView.names`, `marks.SampleName`), declared in `SAMPLE_FIELDS`; the engine's sentences
+  and refusals in `FREE_TEXT_FIELDS`. The same run caught task 3's `ProducerPin.because`,
+  `ParamOverride.because` and `Overrode.rule`/`cite` reaching doors 1 and 4 undeclared, and a bare
+  `str` author; declared, and `by` became the `Author` enum. Pass.
+- 2026-11-15, #463 the scripted walk goes: doors `goal_extraction` and `tier4_resolution` are
+  removed with `AuthoringRequest` and `AmbiguityRequest`, and with them
+  `test_every_ambiguity_field_can_cross_the_door`, `test_every_tier_four_question_can_actually_cross_the_door`,
+  `test_the_door_carries_what_the_forge_measured_a_model_needs` and
+  `test_the_authoring_door_cannot_reach_a_name_a_path_or_a_sample`; `Excerpt` and the walk's
+  turn and prompt leave `FREE_TEXT_FIELDS` (`test_free_text_lives_only_where_declared` failed
+  on the unreachable `Excerpt` entries until they went). The person's words still reach a model,
+  through the agent's loop, which declared nothing: the door is now `AgentRequest` (the
+  conversation as `AgentTurn`s, and the tool results), and
+  `test_the_builder_agent_door_is_the_conversation_and_one_typed_result_per_tool_call` failed
+  before it (`['tool', 'ok', 'view', 'refusal'] != ['turns', 'results']`); `AgentTurn.content`
+  is declared free text. `test_the_conversation_crosses_as_the_declared_payload` failed before
+  the loop built its history from the payload (no `conversation`). Pass.
+- 2026-11-15, #463 final review, provenance and turn failure:
+  `test_a_tie_nobody_answered_stays_the_resolvers_and_flagged` failed before the fix
+  (`ValueSource.HUMAN is not ValueSource.RESOLVER`: the agent's projection labelled an
+  unanswered tie "accepted by a person"); `test_what_the_agent_withdraws_is_recorded_as_the_ais`
+  failed (`'person' != 'model'` on the retract). `test_a_tool_that_crashes_fails_the_turn_and_nothing_stays_running`,
+  `test_a_turn_that_cannot_be_queued_fails_and_can_be_retried` and
+  `test_a_turn_whose_worker_died_is_failed_when_the_page_reads_it` failed with the error
+  escaping or the turn left pending; `test_a_tool_name_the_engine_cannot_print_is_a_refusal`
+  raised `ValidationError`. Concurrency: `test_a_build_overtaken_by_the_persons_change_is_not_drawn_as_current`
+  (the old build landed `ok=True`), `test_a_change_landing_between_the_check_and_the_write_is_refused`
+  (no `expecting`), `test_a_tool_that_half_wrote_does_not_make_the_next_write_stale` (false
+  MI0201), `test_an_mcp_write_after_the_persons_change_is_refused` and
+  `test_mcp_answers_only_where_the_protection_level_allows_the_agent` (both answered `ok`),
+  `test_a_malformed_authorization_header_is_a_clean_refusal`. All pass after.
+- 2026-11-16, redesign Checkpoint A (#511): each run against the code before its fix, by copy and
+  `git show HEAD:path`. `test_a_symlinked_file_pointing_outside_is_not_read` (the scan read
+  `secret.txt` through `L09_R1.fq`), `test_a_symlinked_folder_out_of_the_root_is_not_listed` and
+  `test_listing_a_file_is_refused_not_a_crash` (both failed on the old `roots.py`), and
+  `test_scan_of_many_samples_holds_one_samples_heads_at_a_time` against a scan that read every head
+  first (peak 62, not 2). All pass after.
+- 2026-11-16, redesign Task 7 (#508, #511): `test_submit_refuses_an_input_outside_the_data_roots`
+  and `test_submit_takes_staged_samples`, run against the committed `routes/runs.py` (no guard, no
+  `stage` shape): both failed. Both pass after.
+- 2026-11-17, walk fixes (#535): `sizes nothing with spacing steps 8 or 9` (frontend
+  `tokens.test.ts`) run against the committed `analysis/data/Overview.tsx` (`h-9`, 60 px here),
+  by copy and `git show HEAD:path`: failed. `every row and the header share one width` failed on
+  the `w-max` rows; `the agent hears data change until it has built` failed with one notice of
+  two; the analysis-list test failed on `draft d1` not refreshed. All pass after.

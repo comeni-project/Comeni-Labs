@@ -550,60 +550,10 @@
     {
       "key": "privacy",
       "title": "Privacy & data",
-      "lede": "What a model may see, and where each purpose's data goes.",
+      "lede": "Where each purpose's data goes.",
       "order": 4,
       "served_by": "mendel",
       "entries": [
-        {
-          "setting": {
-            "key": "privacy.protection",
-            "label": "Protection level",
-            "help": "How much of your data a model may see. Level 0 lets you upload a sample, measured on this server, and a model may read it. Open, guarded and sealed send less, down to nothing at all.",
-            "kind": "choice",
-            "default": "level_0",
-            "env": "COMENI_PROTECTION_LEVEL",
-            "options": [
-              {
-                "value": "level_0",
-                "label": "Level 0: a sample may be uploaded and read",
-                "designed": null
-              },
-              {
-                "value": "open",
-                "label": "Open",
-                "designed": "designed, not built (issue 71)"
-              },
-              {
-                "value": "guarded",
-                "label": "Guarded",
-                "designed": "designed, not built (issue 71)"
-              },
-              {
-                "value": "sealed",
-                "label": "Sealed",
-                "designed": "designed, not built (issue 71)"
-              }
-            ],
-            "minimum": null,
-            "maximum": null,
-            "unavailable": null,
-            "where": "installation",
-            "fields": [],
-            "item_name": "name",
-            "from_env": null,
-            "actions": [],
-            "inherit_default": true,
-            "of": null
-          },
-          "shown": {
-            "value": "level_0",
-            "source": "default",
-            "locked": false,
-            "reason": null,
-            "set": null,
-            "last4": null
-          }
-        },
         {
           "setting": {
             "key": "privacy.where",

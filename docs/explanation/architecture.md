@@ -7,7 +7,7 @@ The browser carries the pipeline bundle between the APIs and combines their view
 This page explains component ownership and the construction path. Use the
 [contributing guide](../how-to/development/contribute.md) for setup and checks,
 [the invariants](invariants.md) for design constraints, and
-[the authoring protocol](authoring-protocol.md) for the conversation engine.
+[the builder agent](builder-agent.md) for how a conversation builds a pipeline.
 
 ## Component ownership
 
@@ -410,14 +410,10 @@ base carries no behaviour beyond `legal()`.
 
 **Two shapes of candidate, deliberately.** The base offers `Candidate(value, note)` so a
 reviewer sees where an option is declared; the build path narrows `candidates` to bare declared
-ids, because door 2 types them as `CandidateRef` and A129 records that payload accepting only one
-of three `*Asked` types until *values* were checked rather than names. `Question.legal()` reads
-both.
-
-**What the door gained.** `AmbiguityRequest` carries `what`, `why_open`, `closed` and `evidence`
-now. Not padding: the forge measured a local model at 69% without them and 88% with, and two of
-the three fixes behind that were *the question never said what it was about* and *the evidence
-was not readable*.
+ids, because A129 found the tier-4 door's payload accepting only one of three `*Asked` types
+until *values* were checked rather than names. `Question.legal()` reads both. That door was
+replaced by the builder agent's in #463; what a tier-4 question carries to the agent is
+[the invariants page's](invariants.md) to record.
 
 ---
 
@@ -501,7 +497,7 @@ duplicating it put the same claim in two places that could disagree.
 A measurement is a type, `measurement.<id>`, so measuring in the pipeline needs no routing code
 of its own. A **measurer** (`registry/measurers/`) produces one measurement, by our code over a
 format's records or by a tool plus a parser for its output, and declares where it runs: on the
-**server**, over an upload's head during the conversation, and in the **pipeline**, as a step
+**server**, over each file's head where it lies when a person ticks a folder (#511), and in the **pipeline**, as a step
 over all the data. The same measure code is written to run in both places; the server runner is
 built, and the pipeline step is being built (#465).
 
@@ -509,7 +505,7 @@ A fact records what measured it: `Measured.pieces` names the format and measurer
 same work: each fact records how much of the data it read (`coverage: head` or `all`), and a
 setting whose fact nobody knew before the build is decided in the pipeline, from the step that
 measures it, by a lookup the build lists in full beforehand (#217). Where each runs, and what crosses, is
-[the protocol page's table](authoring-protocol.md#where-each-measurer-runs).
+[the builder agent page's table](builder-agent.md#where-each-measurer-runs).
 
 A hand-written profile records no tool, and that absence *is* the provenance:
 `ValueSource.GOAL` means a person asserted it. `ValueSource.MEASURED` is what a `sealed`
@@ -559,8 +555,8 @@ is a boundary to point at and a list of what crossed it.
 **Clinical non-receipt is a consequence of those two, not the reason for them.** It is a real
 claim and `docs/design/clinical-data-protection.md` is the long form — but the doors were not
 built to satisfy it, and it is the part of this that would not survive on its own. The expensive
-half of that story is deliberately unbuilt: **no `EgressRecord` exists for any door**, and the
-three protection profiles are issue #71, which nothing has started.
+half of that story is deliberately unbuilt: **no `EgressRecord` exists for any door**, and a
+privacy posture for a laboratory is issue #71, built when a laboratory asks for one.
 
 **What the guard costs, measured.** Declaring door 5 on 2026-09-05 took under an hour, most of
 it prose; the mechanical part was a Pydantic type that would have existed anyway, one entry in
@@ -600,12 +596,12 @@ is the current blueprint path's implementation: it flags unresolved choices for 
 The application adapter imports both the resolver port and `comeni-ai`; shared provider
 transport does not depend on Mendel's resolver, and the resolver does not import transport.
 Builder calls outside blueprint resolution include understanding, follow-up, phrasing,
-read-back and sample characterisation. Their current owners and admission/storage boundaries
+and read-back. Their current owners and admission/storage boundaries
 are described in [Mendel AI ownership](mendel-ai-ownership.md).
 
 Tier 3 remains a lookup over declared rules. An unresolved choice does not make that lookup
 reach a model. Egress shapes are declared in `comeni_core/egress/boundaries.py`; callers own
-protection checks and transport.
+transport.
 
 ---
 

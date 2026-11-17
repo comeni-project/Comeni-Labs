@@ -77,12 +77,21 @@ describe("invariant 15, on the screen that draws a pipeline", () => {
     // conversation rather than an edit.
     const BINDS_A_RUN = new Set(["Submit.tsx"]);
 
+    // This folder, and every page of an analysis (`analysis/`, #511): Data binds files by
+    // ticking folders, Build binds inputs by type, and neither has a box for a path.
     const dir = join(import.meta.dirname, ".");
+    const analysis = join(import.meta.dirname, "..", "analysis");
+    const files = [
+      ...readdirSync(dir).map((entry) => join(dir, entry)),
+      ...(readdirSync(analysis, { recursive: true }) as string[]).map((entry) => join(analysis, entry)),
+    ];
+    expect(files.some((f) => f.includes("analysis/build/ToolForm.tsx"))).toBe(true);
     const offenders: string[] = [];
-    for (const entry of readdirSync(dir)) {
+    for (const file of files) {
+      const entry = file.slice(file.indexOf("src/") + 4);
       if (!/\.tsx?$/.test(entry) || /\.test\.tsx?$/.test(entry)) continue;
-      if (BINDS_A_RUN.has(entry)) continue;
-      const text = readFileSync(join(dir, entry), "utf8")
+      if (BINDS_A_RUN.has(entry.split("/").pop()!)) continue;
+      const text = readFileSync(file, "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/(^|[^:])\/\/.*$/gm, "$1");
       if (/type=\s*["'`]file/.test(text)) offenders.push(`${entry}: a file input`);

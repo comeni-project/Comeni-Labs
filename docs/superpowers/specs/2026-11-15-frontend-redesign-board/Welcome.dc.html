@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Welcome — Comeni</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{--c-paper:#F5F6F8;--c-surface:#FFFFFF;--c-surface-2:#F8F9FB;--c-line-soft:#EEF0F3;--c-line:#E2E5EA;--c-line-2:#D2D7DE;--c-mark:#A9B2BF;--c-ink:#15181D;--c-ink-2:#3B424D;--c-ink-3:#5F6773;--c-now:#1D5FC2;--c-now-mid:#6FA0E6;--c-now-ink:#174C9B;--c-now-soft:#EDF3FC;--c-now-line:#B8CDEE;--c-done:#2E9A5A;--c-done-ink:#1C6B3E;--c-done-soft:#E3F3E9;--c-done-line:#B9DCC6;--c-measured:#C48A1A;--c-measured-ink:#8A4B0B;--c-measured-soft:#FFF3DC;--c-measured-line:#F3DFB6;--c-needs-you:#C2410C;--c-needs-you-ink:#A0400B;--c-needs-you-soft:#FDEEE4;--c-needs-you-line:#F5CDB3;--c-ai:#5A3EAF;--c-ai-soft:#EEE9FB;--c-ai-line:#E3DBF6;--c-report:#9A2F5C;--c-report-soft:#FBE8F0;--c-regions:#156F6F;--c-regions-soft:#E2F5F4}
+.theme-root{background:var(--c-paper);color:var(--c-ink);min-height:900px;transition:background .2s}
+.theme-root.theme-dark{--c-paper:#12141B;--c-surface:#1A1D27;--c-surface-2:#161820;--c-line-soft:#232736;--c-line:#282C3A;--c-line-2:#3A3F52;--c-mark:#4A5068;--c-ink:#E8EAF2;--c-ink-2:#B0B5C8;--c-ink-3:#8C92A8;--c-now:#6EA2FF;--c-now-mid:#3D6FC0;--c-now-ink:#8FB6FF;--c-now-soft:#172642;--c-now-line:#2A4170;--c-done:#2FC79B;--c-done-ink:#5FD9B0;--c-done-soft:#113529;--c-done-line:#1E5A45;--c-measured:#F0B840;--c-measured-ink:#F0B840;--c-measured-soft:#35290F;--c-measured-line:#5A4618;--c-needs-you:#FF6E73;--c-needs-you-ink:#FF8A8E;--c-needs-you-soft:#3A1B20;--c-needs-you-line:#5A2A2F;--c-ai:#B39DFF;--c-ai-soft:#241D3A;--c-ai-line:#3A2F5C;--c-report:#F08DB8;--c-report-soft:#3A1A2A;--c-regions:#5FD9D9;--c-regions-soft:#0F3333}
+.theme-dark input,.theme-dark select,.theme-dark textarea{background:var(--c-surface);color:var(--c-ink)}
+
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--c-ink);-webkit-font-smoothing:antialiased}
+a{color:var(--c-now);text-decoration:none}
+button,input{font-family:inherit}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.starter{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--c-line-2);background:var(--c-surface);font-size:13px;color:var(--c-ink-2);cursor:pointer}
+.starter:hover{border-color:var(--c-now-line);background:var(--c-now-soft)}
+.alt{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:500;color:var(--c-ink-2);padding:8px 12px;border-radius:8px}
+.alt:hover{background:var(--c-surface-2)}
+</style>
+</helmet>
+<div class="theme-root {{themeCls}}" style="position: relative; min-height: 900px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px; box-sizing: border-box">
+
+  <svg aria-hidden="true" width="1440" height="900" viewBox="0 0 1440 900" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: 0.55; pointer-events: none">
+    <g fill="none" stroke="var(--c-line-2)" stroke-width="1.5">
+      <path d="M150 170 C230 170 230 120 310 120"></path><path d="M150 170 C230 170 230 230 310 230"></path>
+      <path d="M410 120 L520 120"></path><path d="M410 230 C470 230 470 120 520 120"></path>
+      <path d="M1040 690 C1110 690 1110 640 1180 640"></path><path d="M1040 690 L1180 750"></path>
+      <path d="M1280 640 L1340 640"></path>
+      <path d="M120 690 L230 690"></path><path d="M330 690 C380 690 380 760 430 760"></path>
+      <path d="M1060 150 L1170 150"></path><path d="M1270 150 C1310 150 1310 220 1350 220"></path>
+    </g>
+    <g fill="var(--c-surface)" stroke="var(--c-line-2)" stroke-width="1.5">
+      <rect x="70" y="150" width="80" height="40" rx="9"></rect><rect x="310" y="100" width="100" height="40" rx="9"></rect><rect x="310" y="210" width="100" height="40" rx="9"></rect><rect x="520" y="100" width="90" height="40" rx="9"></rect>
+      <rect x="950" y="670" width="90" height="40" rx="9"></rect><rect x="1180" y="620" width="100" height="40" rx="9"></rect><rect x="1180" y="730" width="100" height="40" rx="9"></rect>
+      <rect x="40" y="670" width="80" height="40" rx="9"></rect><rect x="230" y="670" width="100" height="40" rx="9"></rect><rect x="430" y="740" width="90" height="40" rx="9"></rect>
+      <rect x="970" y="130" width="90" height="40" rx="9"></rect><rect x="1170" y="130" width="100" height="40" rx="9"></rect>
+    </g>
+    <g fill="var(--c-measured)"><circle cx="360" cy="170" r="4"></circle><circle cx="1230" cy="690" r="4"></circle></g>
+  </svg>
+
+  <div style="position: relative; width: 100%; max-width: 680px; display: flex; flex-direction: column; align-items: center; gap: 26px; text-align: center">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 14px">
+      <svg width="64" height="28" viewBox="0 0 64 28" fill="none" aria-hidden="true"><circle cx="10" cy="14" r="8" stroke="var(--c-now)" stroke-width="3"></circle><circle cx="32" cy="14" r="8" stroke="var(--c-now)" stroke-width="3"></circle><circle cx="54" cy="14" r="8" fill="var(--c-now)"></circle><path d="M18 14h6M40 14h6" stroke="var(--c-now)" stroke-width="3"></path></svg>
+      <h1 style="margin: 0; font-size: 44px; font-weight: 700; letter-spacing: -0.03em">Comeni</h1>
+      <p style="margin: 0; display: flex; flex-direction: column; gap: 4px; align-items: center"><span style="font-size: 17px; font-style: italic; color: var(--c-ink-2); font-family: Georgia, 'Times New Roman', serif">Omnes omnia omnino</span></p>
+    </div>
+
+    <div style="width: 100%; display: flex; flex-direction: column; gap: 10px; background: var(--c-surface); border: 1px solid var(--c-line-2); border-radius: 16px; padding: 14px 14px 12px; box-shadow: 0 10px 30px rgba(20,24,30,.08); box-sizing: border-box">
+      <label style="display: block; text-align: left"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">What do you want to find out?</span>
+        <input type="text" placeholder="What do you want to find out?" style="width: 100%; border: 0; outline: 0; font-size: 17px; padding: 6px 4px; background: transparent; box-sizing: border-box">
+      </label>
+      <div style="display: flex; align-items: center; gap: 6px">
+        <button type="button" class="alt" style="border: 0; background: transparent; cursor: pointer; padding: 6px 8px; font-size: 12.5px; color: var(--c-ink-2)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Add a folder</button>
+        <a href="Home.dc.html" style="margin-left: auto; display: inline-flex; align-items: center; height: 34px; padding: 0 16px; border-radius: 9px; background: var(--c-now); color: var(--c-surface); font-size: 13.5px; font-weight: 600">Start</a>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px">
+      <button class="starter" type="button">Gene counts from RNA-seq</button>
+      <button class="starter" type="button">Assemble and check bacterial isolates</button>
+      <button class="starter" type="button">Variants against a reference</button>
+      <button class="starter" type="button">Species in a metagenome</button>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding-top: 6px; border-top: 1px solid var(--c-line); width: 100%">
+      <a class="alt" href="Main.dc.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Start from a folder of data</a>
+      <a class="alt" href="#"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"></path><path d="M15 3v4h4"></path></svg>Open a pipeline file</a>
+      <a class="alt" href="Build.dc.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="6" height="5" rx="1"></rect><rect x="15" y="4" width="6" height="5" rx="1"></rect><rect x="9" y="15" width="6" height="5" rx="1"></rect><path d="M6 9v2h12V9M12 11v4"></path></svg>Build by hand</a>
+    </div>
+  </div>
+
+  <div style="position: absolute; top: 16px; right: 16px; display: flex; gap: 2px">
+    <a href="#" aria-label="Settings" title="Settings" style="width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"></path></svg></a>
+    <button type="button" onClick="{{toggleTheme}}" aria-label="Switch between light and dark" title="Light / dark" style="width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--c-ink-2); border: 0; background: transparent; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></button>
+  </div>
+
+  <span style="position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--c-ink-3)"><span style="width: 7px; height: 7px; border-radius: 4px; background: var(--c-done)"></span>Running on this machine · model: GPT via subscription</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false,"tsType":"boolean"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderValsBase() { return {}; }
+renderVals() {
+var v = this.renderValsBase();
+var self = this;
+var dark = (this.state && this.state.dark !== undefined && this.state.dark !== null) ? this.state.dark : !!this.props.dark;
+v.themeCls = dark ? 'theme-dark' : '';
+v.toggleTheme = function () { self.setState({ dark: !dark }); };
+return v;
+}
+}
+</script>
+</body>
+</html>

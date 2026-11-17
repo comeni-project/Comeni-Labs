@@ -626,7 +626,7 @@ steps:
   module:
     contract_id: comeni/measure/genome_length_fai@1.0.0
     digest: sha256:34a6d02b32eb508a5f2b1ad1c7b15b39c580964336ea45ec893140e3e0d30816
-    container: python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+    container: quay.io/biocontainers/python:3.12.12@sha256:4cc84261c4b7a77a23cfbaa5b5316416a507b42ac8cde330b002631666d99ca2
   process: MEASURE_GENOME_LENGTH_FAI
   include: modules/comeni/measure/genome_length_fai/main
   why:
@@ -680,7 +680,7 @@ steps:
   module:
     contract_id: comeni/measure/fastq@1.1.0
     digest: sha256:abfa6994e6f9f223bb19f1bee6a41ad51f49d005e00d6fe3bf7f3cc4c7b2bf73
-    container: python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+    container: quay.io/biocontainers/python:3.12.12@sha256:4cc84261c4b7a77a23cfbaa5b5316416a507b42ac8cde330b002631666d99ca2
   process: MEASURE_FASTQ
   include: modules/comeni/measure/fastq/main
   why:

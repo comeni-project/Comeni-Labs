@@ -8,12 +8,18 @@ on screen would explain.
 """
 
 import csv
+import fcntl
 import json
 import logging
+import os
 import pathlib
+import pty
 import shutil
 import socket
+import struct
 import subprocess
+import termios
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -157,11 +163,114 @@ def process_started_at(pid: int) -> float | None:
         return None
 
 
+CONSOLE = "console.log"
+"""Everything Nextflow printed, in the run's folder: Run → Console replays and follows it (#511)."""
+
+CONSOLE_SIZE = (40, 160)
+"""The terminal Nextflow is given, rows and columns: wide enough for its progress lines."""
+
+
+def console_path(run_id: str) -> Path:
+    return work_dir(run_id) / CONSOLE
+
+
+def _tee(master: int, path: Path) -> None:
+    """Copy what Nextflow prints into `console.log` until its terminal closes."""
+    with path.open("ab") as out:
+        while True:
+            try:
+                data = os.read(master, 65536)
+            except OSError:  # the child closed its side: the run is over
+                break
+            if not data:
+                break
+            out.write(data)
+            out.flush()
+    os.close(master)
+
+
 def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
     """The subprocess seam, so a test can stand in for Nextflow — the same reason
     `mendel_api.services.gates._run` exists: CI has no Nextflow and a rule only a developer
-    machine can check is a rule nobody checks."""
-    return subprocess.Popen(argv, cwd=cwd)
+    machine can check is a rule nobody checks.
+
+    **Under a pseudo-terminal** (#511): Nextflow draws its live progress only for a terminal, and
+    Run → Console shows exactly what it drew. Its output is copied into the run's `console.log`
+    by a thread that lasts as long as the terminal does."""
+    master, slave = pty.openpty()
+    rows, cols = CONSOLE_SIZE
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+    env = {**os.environ, "TERM": "xterm-256color", "COLUMNS": str(cols), "LINES": str(rows)}
+    spawned = subprocess.Popen(argv, cwd=cwd, stdin=slave, stdout=slave, stderr=slave, env=env,
+                               start_new_session=True)
+    os.close(slave)
+    threading.Thread(target=_tee, args=(master, Path(cwd) / CONSOLE), daemon=True,
+                     name=f"console-{Path(cwd).name}").start()
+    return spawned
+
+
+def _suffix(path: str) -> str:
+    name = os.path.basename(path)
+    return name[name.index("."):] if "." in name else ""
+
+
+def _stage(name: str, samples: list[dict], workdir: pathlib.Path) -> str:
+    """Samples sent as `stage` (#511): each file linked into the run's own folder under its
+    sample's name, read 1 and read 2 as `_R1`/`_R2`, and the parameter pointed at a pattern over
+    that folder, so Nextflow reads exactly these files and nothing else in their folders."""
+    folder = workdir / name
+    folder.mkdir(parents=True, exist_ok=True)
+    paired = any(len(s["files"]) == 2 for s in samples)
+    for sample in samples:
+        stem = str(sample["sample"]).replace(os.sep, "_")
+        files = list(sample["files"])
+        names = ([f"{stem}_R{i}{_suffix(f)}" for i, f in enumerate(files, 1)] if len(files) == 2
+                 else [f"{stem}{_suffix(files[0])}"])
+        for link, target in zip(names, files, strict=True):
+            (folder / link).symlink_to(target)
+    return f"{folder}/*_R{{1,2}}.*" if paired else f"{folder}/*"
+
+
+def _looks_like_a_path(text: str) -> bool:
+    """A value that could reach a file outside the run: absolute, a URL, a home path, or one that
+    climbs (`..`). A word, a number or a media type (`text/plain`) is not one, and a plain
+    relative name stays inside the run's own folder, where Nextflow starts."""
+    return (text.startswith(("/", "~", "file:")) or "://" in text
+            or ".." in text.replace("\\", "/").split("/"))
+
+
+def _paths(value: object) -> list[str]:
+    """Every path a parameter's value names: a string, a list of strings, a samplesheet's cells,
+    a stage's files (every one of which is a path)."""
+    if isinstance(value, str):
+        return [value] if _looks_like_a_path(value) else []
+    if isinstance(value, dict) and isinstance(value.get("stage"), list):
+        return [f for s in value["stage"] for f in s.get("files", []) if isinstance(f, str)]
+    if isinstance(value, list):
+        return [p for item in value for p in _paths(item)]
+    if isinstance(value, dict):
+        return [p for item in value.values() for p in _paths(item)]
+    return []
+
+
+def paths_outside(params: dict[str, object], roots: list[pathlib.Path]) -> list[str]:
+    """The paths in `params` a run may not read (#508): anything not resolving inside one of
+    `roots`. **Only absolute paths are read at all**: a relative one would resolve against
+    whichever folder Nextflow runs in, and a URL against a remote store, so both are refused; a
+    `file://` URL is checked as the path it names. A link is followed before the check, so one
+    cannot lead out."""
+    resolved = [pathlib.Path(r).resolve() for r in roots]
+    outside = []
+    for value in params.values():
+        for path in _paths(value):
+            local = path[len("file://"):] if path.startswith("file://") else path
+            if "://" in local or not local.startswith("/") or local.startswith("~"):
+                outside.append(path)
+                continue
+            target = pathlib.Path(local).resolve()
+            if not any(target.is_relative_to(root) for root in resolved):
+                outside.append(path)
+    return outside
 
 
 def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dict[str, object]:
@@ -185,11 +294,15 @@ def _materialise_tables(params: dict[str, object], workdir: pathlib.Path) -> dic
     """
     written: dict[str, object] = {}
     for name, value in params.items():
+        if isinstance(value, dict) and isinstance(value.get("stage"), list):
+            written[name] = _stage(name, value["stage"], workdir)
+            continue
         rows = value if isinstance(value, list) else None
         if not rows or not all(isinstance(row, dict) for row in rows):
             written[name] = value
             continue
-        columns = list(rows[0])
+        # Every row's columns, in first-seen order: a short first row drops none (Checkpoint B).
+        columns = list(dict.fromkeys(column for row in rows for column in row))
         path = workdir / f"{name}.csv"
         # Quoted where a cell needs it, so a comma in a name or a path stays in its column.
         with path.open("w", newline="") as sheet:

@@ -18,12 +18,12 @@ from mendel_api.refusals import locked_handler, missing_handler, refusal_handler
 from mendel_api.routes import attention as attention_routes
 from mendel_api.routes import authoring as authoring_routes
 from mendel_api.routes import build as build_routes
+from mendel_api.routes import data as data_routes
 from mendel_api.routes import forge as forge_routes
 from mendel_api.routes import health as health_routes
 from mendel_api.routes import proposals as proposal_routes
 from mendel_api.routes import registry as registry_routes
 from mendel_api.routes import settings as settings_routes
-from mendel_api.services import protection
 
 TAGS = [
     {"name": "questions", "description": "What is open, and how it gets closed."},
@@ -47,7 +47,21 @@ TAGS = [
 
 
 def create_app() -> FastAPI:
+    from contextlib import asynccontextmanager
+
+    from mendel_api.agent import mcp as served
+
+    # **The engine's tools over MCP** (#463), behind `MENDEL_MCP_TOKEN`. Its session manager
+    # runs for the app's lifetime: a mounted app's own lifespan never runs.
+    mcp_app = served.app()
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        async with served.server.session_manager.run():
+            yield
+
     app = FastAPI(
+        lifespan=lifespan,
         title="mendel-api",
         version="0.1.0",
         summary="The forge and Mendel, over one schema.",
@@ -68,7 +82,6 @@ def create_app() -> FastAPI:
     app.add_exception_handler(KeyError, missing_handler)
     # A setting that is locked (pinned by .env, or not built) is a 409 with its reason, `MI0300`.
     app.add_exception_handler(SettingLocked, locked_handler)
-    protection.warn_if_unbuilt()
 
     @app.get(
         "/api/health", operation_id="liveness", summary="Is the service up", tags=["health"]
@@ -89,9 +102,11 @@ def create_app() -> FastAPI:
     app.include_router(authoring_routes.router, prefix="/api")
     # Settings for the whole installation (spec 2026-10-01).
     app.include_router(settings_routes.router, prefix="/api")
+    app.include_router(data_routes.router, prefix="/api")
     # The forge's catalogue (forge part 1, #362).
     app.include_router(forge_routes.router, prefix="/api")
     app.include_router(proposal_routes.router, prefix="/api")
+    app.mount("/api/mcp", mcp_app)
     return app
 
 

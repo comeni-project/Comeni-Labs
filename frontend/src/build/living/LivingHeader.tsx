@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { AuthoringSession } from "../../api/types";
 import { CallPanel } from "./CallPanel";
-import { phaseWords, stepWords, usageWords } from "./format";
+import { usageWords } from "./format";
 
 /** The page's one strip: the pipeline's name, its mode, where it is, the view toggle, and Run.
  *
@@ -19,25 +19,20 @@ const TONE: Record<Tone, React.CSSProperties> = {
   "needs-you": { background: "var(--needs-you-soft)", color: "var(--needs-you-ink)" },
 };
 
-/** **Where the build is, as the boards' chip**: the phase in its words, and the step being
- *  offered. *Complete* in the done colour — never *Valid*, which only the gate can say. Amber means
- *  *measured*, so a reply in flight is *now*; a failed call that needs a retry, and a stop, need
- *  the person. Drawn in the header, and on the describe page, which has no header. */
+/** **Where the build is** (#463): working while the agent is; nothing built before a step exists;
+ *  outdated when the decisions moved past the last build; *built* in the done colour once nothing
+ *  needs the person — never *Valid*, which only the gate can say. */
 export function StatusChip({ session, open = 0 }: { session: AuthoringSession; open?: number }) {
-  const active = session.progress?.active ?? null;
-  // **Complete only when nothing needs you** (issue 385): every step added with a value still open is
-  // *built*, in the now colour, beside the chip that says what is open.
-  const built = session.phase === "complete" && open > 0;
-  // **An empty pipeline is not complete** (issue 399): nothing was built, so nothing is done.
-  const empty = session.phase === "complete" && session.graph.nodes.length === 0
-    && !session.history.some((d) => d.state === "accepted" && d.block.kind === "step_proposal");
-  const tone: Tone = session.phase === "stopped" || session.phase === "failed" ? "needs-you"
-    : session.phase === "complete" && !built && !empty ? "done" : "now";
+  const [tone, words]: [Tone, string] = session.working ? ["now", "working"]
+    : session.graph.nodes.length === 0 ? ["now", "nothing built yet"]
+    : session.projection_current === false ? ["needs-you", "outdated"]
+    : open > 0 ? ["now", "built"]
+    : ["done", "built"];
   return (
     <span data-testid="living-status" data-tone={tone}
           className="self-center px-[8px] py-[3px] rounded-control text-[12px] font-semibold first-letter:capitalize"
           style={TONE[tone]}>
-      {empty ? "nothing built yet" : built ? "built" : phaseWords(session)}{active && session.phase === "building" ? ` · ${stepWords(active).toLowerCase()}` : ""}
+      {words}
     </span>
   );
 }
@@ -75,13 +70,13 @@ export function LivingHeader({
   const spent = usageWords(session.usage);
   const [calls, setCalls] = useState(false);
   // **Locked while a value needs you** (issue 385); an optional open value does not count (issue 384).
-  const ready = runnable && !running && session.graph.nodes.length > 0 && session.phase === "complete"
-    && openValues === 0;
+  const ready = runnable && !running && !session.working && session.graph.nodes.length > 0
+    && session.projection_current !== false && openValues === 0;
 
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-[28px] pt-[22px] pb-[14px]" data-testid="living-header">
-      <h1 className="m-0 text-[25px] leading-tight font-semibold tracking-[-.02em] text-ink">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 sm:px-6 pt-4 pb-3" data-testid="living-header">
+      <h1 className="m-0 text-[22px] leading-tight font-semibold tracking-[-.015em] text-ink">
         {onRename ? (
           <input aria-label="pipeline name" defaultValue={session.name} placeholder="Untitled analysis"
                  key={session.name}
@@ -103,12 +98,6 @@ export function LivingHeader({
               className="self-center px-[8px] py-[2px] rounded-control text-[12px] font-semibold text-needs-you-ink"
               style={{ background: "var(--needs-you-soft)" }}>
           {openValues} {openValues === 1 ? "value needs you" : "values need you"}
-        </span>
-      )}
-      {session.projection_current === false && (
-        <span className="self-center px-[8px] py-[3px] rounded-control text-[12px] font-semibold"
-              style={TONE["needs-you"]}>
-          Pipeline outdated
         </span>
       )}
       {spent && (

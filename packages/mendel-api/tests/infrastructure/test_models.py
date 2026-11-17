@@ -56,9 +56,9 @@ def test_the_registry_is_not_in_the_database():
         "gate_run",
         "ai_invocation",
         "pipeline_authoring_session",
-        "pipeline_authoring_suggestion",
         "pipeline_authoring_turn",
-        "pipeline_authoring_proposal",
+        # #511: an analysis's data — workflow state about a person's files, not the registry.
+        "analysis_data",
         "installation_setting",
         "pipeline_input",
         "pipeline_input_revision",
@@ -89,7 +89,6 @@ def test_the_registry_is_not_in_the_database():
         "pipeline_review_revision",
         "pipeline_observation",
         "pipeline_evidence_access",
-        "pipeline_phrasing",
         # Frozen snapshots preserve legacy history without being read by BUILD.
         "pipeline_decision_migration",
         # The forge's catalogue of UPSTREAM modules (#362). No build reads it: the registry
@@ -203,30 +202,6 @@ def test_a_gate_run_carries_no_input_and_no_credential():
     )
 
 
-def test_the_pending_proposal_index_names_the_pending_state():
-    """`PipelineAuthoringProposal`'s docstring says the index's SQL is `ProposalState.PENDING`
-    spelled out. This is the named test that claim refers to.
-
-    Same failure mode as `test_the_partial_index_names_exactly_the_terminal_states` one table
-    over: what drifts is not the index, it is the enum. Renaming the member without editing the
-    SQL leaves the index enforcing uniqueness over a state nothing ever writes — so the rule
-    reads as enforced and enforces nothing, which is A14's failure mode in a constraint.
-    """
-    from mendel_api.authoring.types import ProposalState
-    from mendel_api.models import PipelineAuthoringProposal
-
-    index = next(
-        i
-        for i in PipelineAuthoringProposal.__table__.indexes
-        if i.name == "ix_pipeline_authoring_proposal_one_pending"
-    )
-    assert index.unique, "one-pending is not unique, so it enforces nothing"
-    clause = str(index.dialect_options["postgresql"]["where"])
-    assert ProposalState.PENDING.value in clause, (
-        f"the index says {clause!r}, which does not name ProposalState.PENDING"
-    )
-
-
 def test_the_live_gate_index_names_the_live_states():
     """`GateRun`'s index spells out `services.gates.LIVE`; a state added to one and not the other
     would let two gates run on one draft, or block a draft on a finished one (issue 278)."""
@@ -257,27 +232,25 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
         "pipeline_authoring_session": {
             "id",
             "draft_id",
-            "phase",
-            "failed_from",
             "blueprint",
             "registry_digest",
             "row_version",
             "who",
             "created_at",
             "updated_at",
-            # 14.7.8.1: the protocol node the session rests on — a node id, nothing of a file.
-            "at",
-            # Part F: typed extraction presentation, retired workflow status and policy columns.
+            # Part F: retired workflow status.
             "retired",
             "retirement_reason",
-            "pacing",
-            "show_gaps",
-            # #466: every uploaded sample, with its name and its files' names, and what was
-            # measured on it. **The one exception to invariant 15 here, by the operator's
-            # decision (11-12):** a study of hundreds of samples is sorted, filtered and split
-            # by sample, so the names are kept with the session, deleted with it, and never
-            # copied into a goal, a pipeline, a model's payload or a log.
-            "samples",
+        },
+        # #511: an analysis's data. **The level-0 exception to invariant 15, by the operator's
+        # decision (11-12 for sample names, 11-15 for paths):** the folders a person ticked, every
+        # file in them by path, the samples they pair into by name and what was measured on each,
+        # so a run is bound to the data without a path being typed. Deleted with the draft. The
+        # builder agent may read sample names; never a goal, a pipeline or a log.
+        "analysis_data": {
+            "draft_id", "folders", "scan", "files", "samples", "rule", "fixes", "unfit",
+            "references", "columns", "revision",
+            "updated_at",
         },
         "pipeline_authoring_turn": {
             "id",
@@ -292,26 +265,7 @@ def test_an_authoring_row_carries_no_sample_no_path_and_no_credential():
             "ai_invocation_id",
             "at",
         },
-        "pipeline_authoring_proposal": {
-            "id",
-            "session_id",
-            "turn_id",
-            "kind",
-            "payload",
-            "state",
-            "chosen_option",
-            "by",
-            "actor_kind",
-            "draft_revision",
-            "created_at",
-            "settled_at",
-            # Part G: typed, deferred derived views; no files, containers or sample data.
-            "preview_views",
-        },
     }
-    # Part H: every table holding JSON records which shape it is in — an integer, never data.
-    for name in declared:
-        declared[name].add("shape_version")
     tables = {t.__tablename__: t for t in vars(m).values() if hasattr(t, "__tablename__")}
     assert set(declared) <= set(tables), "the authoring tables moved"
 

@@ -23,7 +23,7 @@ flowchart TD
 The interface uses this same idea in quieter language: green is ordinary, yellow is advisory,
 and red means the pipeline still needs a person.
 
-![Selected STAR step in the alpha builder](../../assets/screenshots/decision-panel-alpha.png)
+![Selected STAR step in the alpha builder](../../assets/screenshots/step-card.jpg)
 
 ## RNA-seq example
 

@@ -3,17 +3,19 @@ import { render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DOCS_URL } from "./address";
 import { routes } from "./router";
-import { DOCS_URL } from "./Shell";
 
-/** The bar every page sits in (redesign part 2, #372). */
+/** The frame every page sits in: the one rail beside the page (#511). */
 function at(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createMemoryRouter(routes, { initialEntries: [path] });
   render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return router;
 }
 
 beforeEach(() => {
@@ -21,27 +23,16 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-describe("the shell's bar", () => {
-  it("goes home from the mark and the product's name", () => {
-    at("/build");
-    const home = screen.getByLabelText("Comeni — home");
-    expect(home.getAttribute("href")).toBe("/");
-    expect(home.textContent).toContain("Comeni Labs");
-    expect(home.querySelector("svg")).not.toBeNull();
-  });
-
-  it("names the sections, and marks the one you are in", () => {
-    // Forge MVP part 1 (#362) brings the Registry back.
-    at("/build");
-    const bar = screen.getByRole("navigation", { name: "Main" });
-    const links = within(bar).getAllByRole("link").filter((a) => a.getAttribute("href")?.match(/^\/(build|runs|registry)$/));
-    expect(links.map((a) => a.textContent)).toEqual(["Build", "Runs", "Registry"]);
-    expect(links[0].getAttribute("aria-current")).toBe("page");
-    expect(links[1].getAttribute("aria-current")).toBeNull();
+describe("the shell", () => {
+  it("draws the rail beside the page", () => {
+    at("/registry");
+    const rail = screen.getByRole("navigation", { name: "Comeni" });
+    expect(within(rail).getByRole("link", { name: "Registry" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("main")).toBeTruthy();
   });
 
   it("opens the docs from help, in a new tab", () => {
-    at("/build");
+    at("/registry");
     const help = screen.getByRole("link", { name: "Help" });
     expect(help.getAttribute("href")).toBe(DOCS_URL);
     expect(help.getAttribute("target")).toBe("_blank");
@@ -49,20 +40,24 @@ describe("the shell's bar", () => {
   });
 
   it("gives help and settings a 44 px target at phone width (issue 383)", () => {
-    at("/build");
+    at("/registry");
     for (const name of ["Help", "Settings"]) {
       const classes = screen.getByRole("link", { name }).className.split(/\s+/);
-      expect(classes).toEqual(expect.arrayContaining(["w-11", "h-11", "sm:w-8", "sm:h-8"]));
+      expect(classes).toEqual(expect.arrayContaining(["w-11", "h-11", "sm:w-9", "sm:h-9"]));
     }
   });
 
-  it("keeps settings one click away", () => {
-    at("/build");
-    expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toContain("settings=");
+  it("keeps settings one click away, as its own page", () => {
+    at("/registry/releases");
+    expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/settings");
+  });
+
+  it("sends the old addresses to their analysis", () => {
+    expect(at("/build?draft=d1").state.location.pathname).toBe("/a/d1/build");
   });
 
   it("names no lab and offers nothing that does not exist yet", () => {
-    at("/build");
+    at("/registry");
     expect(screen.queryByText(/Learn in Code/)).toBeNull();
     expect(screen.queryByText(/\blab$/i)).toBeNull();
   });

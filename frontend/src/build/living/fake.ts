@@ -1,12 +1,11 @@
 import type { AuthoringSession, Step } from "../../api/types";
-import type { AlternativePreview } from "./useAlternativePreview";
 
-/** A static session carrying **every block state** — Task 9's checkpoint, before any API.
+/** A static session carrying **every state the agent's thread can be in** — the page to look at
+ * without a server, and what the browser check compares.
  *
- * It is the RNA-seq spine four steps in, the aligner accepted, the sorter on offer, plus one of
- * each notice so a single page shows every state the log can be in. It is a fixture for looking
- * at the page, and it is shaped by the generated types, so a server change that this page cannot
- * draw fails `tsc` here as well as in the live path.
+ * The RNA-seq spine four steps in: a person's request, an answered turn with its working trail,
+ * a question asked, a refusal, and a turn still working. Shaped by the generated types, so a
+ * server change this page cannot draw fails `tsc` here as well as in the live path.
  */
 
 const at = (minute: number) => `2026-09-13T10:${String(minute).padStart(2, "0")}:00+00:00`;
@@ -16,28 +15,39 @@ const TRIM = "nf-core/trimgalore@2.3.0";
 const ALIGN = "nf-core/star/align@2.7.11b";
 const SORT = "nf-core/samtools/sort@1.24";
 
+const tool = (seq: number, n: number, name: string, label: string, summary = "", ok = true, running = false) =>
+  ({ id: `tool-${seq}-${n}`, kind: "tool", name, label, ok, summary, running });
+const thought = (seq: number, n: number, text: string) =>
+  ({ id: `say-${seq}-${n}`, kind: "message", text, narration: true });
+
 export const FAKE_SESSION = {
   id: "fake",
   draft_id: "fake-draft",
   name: "rnaseq-counts",
-  phase: "building",
-  failed_from: null,
   goal: null,
+  facts: [],
+  samples: [],
+  inputs: [],
+  fact_subjects: [],
+  decision_revision: 3,
+  projection_current: true,
+  retired: false,
+  usage: { input: 18200, output: 2100, cached: 0, calls: 6, in_flight: true },
   revision: 4,
   row_version: 9,
   model_configured: true,
-  steps_total: 5,
-  progress: { reviewed: 3, total: 5, active: { position: 4, total: 5, again: false },
-              upcoming: [{ node: "subread_featurecounts", position: 5 }] },
+  steps_total: 4,
   graph: {
     nodes: [
       { id: "star_genomegenerate", contract_id: INDEX, params: [] },
       { id: "trimgalore", contract_id: TRIM, params: [] },
       { id: "star_align", contract_id: ALIGN, params: [] },
+      { id: "samtools_sort", contract_id: SORT, params: [] },
     ],
     edges: [
       { from_node: "trimgalore", from_port: "reads", to_node: "star_align", to_port: "reads" },
       { from_node: "star_genomegenerate", from_port: "index", to_node: "star_align", to_port: "index" },
+      { from_node: "star_align", from_port: "bam", to_node: "samtools_sort", to_port: "bam" },
     ],
   },
   placement: {
@@ -51,88 +61,36 @@ export const FAKE_SESSION = {
       text: "I have 12 paired RNA-seq samples, a genome and its annotation. I want gene counts." },
     { seq: 1, role: "assistant", state: "answered", base_revision: 0, at: at(1), text: "",
       blocks: [
-        { kind: "goal_summary", id: "goal-1",
-          goal: { have: [{ type_id: "fastq.reads", states: [] }, { type_id: "genome.fasta", states: [] },
-            { type_id: "annotation.gtf", states: [] }], want: ["counts.matrix"] },
-          have: "paired RNA-seq reads, a genome and its annotation",
-          do: "trim, align to the genome, sort and count reads per gene",
-          get: "a gene-level counts matrix" },
-        { kind: "question", id: "question-1-1", asks: "Are the reads stranded?",
-          why_open: "featureCounts counts differently for each, and the goal did not say.",
-          exhaustive: true,
-          options: [
-            { id: "q1_1", label: "reverse-stranded", recommended: true },
-            { id: "q1_2", label: "forward-stranded", recommended: false },
-            { id: "q1_3", label: "unstranded", recommended: false },
-          ] },
+        thought(1, 0, "You want gene counts from paired reads and a genome. Let me record that first."),
+        tool(1, 0, "read_goal", "Read the goal", "nothing wanted yet"),
+        tool(1, 1, "want", "Wanted counts.matrix"),
+        tool(1, 2, "have", "Have fastq.reads, genome.fasta, annotation.gtf"),
+        thought(1, 1, "Your reads are paired and 150 bp, so I'll check which aligners suit spliced reads."),
+        tool(1, 3, "tools_for", "Looked at the aligners for fastq.reads", "STAR, HISAT2"),
+        tool(1, 4, "choose_tool", "Chose STAR for alignment"),
+        tool(1, 5, "resolve", "Built the pipeline", "4 steps"),
+        { id: "say-1-6", kind: "message", text: "I've set up a gene-counts pipeline: trim, build a STAR "
+          + "index, align, then sort.\n\nI picked STAR over HISAT2 because your reads are 150 bp and "
+          + "paired, where STAR's splice-aware alignment is the usual choice. It needs more memory — "
+          + "about 32 GB for a human genome. If that's a problem, say so and I'll switch to HISAT2." },
+        { id: "ask-1", kind: "ask", question_id: "q-strand", question: "Are the reads stranded?",
+          shape: "options", options: ["reverse-stranded", "forward-stranded", "unstranded", "I don't know"],
+          unit: "", type_id: null },
       ] },
     { seq: 2, role: "person", state: "answered", base_revision: 3, at: at(8), blocks: [],
-      text: "why STAR and not HISAT2?" },
-    { seq: 3, role: "assistant", state: "answered", base_revision: 3, at: at(9), text: "",
-      blocks: [
-        { kind: "narrative", id: "reply-3", refers_to: ["star_align"],
-          text: "STAR is here because the reads are 150bp and paired, which is what the rule for " +
-            "splice-aware alignment reads. HISAT2 is the other aligner on offer." },
-        { kind: "receipt", id: "receipt-3", summary: "you moved STAR_ALIGN on the canvas",
-          revision: 3, by: "person" },
-        { kind: "setting_request", id: "setting-3", node: "star_align", setting: "seq_platform",
-          current: null, options: [], reason: "No rule settles the sequencing platform.",
-          premise: "read_length is 150, measured" },
-        { kind: "change_set", id: "change-3", summary: "Swap the aligner",
-          adds: ["hisat2_align"], removes: ["star_align"], settings: ["seq_platform"] },
-      ] },
-    { seq: 4, role: "assistant", state: "answered", base_revision: 4, at: at(12), text: "",
-      blocks: [
-        { kind: "notice", id: "n-refusal", notice: "refusal", code: "MI0205",
-          text: "The reply named an option nobody offered, so nothing was applied." },
-        { kind: "notice", id: "n-stale", notice: "stale", code: "MI0206",
-          text: "The registry moved while the step was open. A fresh proposal is waiting." },
-        { kind: "notice", id: "n-validation", notice: "validation", code: null,
-          text: "annotation.gtf is read by two steps and supplied once." },
-        { kind: "notice", id: "n-complete", notice: "complete", code: null,
-          text: "Every step the blueprint holds is in the draft." },
-      ] },
-    { seq: 5, role: "person", state: "answered", base_revision: 4, at: at(13), blocks: [],
+      text: "Are the reads stranded? reverse-stranded" },
+    { seq: 3, role: "assistant", state: "failed", base_revision: 3, at: at(9), text: "",
+      blocks: [{ id: "failed-3", kind: "notice", notice: "refusal", code: "MA0002",
+        text: "The AI did not answer in time." }] },
+    { seq: 4, role: "person", state: "answered", base_revision: 4, at: at(13), blocks: [],
       text: "and what does the sorter do?" },
-    { seq: 6, role: "assistant", state: "pending", base_revision: 4, at: at(13), text: "",
-      blocks: [] },
+    { seq: 5, role: "assistant", state: "pending", base_revision: 4, at: at(13), text: "",
+      blocks: [thought(5, 0, "I'll look at the sorter's step to explain what it does to your alignments."),
+        tool(5, 0, "read_step", "Reading the step samtools_sort", "", true, true)] },
   ],
-  history: [
-    { id: "h-goal", kind: "goal", state: "accepted", by: "person", actor_kind: "person", chosen_option: null,
-      chosen_contract: null, at: at(2),
-      block: { kind: "goal_summary", id: "goal-1", goal: { have: [], want: [] }, have: "", do: "",
-        get: "a gene-level counts matrix" } },
-    { id: "h-index", envelope: { offer: "step", progress: { position: 1, total: 5, again: false } }, kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
-      chosen_contract: INDEX, at: at(3),
-      block: { kind: "step_proposal", id: "step-star_genomegenerate", node: "star_genomegenerate",
-        contract: INDEX, produces: ["genome.index.star"], reason: "STAR needs an index.", tier: 2,
-        alternatives: [] } },
-    { id: "h-trim", envelope: { offer: "step", progress: { position: 2, total: 5, again: false } }, kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
-      chosen_contract: TRIM, at: at(4),
-      block: { kind: "step_proposal", id: "step-trimgalore", node: "trimgalore", contract: TRIM,
-        produces: ["fastq.reads"], reason: "STAR asks for trimmed reads.", tier: 2,
-        alternatives: [] } },
-    { id: "h-align", envelope: { offer: "step", progress: { position: 3, total: 5, again: false } }, kind: "step", state: "accepted", by: "person", actor_kind: "person", chosen_option: "keep",
-      chosen_contract: ALIGN, at: at(5),
-      block: { kind: "step_proposal", id: "step-star_align", node: "star_align", contract: ALIGN,
-        produces: ["alignment.bam"], reason: "The rule for 150bp paired reads.", tier: 3,
-        alternatives: [] } },
-  ],
-  pending_proposal: {
-    id: "p-sort",
-    kind: "step",
-    envelope: { offer: "step", preview_options: ["alt_1"] },
-    draft_revision: 4,
-    asked_at: "2026-10-27T09:00:00+00:00",
-    options: ["alt_1", "keep"],
-    edges: [{ from_node: "star_align", from_port: "bam", to_node: "samtools_sort", to_port: "bam" }],
-    block: { kind: "step_proposal", id: "step-samtools_sort", node: "samtools_sort", contract: SORT,
-      consumes: ["alignment.bam"], produces: ["alignment.bam"], tier: 2,
-      alternatives: [{ id: "alt_1", label: "SAMTOOLS_SORMADUP", recommended: false,
-        note: "Sorts and marks duplicates in one pass. Adds a step you did not ask for." }],
-      reason: "Nothing downstream reads an unsorted BAM. This is structural — there is no version " +
-        "of your pipeline without a sort." },
-  },
+  working: true,
+  ai_unreviewed: [{ node: "star_align", what: "chose nf-core/star/align@2.7.11b",
+                   because: "150 bp paired reads: STAR's splice-aware alignment is the usual choice" }],
 } as unknown as AuthoringSession;
 
 const port = (name: string, type_id: string, side: "in" | "out", states: string[] = [], gathers = false) =>
@@ -185,9 +143,7 @@ export const FAKE_CHANNELS = [
 export const COLLECT_SESSION = {
   ...FAKE_SESSION,
   name: "rnaseq-counts",
-  phase: "complete",
   steps_total: 4,
-  progress: { reviewed: 4, total: 4, active: null, upcoming: [] },
   graph: {
     nodes: [
       { id: "star_align", contract_id: ALIGN, params: [] },
@@ -206,8 +162,8 @@ export const COLLECT_SESSION = {
     multiqc: { x: 420, y: 470 },
   },
   turns: [],
-  history: [],
-  pending_proposal: null,
+  working: false,
+  ai_unreviewed: [],
 } as unknown as AuthoringSession;
 
 export const COLLECT_STEPS = {
@@ -231,69 +187,101 @@ export const COLLECT_CHANNELS = [
     states: ["paired"], ports: ["trimgalore.reads"] },
 ] as unknown as import("../../api/schema").components["schemas"]["ChannelView"][];
 
-/** Part F: asserted answers remain selected while a sample disagrees. */
-export const CONFLICT_SESSION = {
+const QUAST = "nf-core/quast@5.2.0";
+const assemblyPort = (name: string, type_id: string, side: "in" | "out", optional = false) =>
+  ({ name, type_id, side, met: true, states: [], gathers: false, optional });
+
+/** `?fake=ports`: an assembly check with QUAST's many inputs and outputs (#494), next to a short
+ *  step in the same column, so a tall step and its neighbour can be looked at together. */
+export const PORTS_SESSION = {
   ...FAKE_SESSION,
-  turns: FAKE_SESSION.turns.filter(turn => turn.seq <= 1).map(turn => ({ ...turn,
-    blocks: turn.blocks.filter(block => block.kind === "goal_summary") })),
-  phase: "building", decision_revision: 2, projection_current: false,
-  facts: [{ kind: "measurement", subject: "paired", value: false, source: "person_said", states: [], pieces: [] }],
-  inputs: [{ key: "fastq.reads", type_id: "fastq.reads", present: true, origin: "person_said", states: [], units: false, table: false }],
-  pending_proposal: {
-    id: "disagree-paired", kind: "disagreement", draft_revision: 4, edges: [], asked_at: "2026-10-27T09:00:00+00:00",
-    options: ["keep_current", "use_measurement", "correct", "unknown"],
-    envelope: {
-      offer: "disagreement", context: { draft_revision: 4, decision_revision: 2, session_version: 3, registry: "fixture" },
-      subject: "paired", observation_id: "observation-paired", current_revision_id: "selected-paired",
-      current_value: false, current_origin: "person_said", observed_value: true, observed_origin: "measured", continuation: "build",
-      options: { keep_current: "Keep no (you said)", use_measurement: "Use yes (measured)", correct: "Use another answer", unknown: "Return to unknown" },
-      block: { kind: "question", id: "disagreement-3", asks: "For paired, your answer is no (you said), but this sample says yes (measured). Which should we use?",
-        why_open: "Evidence never replaces your selected answer automatically.", exhaustive: true, phrasing: "none",
-        options: [ { id: "keep_current", recommended: false, label: "Keep no (you said)" }, { id: "use_measurement", recommended: false, label: "Use yes (measured)" },
-          { id: "correct", recommended: false, label: "Use another answer" }, { id: "unknown", recommended: false, label: "Return to unknown" } ] },
-    },
-    block: { kind: "question", id: "disagreement-3", asks: "For paired, your answer is no (you said), but this sample says yes (measured). Which should we use?",
-      why_open: "Evidence never replaces your selected answer automatically.", exhaustive: true, phrasing: "none",
-      options: [ { id: "keep_current", recommended: false, label: "Keep no (you said)" }, { id: "use_measurement", recommended: false, label: "Use yes (measured)" },
-        { id: "correct", recommended: false, label: "Use another answer" }, { id: "unknown", recommended: false, label: "Return to unknown" } ] },
+  name: "assembly-qc",
+  working: false,
+  turns: [],
+  ai_unreviewed: [],
+  graph: {
+    nodes: [
+      { id: "spades", contract_id: "nf-core/spades@4.1.0", params: [] },
+      { id: "quast", contract_id: QUAST, params: [] },
+      { id: "fastqc", contract_id: "nf-core/fastqc@0.12.1", params: [] },
+    ],
+    edges: [{ from_node: "spades", from_port: "scaffolds", to_node: "quast", to_port: "consensus" }],
   },
-} as AuthoringSession;
+  placement: { spades: { x: 40, y: 40 }, quast: { x: 264, y: 40 }, fastqc: { x: 264, y: 297 } },
+} as unknown as AuthoringSession;
 
-const SORMADUP = "nf-core/samtools/sormadup@1.21.0";
+export const PORTS_STEPS = {
+  spades: { id: "spades", process: "SPADES", contract_id: "nf-core/spades@4.1.0", tier: 2, runs: "per_item",
+    reason: "", settings: [], ports: [assemblyPort("illumina", "fastq.reads", "in"),
+      assemblyPort("scaffolds", "assembly.fasta", "out"), assemblyPort("contigs", "assembly.fasta", "out"),
+      assemblyPort("gfa", "assembly.graph", "out"), assemblyPort("log", "log.text", "out")] },
+  quast: { id: "quast", process: "QUAST", contract_id: QUAST, tier: 2, runs: "once", reason: "", settings: [],
+    ports: [assemblyPort("consensus", "assembly.fasta", "in"), assemblyPort("fasta", "genome.fasta", "in", true),
+      assemblyPort("gff", "annotation.gff", "in", true), assemblyPort("bam", "alignment.bam", "in", true),
+      assemblyPort("bai", "alignment.bai", "in", true), assemblyPort("reads", "fastq.reads", "in", true),
+      assemblyPort("results", "qc.report", "out"), assemblyPort("tsv", "qc.table", "out"),
+      assemblyPort("report", "qc.report", "out")] },
+  fastqc: { id: "fastqc", process: "FASTQC", contract_id: "nf-core/fastqc@0.12.1", tier: 1, runs: "per_item",
+    reason: "", settings: [], ports: [assemblyPort("reads", "fastq.reads", "in"), assemblyPort("zip", "qc.report", "out")] },
+} as unknown as Record<string, Step>;
 
-/** The sorter's one alternative as its **complete saved preview**: the whole pipeline it gives,
- *  read the way a live session reads one, so the fixtures exercise the same preview canvas. */
-export function fakePreview(session: AuthoringSession, option: string): AlternativePreview {
-  const context = session.canvas?.context ?? { draft_revision: session.revision, decision_revision: 0,
-                                               session_version: session.row_version ?? 0, registry: "fixture" };
-  const kept = ["star_genomegenerate", "trimgalore", "star_align"];
-  return {
-    option_id: option,
-    contract: SORMADUP,
-    observed_context: context,
-    frame: {
-      context, proposal_id: session.pending_proposal?.id ?? null, current: true,
-      graph: {
-        nodes: [...kept.map((id) => ({ id, contract_id: FAKE_STEPS[id].contract_id, params: [] })),
-                { id: "samtools_sormadup", contract_id: SORMADUP, params: [] }],
-        edges: [
-          { from_node: "trimgalore", from_port: "reads", to_node: "star_align", to_port: "reads" },
-          { from_node: "star_genomegenerate", from_port: "index", to_node: "star_align", to_port: "index" },
-          { from_node: "star_align", from_port: "bam", to_node: "samtools_sormadup", to_port: "bam" },
-        ],
-      },
-      steps: [...kept.map((id) => FAKE_STEPS[id]),
-        { id: "samtools_sormadup", process: "SAMTOOLS_SORMADUP", contract_id: SORMADUP, tier: 2,
-          runs: "per_item", reason: "", settings: [],
-          ports: [port("bam", "alignment.bam", "in"),
-                  port("bam", "alignment.bam", "out", ["coordinate_sorted", "duplicates_marked"])] },
-      ] as unknown as AlternativePreview["frame"]["steps"],
-      channels: FAKE_CHANNELS,
-      placement: { ...FAKE_SESSION.placement, samtools_sormadup: FAKE_SESSION.placement.samtools_sort },
-    },
-  };
-}
-
-/** A fixture's preview reader: the option is the path's last segment, before its query. */
-export const readFakePreview = (session: AuthoringSession) => (path: string) =>
-  Promise.resolve(fakePreview(session, path.split("?")[0].split("/").pop() ?? ""));
+/** A `pipeline.yml` in the server's layout for the fake pages: two steps with their provenance,
+ *  settings and inputs, so the outline, folds and reasons have something real to show. */
+export const FAKE_FILE = `version: 9
+intent:
+  want:
+  - counts.matrix
+facts:
+  measurements:
+  - measurement: read_length
+    value: 151
+    source: measured
+steps:
+- id: trimgalore
+  module:
+    contract_id: ${TRIM}
+    digest: sha256:9a1f
+  why:
+    tier: 2
+    source: resolver
+    reason: STAR asks for trimmed reads
+  settings: []
+- id: star_align
+  module:
+    contract_id: ${ALIGN}
+    digest: sha256:f02b
+  process: STAR_ALIGN
+  why:
+    tier: 3
+    source: resolver
+    reason: 'rule implementation:alignment where read_length is 150: STAR''s seed search suits long
+      reads; Dobin et al. 2013'
+  settings:
+  - name: sjdbOverhang
+    value: '150'
+    via: ext
+    why:
+      tier: 3
+      reason: Read length is 151 bp, measured from your files, minus one.
+  - name: outSAMtype
+    value: BAM Unsorted
+    via: ext
+    why:
+      tier: 1
+      reason: The next step sorts.
+  - name: twopassMode
+    value: None
+    via: ext
+    why:
+      tier: 2
+      reason: nf-core's default for this module.
+  inputs:
+  - port: reads
+    source: trimgalore.reads
+  - port: index
+    source: star_genomegenerate.index
+decisions:
+- key: producer:alignment.bam
+  chosen: ${ALIGN}
+gate: null
+`;

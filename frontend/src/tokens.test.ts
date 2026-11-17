@@ -244,8 +244,9 @@ it("sets every face in the family the artboards use, and bundles it", () => {
   const tokens = readFileSync(join(SRC, "tokens.css"), "utf8");
   const main = readFileSync(join(SRC, "main.css"), "utf8");
 
-  for (const [role, face] of [["--font-ui", /Lexend/], ["--font-display", /Lexend/],
-    ["--font-data", /Geist Mono/]] as const) {
+  // The redesign board (#511) sets Inter for the interface and JetBrains Mono for data.
+  for (const [role, face] of [["--font-ui", /Inter/], ["--font-display", /Inter/],
+    ["--font-data", /JetBrains Mono/]] as const) {
     const line = tokens.split("\n").find((l) => l.trimStart().startsWith(`${role}:`));
     expect(line, `${role} is not declared`).toBeTruthy();
     expect(line, `${role} names a face the boards do not use`).toMatch(face);
@@ -260,9 +261,9 @@ it("sets every face in the family the artboards use, and bundles it", () => {
   // **Bundled, not fetched** — invariant 13. A Google Fonts `<link>` would render the design on
   // the hosted instance and the fallback stack in an air-gapped laboratory, which is
   // "self-hosted is a degraded tier" arriving as a stylesheet.
-  expect(main).toMatch(/@import "@fontsource-variable\/lexend"/);
-  expect(main).toMatch(/@import "@fontsource-variable\/geist-mono"/);
-  expect(main).not.toMatch(/@import "@fontsource-variable\/geist"/);
+  expect(main).toMatch(/@import "@fontsource-variable\/inter"/);
+  expect(main).toMatch(/@import "@fontsource-variable\/jetbrains-mono"/);
+  expect(main).not.toMatch(/@import "@fontsource-variable\/(lexend|geist)/);
   expect(main).not.toMatch(/fonts\.googleapis\.com/);
 });
 
@@ -362,8 +363,10 @@ it("keeps retired colour names retired", () => {
 });
 
 it("draws labels in the interface face, not shouted", () => {
+  // **One exception, from the redesign board (#511):** the rail's control groups are captioned in
+  // small capitals (FOLDERS, REVIEW), drawn once, in `RailControls`. Anywhere else is shouting.
   const shouting = sources()
-    .filter(([path]) => path.endsWith(".tsx"))
+    .filter(([path]) => path.endsWith(".tsx") && !path.endsWith("app/rail/RailContext.tsx"))
     .flatMap(([path, text]) => [...text.matchAll(/(["`])((?:(?!\1)[^\\]|\\.)*?)\1/gs)]
       .filter((m) => /\buppercase\b/.test(m[2]) && !/^\s*\*|\/\//.test(m[2]))
       .map(() => path.slice(SRC.length + 1)));
@@ -416,4 +419,13 @@ it("draws words in the -ink shade of a meaning, never its plain mark colour", ()
   const found = sources().filter(([path, text]) => !/\.test\.tsx?$/.test(path) && plain.test(text))
     .map(([p]) => p.slice(SRC.length + 1));
   expect(found).toEqual([]);
+});
+
+it("sizes nothing with spacing steps 8 or 9, which are 40 and 60 px here, not Tailwind's 32 and 36", () => {
+  // Walk 2026-11-17: `h-9` buttons and selects drew 60 px tall. This scale's steps 8 and 9 are
+  // section gaps (main.css `--spacing-8/9`); a control's size is written in pixels.
+  const wrong = sources().filter(([path]) => !/\.test\.tsx?$/.test(path)).flatMap(([path, text]) =>
+    [...text.matchAll(/(?<=[\s"`])(?:h|min-h|w|size)-(?:8|9)(?=[\s"`])/g)].map((m) => `${path.slice(SRC.length + 1)}: ${m[0]}`));
+  expect(sources().length).toBeGreaterThan(0);
+  expect(wrong).toEqual([]);
 });

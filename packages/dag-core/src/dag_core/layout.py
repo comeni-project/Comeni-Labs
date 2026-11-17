@@ -9,34 +9,48 @@ package tests.
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from dag_core.graph import Graph
 
-NODE_W = 172
-NODE_H = 112
-"""Uniform node dimensions shared with the browser canvas."""
+NODE_W = 145
+NODE_H = 64
+"""Node width, and the height of a node with one port a side, shared with the browser: the board's
+compact step card (#511), a name and a tool line above its ports."""
 
-RANK_PITCH = 224
+RANK_PITCH = 200
 """Distance between ranks along the left-to-right flow."""
 
-SIBLING_PITCH = 170
+SIBLING_PITCH = 120
 """Minimum distance between nodes that share a rank."""
 
-HEAD_H = 28
-"""Height of the node header in the browser canvas."""
+HEAD_H = 44
+"""Height of the node header in the browser canvas: what the step does, then its tool."""
 
 PORT_ROW = 19
 """Height of a port row in the browser canvas."""
 
-SPINE = NODE_H // 2
-"""Primary port anchor, derived from the node height."""
+SPINE = 50
+"""Primary port anchor: just under the card's two header lines (`HEAD_H`)."""
 
-SECOND = SPINE + 22
+SECOND = SPINE + 18
 """Secondary port anchor, exported for the browser geometry guard."""
 
 CORNER = 7
 """Corner radius used by the browser when rendering routed wires."""
+
+ROW_FIRST = SPINE + 14
+"""A one-port node's height: the spine row and the card's padding below it."""
+
+SIBLING_GAP = SIBLING_PITCH - NODE_H
+"""The space left between a tall node and the next one in its rank."""
+
+
+def node_height(ports: int) -> int:
+    """A node's height for its larger side's port count (#494): tall enough that every port's
+    row, anchored at `SPINE + index * PORT_GAP`, sits inside it above the footer. Anchors never
+    move with the height, so a wire already drawn stays where it is."""
+    return max(NODE_H, ROW_FIRST + PORT_GAP * (max(ports, 1) - 1))
 
 
 @dataclass(frozen=True)
@@ -178,6 +192,8 @@ def _across(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[s
     for edge in graph.edges:
         incoming[edge.to_node].append(edge.from_node)
 
+    tall = {node.id: node_height(max(len(node.inputs), len(node.outputs)))
+            for node in graph.nodes}
     by_rank: dict[int, list[str]] = defaultdict(list)
     for node in graph.nodes:
         by_rank[rank[node.id]].append(node.id)
@@ -188,15 +204,17 @@ def _across(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[s
     for depth in sorted(by_rank):
         ids = by_rank[depth]
         if depth == 0:
-            for i, nid in enumerate(ids):
-                x[nid] = i * SIBLING_PITCH
+            edge_x = 0
+            for nid in ids:
+                x[nid] = edge_x
+                edge_x += max(SIBLING_PITCH, tall[nid] + SIBLING_GAP)
             continue
         wanted = []
         for nid in ids:
-            centres = sorted(x[p] + NODE_H // 2 for p in incoming[nid] if p in x)
+            centres = sorted(x[p] + SPINE for p in incoming[nid] if p in x)
             # Average the middle pair so a node with two producers is centred between them.
             if not centres:
-                middle = NODE_H // 2
+                middle = SPINE
             else:
                 half = len(centres) // 2
                 middle = (
@@ -204,12 +222,13 @@ def _across(graph: Graph, rank: dict[str, int], order: dict[str, int]) -> dict[s
                     if len(centres) % 2
                     else (centres[half - 1] + centres[half]) // 2
                 )
-            wanted.append((middle - NODE_H // 2, nid))
-        # Preserve the chosen order while preventing sibling overlap.
+            wanted.append((middle - SPINE, nid))
+        # Preserve the chosen order while preventing sibling overlap: a tall node (#494) keeps
+        # the same gap below it as a short one.
         edge_x = None
         for want, nid in wanted:
             x[nid] = want if edge_x is None else max(want, edge_x)
-            edge_x = x[nid] + SIBLING_PITCH
+            edge_x = x[nid] + max(SIBLING_PITCH, tall[nid] + SIBLING_GAP)
 
     # Avoid leading empty space when centring a wider rank produces negative coordinates.
     shift = min(x.values(), default=0)
@@ -235,7 +254,7 @@ def _anchor(ports: list[str], name: str) -> int:
     return _port_offset(ports.index(name))
 
 
-PORT_GAP = 22
+PORT_GAP = 18
 """Distance between adjacent port anchors."""
 
 
@@ -246,6 +265,34 @@ def _port_offset(index: int) -> int:
     move existing anchors.
     """
     return SPINE + index * PORT_GAP
+
+
+HANG_GAP = 24
+"""Between a step and the measuring step hung under it."""
+
+HANG_REACH = 14
+"""How far a hung step's wire runs out before it turns down, and in before its port."""
+
+
+def _hang(graph: Graph, placed: tuple[Placed, ...]) -> tuple[Placed, ...]:
+    """Move each measuring step under the one step it reads, in that step's column, and push
+    down whatever shared the column below it (#517)."""
+    by_id = {node.id: node for node in placed}
+    for node in sorted((n for n in graph.nodes if n.hangs), key=lambda n: n.id):
+        sources = sorted({e.from_node for e in graph.edges if e.to_node == node.id})
+        if len(sources) != 1 or sources[0] not in by_id:
+            continue
+        above = by_id[sources[0]]
+        hung = replace(by_id[node.id], rank=above.rank, x=above.x,
+                       y=above.y + above.height + HANG_GAP)
+        by_id[node.id] = hung
+        bottom = hung.y + hung.height + SIBLING_GAP
+        for other in sorted((n for n in by_id.values() if n.x == hung.x and n.id != hung.id
+                             and n.y >= above.y + above.height), key=lambda n: n.y):
+            if other.y < bottom:
+                by_id[other.id] = replace(other, y=bottom)
+            bottom = by_id[other.id].y + by_id[other.id].height + SIBLING_GAP
+    return tuple(by_id[n.id] for n in placed)
 
 
 def of(graph: Graph = None) -> Layout:
@@ -264,12 +311,13 @@ def of(graph: Graph = None) -> Layout:
             x=rank[node.id] * RANK_PITCH,
             y=across[node.id],
             width=NODE_W,
-            height=NODE_H,
+            height=node_height(max(len(node.inputs), len(node.outputs))),
             tier=node.tier,
         )
         # Keep tuple order stable as well as coordinates.
         for node in sorted(graph.nodes, key=lambda n: (rank[n.id], order[n.id], n.id))
     )
+    placed = _hang(graph, placed)
     by_id = {node.id: node for node in placed}
 
     wires = []
@@ -296,6 +344,14 @@ def of(graph: Graph = None) -> Layout:
             if start.y == end.y
             else (start, Point(mid, start.y), Point(mid, end.y), end)
         )
+        if end.x <= start.x:
+            # A step hung under the one it reads: out to the right, down past its source, back
+            # along the gap between them, and into its port from the left.
+            below = (source.y + source.height + target.y) // 2
+            out, back = start.x + HANG_REACH, end.x - HANG_REACH
+            points = (start, Point(out, start.y), Point(out, below),
+                      Point(back, below), Point(back, end.y), end)
+            mid = start.x + HANG_REACH
         wires.append(
             Wire(
                 from_node=edge.from_node,

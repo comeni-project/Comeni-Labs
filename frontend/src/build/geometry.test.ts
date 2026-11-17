@@ -14,12 +14,12 @@ describe("geometry the client owns", () => {
   });
 
   it("does not size a node at all", async () => {
-    // A node used to be sized from its declared port count. Every symbol is 172x112 now —
+    // A node used to be sized from its declared port count. Every card is 145x64 now —
     // `impl-geom` calls that load-bearing, because variable heights put a jog between every
     // pair and the main chain stops reading as a chain.
     const geometry = await import("./geometry");
     expect("heightFor" in geometry).toBe(false);
-    expect(geometry.NODE_H).toBe(112);
+    expect(geometry.NODE_H).toBe(64);
   });
 
   it("a straight run is two points, not four", () => {
@@ -32,7 +32,7 @@ describe("geometry the client owns", () => {
 
   it("turns a wire between neighbouring columns in the middle of the gap between them", () => {
     const [, turn] = elbow({ x: NODE_W, y: 10 }, { x: RANK_PITCH, y: 200 });
-    expect(turn.x).toBe((NODE_W + RANK_PITCH) / 2);
+    expect(turn.x).toBe(Math.round((NODE_W + RANK_PITCH) / 2));
   });
 
   it("turns a wire that passes a column in the gap before its target, not inside a step (issue 388)", () => {
@@ -79,5 +79,22 @@ describe("geometry the client owns", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("a wire into a step hung under its source (#517)", () => {
+  it("goes out right, down through the gap above the hung step, back, and in from the left", async () => {
+    const { elbow, SPINE, NODE_W: W, NODE_H, HANG_GAP, MEASURE_H } = await import("./geometry");
+    const start = { x: W, y: SPINE };
+    const end = { x: 0, y: NODE_H + HANG_GAP + MEASURE_H / 2 };
+    const points = elbow(start, end);
+    expect(points[0]).toEqual(start);
+    expect(points[points.length - 1]).toEqual(end);
+    expect(points[1].x).toBeGreaterThan(start.x);
+    expect(points[points.length - 2].x).toBeLessThan(end.x);
+    // The run back crosses in the gap between the two steps, never through either.
+    const back = points[2].y;
+    expect(back).toBeGreaterThan(NODE_H);
+    expect(back).toBeLessThan(NODE_H + HANG_GAP);
   });
 });

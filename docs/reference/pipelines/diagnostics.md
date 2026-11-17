@@ -215,24 +215,16 @@ decline to curate one.
 | Code | Says |
 |---|---|
 | `MI0106` | no model is configured, so nothing can be generated |
-| `MI0200` | an authoring session cannot move from this phase by this event |
-| `MI0201` | this draft moved while you were looking at it — re-read it before accepting |
-| `MI0202` | this proposal was made against an older draft and can no longer be applied |
-| `MI0203` | this proposal has already been settled |
+| `MI0201` | the pipeline changed since you last saw it — read it again before changing it |
+| `MI0203` | only a turn that failed is asked again |
 | `MI0204` | the goal a model wrote names something this registry does not declare |
-| `MI0205` | the reply names an option or a step that was never offered |
-| `MI0206` | the registry changed after this step was proposed, so it was re-resolved instead |
-| `MI0207` | the confirmed goal cannot be built: it needs an input nothing produces |
 | `MI0208` | that value does not fit what this measurement can be |
-| `MI0209` | the analysis cannot be built: nothing can make what it asks for |
-| `MI0212` | a failed authoring session cannot resume into this phase |
-| `MI0213` | the protection level does not allow this crossing |
-| `MI0214` | an upload was refused: one file or a pair, nothing else |
-| `MI0215` | a sample is already being read for this question |
-| `MI0216` | that is not possible from here |
-| `MI0217` | editing opens when the walk is done |
-| `MI0218` | this older offer has no saved alternative preview |
 | `MI0219` | there is no pipeline to compile yet |
+| `MI0220` | the builder's turn did not run to the end |
+| `MI0223` | a reading rule is not a pattern Comeni can read |
+| `MI0224` | a reference's type is not one the registry declares |
+| `MI0225` | a column is named after a fact the data already measured |
+| `MI0226` | a fix names a sample or file this data does not have |
 | `MI0500` | a rule proposal cannot be approved as it stands |
 | `MI0501` | no model is set to propose rules |
 
@@ -246,6 +238,7 @@ decline to curate one.
 | `MA0007` | the provider rejected the request, or could not be reached |
 | `MA0008` | no committed prompt file carries that id, or the id is not a versioned one |
 | `MA0009` | the values supplied do not match the prompt's placeholders |
+| `MA0010` | the model's usage limit is reached |
 
 ## What a model answered
 
@@ -268,11 +261,12 @@ decline to curate one.
 
 | Code | Says |
 |---|---|
-| `MI0400` | a stored row is in an older shape than this server reads |
+| `MI0221` | a path is not inside a data folder this installation can read |
+| `MI0222` | no data folders are configured on this installation |
 | `MI0401` | a draft with a gate running cannot be deleted |
-| `MW0100` | a stored run row is in an older shape than this server reads |
 | `MW0101` | a run's parameters could not be written; nothing was queued |
 | `MW0102` | a run had no parameters to launch with, so it was failed rather than started empty |
+| `MW0103` | a run's input is outside the folders runs read from |
 
 ## Wiener — what may enter
 

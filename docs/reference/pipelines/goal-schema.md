@@ -117,6 +117,8 @@ Model: `comeni_core.goal.asked.ParamOverride`
 |---|---|---|---|
 | `name` | string | *required* | the parameter |
 | `value` | int \| float \| bool \| string | *required* | what to set it to |
+| `by` | `person` \| `model` | `person` | who set it: you, or the builder agent; left out when it is you |
+| `because` | string | `""` | the builder agent's reason, one line; left out when empty |
 
 Model: `comeni_core.goal.asked.ProducerPin`
 
@@ -124,6 +126,8 @@ Model: `comeni_core.goal.asked.ProducerPin`
 |---|---|---|---|
 | `site` | [site] | *required* | the place in the pipeline: the type a step makes, with its states |
 | `contract` | string | *required* | the tool to use there, e.g. `nf-core/hisat2/align@2.2.2` |
+| `by` | `person` \| `model` | `person` | who chose it: you, or the builder agent; left out when it is you |
+| `because` | string | `""` | the builder agent's reason, one line; left out when empty |
 
 Model: `comeni_core.goal.asked.Site`
 

@@ -22,61 +22,60 @@ defensible.
 
 ## Current alpha behavior
 
-In the current local stack, pressing **Run** from the builder opens a run sheet. The run sheet
-asks for local input values such as read paths and reference paths, then submits the artifact to
-the local run service.
+You tick the folders that hold your data on **Data**. Comeni reads the start of each file where
+it is, groups the files into samples, measures facts such as read length, and lists references
+such as a genome or an annotation. When you press **Run**, the **New run** page answers each of
+the pipeline's inputs from that data: no path is typed, and the run reads the same files where
+they are.
 
-![Run sheet in the alpha app](../assets/screenshots/run-sheet-alpha.png)
+![New run in the alpha app](../assets/screenshots/new-run.jpg)
 
-For the shared [RNA-seq example](../tutorials/rnaseq-example.md), values look like:
+For the shared [RNA-seq example](../tutorials/rnaseq-example.md), Data holds:
 
-| Field | Example value |
+| Input | Example |
 |---|---|
-| Reads | `data/*_R{1,2}.fastq.gz` |
-| Genome FASTA | `reference/genome.fa` |
-| Annotation GTF | `reference/genes.gtf` |
+| Reads | the samples read from `*_R1.fastq.gz` and `*_R2.fastq.gz`, paired by name |
+| Genome FASTA | `reference/genome.fasta`, added as the genome on Data → References |
+| Annotation GTF | `reference/genes.gtf`, added as the annotation |
 
-Use values that are valid from the machine and container setup running the local stack.
+The folders must be under the data folders this installation reads; see
+[Add your data](../how-to/pipelines/add-your-data.md).
 
 ## Expected to change
 
-Input collection should become more structured. A lab should eventually be able to reuse
-known sample sheets, project locations, reference sets, and execution profiles rather than
-typing loose paths for every run.
-
-Do not treat the current run sheet as a stable API. Treat it as the current way to supply
-run-time values while the product learns the right lab workflow.
+Some inputs are not answered from Data yet: a table of several items, a sample spread over
+several lanes, and columns that relate samples to each other. New run names them as missing; the
+emitted pipeline still accepts them when run as plain Nextflow with a samplesheet. Reusing known
+reference sets ("standard references") is planned.
 
 ## Where does my data go?
 
 Comeni builds and records the workflow. Nextflow runs it where you point the run. In the local
-alpha stack, the run service launches Nextflow against paths you provide.
+alpha stack, the run service launches Nextflow against the files Data read, where they are.
 
 The key boundary is:
 
 ```mermaid
 flowchart TD
   A[Analysis shape and facts] --> B[Comeni builds artifact]
-  C[Local file paths] --> D[Run sheet]
+  C[Folders ticked on Data] --> D[Samples and references]
   B --> E[Nextflow run]
   D --> E
 ```
 
 Pipeline construction uses analysis descriptions, registry declarations and data facts.
-You can state facts yourself or supply a bounded sample for inspection. At protection
-level 0, an unrecognized sample can also be characterized by a model using a bounded
-text excerpt. Model replies are recorded, and queued excerpts can reach Redis persistence.
-Keep that exception separate from the full input files used to execute a pipeline.
+You can state facts yourself, or tick the folders that hold your data: Comeni reads the start
+of each file where it is, never copying it, and derives the facts from what it measured. The
+same files are what a run reads.
 
-For the upload procedure and limits, see
-[Answer a data question with a sample](../how-to/pipelines/answer-with-sample.md).
+To add data, see [Add your data](../how-to/pipelines/add-your-data.md).
 
 ## Practical checks
 
 | Question | Answer |
 |---|---|
-| Do I upload files to design a pipeline? | Optional bounded samples can supply facts; full execution files are supplied separately. |
-| Do I provide paths to run locally? | yes, in the current alpha run sheet |
+| Do I upload files to design a pipeline? | No. You tick folders on this machine; files are read where they are. |
+| Do I provide paths to run locally? | No. A run's inputs come from the analysis's data. |
 | Can the same artifact run twice? | yes, a run is one execution of an artifact |
 | Can inputs change without changing the pipeline? | yes, when the scientific shape and decisions stay the same |
 

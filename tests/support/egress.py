@@ -16,13 +16,12 @@ from pydantic import BaseModel
 from support.walk import reachable
 
 PIPELINE_DOORS = {
-    "goal_extraction",
-    "tier4_resolution",
     "compiler_repair",
     "publication",
-    # Door 6, 14.7.7: the characteriser. The first door that carries data from a person's file,
-    # at protection level 0 only. On the pipeline path because what it reads becomes the goal.
-    "characterisation",
+    # #463: the builder agent's conversation and tool results. The person's words, engine views
+    # of the pipeline, the registry and the person's facts, and a sample's name: on
+    # the pipeline path because they are what the agent builds from.
+    "builder_agent",
 }
 """The pipeline path's doors, and *pipeline data leaves through these* stays checkable against
 this set rather than against the whole list."""
@@ -55,9 +54,10 @@ arrives, and it is still a blob — sign the artifact beside the bundle, not ins
 # A16 splitting `DecisionRecord` into three, and `Pipeline` taking door 4 — which is exactly
 # what a literal list exists to make somebody look at.
 # **`ai_invocation.response` is not here, and should not be** (#182, 2026-09-29): a model's reply
-# is stored, never sent — it crosses no door. It is a level-0 store, recorded in
-# `docs/design/authoring-protocol.md`'s protection table and loosenings.
+# is stored, never sent — it crosses no door.
 FREE_TEXT_FIELDS = {
+    # #511: the reading rule's pattern, which a person or the AI typed (`{sample}_R{read}.fq.gz`).
+    ("DataView", "rule"),
     # Declared type/state signatures from registry vocabulary, sent through the forge door.
     ("KnownIds", "signatures"),
     # Forge MVP 3 (#364), door `forge_drafting`: nf-core's public module files, the
@@ -114,32 +114,6 @@ FREE_TEXT_FIELDS = {
     # It is listed rather than exempted for the reason the whole list is literal: widening
     # the boundary should mean editing a file that says *these are all the ways data leaves*.
     ("Why", "reason"),
-    # Eleventh through fourteenth, Plan 2.5, and they arrive as a GROUP for one reason:
-    # `Ambiguity` became a `comeni_core.review.Question`, so the four fields the forge had
-    # always carried on a `Hole` now reach door 2 as well. Two are prose and two are the
-    # excerpt they point at.
-    #
-    # **Why they were let through rather than stripped.** The forge measured a local model
-    # re-deriving shipped contracts at 69% and then 88%, and two of the three fixes behind
-    # that were exactly *the question never said what it was about* (`what`) and *the
-    # evidence was a Python repr nobody could read* (`evidence`). Door 2 hands a tier-4
-    # question to a model. Carrying candidates and nothing else would rebuild the measured
-    # 69% configuration on the build path, having already paid to learn it.
-    # `test_the_door_carries_what_the_forge_measured_a_model_needs` is that argument as a
-    # test, so removing them fails rather than silently regressing.
-    ("AmbiguityRequest", "what"),
-    ("AmbiguityRequest", "why_open"),
-    # **`Excerpt` is the first author on this list that is not an author.** Every other entry
-    # is composed by somebody — a user, a contract author, a rule author, the resolver, a
-    # reviewer. These two are *quoted*: a source file already contains the text and an
-    # excerpt copies it, with `locator` naming where. That is a weaker claim than the rest of
-    # the list makes and it is written down rather than assumed, because "it is only quoted"
-    # is exactly the kind of reasoning that widens a boundary without anybody noticing.
-    #
-    # What bounds it is the source: excerpts are read from vendored modules and registry
-    # files, which are public data, and never from a prompt or a goal.
-    ("Excerpt", "locator"),
-    ("Excerpt", "text"),
     # Eighth and ninth, Plan 1.14 Task 5, and they are **one field splitting in two** rather
     # than a new kind of string crossing — the same pattern as A16 turning four `reason`
     # entries into six. `reason` was answering two questions at once: why this decision is
@@ -152,6 +126,83 @@ FREE_TEXT_FIELDS = {
     # `reason` does. Nothing newly crosses; one thing that already crossed is now legible.
     ("ResolvedValue", "axis_reason"),
     ("Why", "axis_reason"),
+    # The builder agent's choices (#463): the reason the AI gave for a tool it chose or a value
+    # it set, in the goal's constraints, and the rule's own result kept beside a value it set
+    # over a rule (the decision's line and its citation, registry data). Written by the agent
+    # or the resolver; no lab data.
+    ("ProducerPin", "because"),
+    ("ParamOverride", "because"),
+    ("Overrode", "rule"),
+    ("Overrode", "cite"),
+    # What the agent chose at a step, as the engine words it (`chose <contract>`, `set <name>
+    # to <value>`): registry identifiers and a resolved value, nothing a person typed.
+    ("AiChoice", "what"),
+    # The builder agent's door (#463): a tool's name, the engine's sentence about what it did,
+    # and the coded refusal it gave. Engine-written; the agent's own words never cross back.
+    ("AgentToolResult", "tool"),
+    ("AgentToolResult", "refusal"),
+    ("TextView", "text"),
+    # Its read views (#463): every one is engine- or registry-written — declared names and
+    # descriptions, the resolver's reasons and citations, rule rows as sentences, who chose a
+    # value and the reason the AI gave for it. Sample names are counted in SAMPLE_FIELDS.
+    ("TypeLine", "name"),
+    ("FactLine", "source"),
+    ("ChoiceLine", "subject"),
+    ("ChoiceLine", "by"),
+    ("ChoiceLine", "because"),
+    ("StepLine", "tool"),
+    ("StepLine", "chosen_by"),
+    ("PipelineView", "unbuilt"),
+    ("SettingLine", "source"),
+    ("SettingLine", "reason"),
+    ("SettingLine", "cite"),
+    ("StepView", "tool"),
+    ("StepView", "description"),
+    ("StepView", "does"),
+    ("StepView", "why_here"),
+    ("StepView", "chosen"),
+    ("ToolRef", "tool"),
+    ("ToolsView", "name"),
+    ("RuleLine", "decides"),
+    ("RuleLine", "rows"),
+    ("RuleLine", "because"),
+    ("RuleLine", "cite"),
+    # The registry's vocabulary (walk 2026-11-15): each measurement's declared description, kind,
+    # allowed values and unit. Registry data, as `TypeLine.name` is.
+    ("MeasureLine", "name"),
+    # The analysis's name (walk 2026-11-15): the agent's working name, or one the person typed,
+    # as they typed a message — the same person's words the conversation already carries.
+    ("GoalView", "name"),
+    ("MeasureLine", "kind"),
+    ("MeasureLine", "values"),
+    ("MeasureLine", "unit"),
+    ("NeedLine", "kind"),
+    ("NeedLine", "subject"),
+    ("NeedLine", "name"),
+    ("NeedLine", "why"),
+    # The build tools (#463): rules that fired (the resolver's reason and the rule's citation),
+    # what changed and why nothing built (engine sentences), the compiled Nextflow (the
+    # compiler's output from declared modules), and a question the agent put to the person (the
+    # agent's own words, going back to the same agent).
+    ("FiredLine", "decides"),
+    ("FiredLine", "reason"),
+    ("FiredLine", "cite"),
+    ("ResolvedView", "open_values"),
+    ("ResolvedView", "changed"),
+    ("ResolvedView", "unbuilt"),
+    ("CompiledView", "processes"),
+    ("AskedView", "id"),
+    ("AskedView", "question"),
+    ("AskedView", "shape"),
+    ("AskedView", "options"),
+    ("AskedView", "unit"),
+    # Run → Console (#511): what the page carries with the person's words (paths shortened before
+    # storing), and a command the agent suggests for the run's shell.
+    ("ConsoleView", "run"),
+    ("ConsoleView", "console"),
+    ("ConsoleView", "shell"),
+    ("CommandView", "command"),
+    ("CommandView", "because"),
     # A setting decided at run time (#217): the decision it compiles, named by its key, and
     # why its fallback is the value it is. Both are written by the resolver from a rule and a
     # contract, the same authors as `reason`; nothing about a sample crosses with them.
@@ -173,30 +224,27 @@ FREE_TEXT_FIELDS = {
     # field is a reviewer's reasoning living nowhere, which is worse for the claim than one
     # more declared string crossing a door somebody has to argue for.
     ("ParamDecision", "override_reason"),
-    # Seventeenth, 2026-09-09, and it is **the same field it replaced**. Door 1's payload grew
-    # from `PromptRequest` — one prompt, one call — into `AuthoringRequest`, because the living
-    # pipeline is a conversation and not a single extraction. `prompt` is still exactly what it
-    # was: the string a person just typed, the single taint source invariant 14 is written
-    # around. The name on the left changed; nothing new crosses here.
-    ("AuthoringRequest", "prompt"),
-    # Eighteenth, and it IS new: the bounded tail. A follow-up turn is only answerable with
-    # what was already said, so prior turns are quoted back, and the shape is argued for here
-    # rather than inherited.
-    #
-    # **What bounds it is that a turn is not a transcript.** The tail is capped (`CHAT_TAIL`),
-    # and a `MODEL` turn is text this system produced from typed data. A `PERSON` turn is prose
-    # the person typed — the same author, the same door, one more sentence of the same
-    # conversation `prompt` already carries.
-    ("AuthoringTurn", "content"),
+    # The person's words (#463), the same author and the same sentence door 1's `prompt` and
+    # its bounded tail carried before the builder became an agent: the single taint source
+    # invariant 14 is written around. An `AGENT` turn is text the model produced from typed
+    # data, quoted back so the conversation can continue.
+    ("AgentTurn", "content"),
 }
 
 
 SAMPLE_FIELDS = {
-    # The first, 14.7.7: the start of a sample, decoded to text, for the characteriser. **Not
-    # free text, and counted apart on purpose**: free text is what a person typed or a tool
-    # printed, and this is what a person's *file* holds. At most 8 KB and 200 lines, which the
-    # type enforces (`marks.SampleText`), and only at protection level 0.
-    ("CharacteriseRequest", "excerpt"),
+    # #463: the person's samples, by name, returned to the builder agent's model by a read tool
+    # (the operator's decision, 2026-11-14; `tests/fixtures/guard-ledger.md`). **Not free text,
+    # and counted apart on purpose**: free text is what a person typed or a tool printed, and
+    # this is something of a person's data.
+    ("SamplesView", "names"),
+    ("FactsView", "samples"),
+    # #511: the analysis's data by name, for the Data assistant: samples, those left out, and
+    # what Check these found (a sample, and the name of the file that looks like its mate).
+    ("DataView", "samples"),
+    ("DataView", "left_out"),
+    ("DataCheckLine", "sample"),
+    ("DataCheckLine", "file"),
 }
 """Every field that may hold data from a person's file. This set is the count."""
 

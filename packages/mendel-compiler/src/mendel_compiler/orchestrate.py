@@ -58,6 +58,7 @@ def build(
     registry_roots: list[Path] | None = None,
     prior: list | None = None,
     resolver: AmbiguityResolver | None = None,
+    ai=None,
 ) -> Built:
     """Resolve a goal against a registry. Writes nothing, reads no arguments namespace.
 
@@ -109,7 +110,9 @@ def build(
 
     pipeline = Pipeline.of(
         ir, routing, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal,
-        locators=locate.locators(loaded.paths),
+        # The caller's AI provenance: none recorded is *no AI*, which refuses a value a model
+        # settled (`MD0225`), so a builder session passes what it had.
+        ai=ai, locators=locate.locators(loaded.paths),
     )
     return Built(pipeline=pipeline, ir=ir, layers=loaded, unverified=ir.unverified)
 

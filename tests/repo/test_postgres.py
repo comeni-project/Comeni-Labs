@@ -29,7 +29,7 @@ def test_application_connections_share_only_the_server(tmp_path):
                 assert service["depends_on"]["postgres"]["condition"] == "service_healthy"
                 clients[name] = owner
     assert set(clients.values()) == {"mendel", "wiener"}
-    assert len(clients) == 6
+    assert len(clients) == 7  # with wiener-term, Run → Console's terminals (#511)
     assert services["postgres"]["environment"]["POSTGRES_USER"] == "comeni_admin"
     data = next(
         v for v in services["postgres"]["volumes"] if v["target"] == "/var/lib/postgresql/data"

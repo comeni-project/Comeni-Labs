@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Build — Comeni</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+:root{--c-paper:#F5F6F8;--c-surface:#FFFFFF;--c-surface-2:#F8F9FB;--c-line-soft:#EEF0F3;--c-line:#E2E5EA;--c-line-2:#D2D7DE;--c-mark:#A9B2BF;--c-ink:#15181D;--c-ink-2:#3B424D;--c-ink-3:#5F6773;--c-now:#1D5FC2;--c-now-mid:#6FA0E6;--c-now-ink:#174C9B;--c-now-soft:#EDF3FC;--c-now-line:#B8CDEE;--c-done:#2E9A5A;--c-done-ink:#1C6B3E;--c-done-soft:#E3F3E9;--c-done-line:#B9DCC6;--c-measured:#C48A1A;--c-measured-ink:#8A4B0B;--c-measured-soft:#FFF3DC;--c-measured-line:#F3DFB6;--c-needs-you:#C2410C;--c-needs-you-ink:#A0400B;--c-needs-you-soft:#FDEEE4;--c-needs-you-line:#F5CDB3;--c-ai:#5A3EAF;--c-ai-soft:#EEE9FB;--c-ai-line:#E3DBF6;--c-report:#9A2F5C;--c-report-soft:#FBE8F0;--c-regions:#156F6F;--c-regions-soft:#E2F5F4}
+.theme-root{background:var(--c-paper);color:var(--c-ink);min-height:900px;transition:background .2s}
+.theme-root.theme-dark{--c-paper:#12141B;--c-surface:#1A1D27;--c-surface-2:#161820;--c-line-soft:#232736;--c-line:#282C3A;--c-line-2:#3A3F52;--c-mark:#4A5068;--c-ink:#E8EAF2;--c-ink-2:#B0B5C8;--c-ink-3:#8C92A8;--c-now:#6EA2FF;--c-now-mid:#3D6FC0;--c-now-ink:#8FB6FF;--c-now-soft:#172642;--c-now-line:#2A4170;--c-done:#2FC79B;--c-done-ink:#5FD9B0;--c-done-soft:#113529;--c-done-line:#1E5A45;--c-measured:#F0B840;--c-measured-ink:#F0B840;--c-measured-soft:#35290F;--c-measured-line:#5A4618;--c-needs-you:#FF6E73;--c-needs-you-ink:#FF8A8E;--c-needs-you-soft:#3A1B20;--c-needs-you-line:#5A2A2F;--c-ai:#B39DFF;--c-ai-soft:#241D3A;--c-ai-line:#3A2F5C;--c-report:#F08DB8;--c-report-soft:#3A1A2A;--c-regions:#5FD9D9;--c-regions-soft:#0F3333}
+.theme-dark input,.theme-dark select,.theme-dark textarea{background:var(--c-surface);color:var(--c-ink)}
+
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--c-ink);-webkit-font-smoothing:antialiased}
+a{color:var(--c-now);text-decoration:none}a:hover{color:var(--c-now-ink)}
+button{font-family:inherit}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.rail{flex:0 0 244px;background:var(--c-surface);border-right:1px solid var(--c-line);display:flex;flex-direction:column;padding:12px 10px;box-sizing:border-box;min-height:900px}
+.mode{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;color:var(--c-ink-2)}
+.mode:hover{background:var(--c-surface-2);color:var(--c-ink)}
+.mode.on{background:var(--c-now-soft);color:var(--c-now-ink)}
+.mt{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mn{font-size:14px;font-weight:600}
+.ms{font-size:12px;color:var(--c-ink-3)}
+.group{font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--c-ink-3);padding:10px 10px 4px}
+.srow{display:flex;align-items:flex-start;gap:8px;width:100%;padding:7px 10px;border:0;border-radius:7px;background:transparent;cursor:pointer;font-size:13px;color:var(--c-ink-2);text-align:left}
+.srow:hover{background:var(--c-surface-2)}
+.opt{display:flex;align-items:center;gap:9px;width:100%;padding:6px 10px;border:0;border-radius:7px;background:transparent;cursor:pointer;font-size:13px;color:var(--c-ink-2);text-align:left}
+.opt:hover{background:var(--c-surface-2)}
+.box{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--c-mark);box-sizing:border-box;display:flex;align-items:center;justify-content:center}
+.box.on{background:var(--c-now);border-color:var(--c-now)}
+.iconbtn{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--c-ink-2);border:0;background:transparent;cursor:pointer}
+.iconbtn:hover{background:var(--c-surface-2);color:var(--c-ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 13px;border-radius:8px;font-size:13px;font-weight:500;border:1px solid var(--c-line-2);background:var(--c-surface);color:var(--c-ink);cursor:pointer}
+.btn:hover{background:var(--c-surface-2)}
+.btn.primary{background:var(--c-now);border-color:var(--c-now);color:var(--c-surface)}
+.btn.small{height:28px;padding:0 10px;font-size:12px}
+.tool{height:30px;min-width:30px;padding:0 9px;border-radius:7px;border:1px solid var(--c-line-2);background:var(--c-surface);font-size:12.5px;color:var(--c-ink-2);cursor:pointer}
+.tool:hover{background:var(--c-surface-2)}
+.node{position:absolute;box-sizing:border-box;background:var(--c-surface);border:1px solid var(--c-line-2);border-radius:10px;padding:0;cursor:pointer;text-align:left;font-family:inherit}
+.node:hover{border-color:var(--c-mark)}
+.node.many{box-shadow:4px 4px 0 -1px var(--c-surface),4px 4px 0 0 var(--c-line-2),8px 8px 0 -1px var(--c-surface),8px 8px 0 0 var(--c-line-2)}
+.node.sel{border-color:var(--c-now);outline:3px solid rgba(29,95,194,.2)}
+.node.measure{background:var(--c-measured-soft);border-color:var(--c-measured);border-radius:20px}
+.nh{position:absolute;left:11px;right:11px;top:8px;display:flex;flex-direction:column;gap:2px}
+.nn{font-size:13px;font-weight:600;color:var(--c-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nt{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;color:var(--c-ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pin{position:absolute;width:8px;height:8px;border-radius:4px;background:var(--c-surface);border:1.6px solid var(--c-mark);box-sizing:border-box}
+.pl{position:absolute;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;color:var(--c-ink-2);white-space:nowrap}
+.times{position:absolute;right:12px;bottom:-9px;z-index:1;background:var(--c-now-soft);border:1px solid var(--c-now-line);border-radius:4px;padding:1px 5px;line-height:14px;font-size:10px;font-weight:700;color:var(--c-now-ink)}
+.badge{position:absolute;top:-9px;right:10px;font-size:10px;font-weight:700;letter-spacing:.04em;border-radius:4px;padding:2px 5px}
+.b-ai{color:var(--c-ai);background:var(--c-ai-soft);border:1px solid var(--c-ai-line)}
+.b-open{color:var(--c-needs-you-ink);background:var(--c-needs-you-soft);border:1px solid var(--c-needs-you-line)}
+.setrow{position:absolute;left:8px;right:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:3px 6px;border-radius:5px;background:var(--c-measured-soft);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;color:var(--c-measured-ink)}
+.chip{position:absolute;box-sizing:border-box;border:1px dashed var(--c-now-line);background:var(--c-now-soft);border-radius:9px;padding:6px 10px;display:flex;flex-direction:column;gap:1px}
+.cn{font-size:12.5px;font-weight:600;color:var(--c-now-ink)}
+.ct{font-size:10.5px;color:var(--c-now-ink);font-family:'JetBrains Mono',ui-monospace,monospace}
+.out{position:absolute;box-sizing:border-box;border-radius:9px;background:var(--c-done-soft);border:1px solid var(--c-done-line);padding:6px 10px;display:flex;flex-direction:column;gap:1px}
+.on1{font-size:12px;font-weight:600;color:var(--c-done-ink)}
+.ot{font-size:10.5px;color:var(--c-done-ink);font-family:'JetBrains Mono',ui-monospace,monospace}
+.menu{position:absolute;z-index:5;width:200px;background:var(--c-surface);border:1px solid var(--c-line-2);border-radius:10px;box-shadow:0 8px 24px rgba(20,24,30,.14);padding:5px;display:flex;flex-direction:column}
+.mi{display:flex;align-items:center;justify-content:space-between;height:30px;padding:0 10px;border:0;border-radius:6px;background:transparent;font-size:13px;color:var(--c-ink-2);cursor:pointer;text-align:left}
+.mi:hover{background:var(--c-surface-2)}
+.mk{font-size:11px;color:var(--c-ink-3)}
+.sep{height:1px;background:var(--c-line-soft);margin:4px 6px}
+.tab{flex:1 1 0;height:40px;border:0;background:transparent;font-size:13.5px;font-weight:600;color:var(--c-ink-3);cursor:pointer;border-bottom:2px solid transparent}
+.tab.on{color:var(--c-now-ink);border-bottom-color:var(--c-now)}
+.k{font-size:11.5px;font-weight:600;color:var(--c-ink-3);text-transform:uppercase;letter-spacing:.06em}
+.why{font-size:12.5px;line-height:1.5;color:var(--c-ink-2)}
+.by{display:inline-flex;font-size:10.5px;font-weight:700;letter-spacing:.04em;border-radius:4px;padding:2px 6px}
+.by-measured{color:var(--c-measured-ink);background:var(--c-measured-soft)}
+.by-rule{color:var(--c-now-ink);background:var(--c-now-soft)}
+.by-ai{color:var(--c-ai);background:var(--c-ai-soft)}
+.by-open{color:var(--c-needs-you-ink);background:var(--c-needs-you-soft)}
+.by-you{color:var(--c-done-ink);background:var(--c-done-soft)}
+.lg{display:flex;align-items:center;gap:6px}
+.pin.opt{border-style:dashed;border-color:var(--c-mark)}
+.pl.opt{color:var(--c-mark)}
+.sect{border-top:1px solid var(--c-line-soft)}
+.sh{display:flex;align-items:center;gap:8px;width:100%;padding:12px 16px;border:0;background:transparent;cursor:pointer;text-align:left;font-family:inherit}
+.prm{display:flex;flex-direction:column;gap:6px;padding:10px 16px;border-top:1px solid var(--c-line-soft)}
+.plab{display:flex;align-items:center;gap:8px}
+.pname{font-size:13px;font-weight:600;color:var(--c-ink);min-width:0}
+.pkey{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pkey{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--c-ink-3)}
+.ask{margin-left:auto;flex:0 0 auto;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:6px;border:1px solid var(--c-ai-line);background:var(--c-ai-soft);color:var(--c-ai);font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.ask:hover{background:var(--c-ai-soft)}
+.ctl{height:30px;box-sizing:border-box;border:1px solid var(--c-line-2);border-radius:7px;padding:0 9px;font-size:13px;background:var(--c-surface);color:var(--c-ink);font-family:inherit}
+.num{display:flex;align-items:center;gap:6px}
+.unit{font-size:12px;color:var(--c-ink-3)}
+.help{font-size:12px;line-height:1.45;color:var(--c-ink-3)}
+.sub{margin-left:10px;padding-left:12px;border-left:2px solid var(--c-line);display:flex;flex-direction:column;gap:6px}
+.aibox{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:9px;background:var(--c-ai-soft);border:1px solid var(--c-ai-line);font-size:12.5px;line-height:1.45;color:var(--c-ink-2)}
+.irow{display:flex;align-items:center;gap:8px;padding:8px 16px;border-top:1px solid var(--c-line-soft);font-size:12.5px}
+.lib{position:absolute;z-index:6;left:12px;bottom:56px;width:340px;max-height:420px;background:var(--c-surface);border:1px solid var(--c-line-2);border-radius:12px;box-shadow:0 10px 30px rgba(20,24,30,.16);display:flex;flex-direction:column;overflow:hidden}
+.lrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:8px 12px;border:0;background:transparent;text-align:left;cursor:grab;width:100%;font-family:inherit}
+.lrow:hover{background:var(--c-surface-2)}
+</style>
+</helmet>
+<div class="theme-root {{themeCls}}" style="display: flex; flex-wrap: wrap; min-height: 900px">
+
+<nav class="rail" aria-label="Comeni">
+  <a class="place" href="Home.dc.html" title="Home" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-now-ink)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"></path><path d="M10 20v-5h4v5"></path></svg><span class="mt">Home</span></a>
+  <a class="place" href="ForgeHome.dc.html" title="Forge" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 4l6 6-8 8-6-6zM4 20l4-4"></path></svg><span class="mt">Forge</span></a>
+  <a class="place" href="Registry.dc.html" title="Registry" style="display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--c-ink-2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"></path><path d="M9 10h6M9 14h6"></path></svg><span class="mt">Registry</span></a>
+  <div style="height: 1px; background: var(--c-line-soft); margin: 10px 4px"></div>
+  <div style="display: flex; align-items: center; gap: 6px; margin: 0 0 12px">
+    <button type="button" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; border: 1px solid var(--c-line); border-radius: 9px; background: var(--c-surface); cursor: pointer; text-align: left">
+      <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0">
+        <span style="font-size: 11.5px; color: var(--c-ink-3)">Analysis</span>
+        <span style="font-size: 14px; font-weight: 600; color: var(--c-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Liver RNA-seq counts</span>
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--c-ink-3)" stroke-width="2" aria-hidden="true"><path d="M7 10l5-5 5 5M7 14l5 5 5-5"></path></svg>
+    </button>
+    <button class="iconbtn" type="button" aria-label="Collapse sidebar" title="Collapse sidebar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path></svg></button>
+  </div>
+
+  <a class="mode" href="Main.dc.html" title="Data">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+    <span class="mt"><span class="mn">Data</span><span class="ms">24 samples · 2 refs</span></span>
+  </a>
+  <a class="mode on" href="Build.dc.html" title="Build" aria-current="page">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="6" height="5" rx="1"></rect><rect x="15" y="4" width="6" height="5" rx="1"></rect><rect x="9" y="15" width="6" height="5" rx="1"></rect><path d="M6 9v2h12V9M12 11v4"></path></svg>
+    <span class="mt"><span class="mn">Build</span><span class="ms" style="color: var(--c-now-ink)">9 steps · {{reviewCount}} to review</span></span>
+  </a>
+  <a class="mode" href="#" style="padding: 6px 10px 6px 39px; font-size: 13px; color: var(--c-ink-2)">Canvas</a>
+  <a class="mode" href="#" style="padding: 6px 10px 6px 39px; font-size: 13px; color: var(--c-ink-2)">Pipeline file</a>
+  <a class="mode" href="Run.dc.html" title="Run">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 5l12 7-12 7z"></path></svg>
+    <span class="mt"><span class="mn">Run</span><span class="ms">No runs</span></span>
+  </a>
+
+  <div style="height: 1px; background: var(--c-line-soft); margin: 12px 4px 8px"></div>
+
+  <label style="display: flex; align-items: center; gap: 8px; margin: 0 4px 6px; padding: 0 10px; height: 34px; border: 1px solid var(--c-line-2); border-radius: 8px">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--c-ink-3)" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+    <span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Find a step</span>
+    <input type="text" placeholder="Find a step or tool" style="flex: 1 1 auto; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 13px; background: transparent">
+  </label>
+
+  <sc-if value="{{hasReview}}" hint-placeholder-val="{{ true }}">
+    <div class="group">Review</div>
+    <sc-for list="{{review}}" as="r" hint-placeholder-count="2">
+      <button class="srow" type="button" onClick="{{r.go}}">
+        <span class="{{r.byCls}}" style="margin-top: 1px">{{r.tag}}</span>
+        <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0"><span style="font-weight: 600">{{r.step}}</span><span style="font-size: 12px; color: var(--c-ink-3)">{{r.what}}</span></span>
+      </button>
+    </sc-for>
+  </sc-if>
+
+  <div class="group">On the steps</div>
+  <button class="opt" type="button" onClick="{{flipTools}}"><span class="{{toolsBox}}"><sc-if value="{{showTools}}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--c-surface)" stroke-width="3.5" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if></span>Tool and version</button>
+  <button class="opt" type="button" onClick="{{flipPorts}}"><span class="{{portsBox}}"><sc-if value="{{showPorts}}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--c-surface)" stroke-width="3.5" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if></span>Input and output names</button>
+
+  <div class="foot" style="margin-top: auto; padding-top: 10px; border-top: 1px solid var(--c-line-soft); display: flex; align-items: center; gap: 2px">
+    <a class="iconbtn" href="Settings.dc.html" aria-label="Settings" title="Settings" style="color: var(--c-ink-2); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"></path></svg></a>
+    <button class="iconbtn" type="button" onClick="{{toggleTheme}}" aria-label="Switch between light and dark" title="Light / dark" style="color: var(--c-ink-2); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></button>
+    <span class="local" style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--c-ink-3); padding-right: 6px"><span style="width: 7px; height: 7px; border-radius: 4px; background: var(--c-done)"></span>Local</span>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px 20px 20px 24px; box-sizing: border-box">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+    <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.01em">Build</h1>
+      <span style="font-size: 13px; color: var(--c-ink-2)">24 samples in · gene counts and a QC report out</span>
+    </div>
+  </header>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 14px; flex: 1 1 auto; align-items: stretch">
+
+    <section aria-label="pipeline canvas" style="flex: 999 1 560px; min-width: 0; background: var(--c-surface); border: 1px solid var(--c-line); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; position: relative">
+      <div style="flex: 1 1 auto; overflow: auto; background-image: radial-gradient(var(--c-line) 1px, transparent 1px); background-size: 18px 18px">
+        <div onClick="{{closeMenu}}" onContextMenu="{{canvasMenu}}" style="position: relative; width: 1060px; height: 540px; margin: 8px">
+
+          <svg width="1060" height="540" viewBox="0 0 1060 540" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible">
+            <g fill="none" stroke="var(--c-mark)" stroke-width="5" stroke-linecap="round">
+              <path d="M112 376 L156 376"></path>
+              <path d="M301 376 L356 376"></path>
+              <path d="M301 376 C326 376 326 468 356 468"></path>
+              <path d="M301 394 L310 394 L310 514 L536 514 C548 514 548 468 556 468"></path>
+              <path d="M501 468 L556 468"></path>
+              <path d="M501 340 L556 340"></path>
+              <path d="M701 340 C720 340 720 358 756 358"></path>
+              <path d="M901 340 L946 340"></path>
+            </g>
+            <g fill="none" stroke="var(--c-surface)" stroke-width="2" stroke-linecap="round">
+              <path d="M112 376 L156 376"></path>
+              <path d="M301 376 L356 376"></path>
+              <path d="M301 376 C326 376 326 468 356 468"></path>
+              <path d="M301 394 L310 394 L310 514 L536 514 C548 514 548 468 556 468"></path>
+              <path d="M501 468 L556 468"></path>
+              <path d="M501 340 L556 340"></path>
+              <path d="M701 340 C720 340 720 358 756 358"></path>
+              <path d="M901 340 L946 340"></path>
+            </g>
+            <g fill="none" stroke="var(--c-mark)" stroke-width="1.6">
+              <path d="M112 52 L134 52 Q142 52 142 60 L142 62 L156 62"></path>
+              <path d="M112 52 C130 52 130 200 146 200 L156 200"></path>
+              <path d="M301 200 L340 200 L340 340 L356 340"></path>
+              <path d="M701 468 L946 468"></path>
+            </g>
+            <g fill="none" stroke="var(--c-now-line)" stroke-width="1.6">
+              <path d="M112 218 L156 218"></path>
+              <path d="M136 218 L136 272 L740 272"></path>
+              <path d="M328 272 L328 358 L356 358"></path>
+              <path d="M740 272 L740 340 L756 340"></path>
+            </g>
+            <g fill="var(--c-now-line)"><circle cx="136" cy="218" r="3"></circle><circle cx="328" cy="272" r="3"></circle></g>
+            <path d="M228 92 L228 100" fill="none" stroke="var(--c-measured)" stroke-width="1.6"></path>
+            <path d="M228 142 L228 150" fill="none" stroke="var(--c-measured)" stroke-width="1.6" stroke-dasharray="4 3"></path>
+            <text x="146" y="288" font-size="10" fill="var(--c-now-ink)" font-family="JetBrains Mono, monospace">genes.gtf · shared</text>
+            <path d="M546 461 L556 468 L546 475" fill="none" stroke="var(--c-now-ink)" stroke-width="1.6"></path>
+          </svg>
+
+          <div class="chip" style="left: 12px; top: 34px; width: 100px"><span class="cn">Genome</span><span class="ct">genome.fasta</span></div>
+          <div class="chip" style="left: 12px; top: 200px; width: 100px"><span class="cn">Annotation</span><span class="ct">genes.gtf</span></div>
+          <div class="chip" style="left: 12px; top: 352px; width: 100px; box-shadow: 4px 4px 0 -1px var(--c-surface), 4px 4px 0 0 var(--c-now-line)"><span class="cn">Reads</span><span class="ct">24 samples</span></div>
+
+          <sc-for list="{{nodes}}" as="n" hint-placeholder-count="9">
+            <button type="button" class="{{n.cls}}" style="{{n.pos}}" onClick="{{n.pick}}" onContextMenu="{{n.menu}}" aria-pressed="{{n.sel}}" aria-label="{{n.name}}">
+              <span class="nh"><span class="nn">{{n.name}}</span><sc-if value="{{n.showTool}}" hint-placeholder-val="{{ true }}"><span class="nt">{{n.tool}}</span></sc-if></span>
+              <sc-for list="{{n.pins}}" as="p" hint-placeholder-count="2">
+                <span class="{{p.cls}}" style="{{p.dot}}"></span>
+                <sc-if value="{{p.labelled}}" hint-placeholder-val="{{ false }}"><span class="{{p.labCls}}" style="{{p.lab}}">{{p.label}}</span></sc-if>
+              </sc-for>
+              <sc-if value="{{n.hasSet}}" hint-placeholder-val="{{ false }}"><span class="setrow" style="{{n.setPos}}">{{n.set}}</span></sc-if>
+              <sc-if value="{{n.many}}" hint-placeholder-val="{{ false }}"><span class="times">×24</span></sc-if>
+              <sc-if value="{{n.ai}}" hint-placeholder-val="{{ false }}"><span class="badge b-ai">AI</span></sc-if>
+              <sc-if value="{{n.open}}" hint-placeholder-val="{{ false }}"><span class="badge b-open">1 open</span></sc-if>
+            </button>
+          </sc-for>
+
+          <div class="out" style="left: 946px; top: 320px; width: 104px; box-shadow: 4px 4px 0 -1px var(--c-surface), 4px 4px 0 0 var(--c-done-line)"><span class="on1">Gene counts</span><span class="ot">24 tables</span></div>
+          <div class="out" style="left: 946px; top: 448px; width: 104px"><span class="on1">QC report</span><span class="ot">1 page</span></div>
+
+          <sc-if value="{{menuOpen}}" hint-placeholder-val="{{ true }}">
+            <div class="menu" role="menu" aria-label="{{menuTitle}}" style="{{menuPos}}">
+              <span style="font-size: 11.5px; font-weight: 600; color: var(--c-ink-3); padding: 6px 10px 4px">{{menuTitle}}</span>
+              <sc-for list="{{menuItems}}" as="m" hint-placeholder-count="6">
+                <sc-if value="{{m.sep}}" hint-placeholder-val="{{ false }}"><span class="sep"></span></sc-if>
+                <sc-if value="{{m.item}}" hint-placeholder-val="{{ true }}"><button class="mi" role="menuitem" type="button" style="{{m.style}}" onClick="{{closeMenu}}"><span>{{m.label}}</span><span class="mk">{{m.key}}</span></button></sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+      <sc-if value="{{libOpen}}" hint-placeholder-val="{{ false }}">
+        <div class="lib" role="dialog" aria-label="Add a step">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--c-line-soft)">
+            <span style="font-size: 13.5px; font-weight: 600">Add a step</span>
+            <span style="margin-left: auto; font-size: 11.5px; color: var(--c-ink-3)">click, or drag onto the canvas</span>
+            <button class="iconbtn" type="button" onClick="{{flipLib}}" aria-label="Close" style="width: 28px; height: 28px">×</button>
+          </div>
+          <label style="display: flex; align-items: center; gap: 8px; margin: 10px 12px 6px; padding: 0 10px; height: 32px; border: 1px solid var(--c-line-2); border-radius: 8px">
+            <span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Search tools</span>
+            <input type="text" placeholder="Search tools, or what they take or make" style="flex: 1 1 auto; border: 0; outline: 0; font-size: 13px; font-family: inherit">
+          </label>
+          <div style="overflow: auto; padding-bottom: 6px">
+            <sc-for list="{{library}}" as="g" hint-placeholder-count="3">
+              <span style="display: block; padding: 8px 12px 2px; font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--c-ink-3)">{{g.job}}</span>
+              <sc-for list="{{g.tools}}" as="t" hint-placeholder-count="2">
+                <button class="lrow" type="button">
+                  <span style="font-size: 13px; font-weight: 600; color: var(--c-ink)">{{t.name}}</span>
+                  <span class="mono" style="font-size: 11px; color: var(--c-ink-3)">{{t.ver}}</span>
+                  <span class="mono" style="grid-column: 1 / -1; font-size: 11px; color: var(--c-ink-2)">{{t.io}}</span>
+                </button>
+              </sc-for>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--c-line-soft)">
+        <button class="tool" type="button">Fit</button>
+        <button class="tool" type="button" aria-label="Zoom out">−</button>
+        <button class="tool" type="button" aria-label="Zoom in">+</button>
+        <button class="tool" type="button">Undo</button>
+        <button class="{{libBtnCls}}" type="button" onClick="{{flipLib}}" style="color: var(--c-now)">+ Add step</button>
+        <span style="margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; font-size: 11.5px; color: var(--c-ink-3)">
+          <span class="lg"><span style="width: 18px; height: 5px; border-radius: 3px; background: var(--c-mark); box-shadow: inset 0 0 0 1.5px var(--c-mark), inset 0 0 0 3px var(--c-surface)"></span>per sample</span>
+          <span class="lg"><span style="width: 18px; border-top: 1.6px solid var(--c-mark)"></span>one file</span>
+          <span class="lg"><span style="width: 18px; border-top: 1.6px solid var(--c-now-line)"></span>shared input</span>
+          <span class="lg"><span style="width: 18px; border-top: 1.6px dashed var(--c-measured)"></span>measured → setting</span>
+          <span class="lg"><span style="width: 8px; height: 8px; border-radius: 4px; border: 1.6px dashed var(--c-mark); box-sizing: border-box"></span>optional input</span>
+          <span>Drag from a port: inputs that fit turn green · right-click for more</span>
+        </span>
+      </div>
+    </section>
+
+    <aside aria-label="step and assistant" style="flex: 1 1 320px; max-width: 360px; min-width: 0; background: var(--c-surface); border: 1px solid var(--c-line); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden">
+      <div role="tablist" style="display: flex; border-bottom: 1px solid var(--c-line-soft)">
+        <button role="tab" class="{{stepTabCls}}" type="button" onClick="{{showStep}}" aria-selected="{{onStep}}">Step</button>
+        <button role="tab" class="{{chatTabCls}}" type="button" onClick="{{showChat}}" aria-selected="{{onChat}}">Assistant</button>
+      </div>
+
+      <sc-if value="{{onStep}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; overflow: auto">
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 16px 16px 14px">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><h2 style="margin: 0; font-size: 17px; font-weight: 650">{{d.name}}</h2><span style="font-size: 11px; font-weight: 600; color: var(--c-now-ink); background: var(--c-now-soft); border-radius: 4px; padding: 1px 6px">{{d.runs}}</span></div>
+            <div style="display: flex; align-items: center; gap: 8px"><span class="mono" style="font-size: 12px; color: var(--c-ink-3)">{{d.tool}}</span><span class="{{d.chosenCls}}">{{d.chosenBy}}</span></div>
+            <p class="why" style="margin: 2px 0 0">{{d.what}}</p>
+            <sc-if value="{{d.isAi}}" hint-placeholder-val="{{ false }}"><span style="display: flex; gap: 6px"><button class="btn small" type="button" onClick="{{confirmAi}}">Keep this step</button><button class="btn small" type="button">Remove</button></span></sc-if>
+            <span style="display: flex; gap: 6px; padding-top: 4px"><button class="btn small" type="button">Swap tool</button><button class="btn small" type="button">Tool version</button></span>
+          </div>
+
+          <div class="sect">
+            <div style="padding: 12px 16px 4px"><span class="k">Inputs</span></div>
+            <sc-for list="{{d.inputs}}" as="x" hint-placeholder-count="2">
+              <div class="irow">
+                <span class="{{x.pinCls}}" style="position: static; flex: 0 0 8px"></span>
+                <span class="mono" style="min-width: 78px">{{x.name}}</span>
+                <span style="color: var(--c-ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{x.from}}</span>
+                <sc-if value="{{x.optional}}" hint-placeholder-val="{{ false }}"><button class="btn small" type="button" style="margin-left: auto">Connect</button></sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{d.noParams}}" hint-placeholder-val="{{ false }}">
+            <div class="sect" style="padding: 14px 16px; font-size: 12.5px; color: var(--c-ink-3)">No parameters.</div>
+          </sc-if>
+          <sc-for list="{{d.groups}}" as="grp" hint-placeholder-count="2">
+            <div class="sect">
+              <button class="sh" type="button" onClick="{{grp.flip}}" aria-expanded="{{grp.open}}">
+                <span class="k">{{grp.title}}</span><span style="font-size: 11.5px; color: var(--c-ink-3)">{{grp.count}}</span>
+                <span style="margin-left: auto; font-size: 11px; color: var(--c-ink-3)">{{grp.caret}}</span>
+              </button>
+              <sc-if value="{{grp.open}}" hint-placeholder-val="{{ true }}">
+                <sc-for list="{{grp.params}}" as="p" hint-placeholder-count="3">
+                  <div class="prm">
+                    <div class="plab"><label class="pname">{{p.label}}</label><span class="pkey">{{p.key}}</span><button class="ask" type="button" onClick="{{p.askIt}}" aria-label="Ask AI about {{p.label}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 3l1.8 4.6L18.5 9.4 13.8 11.2 12 16l-1.8-4.8L5.5 9.4l4.7-1.8z"></path></svg>Ask AI</button></div>
+                    <sc-if value="{{p.isSelect}}" hint-placeholder-val="{{ false }}"><select class="ctl" aria-label="{{p.label}}"><sc-for list="{{p.options}}" as="o" hint-placeholder-count="2"><option selected="{{o.sel}}">{{o.v}}</option></sc-for></select></sc-if>
+                    <sc-if value="{{p.isNumber}}" hint-placeholder-val="{{ true }}"><span class="num"><input class="ctl mono" type="number" value="{{p.value}}" aria-label="{{p.label}}" style="width: 110px"><span class="unit">{{p.unit}}</span><span class="unit" style="margin-left: auto">{{p.range}}</span></span></sc-if>
+                    <sc-if value="{{p.isText}}" hint-placeholder-val="{{ false }}"><input class="ctl mono" type="text" value="{{p.value}}" placeholder="{{p.placeholder}}" aria-label="{{p.label}}"></sc-if>
+                    <sc-if value="{{p.isBool}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; border: 1px solid var(--c-line-2); border-radius: 7px; overflow: hidden; align-self: flex-start"><button type="button" style="{{p.yesStyle}}">Yes</button><button type="button" style="{{p.noStyle}}">No</button></span></sc-if>
+                    <sc-if value="{{p.isFile}}" hint-placeholder-val="{{ false }}"><span style="display: flex; align-items: center; gap: 8px"><button class="btn small" type="button">Choose file…</button><span style="font-size: 12px; color: var(--c-ink-3)">{{p.value}}</span></span></sc-if>
+                    <sc-if value="{{p.isCond}}" hint-placeholder-val="{{ false }}">
+                      <select class="ctl" aria-label="{{p.label}}"><sc-for list="{{p.options}}" as="o" hint-placeholder-count="2"><option selected="{{o.sel}}">{{o.v}}</option></sc-for></select>
+                      <sc-if value="{{p.hasSub}}" hint-placeholder-val="{{ false }}">
+                        <div class="sub"><sc-for list="{{p.sub}}" as="q" hint-placeholder-count="1"><span class="pname" style="font-size: 12.5px">{{q.label}}</span><span class="num"><input class="ctl mono" type="text" value="{{q.value}}" aria-label="{{q.label}}" style="width: 150px"><span class="unit">{{q.unit}}</span></span><span class="help">{{q.help}}</span></sc-for></div>
+                      </sc-if>
+                    </sc-if>
+                    <sc-if value="{{p.isRepeat}}" hint-placeholder-val="{{ false }}">
+                      <sc-for list="{{p.items}}" as="it" hint-placeholder-count="1"><span style="display: flex; gap: 6px"><input class="ctl mono" type="text" value="{{it}}" aria-label="{{p.label}}" style="flex: 1 1 auto"><button class="btn small" type="button" aria-label="Remove">×</button></span></sc-for>
+                      <button class="btn small" type="button" style="align-self: flex-start">{{p.addLabel}}</button>
+                    </sc-if>
+                    <span style="display: flex; align-items: flex-start; gap: 6px"><span class="{{p.byCls}}">{{p.by}}</span><span class="help">{{p.help}}</span></span>
+                    <sc-if value="{{p.asking}}" hint-placeholder-val="{{ false }}">
+                      <div class="aibox"><span><b style="font-weight: 700; color: var(--c-ai)">AI</b> · {{p.ai}}</span><span style="display: flex; gap: 6px"><sc-if value="{{p.hasSuggest}}" hint-placeholder-val="{{ false }}"><button class="btn small" type="button" onClick="{{closeAsk}}">Use {{p.suggest}}</button></sc-if><button class="btn small" type="button" onClick="{{closeAsk}}">Dismiss</button></span></div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{onChat}}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; overflow: auto">
+          <div style="align-self: flex-end; max-width: 85%; display: flex; flex-direction: column; gap: 6px; align-items: flex-end">
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid var(--c-line-2); border-radius: 6px; font-size: 11.5px" class="mono">samples.csv</span>
+            <span style="background: var(--c-now-soft); border-radius: 10px; padding: 8px 11px; font-size: 13px">gene counts per sample, groups are in this sheet</span>
+          </div>
+          <button type="button" style="align-self: flex-start; border: 0; background: transparent; padding: 0; font-size: 12px; color: var(--c-ink-3); cursor: pointer">▸ How I got here · 12 steps</button>
+          <p class="why" style="margin: 0; font-size: 13.5px">9 steps. Two need you: the sequencing platform on Align reads, and the QC report step I added.</p>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap"><button class="btn small" type="button" onClick="{{goAlign}}">Align reads</button><button class="btn small" type="button" onClick="{{goQc}}">QC report</button></div>
+          <span style="font-size: 11px; color: var(--c-ink-3)">12.4k tokens · 4 calls</span>
+        </div>
+        <div style="border-top: 1px solid var(--c-line-soft); padding: 10px; display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+            <span class="mono" style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px; border: 1px solid var(--c-line-2); border-radius: 6px; font-size: 11.5px">genes.gtf<button type="button" aria-label="Remove genes.gtf" style="border: 0; background: transparent; cursor: pointer; color: var(--c-ink-3); font-size: 13px; padding: 0 4px">×</button></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; border: 1px solid var(--c-line-2); border-radius: 9px; padding: 6px 6px 6px 4px">
+            <button class="iconbtn" type="button" aria-label="Attach a file" title="Attach a file, or drop one here" style="width: 30px; height: 30px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 11.5l-8.5 8.5a5 5 0 0 1-7-7L13 4.5a3.5 3.5 0 0 1 5 5L9.5 18a2 2 0 0 1-3-3l8-8"></path></svg></button>
+            <label style="flex: 1 1 auto; min-width: 0"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Message</span><input type="text" placeholder="Ask, or say what to change" style="width: 100%; border: 0; outline: 0; font: inherit; font-size: 13px"></label>
+            <button class="btn small primary" type="button">Send</button>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--c-ink-3)"><span>This analysis: 100.2k tokens · 19 calls</span><span>GPT · subscription</span></div>
+        </div>
+      </sc-if>
+    </aside>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false,"tsType":"boolean"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { sel: 'align', tab: 'step', aiOk: false, tools: true, ports: true, menu: null, lib: false, adv: false, ask: 'seq_platform' };
+}
+renderValsBase() {
+var s = this.state;
+var self = this;
+var N = [
+  { id: 'faidx', name: 'Index genome', tool: 'samtools faidx 1.24', x: 156, y: 12, w: 145, h: 80,
+    ins: [{ l: 'fasta', dy: 50 }, { l: 'fai · optional', dy: 66, opt: true }], outs: [{ l: 'fai', dy: 50 }],
+    what: 'Writes an index of the genome so later steps can read any region quickly.', dIns: ['genome.fasta'], dOuts: ['genome.fasta.fai'],
+    by: 'rule', chosen: 'The only tool in the registry for this job.' },
+  { id: 'measure', kind: 'measure', name: 'Genome length', tool: 'from the .fai', x: 158, y: 100, w: 140, h: 42, ins: [], outs: [],
+    what: 'Measures the total genome length from the index. The length decides a STAR setting.', dIns: ['genome.fasta.fai'], dOuts: ['230,218 bp'],
+    by: 'rule', chosen: 'Added because Build STAR index needs the genome length.' },
+  { id: 'staridx', name: 'Build STAR index', tool: 'STAR 2.7.11b', x: 156, y: 150, w: 145, h: 106, set: 'sa_index_nbases 8', setY: 80,
+    ins: [{ l: 'genome', dy: 50 }, { l: 'annotation', dy: 68 }], outs: [{ l: 'index', dy: 50 }],
+    what: 'Builds the index STAR aligns against, from the genome and its annotation.', dIns: ['genome.fasta', 'genes.gtf'], dOuts: ['STAR index'],
+    by: 'rule', chosen: 'STAR needs its own index.',
+    settings: [{ name: 'sa_index_nbases', value: '8', by: 'measured', why: 'Genome is 230,218 bp. min(14, log2(length) / 2 − 1) = 8.' }] },
+  { id: 'trim', name: 'Trim reads', tool: 'Trim Galore 2.3.0', x: 156, y: 326, w: 145, h: 82, many: true,
+    ins: [{ l: 'reads', dy: 50 }], outs: [{ l: 'reads', dy: 50 }, { l: 'report', dy: 68 }],
+    what: 'Removes adapters and low-quality ends from each read.', dIns: ['reads, paired'], dOuts: ['trimmed reads', 'trimming report'],
+    by: 'rule', chosen: 'The only trimming tool in the registry.' },
+  { id: 'align', name: 'Align reads', tool: 'STAR 2.7.11b', x: 356, y: 290, w: 145, h: 104, many: true, open: true,
+    ins: [{ l: 'index', dy: 50 }, { l: 'annotation', dy: 68 }, { l: 'reads', dy: 86 }], outs: [{ l: 'bam', dy: 50 }],
+    what: 'Aligns each sample’s trimmed reads to the genome, allowing for splicing.', dIns: ['STAR index (shared)', 'genes.gtf (shared)', 'trimmed reads'], dOuts: ['alignments (BAM)'],
+    by: 'rule', chosen: 'Alignment rule picks STAR for reads of this length.',
+    settings: [{ name: 'seq_platform', value: '—', by: 'open', why: 'Nothing decided this. Set it, or leave it empty.' }] },
+  { id: 'fastqc', name: 'Check read quality', tool: 'FastQC 0.12.1', x: 356, y: 440, w: 145, h: 56, many: true,
+    ins: [{ l: 'reads', dy: 28 }], outs: [{ l: 'report', dy: 28 }],
+    what: 'Checks each sample’s trimmed reads: base quality, adapters, duplication.', dIns: ['trimmed reads'], dOuts: ['QC report per sample'],
+    by: 'rule', chosen: 'Added for the QC report.' },
+  { id: 'sort', name: 'Sort alignments', tool: 'samtools sort 1.24', x: 556, y: 312, w: 145, h: 56, many: true,
+    ins: [{ l: 'bam', dy: 28 }], outs: [{ l: 'bam', dy: 28 }],
+    what: 'Sorts each sample’s alignments by position.', dIns: ['alignments (BAM)'], dOuts: ['sorted BAM'],
+    by: 'rule', chosen: 'Counting needs sorted alignments.' },
+  { id: 'multiqc', name: 'QC report', tool: 'MultiQC 1.35', x: 556, y: 440, w: 145, h: 56, ai: true, gathers: true,
+    ins: [{ l: 'all 24', dy: 28, show: true }], outs: [{ l: 'html', dy: 28 }],
+    what: 'Combines every sample’s QC and trimming reports into one page.', dIns: ['all 24 FastQC reports', 'all 24 trimming reports'], dOuts: ['QC report (HTML)'],
+    by: 'ai', chosen: 'The assistant added this step.' },
+  { id: 'count', name: 'Count genes', tool: 'featureCounts 2.1.1', x: 756, y: 290, w: 145, h: 86, many: true,
+    ins: [{ l: 'annotation', dy: 50 }, { l: 'bam', dy: 68 }], outs: [{ l: 'counts', dy: 50 }],
+    what: 'Counts the reads on each gene, for each sample.', dIns: ['genes.gtf (shared)', 'sorted BAM'], dOuts: ['gene counts table'],
+    by: 'rule', chosen: 'The only gene counting tool in the registry.' }
+];
+var P = {
+  align: { basic: [
+      { k: 'seq_platform', label: 'Sequencing platform', t: 'select', v: 'not set', o: ['not set', 'ILLUMINA', 'ONT', 'PACBIO'], by: 'open', help: 'Goes into each BAM read group.', ai: 'Read names and pairing look like Illumina short reads.', sug: 'ILLUMINA' },
+      { k: 'outSAMtype', label: 'Output', t: 'select', v: 'BAM Unsorted', o: ['BAM Unsorted', 'BAM SortedByCoordinate', 'SAM'], by: 'rule', help: 'Sort alignments sorts next.' },
+      { k: 'twopassMode', label: 'Two-pass mode', t: 'cond', v: 'Basic', o: ['None', 'Basic'], by: 'you', help: 'A second pass finds novel splice junctions.', sub: [{ label: 'Reads in pass 1', v: '-1', unit: 'reads', help: '−1 uses every read.' }] },
+      { k: 'outFilterMultimapNmax', label: 'Max places a read may map', t: 'int', v: '10', unit: 'loci', range: '1 – 1000', by: 'default', help: 'Reads mapping to more places are dropped.' } ],
+    advanced: [
+      { k: 'outSAMattributes', label: 'BAM attributes', t: 'text', v: 'Standard', by: 'default', help: 'Extra tags written per read.' },
+      { k: 'alignIntronMax', label: 'Longest intron', t: 'int', v: '0', unit: 'bp', range: '0 = decide from genome', by: 'default', help: 'STAR picks a limit from the genome size.' },
+      { k: 'sjdbFileChrStartEnd', label: 'Extra splice junctions', t: 'file', v: 'optional · none', by: 'default', help: 'One junction per line.' },
+      { k: 'outSAMattrRGline', label: 'Read group fields', t: 'repeat', items: ['ID:{sample}', 'SM:{sample}'], add: '+ Add field', by: 'rule', help: '{sample} becomes each sample’s name.' } ] },
+  trim: { basic: [
+      { k: 'quality', label: 'Quality cutoff', t: 'int', v: '20', unit: 'Phred', range: '0 – 40', by: 'default', help: 'Trims low-quality bases from the 3′ end.' },
+      { k: 'length', label: 'Shortest read kept', t: 'int', v: '20', unit: 'bp', range: '≥ 1', by: 'default', help: 'Shorter reads are dropped after trimming.' },
+      { k: 'paired', label: 'Paired reads', t: 'bool', v: true, by: 'measured', help: 'Your files come in pairs.' },
+      { k: 'adapter', label: 'Adapter', t: 'cond', v: 'Custom', o: ['Auto-detect', 'Illumina', 'Nextera', 'Custom'], by: 'you', help: 'Custom asks for the sequence.', sub: [{ label: 'Sequence', v: 'AGATCGGAAGAGC', unit: '', help: 'The 3′ adapter on read 1.' }] } ],
+    advanced: [
+      { k: 'clip_r1', label: 'Clip from read 1 start', t: 'int', v: '0', unit: 'bp', range: '≥ 0', by: 'default', help: 'Bases removed from the 5′ end.' },
+      { k: 'extra_adapters', label: 'More adapters', t: 'repeat', items: [], add: '+ Add adapter', by: 'default', help: 'Each one is trimmed too.' } ] },
+  staridx: { basic: [
+      { k: 'sa_index_nbases', label: 'Index size (SA bases)', t: 'int', v: '8', unit: '', range: '4 – 14', by: 'measured', help: 'From genome length 230,218 bp: min(14, log2(length) / 2 − 1).' },
+      { k: 'sjdbOverhang', label: 'Junction overhang', t: 'int', v: '100', unit: 'bp', range: '≥ 1', by: 'default', help: 'Best at read length − 1.', ai: 'Your reads are about 99 bp after trimming.', sug: '98' } ] },
+  sort: { basic: [ { k: 'index', label: 'Index file', t: 'select', v: 'bai', o: ['bai', 'csi', 'none'], by: 'rule', help: 'Count genes reads a .bai.' } ] },
+  count: { basic: [
+      { k: 'strandedness', label: 'Strandedness', t: 'select', v: 'Unstranded (0)', o: ['Unstranded (0)', 'Forward (1)', 'Reverse (2)'], by: 'measured', help: 'Measured from reads against the annotation.' },
+      { k: 'paired', label: 'Count read pairs', t: 'bool', v: true, by: 'measured', help: 'Your files come in pairs.' },
+      { k: 'feature', label: 'Feature type', t: 'text', v: 'exon', by: 'default', help: 'Annotation lines counted.' },
+      { k: 'attribute', label: 'Group by', t: 'text', v: 'gene_id', by: 'default', help: 'One count per gene id.' } ],
+    advanced: [
+      { k: 'minMQS', label: 'Lowest mapping quality', t: 'int', v: '0', unit: 'MAPQ', range: '0 – 255', by: 'default', help: 'Alignments below are not counted.' },
+      { k: 'multimapping', label: 'Count multi-mapping reads', t: 'bool', v: false, by: 'default', help: 'Off counts unique alignments only.' } ] },
+  fastqc: { basic: [ { k: 'nogroup', label: 'Every base position', t: 'bool', v: false, by: 'default', help: 'Off groups long reads into bins.' } ] },
+  multiqc: { basic: [ { k: 'title', label: 'Report title', t: 'text', v: '', ph: 'none', by: 'default', help: 'Shown at the top of the report.' } ],
+    advanced: [ { k: 'config', label: 'Config file', t: 'file', v: 'optional · none', by: 'default', help: 'A MultiQC YAML config.' } ] }
+};
+var INP = {
+  faidx: [{ name: 'fasta', from: 'genome.fasta' }, { name: 'fai', from: 'optional · not connected', opt: true }],
+  measure: [{ name: 'fai', from: 'Index genome' }],
+  staridx: [{ name: 'genome', from: 'genome.fasta' }, { name: 'annotation', from: 'genes.gtf' }],
+  trim: [{ name: 'reads', from: 'Reads · 24 samples' }],
+  align: [{ name: 'index', from: 'Build STAR index' }, { name: 'annotation', from: 'genes.gtf' }, { name: 'reads', from: 'Trim reads' }],
+  fastqc: [{ name: 'reads', from: 'Trim reads' }],
+  sort: [{ name: 'bam', from: 'Align reads' }],
+  multiqc: [{ name: 'all 24', from: 'Check read quality, Trim reads' }],
+  count: [{ name: 'annotation', from: 'genes.gtf' }, { name: 'bam', from: 'Sort alignments' }]
+};
+var TAG = { measured: 'MEASURED', rule: 'RULE', ai: 'AI', open: 'NOT SET', you: 'YOU', default: 'DEFAULT' };
+var onS = 'height:28px;padding:0 14px;border:0;font-size:12.5px;font-family:inherit;cursor:pointer;background:var(--c-now);color:var(--c-surface)';
+var offS = 'height:28px;padding:0 14px;border:0;font-size:12.5px;font-family:inherit;cursor:pointer;background:var(--c-surface);color:var(--c-ink-2)';
+var shape = function (p) {
+  return {
+    key: p.k, label: p.label, value: p.v === undefined ? '' : String(p.v), unit: p.unit || '', range: p.range || '', placeholder: p.ph || '',
+    isSelect: p.t === 'select', isNumber: p.t === 'int', isText: p.t === 'text', isBool: p.t === 'bool', isFile: p.t === 'file', isCond: p.t === 'cond', isRepeat: p.t === 'repeat',
+    options: (p.o || []).map(function (o) { return { v: o, sel: o === p.v }; }),
+    hasSub: p.t === 'cond' && p.v !== 'None' && p.v !== 'Auto-detect' && !!p.sub, sub: (p.sub || []).map(function (q) { return { label: q.label, value: q.v, unit: q.unit, help: q.help }; }),
+    items: p.items || [], addLabel: p.add || '',
+    yesStyle: p.v === true ? onS : offS, noStyle: p.v === true ? offS : onS,
+    by: TAG[p.by], byCls: 'by by-' + (p.by === 'default' ? 'rule' : p.by), help: p.help,
+    asking: s.ask === p.k, ai: p.ai || 'Explains this option and suggests a value for your data, with its reason.', hasSuggest: !!p.sug, suggest: p.sug || '',
+    askIt: function () { self.setState({ ask: s.ask === p.k ? null : p.k }); }
+  };
+};
+var tags = { measured: 'MEASURED', rule: 'RULE', ai: 'AI', open: 'OPEN', you: 'YOU' };
+var pick = function (id) { return function (e) { if (e && e.stopPropagation) e.stopPropagation(); self.setState({ sel: id, tab: 'step', menu: null }); }; };
+var openMenu = function (n) { return function (e) { if (e && e.preventDefault) { e.preventDefault(); e.stopPropagation(); } self.setState({ sel: n.id, menu: { id: n.id, x: n.x + 120, y: n.y + 30 } }); }; };
+var nodes = N.map(function (n) {
+  var multiIn = n.ins.length > 1, multiOut = n.outs.length > 1;
+  var pins = [];
+  n.ins.forEach(function (p) { pins.push({ cls: 'pin' + (p.opt ? ' opt' : ''), labCls: 'pl' + (p.opt ? ' opt' : ''), dot: 'left:-5px;top:' + (p.dy - 4) + 'px', lab: p.show ? 'left:-44px;top:' + (p.dy - 20) + 'px;font-weight:700;color:var(--c-now-ink)' : 'left:9px;top:' + (p.dy - 7) + 'px', label: p.l, labelled: s.ports && (multiIn || multiOut || !!p.show) }); });
+  n.outs.forEach(function (p) { pins.push({ cls: 'pin', labCls: 'pl', dot: 'right:-5px;top:' + (p.dy - 4) + 'px', lab: 'right:9px;top:' + (p.dy - 7) + 'px', label: p.l, labelled: s.ports && (multiIn || multiOut) }); });
+  return {
+    name: n.name, tool: n.tool, sel: s.sel === n.id, showTool: s.tools, pins: pins,
+    cls: 'node' + (n.kind === 'measure' ? ' measure' : '') + (n.many ? ' many' : '') + (s.sel === n.id ? ' sel' : ''),
+    pos: 'left:' + n.x + 'px;top:' + n.y + 'px;width:' + n.w + 'px;height:' + n.h + 'px',
+    ai: n.ai && !s.aiOk, open: !!n.open, many: !!n.many,
+    hasSet: !!n.set, set: n.set || '', setPos: 'top:' + (n.setY || 0) + 'px',
+    pick: pick(n.id), menu: openMenu(n)
+  };
+});
+var cur = N.filter(function (n) { return n.id === s.sel; })[0];
+var aiDone = cur.by === 'ai' && s.aiOk;
+var by = aiDone ? 'you' : cur.by;
+var d = {
+  name: cur.name, tool: cur.tool, what: cur.what, ins: cur.dIns, outs: cur.dOuts, many: !!cur.many, gathers: !!cur.gathers,
+  chosen: aiDone ? 'Added by the assistant; you confirmed it.' : cur.chosen,
+  chosenBy: tags[by], chosenCls: 'by by-' + by, isAi: cur.by === 'ai' && !s.aiOk,
+  runs: cur.many ? 'once per sample' : (cur.gathers ? 'all samples at once' : 'once'),
+  inputs: (INP[cur.id] || []).map(function (x) { return { name: x.name, from: x.from, optional: !!x.opt, pinCls: 'pin' + (x.opt ? ' opt' : '') }; }),
+  noParams: !P[cur.id],
+  groups: !P[cur.id] ? [] : [['basic', 'Parameters'], ['advanced', 'Advanced']].filter(function (g) { return P[cur.id][g[0]]; }).map(function (g) {
+    var list = P[cur.id][g[0]]; var open = g[0] === 'basic' ? true : s.adv;
+    return { title: g[1], count: String(list.length), open: open, caret: open ? '▾' : '▸', params: list.map(shape),
+      flip: g[0] === 'basic' ? function () {} : function () { self.setState({ adv: !s.adv }); } };
+  })
+};
+var review = [{ id: 'align', step: 'Align reads', what: 'seq_platform is open', tag: 'OPEN', byCls: 'by by-open' }];
+if (!s.aiOk) review.push({ id: 'multiqc', step: 'QC report', what: 'added by the assistant', tag: 'AI', byCls: 'by by-ai' });
+review = review.map(function (r) { return Object.assign({}, r, { go: pick(r.id) }); });
+var m = s.menu;
+var menuNode = m && m.id ? N.filter(function (n) { return n.id === m.id; })[0] : null;
+var it = function (label, key, danger) { return { item: true, sep: false, label: label, key: key || '', style: danger ? 'color:var(--c-needs-you-ink)' : '' }; };
+var sep = { item: false, sep: true, label: '', key: '', style: '' };
+var menuItems = menuNode
+  ? [it('Ask the assistant about this'), it('Swap tool…'), sep, it('Insert a step before'), it('Insert a step after'), it('Run on its own'), sep, it('Show in pipeline file'), it('Copy step id'), sep, it('Remove step', 'Del', true)]
+  : [it('Add a step here'), it('Paste step', 'Ctrl V'), sep, it('Tidy layout'), it('Fit to screen', 'F')];
+return {
+  nodes: nodes, d: d, review: review, hasReview: review.length > 0, reviewCount: review.length,
+  onStep: s.tab === 'step', onChat: s.tab === 'chat',
+  stepTabCls: 'tab' + (s.tab === 'step' ? ' on' : ''), chatTabCls: 'tab' + (s.tab === 'chat' ? ' on' : ''),
+  showStep: function () { self.setState({ tab: 'step' }); },
+  showChat: function () { self.setState({ tab: 'chat' }); },
+  confirmAi: function () { self.setState({ aiOk: true }); },
+  goAlign: pick('align'), goQc: pick('multiqc'),
+  showTools: s.tools, toolsBox: s.tools ? 'box on' : 'box', flipTools: function () { self.setState({ tools: !s.tools }); },
+  showPorts: s.ports, portsBox: s.ports ? 'box on' : 'box', flipPorts: function () { self.setState({ ports: !s.ports }); },
+  menuOpen: !!m, menuTitle: menuNode ? menuNode.name : 'Canvas', menuItems: menuItems,
+  menuPos: m ? 'left:' + m.x + 'px;top:' + m.y + 'px' : '',
+  closeMenu: function () { if (self.state.menu) self.setState({ menu: null }); },
+  libOpen: s.lib, libBtnCls: 'tool' + (s.lib ? ' on' : ''), flipLib: function () { self.setState({ lib: !s.lib }); },
+  closeAsk: function () { self.setState({ ask: null }); },
+  library: [
+    { job: 'Trim', tools: [{ name: 'Trim Galore', ver: '2.3.0', io: 'reads → trimmed reads, report' }, { name: 'fastp', ver: '0.24.0', io: 'reads → trimmed reads, report' }] },
+    { job: 'Align', tools: [{ name: 'STAR', ver: '2.7.11b', io: 'reads, index → bam' }, { name: 'HISAT2', ver: '2.2.2', io: 'reads, index → bam' }] },
+    { job: 'Count', tools: [{ name: 'featureCounts', ver: '2.1.1', io: 'bam, annotation → counts' }, { name: 'Salmon', ver: '1.10.3', io: 'reads, index → counts' }] },
+    { job: 'Quality', tools: [{ name: 'FastQC', ver: '0.12.1', io: 'reads → report' }, { name: 'MultiQC', ver: '1.35', io: 'reports → html' }] }
+  ],
+  canvasMenu: function (e) { if (e && e.preventDefault) e.preventDefault(); var r = e.currentTarget.getBoundingClientRect(); self.setState({ menu: { id: null, x: e.clientX - r.left, y: e.clientY - r.top } }); }
+};
+}
+renderVals() {
+var v = this.renderValsBase();
+var self = this;
+var dark = (this.state && this.state.dark !== undefined && this.state.dark !== null) ? this.state.dark : !!this.props.dark;
+v.themeCls = dark ? 'theme-dark' : '';
+v.toggleTheme = function () { self.setState({ dark: !dark }); };
+return v;
+}
+}
+</script>
+</body>
+</html>

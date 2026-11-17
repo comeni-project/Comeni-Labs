@@ -646,8 +646,8 @@ def test_family_proposals_need_human_approval_and_include_known_family_context(a
                 expected=item.current.n, value=None, because=None))
     forging.act(adaptation, forging.person(Move.WRITE, "parameters:none",
         expected=None, value={"because": "Defaults"}, because=None))
-    key = "vocabulary:family:assembly"
-    value = {"id": "assembly", "description": "Assembled sequences and assembly products."}
+    key = "vocabulary:family:variant"
+    value = {"id": "variant", "description": "Variant calls and their indexes."}
     client = FakeClient({"items": {key: value}, "because": {key: "The new type needs a family"}})
     forging_ai.draft_piece(adaptation, Piece.VOCABULARY, client)
     item = forging.load(adaptation).items[key]
@@ -672,14 +672,14 @@ def test_the_engine_not_the_model_says_which_options_are_new(adaptation):
     """#451: a declared type the model marked new is not new; an undeclared one it left
     unmarked is. The model's flag is discarded on the way in."""
     reply = _typed({"id": "genome.fasta", "label": "genome", "because": "fasta", "new": True},
-                   {"id": "assembly.fasta", "label": "assembly", "because": "contigs"})
+                   {"id": "variant.vcf", "label": "variants", "because": "calls"})
     forging_ai.draft_piece(adaptation, Piece.QUESTIONS, FakeClient(reply, reply))
     items = forging.load(adaptation).items
     assert "questions:input_type:reads" in items, (
         "the draft was refused: the model's `new` flag decided, not the registry")
     options = items["questions:input_type:reads"].value["options"]
     assert options, "the question was stored without options"
-    assert {o["id"]: o["new"] for o in options} == {"genome.fasta": False, "assembly.fasta": True}
+    assert {o["id"]: o["new"] for o in options} == {"genome.fasta": False, "variant.vcf": True}
 
 
 @pytest.fixture
@@ -838,7 +838,7 @@ def test_the_guide_teaches_shared_slots_joins_and_types():
     """#464: an optional file inside a tuple, a join per port, an input of several types, and a
     row on the connected type, each spelled out with a module from the survey."""
     guide = forging_ai.ITEM_SHAPES.read_text()
-    assert forging_ai.ITEM_SHAPES.name == "items.v6.md"
+    assert forging_ai.ITEM_SHAPES.name == "items.v7.md"
     for shape in ('"accepts": [{"type_id"', '"join": {"input_index": "by_sample"',
                   '"type.reads": "alignment.bam"', '"types": {', "[]"):
         assert shape in guide, shape

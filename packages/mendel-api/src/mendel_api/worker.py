@@ -31,6 +31,25 @@ async def run_gate_job(ctx: dict, run_id: str) -> str:
     return run_id
 
 
+async def scan_analysis_data(ctx: dict, draft_id: str, who: str, revision: int) -> str:
+    """Scan an analysis's ticked folders (#511): read where the files are, in a thread so the
+    worker keeps answering. A scan records its own failure; it never raises."""
+    from mendel_api.services.data import scan
+
+    await asyncio.to_thread(scan.scan, draft_id, who=who, revision=revision)
+    if scan.finished(draft_id, revision):
+        from mendel_api.agent import chat
+
+        # The data changed, so the facts did: the pipeline is built again from them, then the
+        # agent hears what was found if it asked.
+        try:
+            await asyncio.to_thread(chat.rebuild_for_data, draft_id, who)
+        except Exception:  # noqa: BLE001 — the agent still hears what was found
+            logging.getLogger(__name__).exception("rebuild after scanning %s failed", draft_id)
+        await chat.data_scanned(draft_id)
+    return draft_id
+
+
 async def sweep_lost_gates(ctx: dict) -> int:
     """Fail every gate whose worker never finished it (issue 278). Returns how many.
 
@@ -87,13 +106,26 @@ async def follow_registry_releases(ctx: dict) -> str:
     return await asyncio.to_thread(registry_releases.follow) or ""
 
 
+async def startup(ctx: dict) -> None:
+    """Scans a lost worker left 'scanning' say they were interrupted (a queued one still runs,
+    and writes over this when it finishes)."""
+    from mendel_api.services.data import scan
+
+    swept = await asyncio.to_thread(scan.sweep_interrupted)
+    if swept:
+        logging.getLogger(__name__).warning("%d interrupted scans marked failed", swept)
+
+
 class WorkerSettings:
+    on_startup = startup
     functions = [
         # **Its own limit, and one try** (issue 278). arq's default (300s) cancelled the stub
         # and test gates. A retry would re-run an hour-long gate unasked, into the directory the
         # first one was writing.
         func(run_gate_job, timeout=gate_service.JOB_TIMEOUT, max_tries=1),
         sweep_lost_gates,
+        # One try and no kept result: ticking again queues the next revision's scan.
+        func(scan_analysis_data, timeout=3600, max_tries=1, keep_result=0),
         # One try: a failed sync is recorded and shown, and waits for tomorrow or *Sync now*.
         func(sync_catalogue_job, timeout=1800, max_tries=1),
         # No kept result: it would hold the job id and refuse the next attempt.

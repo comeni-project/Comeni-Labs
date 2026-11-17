@@ -25,6 +25,8 @@ dependencies = [
     # 0.0.27 is the first release whose parser caps a part's header count and size (#226).
     "comeni-inspect>=0.1.0",
     "python-multipart>=0.0.27",
+    # The engine's tools served to other agents over MCP (#463).
+    "mcp>=1.9",
 ]
 
 [build-system]
