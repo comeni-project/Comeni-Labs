@@ -1,25 +1,85 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
 
+const FILES = [
+  { process: "subread_featurecounts", name: "WT_REP1.featureCounts.tsv", size_bytes: 4200, viewable: true },
+  { process: "subread_featurecounts", name: "WT_REP2.featureCounts.tsv", size_bytes: 4200, viewable: true },
+  { process: "samtools_sort", name: "WT_REP1.bam", size_bytes: 3_100_000, viewable: false },
+  { process: "multiqc", name: "report.html", size_bytes: 2048, viewable: true },
+];
 vi.mock("../../wiener/api/client", () => ({
-  get: vi.fn(async () => ({ published: true, total: 2, files: [{ process: "quast", name: "report.html", size_bytes: 2048, viewable: true }, { process: "star", name: "WT.bam", size_bytes: 4096, viewable: false }] })),
+  get: vi.fn(async (url: string) => (url.includes("/measured") ? { facts: [], decided: [] }
+    : { published: true, total: 4, files: FILES })),
 }));
-vi.mock("./useRuns", () => ({ useBuildCanvas: () => ({ data: undefined }), factsOf: () => ({}) }));
+const lit: (string[] | null)[] = [];
+vi.mock("./RunCanvas", () => ({
+  RunCanvas: (p: { lit: string[] | null }) => { lit.push(p.lit); return <div data-testid="canvas" />; },
+}));
+vi.mock("./useRuns", () => ({
+  useBuildCanvas: () => ({ data: { canvas: {
+    steps: [{ id: "samtools_sort" }, { id: "subread_featurecounts" }, { id: "multiqc" }],
+    graph: { edges: [{ from_node: "samtools_sort", to_node: "subread_featurecounts" }] },
+  } } }),
+  factsOf: () => ({ samtools_sort: { does: "Sort alignments" }, subread_featurecounts: { does: "Count reads" } }),
+  useSamples: () => ["WT_REP1", "WT_REP2"],
+  useRun: () => ({ graph: { data: { nodes: [] } } }),
+  useAnalysisRuns: () => ({ list: [] }),
+}));
 
-import { Outputs } from "./Outputs";
+import { kindOf, Outputs, sampleOf, upstream } from "./Outputs";
 
-it("Open is a link to the file in a new tab: no popup to block, nothing loaded into the page (Checkpoint D)", async () => {
+function page() {
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => "Geneid\tWT_REP1.bam\nYAL068C\t3\n" })));
   render(<QueryClientProvider client={new QueryClient()}><Outputs draftId="d1" runId="r1" live={false} /></QueryClientProvider>);
-  const open = await screen.findByRole("link", { name: "Open report.html" });
-  expect(open.getAttribute("href")).toBe("/api/runs/r1/results/file?process=quast&name=report.html");
+}
+afterEach(() => { vi.unstubAllGlobals(); lit.length = 0; });
+
+it("opens on what the pipeline made, with Open a link in a new tab (Checkpoint D)", async () => {
+  page();
+  const results = await screen.findByRole("region", { name: "Your results" });
+  expect(within(results).getByText("Count reads")).toBeTruthy();
+  const open = await screen.findByRole("link", { name: "Open WT_REP1.featureCounts.tsv" });
+  expect(open.getAttribute("href")).toBe("/api/runs/r1/results/file?process=subread_featurecounts&name=WT_REP1.featureCounts.tsv");
   expect(open.getAttribute("target")).toBe("_blank");
   expect(open.getAttribute("rel")).toContain("noopener");
 });
 
-it("does not offer Open for a file a browser cannot show, such as a BAM (walk 2026-11-17)", async () => {
-  render(<QueryClientProvider client={new QueryClient()}><Outputs draftId="d1" runId="r1" live={false} /></QueryClientProvider>);
-  expect(await screen.findByText("WT.bam")).toBeTruthy();
-  expect(screen.queryByRole("link", { name: "Open WT.bam" })).toBeNull();
-  expect(screen.getByRole("link", { name: "Open report.html" })).toBeTruthy();
+it("lights where the chosen file came from on the pipeline", async () => {
+  page();
+  await screen.findByRole("region", { name: "Your results" });
+  expect(lit.at(-1)).toEqual(["samtools_sort", "subread_featurecounts"]);
+});
+
+it("offers no Open for a binary, such as a BAM", async () => {
+  page();
+  const files = await screen.findByRole("region", { name: "All files" });
+  fireEvent.click(await within(files).findByText("WT_REP1.bam"));
+  expect(await screen.findByText("BAM · binary")).toBeTruthy();
+  expect(screen.queryByRole("link", { name: "Open WT_REP1.bam" })).toBeNull();
+});
+
+it("groups files by sample, each group folding, and finds a sample", async () => {
+  page();
+  const files = await screen.findByRole("region", { name: "All files" });
+  const wt2 = await within(files).findByRole("button", { name: /^WT_REP2 ?\d+$/ });
+  expect(within(files).getByText("WT_REP2.featureCounts.tsv")).toBeTruthy();
+  fireEvent.click(wt2);
+  expect(wt2.getAttribute("aria-expanded")).toBe("false");
+  expect(within(files).queryByText("WT_REP2.featureCounts.tsv")).toBeNull();
+  fireEvent.change(within(files).getByRole("textbox", { name: "Find a sample or file" }), { target: { value: "rep2" } });
+  expect(within(files).getByText("WT_REP2.featureCounts.tsv")).toBeTruthy();
+  expect(within(files).queryByText("WT_REP1.bam")).toBeNull();
+});
+
+it("names a file's kind, its sample and its upstream from names and the graph", () => {
+  expect(kindOf("WT.featureCounts.tsv")).toBe("table");
+  expect(kindOf("WT.bam")).toBe("bam");
+  expect(kindOf("WT.bam.bai")).toBe("index");
+  expect(kindOf("WT_1_val_1.fq.gz")).toBe("reads");
+  expect(kindOf("genome.measured.json")).toBe("fact");
+  expect(kindOf("WT.Log.final.out")).toBe("log");
+  expect(sampleOf("WT_REP10.bam", ["WT_REP1", "WT_REP10"])).toBe("WT_REP10");
+  expect(sampleOf("genome.fasta.fai", ["WT_REP1"])).toBeNull();
+  expect(upstream("c", [{ from_node: "a", to_node: "b" }, { from_node: "b", to_node: "c" }]).sort()).toEqual(["a", "b"]);
 });

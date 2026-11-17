@@ -238,3 +238,18 @@ describe("fitting what the agent built (issue 532)", () => {
     rect.mockRestore();
   });
 });
+
+describe("a lit path (Run → Outputs)", () => {
+  it("keeps the lit steps and the wires between them, and fades the rest", () => {
+    fake({ lit: ["trimgalore", "star_align"] });
+    expect(screen.getByTestId("living-node-trimgalore").className).not.toContain("opacity-40");
+    expect(screen.getByTestId("living-node-samtools_sort").className).toContain("opacity-40");
+    expect(screen.getByTestId("wire-trimgalore-star_align").closest("g[data-lit]")?.getAttribute("data-lit")).toBe("true");
+    expect(screen.getByTestId("wire-star_align-samtools_sort").closest("g[data-lit]")?.getAttribute("data-lit")).toBe("false");
+  });
+
+  it("lights everything when nothing is lit", () => {
+    fake();
+    expect(screen.getByTestId("living-node-samtools_sort").className).not.toContain("opacity-40");
+  });
+});

@@ -80,6 +80,7 @@ export function LivingCanvas({
   showTool = true,
   showPorts = true,
   onTidy,
+  lit = null,
 }: {
   graph: DraftGraph;
   positions: Positions;
@@ -128,6 +129,9 @@ export function LivingCanvas({
   showPorts?: boolean;
   /** **Tidy**: the server lays the drawing out again with the current geometry. */
   onTidy?: () => void;
+  /** **A path lit** (Run → Outputs): these steps, and the wires between them, stay as drawn; the
+   *  rest fade, so a file's way through the pipeline reads at a glance. `null` lights everything. */
+  lit?: string[] | null;
 }) {
   const [here, setHere] = useState<{ x: number; y: number } | null>(null);
   /** The step under the pointer, whose details show beside it. */
@@ -541,14 +545,18 @@ export function LivingCanvas({
           const to = tipIn(edge.to_node, edge.to_port);
           if (!from || !to) return null;
           const flow = flowOf(edge);
+          const faded = lit !== null && !(lit.includes(edge.from_node) && lit.includes(edge.to_node));
           return (
-            <Flowline key={`${edge.from_node}.${edge.from_port}-${edge.to_node}.${edge.to_port}`}
+            <g key={`${edge.from_node}.${edge.from_port}-${edge.to_node}.${edge.to_port}`}
+               data-lit={lit === null ? undefined : String(!faded)} opacity={faded ? 0.3 : 1}>
+            <Flowline
                       testId={`wire-${edge.from_node}-${edge.to_node}`} from={from} to={to} flow={flow}
                       label={
                         selected === edge.from_node || selected === edge.to_node
                           ? flowLabel(flow, count)
                           : undefined
                       } />
+            </g>
           );
         })}
         {/* **A wide invisible path under each wire** to detach it: a 1.5px stroke is not a thing
@@ -643,6 +651,7 @@ export function LivingCanvas({
             onHover={(on) => hover(id, on)}
             broken={brokenOf(id)}
             selected={selected === id}
+            className={lit !== null && !lit.includes(id) ? "opacity-40" : undefined}
             onSelect={() => {
               if (!readOnly && !drag.current?.travelled) onSelect(id);
             }}
