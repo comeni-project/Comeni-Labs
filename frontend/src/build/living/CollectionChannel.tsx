@@ -96,7 +96,10 @@ export function Flowline({
           />
         );
       })}
-      {pulse && <Pulses d={path(flow === "gather" ? [from, ...elbow({ x: Math.max(from.x, to.x - runway), y: from.y }, to)] : elbow(from, to))} />}
+      {pulse && (() => {
+        const route = flow === "gather" ? [from, ...elbow({ x: Math.max(from.x, to.x - runway), y: from.y }, to)] : elbow(from, to);
+        return <Pulses d={path(route)} length={lengthOf(route)} />;
+      })()}
       {/* Only where it fits. Two adjacent steps leave 52px between them, and a tag drawn there was
           clipped to `ollect al` — a clipped word is worse than none; the full sentence is on
           selection and the count is on the source. */}
@@ -115,19 +118,33 @@ export function Flowline({
   );
 }
 
-/** Three dots travelling a path, a beat apart: where data went. Hidden under reduced motion. */
-export function Pulses({ d, dots = 3, seconds = 2.4 }: { d: string; dots?: number; seconds?: number }) {
+/** How fast pulses move, and how far apart: the same on every wire, so a long wire is not
+ *  faster than a short one (which would look like it meant something, walk 2026-11-17). */
+export const PULSE_SPEED = 60; // px a second
+export const PULSE_GAP = 70; // px between dots
+
+/** Dots travelling a path at one speed, evenly apart: where data went. Hidden under reduced
+ *  motion. `length` is the path's length in px, which sets how long a trip takes and how many. */
+export function Pulses({ d, length }: { d: string; length: number }) {
+  const seconds = Math.max(length, 1) / PULSE_SPEED;
+  const dots = Math.max(1, Math.round(length / PULSE_GAP));
   return (
     <g className="motion-reduce:hidden" aria-hidden="true">
       {Array.from({ length: dots }, (_, n) => (
-        <circle key={n} data-pulse r={3} fill="var(--now)" opacity={0}>
-          <animateMotion dur={`${seconds}s`} begin={`${(n * seconds) / dots}s`} repeatCount="indefinite" path={d} />
-          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur={`${seconds}s`}
+        <circle key={n} data-pulse data-testid="pulse-dot" r={3} fill="var(--now)" opacity={0}>
+          <animateMotion dur={`${seconds}s`} begin={`${(n * seconds) / dots}s`} repeatCount="indefinite"
+                         path={d} calcMode="linear" keyPoints="0;1" keyTimes="0;1" />
+          <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.05;0.95;1" dur={`${seconds}s`}
                    begin={`${(n * seconds) / dots}s`} repeatCount="indefinite" />
         </circle>
       ))}
     </g>
   );
+}
+
+/** A polyline's length: what a pulse travels. */
+export function lengthOf(points: Point[]): number {
+  return points.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - points[i].x, p.y - points[i].y), 0);
 }
 
 export const SOURCE_W = 124;

@@ -301,3 +301,19 @@ describe("the canvas keeps its gestures to itself (walk 2026-11-17)", () => {
     expect(screen.getByTestId("wire-star_align-samtools_sort").querySelectorAll("[data-pulse]").length).toBe(0);
   });
 });
+
+it("pulses move at one speed on every wire, and are as far apart (walk 2026-11-17)", async () => {
+  // A fixed duration made long wires faster than short ones, which read as meaning something.
+  const { Pulses } = await import("./CollectionChannel");
+  const speed = (d: string) => {
+    render(<svg><Pulses d={d} length={Number(d.split(" ").pop())} /></svg>);
+    const dots = screen.getAllByTestId("pulse-dot");
+    const seconds = parseFloat(dots[0].querySelector("animateMotion")!.getAttribute("dur")!);
+    const out = { perSecond: Number(d.split(" ").pop()) / seconds, gap: Number(d.split(" ").pop()) / dots.length };
+    dots.forEach((dot) => dot.closest("svg")!.remove());
+    return out;
+  };
+  const short = speed("M0 0 H 120"), long = speed("M0 0 H 600");
+  expect(short.perSecond).toBeCloseTo(long.perSecond, 5);
+  expect(Math.abs(long.gap - short.gap) / short.gap).toBeLessThan(0.2);
+});
