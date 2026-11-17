@@ -218,3 +218,34 @@ def test_a_value_the_ai_set_still_builds_and_compiles(clean, monkeypatch):
     assert resolved.ok, resolved.refusal
     compiled = call(now(), "compile", {})
     assert compiled.ok, compiled.refusal
+
+
+def test_a_value_the_ai_set_stays_the_ais_when_a_person_rebuilds(clean, monkeypatch):
+    """Final review, Important 1: a model-set value took its author from whoever rebuilt, so a
+    person's rebuild (a canvas change, a Data scan) re-stamped the AI's ILLUMINA as theirs."""
+    from types import SimpleNamespace
+
+    from comeni_core.plan.draft import DraftProvenance
+    from mendel_api import settings as mendel_settings
+    from mendel_api.agent.loop import start_session
+    from mendel_api.db import session_scope
+    from mendel_api.models import PipelineDraft
+
+    monkeypatch.setattr(mendel_settings, "model_access",
+                        lambda *a, **k: SimpleNamespace(model="chatgpt/gpt", base_url=None))
+    first = _rnaseq()
+    owned = start_session(first.draft_id, who="ana")
+
+    def as_(who: str) -> ToolContext:
+        return ToolContext(draft_id=first.draft_id, session_id=owned, who=who,
+                           expected_revision=decisions.revision(first.draft_id))
+
+    assert call(as_("builder-agent"), "resolve", {}).ok
+    assert call(as_("builder-agent"), "set_value", {"name": "seq_platform", "value": "ILLUMINA",
+                                                     "because": "looks like Illumina"}).ok
+    assert call(as_("ana"), "resolve", {}).ok
+    with session_scope() as db:
+        stored = db.get(PipelineDraft, first.draft_id).provenance
+    provenance = DraftProvenance.model_validate(stored)
+    [entry] = [p for p in provenance.params if p.key.endswith(".seq_platform")]
+    assert entry.settled.by == "builder-agent"

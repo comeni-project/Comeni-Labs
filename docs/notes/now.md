@@ -8,11 +8,11 @@ cites its entry; the long form is in [the archive](journal/archive/).
 
 ## Where the work is
 
-- **Frontend redesign, plan 1 (#511) is built** on the feat/frontend-redesign branch: Data → Build → Run in
-  one analysis frame, walked end to end on real data (yeast RNA-seq, S. aureus QUAST: `tools/demo_data.py`),
-  Checkpoint D's review fixed. Left: Task 15's walk at phone width (not checkable on this desktop),
-  the final branch review. Next: plan 2 (#513, Settings, Forge, Registry; Forge-drafted readers #524).
-  Deferred: #532 (memory used on Run, registry name capitals), #533. Registry PR #29 still open. (11-17)
+- **Frontend redesign (#511) is built** on feat/frontend-redesign: Data → Build → Run, Registry (Tools,
+  Vocabulary, Measurers, Releases), the Forge (home, Tool · Tests · Publish) and Settings, all to the board
+  (`docs/superpowers/plans/2026-11-17-*`). Walked 11-17 on the yeast demo, desktop light and dark;
+  the defects found are fixed or on #535. Left: the phone walk, Outputs' design, the final branch
+  review. Deferred: memory used on Run (#532), "Your registry can't yet" (#534), #533. (11-17)
 - **Task 14, step 14.7: walking the living pipeline with a real model.** The tree is #119.
 - **One builder (#395) plans 1–5 and Part I.2 (#293) are built** (journal 10-27, 10-28, not yet
   compacted); their browser checks are #404. Also #357, #302. (10-22, 10-28)

@@ -106,9 +106,10 @@ export function Inspector({ view, sel, onPick, actions }: { view: AdaptationView
       {changing ? (
         <ItemConstructor key={item.key} id={view.id} piece={piece} items={view.items} item={item} actions={actions} onCancel={() => setEditing(null)} />
       ) : isPort ? (
-        <PortFields view={view} item={item} actions={actions} />
+        // Keyed by the item and its revision, so another part (or the AI's update) starts fresh.
+        <PortFields key={`${item.key}:${item.current_n}`} view={view} item={item} actions={actions} />
       ) : isParam ? (
-        <ParamFields item={item} actions={actions} />
+        <ParamFields key={`${item.key}:${item.current_n}`} item={item} actions={actions} />
       ) : (
         <div className="text-[12.5px] text-ink-2 min-w-0 break-words">
           {item.sentence ? <p className="m-0">{item.sentence}</p> : <ValueDetails value={item.value} />}
@@ -194,6 +195,14 @@ function PortFields({ view, item, actions }: { view: AdaptationView; item: ItemV
   );
 }
 
+/** A default as its kind: a number for a number, `true`/`false` for yes or no (final review). */
+function typed(text: string, kind: string | undefined): unknown {
+  if (text === "") return null;
+  if ((kind === "integer" || kind === "number") && !Number.isNaN(Number(text))) return Number(text);
+  if (kind === "boolean" && (text === "true" || text === "false")) return text === "true";
+  return text;
+}
+
 const KIND: Record<string, string> = { integer: "Number", number: "Number", boolean: "Yes / no", enum: "Choice" };
 
 function ParamFields({ item, actions }: { item: ItemView; actions: Actions }) {
@@ -218,7 +227,7 @@ function ParamFields({ item, actions }: { item: ItemView; actions: Actions }) {
       {dirty && (
         <button type="button" className={`${loud} self-start`} disabled={actions.command.isPending}
                 onClick={() => actions.command.mutate({ move: "change", item: item.key, expected: item.current_n,
-                                                       value: { ...v, default: def === "" ? null : def, explain: help } })}>Save</button>
+                                                       value: { ...v, default: typed(def, domain?.kind), explain: help } })}>Save</button>
       )}
     </div>
   );

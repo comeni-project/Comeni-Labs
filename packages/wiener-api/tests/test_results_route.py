@@ -178,6 +178,7 @@ def test_a_text_table_opens_in_the_browser_and_a_binary_is_not_offered(client, a
         )
         assert served.headers["content-type"].startswith("text/plain"), name
         assert served.headers["content-disposition"].startswith("inline"), name
+        assert served.headers["x-content-type-options"] == "nosniff", name
     listed = {
         f["name"]: f["viewable"]
         for f in client.get(f"/api/runs/{a_run.id}/results").json()["files"]

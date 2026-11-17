@@ -85,3 +85,17 @@ it("Publish shows the track to release and what the pull request carries", async
   expect(within(files).getByText("tools/nf-core/quast/contract.yml")).toBeTruthy();
   expect(screen.getByRole("link", { name: "Cut a release" }).getAttribute("href")).toBe("/registry/releases");
 });
+
+it("switching parts shows the new part's fields, never the last one's (final review)", async () => {
+  // The fields kept the first port's state: from consensus (required) to fasta (optional) still
+  // said Required, and Save would have written it onto fasta.
+  at(`/forge/${quast.id}`, quast);
+  const tool = await screen.findByRole("region", { name: "The tool" });
+  fireEvent.click(within(tool).getByRole("button", { name: "Input consensus" }));
+  const needed = await screen.findByRole("radiogroup", { name: "Needed" });
+  expect(within(needed).getByRole("radio", { name: "Required" }).getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(within(tool).getByRole("button", { name: "Input fasta" }));
+  await waitFor(() => expect(within(screen.getByRole("radiogroup", { name: "Needed" }))
+    .getByRole("radio", { name: "Optional" }).getAttribute("aria-checked")).toBe("true"));
+  expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+});

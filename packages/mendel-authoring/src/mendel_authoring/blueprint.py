@@ -133,13 +133,13 @@ def committed(
         key = f"{node_id}.{setting.name}"
         if key in keys:
             settled_params.append(
-                # A value a model settled names who: its decision record's model, else the actor
-                # committing it (the builder agent's `set_value` pins it as the goal's value, and
-                # a model value with no author is refused when the file is made, walk 2026-11-17).
+                # A value a model settled names who: its decision record's model, else the builder
+                # agent, as the router credits the agent's tool pins. Never the committing actor:
+                # a person's rebuild must not re-stamp the AI's value as theirs (final review).
                 ParamSettled(key=key, settled=_settled(
                     setting.why,
                     by=_model_of(blueprint, key)
-                    or (by if setting.why.source is ValueSource.MODEL else ""),
+                    or (MODEL_AUTHOR if setting.why.source is ValueSource.MODEL else ""),
                 ))
             )
 
@@ -191,6 +191,11 @@ def _selection(blueprint: Blueprint, step: Step, *, by: str, actor_kind: ActorKi
     # a step is the agent's projection, not a person's acceptance. A person answers a tie by
     # choosing a tool (a pin, above) or reviewing the step, never by its being in the draft.
     return _settled(step.why)
+
+
+MODEL_AUTHOR = "builder-agent"
+"""Who a model-set value is credited to when its decision record names no model: the agent, as
+`mendel_resolver.router` credits the agent's tool pins."""
 
 
 def _settled(why, *, by: str = "") -> Settled:

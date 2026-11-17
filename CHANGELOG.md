@@ -30,6 +30,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- `Shown.checks`: a setting's slower check is read on its own after the menu (#511).
+
 - `Pipeline.content_digest()` leaves out `gate` as well as `emitted`, so a gated pipeline's runs match their analysis (#529). A contract param may carry a one-line `explain`, not serialised when empty (#511). Egress: `ConsoleView` and `CommandView` for Run → Console (#511).
 
 - Rule proposals (#462): a door, `rule_proposal` (`RuleProposalRequest`): a target, the existing rows, the facts a row may test, the legal answers, and each person's answer with its study facts and reason. Codes MI0500 and MI0501.
@@ -162,6 +164,8 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- `orchestrate.build(..., ai=)` takes the caller's AI provenance, so a value a model settled builds (#535).
+
 - `mendel lint` checks a measurer piece's imports and calls (MD0027), whatever the layer's
   manifest says. The inspector-pieces guard, the forge and the registry's CI use this one check
   (#487).
@@ -229,6 +233,8 @@ or a complete commit history.
 
 ### mendel-authoring
 
+- A setting a model settled names its author: the committing actor when its decision record names none (#535).
+
 - The memory rendered for the model says how uploaded samples spread over each fact they differ on (#466).
 
 #### Changed
@@ -260,6 +266,8 @@ or a complete commit history.
   questions are not asked again. Build and Spawn are consolidated into one authoring flow.
 
 ### mendel-api
+
+- Registry, Forge and Settings for the redesign (#511): `GET /data/readers` gives each reader's facts with their units, the rules and settings that decide by them and their tests, and lists tool measurers; a forging's summary says its failed tests and pull request state; `GET /settings/{key}/check` tries a slower check after the menu (the default model's server), so Settings never waits on it. The builder agent sets a setting it is asked about as its tier-4 choice, hears a change in Data until it has built, and builds and compiles with the draft's AI provenance (a value it set was refused with MD0225).
 
 - Data for the redesign (#511): `GET /data/readers`; `/data/tree` says what each folder looks like; files in a folder named for references are offered as references, files nothing reads are not samples, and a number ten times off the median is checked. The builder agent sees references (`DataView.references`), suggests commands on Run → Console (`suggest_command`, paths shortened in what the page carries), and a reached subscription limit says when it resets (MA0010). `POST /pipeline/authoring/{id}/tidy` lays the canvas out again; steps carry their input rules (`StepView.rules`) and settings their `explain`.
 
@@ -558,6 +566,8 @@ or a complete commit history.
 
 ### wiener-api
 
+- A run's text results are served as plain text, inline, and each listed file says whether a browser can show it (`viewable`).
+
 - Run → Console (#511, #525): Nextflow runs under a pty and its output is kept as `console.log`; a new `wiener-term` service serves it, shells in a run's folder (host-level, behind the Wiener token, refusing another page's Origin), a Commands list, and read-only commands for the assistant that read only inside the run. Run results open sandboxed (`GET /runs/{id}/results/file`).
 
 - The run form composes each table input with a `name` per row, its files and its item facts, and sends it under its own parameter (`input_tables`, #466).
@@ -593,6 +603,8 @@ or a complete commit history.
 - Shared pure graph layout supports the build and run canvases.
 
 ### frontend
+
+- **Registry, Forge and Settings to the board** (#511, #513). **Registry**: Tools (search, a format flow, the selected tool with its fits and the rules that decide by it), Vocabulary, **Measurers** (one entry a reader: what it reads, the facts it makes, the rules and settings that decide by each, its tests) and Releases. **Forge** (`/forge`): search nf-core with how each match fits your registry, what needs you, and each forging's Tool · Tests · Publish; a forging (`/forge/:id`) draws the tool as a small pipeline with its parts, an inspector a part with the AI's waiting choices under Review, the assistant, its tests and what they cover, and the track to release. **Settings** is a page (`/settings`), its sections in the rail; the `?settings=` overlay is gone. Outputs opens text in the browser and does not offer a binary.
 
 - **The redesigned everyday path** (#511): one frame for an analysis, Data → Build → Run, with the rail holding each page's sub-pages and controls. **Data** picks folders on the page, each saying what its files look like; read, the samples are the page (one tab a kind of data, columns from what its reader measures, a bar per number, amber where flagged), with Check these one row a sample, the references the pipeline reads, the facts across the samples and the changes made (yours and the AI's). **References** offers files from the folders by kind. **Build** draws compact step cards (inputs as circles, outputs as triangles), lays optional inputs out by the tool's rules, explains each setting behind a (?), and fits as the assistant builds. **Run** opens on New run (what it reads, pre-flight checks, what you will get), and a run has Overview (the pipeline as Build draws it, the machine's cores and memory reserved and cores used), Steps, Outputs and Console (Nextflow's terminal, a shell, Commands and the assistant). Native controls follow the theme.
 

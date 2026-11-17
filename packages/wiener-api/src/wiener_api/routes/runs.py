@@ -950,7 +950,8 @@ def run_result_file(run_id: str, process: str, name: str) -> FileResponse:
     # API or its terminal, while its own charts still draw.
     if (served.media_type or "").split(";")[0] in _ACTIVE:
         served.headers["Content-Security-Policy"] = "sandbox allow-scripts allow-popups"
-        served.headers["X-Content-Type-Options"] = "nosniff"
+    # Every result is what its type says, never sniffed into something else (final review).
+    served.headers["X-Content-Type-Options"] = "nosniff"
     return served
 
 
