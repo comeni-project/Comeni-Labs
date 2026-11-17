@@ -55,6 +55,21 @@ def refresh_registry(source: Path, target: Path) -> None:
     subprocess.run(["git", "-C", str(target), "merge", "--ff-only", "FETCH_HEAD"], check=True)
 
 
+def prepare_docker_group(root: Path) -> None:
+    """Give task launchers the host socket's group, preserving explicit overrides."""
+    socket = Path("/var/run/docker.sock")
+    if not socket.exists() or os.environ.get("DOCKER_GID_SOCK"):
+        return
+    env = root / ".env"
+    text = env.read_text()
+    if any(line.strip().startswith("DOCKER_GID_SOCK=") and
+           line.partition("=")[2].strip() for line in text.splitlines()):
+        return
+    with env.open("a") as stream:
+        stream.write("\n# Detected host Docker socket group.\n"
+                     f"DOCKER_GID_SOCK={socket.stat().st_gid}\n")
+
+
 def prepare(root: Path) -> None:
     """Create host-owned runtime paths and a writable registry, retaining existing data."""
     env = root / ".env"
@@ -65,11 +80,17 @@ def prepare(root: Path) -> None:
                 stream.write((root / ".env.example").read_text())
         except FileExistsError:
             pass
+    prepare_docker_group(root)
     # `.run/data` is the default data root (COMENI_DATA_ROOT): made here, so that Docker does not
     # make it as root when it mounts it.
     for path in [".run/wiener/artifacts", ".run/wiener/work", ".run/drafts", ".run/forge",
-                 ".run/data", ".run/registries", "workspace"]:
+                 ".run/data", ".run/registries", ".run/chatgpt", "workspace"]:
         (root / path).mkdir(parents=True, exist_ok=True)
+    if not os.access(root / ".run/chatgpt", os.W_OK):
+        raise RuntimeError(
+            "The ChatGPT sign-in folder .run/chatgpt is not writable. "
+            "Repair its ownership to match the user running Comeni before starting the stack."
+        )
     refresh_registry(root / "registry", root / ".run/registry")
 
 

@@ -53,6 +53,9 @@ make dev-down
 The local development worker uses the Docker socket so it can launch Nextflow, which launches
 containers. Treat that as root-equivalent access to your machine. Do not expose the development
 stack to a network you do not control. Published development ports bind to `127.0.0.1`.
+`make prepare` records the host socket's group as `DOCKER_GID_SOCK` in `.env` so the worker
+and terminal can connect to Docker. Existing explicit values are preserved. If moving `.env`
+to another machine, remove that value and run `make prepare` to detect its socket group.
 An empty `WIENER_API_TOKEN` disables local run-management authentication. A set one is presented
 by the web proxy on your behalf, so the browser never asks for it.
 

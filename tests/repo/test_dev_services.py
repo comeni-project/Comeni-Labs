@@ -100,6 +100,17 @@ def test_preparation_keeps_environment_and_existing_data(registry, tmp_path):
     # Made here, as the user, so Docker does not create it as root for the worker's bind mount:
     # the first live sync could not write its clone (forge part 1).
     assert (tmp_path / ".run/forge").is_dir()
+    assert (tmp_path / ".run/chatgpt").is_dir()
+
+
+def test_preparation_refuses_an_unwritable_signin_folder(registry, tmp_path, monkeypatch):
+    module, _, _ = registry
+    (tmp_path / ".env").write_text("LOCAL_VALUE=preserve\n")
+    access = module.os.access
+    monkeypatch.setattr(module.os, "access", lambda path, mode:
+                        False if path == tmp_path / ".run/chatgpt" else access(path, mode))
+    with pytest.raises(RuntimeError, match="Repair its ownership"):
+        module.prepare(tmp_path)
 
 
 def test_compose_dotenv_quotes_interpolation_and_literals_are_not_make_code(tmp_path):
