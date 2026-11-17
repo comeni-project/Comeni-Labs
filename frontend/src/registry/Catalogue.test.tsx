@@ -45,7 +45,9 @@ function at(page: unknown = PAGE, entry = "/registry") {
   const fetch = vi.fn().mockImplementation((url: string) => {
     const reply = url.includes("/catalogue/flow") ? LINKS
       : url.includes("/registry/choices") ? CHOICES
-        : url.includes("/catalogue/nf-core/") ? FITS : page;
+        : url.includes("/catalogue/nf-core/") ? FITS
+          // The selected tool's own page, for its registered tests (none here).
+          : url.includes("/registry/tools/") ? { id: url.split("/registry/tools/")[1], tests: [] } : page;
     return Promise.resolve({ ok: true, json: async () => reply });
   });
   vi.stubGlobal("fetch", fetch);
@@ -172,7 +174,7 @@ it("a suggestion becomes a chip that filters and can be removed", async () => {
 
 it("following a format filters the list, and picking it again lets go", async () => {
   const fetch = at();
-  const flow = await screen.findByRole("region", { name: "Formats" });
+  const flow = await screen.findByRole("region", { name: "How file formats connect" });
   fireEvent.click(within(flow).getByRole("button", { name: /^fastq/ }));
   await vi.waitFor(() =>
     expect(fetch.mock.calls.some(([url]) => /catalogue\?.*reads=fastq/.test(String(url)))).toBe(true));
