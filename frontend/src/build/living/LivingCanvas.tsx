@@ -550,6 +550,7 @@ export function LivingCanvas({
               return (
                 <Flowline key={`src-${channel.name}-${node}-${port}`} testId={`flow-${channel.name}-${node}`}
                           from={branch} to={tip} flow={flow} pulse={lit !== null && lit.includes(node)}
+                          lit={lit !== null && lit.includes(node)}
                           label={selected === node ? flowLabel(flow, channel.count ?? null) : undefined} />
               );
             }),
@@ -561,6 +562,7 @@ export function LivingCanvas({
           return (
             <Flowline key={`result-wire-${r.id}`} testId={`result-wire-${r.id}`} from={from}
                       to={{ x: r.at.x, y: r.at.y + SOURCE_H / 2 }} pulse={lit !== null && lit.includes(r.id)}
+                      lit={lit !== null && lit.includes(r.id)}
                       flow={steps[r.id]?.runs === "per_item" ? "many" : "one"} />
           );
         })}
@@ -573,7 +575,7 @@ export function LivingCanvas({
           return (
             <g key={`${edge.from_node}.${edge.from_port}-${edge.to_node}.${edge.to_port}`}
                data-lit={lit === null ? undefined : String(!faded)} opacity={faded ? 0.3 : 1}>
-            <Flowline pulse={lit !== null && !faded}
+            <Flowline pulse={lit !== null && !faded} lit={lit !== null && !faded}
                       testId={`wire-${edge.from_node}-${edge.to_node}`} from={from} to={to} flow={flow}
                       label={
                         selected === edge.from_node || selected === edge.to_node

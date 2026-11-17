@@ -317,3 +317,21 @@ it("pulses move at one speed on every wire, and are as far apart (walk 2026-11-1
   expect(short.perSecond).toBeCloseTo(long.perSecond, 5);
   expect(Math.abs(long.gap - short.gap) / short.gap).toBeLessThan(0.2);
 });
+
+describe("a lit path reads at a glance (walk 2026-11-17)", () => {
+  it("draws its wires in blue, the rest as they were", () => {
+    fake({ lit: ["trimgalore", "star_align"] });
+    const stroke = (id: string) => screen.getByTestId(id).querySelector("path")!.getAttribute("stroke");
+    expect(stroke("wire-trimgalore-star_align")).toBe("var(--now)");
+    expect(stroke("wire-star_align-samtools_sort")).toBe("var(--port-line)");
+  });
+
+  it("starts its dots spread along the wire, so a long one is never empty", async () => {
+    const { Pulses } = await import("./CollectionChannel");
+    const { container } = render(<svg><Pulses d="M0 0 H 600" length={600} /></svg>);
+    const begins = Array.from(container.querySelectorAll("animateMotion")).map((m) => parseFloat(m.getAttribute("begin")!));
+    expect(begins.length).toBeGreaterThan(1);
+    expect(begins.every((b) => b <= 0)).toBe(true);
+    expect(new Set(begins).size).toBe(begins.length);
+  });
+});
