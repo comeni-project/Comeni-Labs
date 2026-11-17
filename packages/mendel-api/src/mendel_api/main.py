@@ -21,6 +21,7 @@ from mendel_api.routes import build as build_routes
 from mendel_api.routes import data as data_routes
 from mendel_api.routes import forge as forge_routes
 from mendel_api.routes import health as health_routes
+from mendel_api.routes import tool_tests
 from mendel_api.routes import proposals as proposal_routes
 from mendel_api.routes import registry as registry_routes
 from mendel_api.routes import settings as settings_routes
@@ -95,6 +96,7 @@ def create_app() -> FastAPI:
     # and a hard refresh on a deep link reaches the SPA rather than the API.
     app.include_router(health_routes.router, prefix="/api")
     app.include_router(registry_routes.router, prefix="/api")
+    app.include_router(tool_tests.router, prefix="/api")
     app.include_router(build_routes.router, prefix="/api")
     app.include_router(attention_routes.router, prefix="/api")
     # The living pipeline. `/pipeline/authoring` sits under the build router's own prefix and

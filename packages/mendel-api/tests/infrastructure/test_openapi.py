@@ -37,6 +37,10 @@ def test_every_operation_is_named_by_hand():
         ("/api/registry/choices", "get"): "readChoices",
         # The forge's catalogue of upstream modules (forge part 1, #362).
         ("/api/forge/catalogue", "get"): "readCatalogue",
+        # A registered tool's sanity checks, prepared here and run by the run service.
+        ("/api/tool-tests", "get"): "listRegisteredTestCases",
+        ("/api/tool-tests/prepare", "post"): "prepareRegisteredTest",
+        ("/api/tool-tests/check-outputs", "post"): "checkRegisteredTestOutputs",
         ("/api/forge/catalogue/flow", "get"): "readCatalogueFlow",
         ("/api/forge/adaptations/{adaptation_id}/events", "get"): "readAdaptationEvents",
         ("/api/forge/adaptations/{adaptation_id}/events/stream", "get"): "followAdaptationEvents",

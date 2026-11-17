@@ -90,6 +90,9 @@ def test_no_request_body_accepts_a_filesystem_path():
         ("POST /api/data/{draft_id}/fixes (application/json)", "file"),
         # A module's path inside a catalogue source (nf-core/modules), not on this machine.
         ("POST /api/forge/adaptations (application/json)", "path"),
+        # Not a path on this machine: a registry test run's published results, `process/name`
+        # as the run service lists them, matched against expected patterns and never opened.
+        ("POST /api/tool-tests/check-outputs (application/json)", "files"),
     }
     offenders = [
         f"{where} {field}"
