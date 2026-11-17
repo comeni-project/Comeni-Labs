@@ -129,6 +129,7 @@ export function SourceNode({
   grain,
   count,
   given,
+  drag,
 }: {
   at: Point;
   name: string;
@@ -138,6 +139,8 @@ export function SourceNode({
   count: number | null;
   /** The file Data answers it with, when Data has one (a reference's name). */
   given?: string;
+  /** Pointer handlers that move it on its own (walk 2026-11-17); absent, it stays put. */
+  drag?: React.HTMLAttributes<HTMLDivElement>;
 }) {
   const typeName = useTypeNames();
   const what = chipName(typeName(typeId));
@@ -146,7 +149,8 @@ export function SourceNode({
     <div
       data-testid={`living-source-${name}`}
       title={`${typeName(typeId)}${spelledStates(states)} · params.${name}`}
-      className="absolute box-border flex flex-col justify-center gap-[1px] px-[10px]"
+      {...drag}
+      className={`absolute box-border flex flex-col justify-center gap-[1px] px-[10px] ${drag ? "cursor-grab touch-none active:cursor-grabbing" : ""}`}
       style={{
         left: at.x,
         top: at.y,
@@ -166,10 +170,14 @@ export function SourceNode({
 
 /** **A result, as the board draws it**: a green chip after a step nothing else reads, with what it
  *  is and how much of it there is (*24 tables*, or on Run *14 of 24*). */
-export function ResultNode({ at, name, detail, testId }: { at: Point; name: string; detail: string; testId: string }) {
+export function ResultNode({ at, name, detail, testId, drag }: {
+  at: Point; name: string; detail: string; testId: string;
+  /** Pointer handlers that move it on its own; absent, the pointer passes through it. */
+  drag?: React.HTMLAttributes<HTMLDivElement>;
+}) {
   return (
-    <div data-testid={testId}
-         className="absolute box-border flex flex-col justify-center gap-[1px] px-[10px] pointer-events-none"
+    <div data-testid={testId} {...drag}
+         className={`absolute box-border flex flex-col justify-center gap-[1px] px-[10px] ${drag ? "cursor-grab touch-none active:cursor-grabbing" : "pointer-events-none"}`}
          style={{ left: at.x, top: at.y, width: SOURCE_W, height: SOURCE_H, borderRadius: "var(--radius-control)",
                   background: "var(--done-soft)", border: "1px solid var(--done-line)" }}>
       <span className="text-[12px] font-semibold text-done-ink truncate">{name}</span>

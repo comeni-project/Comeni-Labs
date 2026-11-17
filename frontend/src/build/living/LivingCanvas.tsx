@@ -292,7 +292,10 @@ export function LivingCanvas({
     perNode.set(feeds[0][0], index + 1);
     const geometry = place("Input", anchor, index, gutterClear(anchor, index), { w: SOURCE_W, h: SOURCE_H },
                            tall(feeds[0][0]));
-    return [{ channel, box: geometry.box, edge: geometry.edge, feeds }];
+    // **Dragged on its own** (walk 2026-11-17): where a person put it, its wire's start with it.
+    const put = moved[`source:${channel.name}`];
+    const dx = put ? put.x - geometry.box.x : 0, dy = put ? put.y - geometry.box.y : 0;
+    return [{ channel, box: put ?? geometry.box, edge: { x: geometry.edge.x + dx, y: geometry.edge.y + dy }, feeds }];
   });
 
   /** **Results**: a chip after each step nothing else reads (not a measuring step), named for what
@@ -304,11 +307,32 @@ export function LivingCanvas({
       const perItem = steps[id]?.runs === "per_item";
       return {
         id,
-        at: { x: at[id].x + NODE_W + 48, y: at[id].y + portOffset(0) - SOURCE_H / 2 },
+        at: moved[`result:${id}`] ?? { x: at[id].x + NODE_W + 48, y: at[id].y + portOffset(0) - SOURCE_H / 2 },
         name: chipName(typeName(out.type_id)),
         detail: progress?.[id]?.label ?? (perItem && samples ? `${samples} files` : "1 file"),
       };
     });
+
+  /** Moving an input or a result on its own, as a step is moved: kept in `moved` beside the steps,
+   *  so Tidy gives every one back. */
+  const chipDrag = (key: string, origin: Point): React.HTMLAttributes<HTMLDivElement> | undefined =>
+    readOnly ? undefined : {
+      onPointerDown: (e) => {
+        drag.current = { id: key, from: { x: e.clientX, y: e.clientY }, origin, travelled: false };
+        (e.target as Element).setPointerCapture?.(e.pointerId);
+        e.stopPropagation();
+      },
+      onPointerMove: (e) => {
+        const d = drag.current;
+        if (!d || d.id !== key) return;
+        const dx = (e.clientX - d.from.x) / view.view.k;
+        const dy = (e.clientY - d.from.y) / view.view.k;
+        if (!d.travelled && Math.abs(dx) + Math.abs(dy) < 3) return;
+        d.travelled = true;
+        setMoved((m) => ({ ...m, [key]: { x: Math.round(d.origin.x + dx), y: Math.round(d.origin.y + dy) } }));
+      },
+      onPointerUp: () => { setTimeout(() => { drag.current = null; }, 0); },
+    };
 
   const drawn = ids.length;
   /** Fit the whole drawing, inputs included, in the frame the probe sits in. */
@@ -619,10 +643,11 @@ export function LivingCanvas({
       {sources.map(({ channel, box }) => (
         <SourceNode key={channel.name} at={box} name={channel.name} typeId={channel.type_id}
                     states={channel.states} grain={channel.grain} count={channel.count ?? samples ?? null}
-                    given={given[channel.type_id]} />
+                    given={given[channel.type_id]} drag={chipDrag(`source:${channel.name}`, box)} />
       ))}
       {results.map((r) => (
-        <ResultNode key={`result-${r.id}`} testId={`living-result-${r.id}`} at={r.at} name={r.name} detail={r.detail} />
+        <ResultNode key={`result-${r.id}`} testId={`living-result-${r.id}`} at={r.at} name={r.name} detail={r.detail}
+                    drag={chipDrag(`result:${r.id}`, r.at)} />
       ))}
 
       {ids.map((id) => {

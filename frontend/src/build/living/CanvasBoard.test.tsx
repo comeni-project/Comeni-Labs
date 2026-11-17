@@ -253,3 +253,26 @@ describe("a lit path (Run → Outputs)", () => {
     expect(screen.getByTestId("living-node-samtools_sort").className).not.toContain("opacity-40");
   });
 });
+
+describe("inputs and results are cards of their own", () => {
+  it("drags an input on its own, and its wire follows (walk 2026-11-17)", () => {
+    fake();
+    const reads = screen.getByTestId("living-source-reads");
+    const left = parseFloat(reads.style.left), top = parseFloat(reads.style.top);
+    fireEvent.pointerDown(reads, { clientX: 10, clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(reads, { clientX: 70, clientY: 40, pointerId: 1 });
+    fireEvent.pointerUp(reads, { pointerId: 1 });
+    expect(parseFloat(screen.getByTestId("living-source-reads").style.left)).toBe(left + 60);
+    expect(parseFloat(screen.getByTestId("living-source-reads").style.top)).toBe(top + 30);
+  });
+
+  it("drags a result on its own", () => {
+    fake();
+    const [result] = screen.getAllByTestId(/^living-result-/);
+    const left = parseFloat(result.style.left);
+    fireEvent.pointerDown(result, { clientX: 10, clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(result, { clientX: 50, clientY: 10, pointerId: 1 });
+    fireEvent.pointerUp(result, { pointerId: 1 });
+    expect(parseFloat(screen.getByTestId(result.dataset.testid!).style.left)).toBe(left + 40);
+  });
+});
