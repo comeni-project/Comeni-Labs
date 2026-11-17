@@ -22,6 +22,7 @@ services:
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
       - ./.run/forge:/app/forge
+      - ./.run/chatgpt:/app/chatgpt
     command: sh -c "cd packages/mendel-api && alembic upgrade head && cd /app && exec uvicorn mendel_api.main:app --host 0.0.0.0 --port 8000"
   mendel-worker:
     volumes: !override
@@ -37,6 +38,7 @@ services:
       - ./workspace:/app/workspace
       - ./.run/drafts:/app/drafts
       - ./.run/forge:/app/forge:ro
+      - ./.run/chatgpt:/app/chatgpt
       - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
 
   ollama:

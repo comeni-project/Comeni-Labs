@@ -4,6 +4,7 @@
 button for each name it is served.
 """
 
+import asyncio
 from collections.abc import Awaitable, Callable
 
 from pydantic import BaseModel, ConfigDict
@@ -23,22 +24,33 @@ class ActionResult(BaseModel):
 async def _test(record: dict) -> ActionResult:
     endpoint = record.get("endpoint")
     if not endpoint:
-        return ActionResult(
-            ok=None, says="A hosted provider is not probed: asking costs a call."
-        )
+        return ActionResult(ok=None, says="A hosted provider is not probed: asking costs a call.")
     if await probe.answers(endpoint):
         return ActionResult(ok=True, says=f"Something answers at {endpoint}.")
     return ActionResult(ok=False, says=f"Nothing answered at {endpoint} within a few seconds.")
 
 
 async def _models(record: dict) -> ActionResult:
+    if record.get("provider") == "chatgpt":
+        from mendel_api.services.chatgpt_signin import models
+
+        try:
+            values = await asyncio.to_thread(models)
+        except Exception:
+            return ActionResult(
+                ok=False, says="Could not list subscription models. Check the saved sign-in."
+            )
+        return ActionResult(ok=True, says=f"{len(values)} subscription models.", values=values)
     endpoint = record.get("endpoint")
     if not endpoint:
         return ActionResult(ok=None, says="Type the model id, as provider/model.")
     try:
         key = record.get("key")  # a SecretStr, opened only for this request
         values = await probe.listed(
-            endpoint, record.get("server"), key.get_secret_value() if key else None
+            endpoint,
+            record.get("server"),
+            key.get_secret_value() if key else None,
+            provider=record.get("provider", "custom"),
         )
     except probe.ProbeFailed as failed:
         return ActionResult(ok=False, says=f"Could not list models at {endpoint} ({failed}).")

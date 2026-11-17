@@ -41,6 +41,13 @@ def test_every_operation_is_named_by_hand():
         ("/api/tool-tests", "get"): "listRegisteredTestCases",
         ("/api/tool-tests/prepare", "post"): "prepareRegisteredTest",
         ("/api/tool-tests/check-outputs", "post"): "checkRegisteredTestOutputs",
+        # Guided model setup: find a server's models before saving, or sign in to ChatGPT.
+        ("/api/settings/models/detect", "post"): "detectLocalModelServers",
+        ("/api/settings/models/discover", "post"): "discoverConnectionModels",
+        ("/api/settings/models/chatgpt", "get"): "chatgptSigninStatus",
+        ("/api/settings/models/chatgpt/sign-in", "post"): "startChatgptSignin",
+        ("/api/settings/models/chatgpt/sign-in/{session}", "post"): "pollChatgptSignin",
+        ("/api/settings/models/chatgpt/models", "post"): "listSubscriptionModels",
         ("/api/forge/catalogue/flow", "get"): "readCatalogueFlow",
         ("/api/forge/adaptations/{adaptation_id}/events", "get"): "readAdaptationEvents",
         ("/api/forge/adaptations/{adaptation_id}/events/stream", "get"): "followAdaptationEvents",

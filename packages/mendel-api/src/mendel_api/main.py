@@ -21,7 +21,7 @@ from mendel_api.routes import build as build_routes
 from mendel_api.routes import data as data_routes
 from mendel_api.routes import forge as forge_routes
 from mendel_api.routes import health as health_routes
-from mendel_api.routes import tool_tests
+from mendel_api.routes import model_setup, tool_tests
 from mendel_api.routes import proposals as proposal_routes
 from mendel_api.routes import registry as registry_routes
 from mendel_api.routes import settings as settings_routes
@@ -103,6 +103,7 @@ def create_app() -> FastAPI:
     # declares no path parameter at its root, so it cannot be swallowed by anything above it.
     app.include_router(authoring_routes.router, prefix="/api")
     # Settings for the whole installation (spec 2026-10-01).
+    app.include_router(model_setup.router, prefix="/api")
     app.include_router(settings_routes.router, prefix="/api")
     app.include_router(data_routes.router, prefix="/api")
     # The forge's catalogue (forge part 1, #362).

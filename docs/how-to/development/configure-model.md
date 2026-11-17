@@ -7,6 +7,31 @@ Serves: all four steps.
 Start the [development stack](local-stack.md) before configuring its AI worker.
 `make dev` does not download model weights. Choose a local server or a hosted provider.
 
+## Connect from Settings
+
+Open **Settings → Models → Add connection**. Setup walks through four choices:
+
+1. Choose a provider card: Ollama, LM Studio, OpenAI API, Anthropic API, Google Gemini,
+   OpenRouter, ChatGPT subscription, or a custom OpenAI-compatible server.
+2. For Ollama and LM Studio, Comeni checks the usual local addresses automatically. For an API
+   provider, paste its API key and click **Connect & find models**. The provider's address is
+   filled in; custom addresses and optional local authentication live under advanced settings.
+3. Click a returned model card. Search filters the list. If a provider does not publish a model
+   list, the manual model ID option remains available.
+4. Choose **Use as my default** or **Assign later**, then **Finish setup**. Connection names are
+   suggested automatically. Existing `.env` pins remain in control.
+
+Connection checks list models without sending a prompt. Draft keys are not saved until setup
+finishes; stored keys remain sealed and are returned only as a last-four-character mask. Editing
+an existing connection can reuse its saved key. Model choices below the connection list have
+searchable pickers and per-purpose call settings.
+
+Local detection checks the Compose Ollama service, the Docker host address, and loopback;
+it does not install a server or download model weights. A server on another machine needs its
+address entered under **Use a different address or API key**.
+
+## Configure the local stack from the terminal
+
 ```bash
 make ai-up                            # start Ollama; may download its container image
 make ai-pull MODEL=qwen2.5-coder:14b     # download model weights into a named volume
@@ -32,7 +57,7 @@ To use a hosted model instead, set `COMENI_AI_MODEL` and `COMENI_AI_API_KEY` and
 `COMENI_AI_BASE_URL` empty. Nothing else changes — the same worker, the same prompts, the same
 registry.
 
-Leaving `COMENI_AI_MODEL` empty is a supported way to run Comeni. Every deterministic step
+Leaving both Settings and `COMENI_AI_MODEL` without a model is supported. Every deterministic step
 still works, and every open question is answered by a person.
 
 ## Use a ChatGPT subscription
@@ -40,21 +65,23 @@ still works, and every open question is answered by a person.
 A ChatGPT plan that includes Codex can answer model calls through LiteLLM's `chatgpt/`
 provider, with no API key. Calls count against the plan's usage limits.
 
-1. In ChatGPT's security settings, turn on device code login.
-2. Sign in once. The command prints a link and a code; approve it in the browser:
+1. In ChatGPT's security settings, enable device code login if your account requires it.
+2. Open **Settings → Models → Add connection → ChatGPT subscription**.
+3. Click **Continue with ChatGPT**, copy the displayed code, and open the sign-in page.
+   Approve access there. Comeni waits for approval and then shows the subscription's model
+   catalogue. An existing saved sign-in is reused.
+4. Click a model, choose whether to use it as the default, and click **Finish setup**.
 
-   ```bash
-   docker exec mendel-ai-worker python -u -c "import litellm; print(litellm.completion(model='chatgpt/gpt-6.1-sol', messages=[{'role': 'user', 'content': 'say ok'}]).choices[0].message.content)"
-   ```
+The sign-in is kept in `.run/chatgpt/auth.json`, shared by the API and AI worker as
+`CHATGPT_TOKEN_DIR`. Access and refresh tokens never enter the browser. Pending device codes
+expire after fifteen minutes; the UI offers a fresh sign-in when they expire. The provider
+controls model availability and plan limits. If catalogue access is unavailable, retry or use
+the manual model ID option. New subscription defaults use temperature 1, matching the existing
+subscription transport; per-purpose **Call settings** can override it.
 
-   The sign-in is kept in `.run/chatgpt/auth.json`, which the API and the AI worker share as
-   `CHATGPT_TOKEN_DIR`. It lasts about ten days. When calls start failing, sign in again.
-3. In **Settings → Models**, add a connection with the server **A hosted provider**, and no
-   endpoint or key.
-4. For a purpose, choose **Other…**, that connection and a model such as
-   `chatgpt/gpt-6.1-sol`. A plan accepts only some models; the call says which it refuses.
-5. Open the purpose's **Call settings** and set **Temperature** to 1. A reasoning model
-   refuses any other temperature unless its reasoning effort is `none`.
+API keys and subscription access are separate choices. The ChatGPT option uses Comeni's
+existing LiteLLM subscription transport, rather than treating a chat subscription as an API key.
+Claude subscriptions are not connected by this flow; Anthropic setup uses an API key.
 
 The subscription route does not cache prompts: the builder agent resends its prompt and tool
 definitions on every round of a turn, and each is billed in full against the plan. A provider that
@@ -62,6 +89,13 @@ caches (the OpenAI API caches on its own; Claude models are sent the system prom
 caching) bills that repeated part at a fraction. Cached input shows in a session's call list.
 
 ## Tune a purpose's calls
+
+Subscription model discovery follows the account's current catalogue. The server refreshes
+the Codex client version from public npm release metadata every six hours, without installing
+software or sending credentials to npm. If that lookup fails, it keeps the last known version
+and retries after ten minutes. The setup picker refreshes on opening, on returning to the
+window, and every five minutes while the model selection step is open. Existing model choices
+stay unchanged until you select another model.
 
 Each purpose's **Call settings** can set its own temperature, reasoning effort and timeout.
 An empty field keeps the installation's value: `COMENI_AI_TEMPERATURE` (0 when unset) and

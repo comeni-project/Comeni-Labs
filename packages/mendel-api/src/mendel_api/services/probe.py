@@ -53,18 +53,40 @@ class ProbeFailed(Exception):
     pass
 
 
-async def listed(endpoint: str, server: str | None, key: str | None = None) -> list[str]:
+async def listed(
+    endpoint: str, server: str | None, key: str | None = None, provider: str = "custom"
+) -> list[str]:
     """`GET <endpoint>/v1/models`. **No prompt is sent**: this asks what a server holds."""
     try:
         async with httpx.AsyncClient(timeout=PROBE_SECONDS, transport=TRANSPORT) as http:
             # An OpenAI-compatible endpoint is usually written with `/v1` already (review M2),
             # and one started with an API key wants it here too.
-            base = endpoint.rstrip("/").removesuffix("/v1")
+            from urllib.parse import urlsplit
+
+            base = endpoint.rstrip("/")
+            if not urlsplit(base).path:
+                base += "/v1"
             headers = {"Authorization": f"Bearer {key}"} if key else {}
-            answer = await http.get(base + "/v1/models", headers=headers)
+            if provider == "anthropic":
+                headers = {"anthropic-version": "2023-06-01", **({"x-api-key": key} if key else {})}
+            answer = await http.get(base + "/models", headers=headers)
             answer.raise_for_status()
             ids = [item["id"] for item in answer.json()["data"]]
+    except httpx.HTTPStatusError as failed:
+        status = failed.response.status_code
+        message = {
+            401: "The API key was not accepted. Check it and try again.",
+            403: "This key does not have access to list models.",
+            404: "No model list was found. Check the server address.",
+        }.get(status)
+        raise ProbeFailed(message or f"The provider returned HTTP {status}.") from None
     except (httpx.HTTPError, KeyError, TypeError, ValueError) as failed:
         raise ProbeFailed(type(failed).__name__) from None
-    prefix = PREFIX.get(server or "", "")
+    prefix = (
+        "anthropic/"
+        if provider == "anthropic"
+        else "openai/"
+        if provider in {"openai", "openrouter", "gemini"}
+        else PREFIX.get(server or "", "")
+    )
     return sorted(prefix + i for i in ids)
