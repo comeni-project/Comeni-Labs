@@ -106,4 +106,7 @@ this override, as instructed.
 The code ships as `builder.agent.v4`: v3 plus reading every choice of a `chatgpt/` reply
 (`docs/notes/agent-tool-calling-check.md`). The slip tests in `test_loop.py`, which asserted the
 removed rule, were replaced by tests of the current contract. The guard ledger records the
-guard's retirement. `make check` was then run; its result is in the commit that lands this work.
+guard's retirement. MI0227 is retired, since nothing emits it
+(`test_every_declared_code_is_emitted`). `make check`: lint green; tests 3,982 passed, 2 failed:
+MI0227, since retired, and #413 (Python 3.14 words a `ValueError` differently; it predates this
+work). Types, docs, links, paths and sizes green. Frontend: 678 tests, `tsc -b` clean.

@@ -23,12 +23,24 @@ mounted here as a submodule. Its changes and releases are recorded in that repos
 - Production requires separate administrator, Mendel and Wiener database passwords.
 - The API and the AI worker share `.run/chatgpt` as `CHATGPT_TOKEN_DIR`, for a ChatGPT
   subscription's sign-in (#457).
+- Production now mounts `.run/chatgpt` in the API and the AI worker as development does. The
+  AI worker mounts the data root read-only at the same path in both, so the builder's Data tools
+  open references at the paths the API saved.
+- `make prepare` creates `.run/chatgpt` and stops when it is not writable. It records the host
+  Docker socket's group as `DOCKER_GID_SOCK` in `.env`, keeping a value already set there or in
+  the environment.
 
 These notes consolidate the earlier unreleased entries and backfill notable changes
 through the explain-inputs and retention work on this branch. They are not a new release
 or a complete commit history.
 
 ### comeni-core
+
+- Builder egress: `RepliedView`, the validated message of the agent's `reply`; and
+  `DataView.reference_files` (`ReferenceCandidate`): the analysis's reference candidates by an
+  opaque file ID, file and collection name and possible types, never a path.
+- A model connection records its `provider` (`connection.provider`): Ollama, LM Studio, OpenAI,
+  Anthropic, Gemini, OpenRouter, a ChatGPT subscription or a custom server.
 
 - `Shown.checks`: a setting's slower check is read on its own after the menu (#511).
 
@@ -267,6 +279,26 @@ or a complete commit history.
 
 ### mendel-api
 
+- Builder agent, protocol `builder.agent.v4`: a `reply` tool ends the turn with a validated
+  message, and a reply without tools is still the answer. The announce-and-nudge heuristic is
+  gone. Each model call records a digest of the tool definitions and the tool choice it was
+  sent. `add_reference` picks a reference from `read_data`'s candidates by ID, recorded as the
+  AI's with its reason. The prompt tells the agent to match the collection to the analysis.
+- Data: a sample choice and its undo apply to the saved measurements, reading only files whose
+  pairing changes, then rebuild an existing pipeline in the background. They no longer rescan
+  every folder. `/data/tree` lists a folder's files, 200 at a time (`file_offset`), each with its
+  size and kind. Run bindings count only the samples a pipeline's inputs take.
+- Guided model setup under `/settings/models/`: detect local Ollama and LM Studio servers, list
+  a draft connection's models before saving it, and sign in to a ChatGPT subscription with a
+  device code. Model listing sends Anthropic's own headers and explains 401, 403 and 404 answers.
+  The subscription catalogue is requested with the Codex client's current version, read from
+  public npm metadata every six hours; no credentials are sent there.
+- Registry tool tests (`/tool-tests`): list a held tool's registered tests, prepare one as a
+  bundle for the run service, and check a run's published outputs against the test's expected
+  files.
+- Forge: answering, approving, writing or changing an item queues the AI's draft of the next
+  empty piece. It approves nothing the AI proposed.
+
 - Registry, Forge and Settings for the redesign (#511): `GET /data/readers` gives each reader's facts with their units, the rules and settings that decide by them and their tests, and lists tool measurers; a forging's summary says its failed tests and pull request state; `GET /settings/{key}/check` tries a slower check after the menu (the default model's server), so Settings never waits on it. The builder agent sets a setting it is asked about as its tier-4 choice, hears a change in Data until it has built, and builds and compiles with the draft's AI provenance (a value it set was refused with MD0225).
 
 - Data for the redesign (#511): `GET /data/readers`; `/data/tree` says what each folder looks like; files in a folder named for references are offered as references, files nothing reads are not samples, and a number ten times off the median is checked. The builder agent sees references (`DataView.references`), suggests commands on Run → Console (`suggest_command`, paths shortened in what the page carries), and a reached subscription limit says when it resets (MA0010). `POST /pipeline/authoring/{id}/tidy` lays the canvas out again; steps carry their input rules (`StepView.rules`) and settings their `explain`.
@@ -452,6 +484,14 @@ or a complete commit history.
 
 ### comeni-ai
 
+- `reply_of` reads every choice of a `chatgpt/` reply. LiteLLM's Responses bridge returns
+  narration and tool calls as separate choices, so the builder lost its tool calls whenever it
+  narrated first. Other providers' choices are alternative generations; the first is kept.
+- `AgentTransport.converse` takes an optional `tool_choice="required"` (`comeni_ai.tool_policy`):
+  sent only to hosted providers that support it, retried without it after an unsupported-parameter
+  refusal, never sent to local endpoints. `AgentReply.tool_choice` records what was sent. The
+  builder does not request it.
+
 - A provider's usage limit is MA0010, with the reset time it gives (#528).
 
 #### Added
@@ -603,6 +643,20 @@ or a complete commit history.
 - Shared pure graph layout supports the build and run canvases.
 
 ### frontend
+
+- **Settings → Models**: guided connection setup with provider cards, local server detection,
+  model discovery before saving and ChatGPT subscription sign-in. Connections are listed with
+  their checks.
+- **Data**: a folder row opens onto its files, with their sizes and kinds. A file name shows its
+  location inside the added folders. Each kind of data has its own table, all in view, with a
+  *Pipeline use* column. Folder checkboxes are larger.
+- **Run** counts only the samples the pipeline takes, and a step pulses only while its tasks run.
+  Outputs offers *Show in folder*, served by the local development server (`/api/local/reveal`,
+  same-origin loopback only), and opens only HTML reports in a new tab. Console fits the window.
+- **Registry · Tools** is three pinned columns (filters, list, selected tool) that fold at
+  narrower widths. A held tool's registered tests run from its card and its page.
+- **Forge**: the side panel opens on the Assistant, which shows drafting progress, waiting
+  questions with their answer choices and the next piece, and stays scrolled to the latest.
 
 - **Registry, Forge and Settings to the board** (#511, #513). **Registry**: Tools (search, a format flow, the selected tool with its fits and the rules that decide by it), Vocabulary, **Measurers** (one entry a reader: what it reads, the facts it makes, the rules and settings that decide by each, its tests) and Releases. **Forge** (`/forge`): search nf-core with how each match fits your registry, what needs you, and each forging's Tool · Tests · Publish; a forging (`/forge/:id`) draws the tool as a small pipeline with its parts, an inspector a part with the AI's waiting choices under Review, the assistant, its tests and what they cover, and the track to release. **Settings** is a page (`/settings`), its sections in the rail; the `?settings=` overlay is gone. Outputs opens text in the browser and does not offer a binary.
 
