@@ -24,6 +24,8 @@
   --ai: #5A3EAF; --ai-soft: #EEE9FB; --ai-line: #E3DBF6;
   /* Format families on the registry's map and the data pages. */
   --report: #9A2F5C; --report-soft: #FBE8F0; --regions: #156F6F; --regions-soft: #E2F5F4;
+  /* A file's way through the pipeline (Run → Outputs): no run state uses this colour. */
+  --path: var(--regions);
   /* The canvas: nodes are outlined, and the rail is the settled tier, so it spends no colour. */
   --node: #FFFFFF; --node-line: #D2D7DE; --node-rule: #E2E5EA;
   --rail: #A9B2BF; --port-line: #D2D7DE; --mark: #A9B2BF;
@@ -50,6 +52,7 @@
     --now: #6EA2FF; --now-mid: #3D6FC0; --now-soft: #172642; --now-ink: #8FB6FF; --now-line: #2A4170;
     --ai: #B39DFF; --ai-soft: #241D3A; --ai-line: #3A2F5C;
     --report: #F08DB8; --report-soft: #3A1A2A; --regions: #5FD9D9; --regions-soft: #0F3333;
+    --path: var(--regions);
     --node: #1A1D27; --node-line: #3A3F52; --node-rule: #282C3A;
     --rail: #4A5068; --port-line: #3A3F52; --mark: #4A5068;
     --grid-1: rgba(140, 170, 255, .06); --grid-2: rgba(140, 170, 255, .03);
@@ -71,6 +74,7 @@
   --now: #6EA2FF; --now-mid: #3D6FC0; --now-soft: #172642; --now-ink: #8FB6FF; --now-line: #2A4170;
     --ai: #B39DFF; --ai-soft: #241D3A; --ai-line: #3A2F5C;
     --report: #F08DB8; --report-soft: #3A1A2A; --regions: #5FD9D9; --regions-soft: #0F3333;
+    --path: var(--regions);
   --node: #1A1D27; --node-line: #3A3F52; --node-rule: #282C3A;
   --rail: #4A5068; --port-line: #3A3F52; --mark: #4A5068;
   --grid-1: rgba(140, 170, 255, .06); --grid-2: rgba(140, 170, 255, .03);

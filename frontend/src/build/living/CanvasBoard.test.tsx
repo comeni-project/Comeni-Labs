@@ -319,10 +319,11 @@ it("pulses move at one speed on every wire, and are as far apart (walk 2026-11-1
 });
 
 describe("a lit path reads at a glance (walk 2026-11-17)", () => {
-  it("draws its wires in blue, the rest as they were", () => {
+  it("draws its wires in the path colour, the rest as they were", () => {
     fake({ lit: ["trimgalore", "star_align"] });
     const stroke = (id: string) => screen.getByTestId(id).querySelector("path")!.getAttribute("stroke");
-    expect(stroke("wire-trimgalore-star_align")).toBe("var(--now)");
+    // Its own colour, not running's blue: Outputs is open while a run goes (walk 2026-11-17).
+    expect(stroke("wire-trimgalore-star_align")).toBe("var(--path)");
     expect(stroke("wire-star_align-samtools_sort")).toBe("var(--port-line)");
   });
 
@@ -333,5 +334,16 @@ describe("a lit path reads at a glance (walk 2026-11-17)", () => {
     expect(begins.length).toBeGreaterThan(1);
     expect(begins.every((b) => b <= 0)).toBe(true);
     expect(new Set(begins).size).toBe(begins.length);
+  });
+});
+
+describe("the legend says what is drawn", () => {
+  it("adds this file's path to the legend when a path is lit, and not otherwise", () => {
+    fake({ lit: ["trimgalore"] });
+    expect(within(screen.getByRole("list", { name: "legend" })).getByText("this file's path")).toBeTruthy();
+  });
+  it("leaves it out with nothing lit", () => {
+    fake();
+    expect(within(screen.getByRole("list", { name: "legend" })).queryByText("this file's path")).toBeNull();
   });
 });

@@ -1,21 +1,18 @@
 import type { Positions } from "../../build/geometry";
 import { LivingCanvas } from "../../build/living/LivingCanvas";
 import { Loading } from "../../ui/States";
-import { Graph } from "./Graph";
 import { progressOf, type RunNode } from "./model";
 import { factsOf, useBuildCanvas, useReferences } from "./useRuns";
 
 /** **The run, drawn on Build's canvas** (#511, `Run.dc.html`): the same steps where Build put them,
- *  each with how far it has got. A run of a pipeline the analysis no longer keeps is drawn from
- *  the run's own record instead, since Build's canvas is of the current one. */
-export function RunCanvas({ draftId, runId, nodes, samples, live, current, selected, onSelect, lit = null, focus = null, fit = true }: {
+ *  each with how far it has got. Every run is drawn here, an earlier one too: a step it did not
+ *  run shows as waiting. There is no other drawing of a run. */
+export function RunCanvas({ draftId, nodes, samples, live, selected, onSelect, lit = null, focus = null, fit = true }: {
   draftId: string;
   runId: string;
   nodes: RunNode[];
   samples: number;
   live: boolean;
-  /** Whether this run is of the pipeline the analysis keeps now. */
-  current: boolean;
   selected: string | null;
   onSelect: (step: string | null) => void;
   /** Steps to light, the rest faded (Outputs: a file's way through the pipeline). */
@@ -27,10 +24,9 @@ export function RunCanvas({ draftId, runId, nodes, samples, live, current, selec
 }) {
   const canvas = useBuildCanvas(draftId);
   const given = useReferences(draftId);
-  if (!current) return <Graph runId={runId} />;
   if (canvas.isPending) return <Loading what="the pipeline" />;
   const frame = canvas.data?.canvas;
-  if (!frame) return <Graph runId={runId} />;
+  if (!frame) return <p className="m-0 p-4 text-[13px] text-ink-3">The pipeline could not be drawn.</p>;
   const facts = factsOf(canvas.data);
   const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
   const progress = Object.fromEntries(frame.steps.map((s) => [s.id, progressOf(byId[s.id], facts[s.id], samples, live)]));

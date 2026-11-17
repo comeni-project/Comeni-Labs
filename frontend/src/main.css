@@ -115,6 +115,7 @@
   --color-report-soft: var(--report-soft);
   --color-regions: var(--regions);
   --color-regions-soft: var(--regions-soft);
+  --color-path: var(--path);
   --color-hover: var(--hover);
   --color-hover-strong: var(--hover-strong);
 

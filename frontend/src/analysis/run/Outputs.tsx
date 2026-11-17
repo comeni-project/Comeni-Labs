@@ -7,7 +7,7 @@ import type { components as wiener } from "../../wiener/api/schema";
 import { Measured } from "./Measured";
 import { RunCanvas } from "./RunCanvas";
 import { bytes } from "./units";
-import { factsOf, useAnalysisRuns, useBuildCanvas, useRun, useSamples } from "./useRuns";
+import { factsOf, useBuildCanvas, useRun, useSamples } from "./useRuns";
 
 type Results = wiener["schemas"]["ResultsOut"];
 type File = wiener["schemas"]["ResultFile"];
@@ -60,7 +60,6 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
   const facts = factsOf(canvas.data);
   const samples = useSamples(draftId);
   const run = useRun(runId);
-  const current = useAnalysisRuns(draftId).list.some(({ run: r }) => r.id === runId);
   const edges = canvas.data?.canvas?.graph.edges ?? [];
   const stepIds = (canvas.data?.canvas?.steps ?? []).map((s) => s.id);
 
@@ -222,7 +221,7 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
           <Preview runId={runId} draftId={draftId} file={cur} step={stepOf(cur)} nameOf={nameOf} sample={sampleOf(cur.name, samples)}
                    edges={edges} files={files} stepOf={stepOf} samples={samples}
                    canvas={<RunCanvas draftId={draftId} runId={runId} nodes={run.graph.data?.nodes ?? []} samples={samples.length}
-                                      live={live} current={current} selected={stepOf(cur)}
+                                      live={live} selected={stepOf(cur)}
                                       onSelect={(id) => id && setSteps((was) => toggle(was, id))}
                                       lit={[...upstream(stepOf(cur), edges), stepOf(cur)]} focus={stepOf(cur)} fit={false} />}
                    onPick={(f) => setPicked(keyOf(f))} />

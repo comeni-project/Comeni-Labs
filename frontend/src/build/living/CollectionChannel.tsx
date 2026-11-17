@@ -65,8 +65,8 @@ export function Flowline({
    *  a lit path (Run → Outputs) now, and any canvas that wants to say "this way" later; still for
    *  anyone who asks the system for less motion. */
   pulse?: boolean;
-  /** **On the lit path**: drawn in the selection blue, a little heavier, so the way reads even
-   *  between pulses. */
+  /** **On the lit path**: drawn in the path colour (not a run state's), a little heavier, so the
+   *  way reads even between pulses. */
   lit?: boolean;
 }) {
   const strands = flow === "one" ? [0] : [-STRAND, 0, STRAND];
@@ -92,7 +92,7 @@ export function Flowline({
             d={path(points)}
             pathLength={className ? 1 : undefined}
             fill="none"
-            stroke={dashed || lit ? "var(--now)" : "var(--port-line)"}
+            stroke={lit ? "var(--path)" : dashed ? "var(--now)" : "var(--port-line)"}
             strokeWidth={lit ? (flow === "one" ? 2 : 1.6) : flow === "one" ? 1.2 : 1}
             strokeDasharray={dashed ? "5 4" : undefined}
             className={className}
@@ -130,13 +130,13 @@ export const PULSE_GAP = 70; // px between dots
 /** Dots travelling a path at one speed, evenly apart: where data went. **Seeded**: each starts
  *  part-way through its trip (a negative begin), so a long wire shows its dots at once rather
  *  than looking empty until the first arrives. Hidden under reduced motion. `length` is the path's length in px, which sets how long a trip takes and how many. */
-export function Pulses({ d, length }: { d: string; length: number }) {
+export function Pulses({ d, length, colour = "var(--path)" }: { d: string; length: number; colour?: string }) {
   const seconds = Math.max(length, 1) / PULSE_SPEED;
   const dots = Math.max(1, Math.round(length / PULSE_GAP));
   return (
     <g className="motion-reduce:hidden" aria-hidden="true">
       {Array.from({ length: dots }, (_, n) => (
-        <circle key={n} data-pulse data-testid="pulse-dot" r={3} fill="var(--now)" opacity={0}>
+        <circle key={n} data-pulse data-testid="pulse-dot" r={3} fill={colour} opacity={0}>
           <animateMotion dur={`${seconds}s`} begin={`${-(n * seconds) / dots}s`} repeatCount="indefinite"
                          path={d} calcMode="linear" keyPoints="0;1" keyTimes="0;1" />
           <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.05;0.95;1" dur={`${seconds}s`}

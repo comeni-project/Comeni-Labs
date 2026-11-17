@@ -39,14 +39,20 @@ type Rule = components["schemas"]["InputRule"];
 const CONTROL = "px-[14px] py-[6px] rounded-button border border-line-2 bg-surface text-[13px] font-semibold "
   + "text-ink cursor-pointer hover:bg-[var(--hover)] focus-visible:shadow-[var(--ring)]";
 
-/** What the canvas's colours mean, as the boards' legend says it. */
-const LEGEND: [string, string][] = [
-  ["settled", "var(--line-2)"], ["measured", "var(--measured)"], ["needs you", "var(--needs-you)"],
-];
-/** On Run, what a step's colour says about how far it has got. */
-const RUN_LEGEND: [string, string][] = [
-  ["done", "var(--done)"], ["running", "var(--now)"], ["waiting", "var(--line-2)"], ["failed", "var(--needs-you)"],
-];
+/** **What each layer the canvas draws means**: the legend is the layers shown, so a canvas that
+ *  draws something new (a living board's layer) adds its own entry and nothing else changes. */
+export const LAYERS = {
+  /** Build: how settled each step is. */
+  build: [["settled", "var(--line-2)"], ["measured", "var(--measured)"], ["needs you", "var(--needs-you)"]],
+  /** Run: how far each step has got. */
+  run: [["done", "var(--done)"], ["running", "var(--now)"], ["waiting", "var(--line-2)"], ["failed", "var(--needs-you)"]],
+  /** A lit path (Outputs): the way a file came. */
+  path: [["this file's path", "var(--path)"]],
+} satisfies Record<string, [string, string][]>;
+
+export function legendOf(layers: (keyof typeof LAYERS)[]): [string, string][] {
+  return layers.flatMap((layer) => LAYERS[layer] as [string, string][]);
+}
 
 /** How far a shared input runs as one line before its branches split off. */
 const TRUNK = 72;
@@ -515,7 +521,7 @@ export function LivingCanvas({
             )}
             <ul aria-label="legend" className="ml-auto m-0 flex items-center gap-3 px-3 py-[6px]
                                                rounded-button border border-line bg-surface text-[12.5px] text-ink-2">
-              {(progress ? RUN_LEGEND : LEGEND).map(([word, colour]) => (
+              {legendOf([progress ? "run" : "build", ...(lit !== null ? ["path" as const] : [])]).map(([word, colour]) => (
                 <li key={word} className="list-none flex items-center gap-[6px]">
                   <span aria-hidden className="w-[10px] h-[5px] rounded-full" style={{ background: colour }} />
                   {word}

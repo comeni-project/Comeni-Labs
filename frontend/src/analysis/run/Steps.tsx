@@ -8,7 +8,7 @@ import { get as fromWiener } from "../../wiener/api/client";
 import { ganttOf, progressOf, taskWords, type RunNode, type Task, type TimelineData } from "./model";
 import { RunCanvas } from "./RunCanvas";
 import { bytes, seconds } from "./units";
-import { factsOf, useAnalysisRuns, useBuildCanvas, useRun, useSamples } from "./useRuns";
+import { factsOf, useBuildCanvas, useRun, useSamples } from "./useRuns";
 
 const VIEWS = [{ id: "graph", label: "Graph" }, { id: "timeline", label: "Timeline" }] as const;
 
@@ -18,10 +18,8 @@ export function Steps({ draftId, runId, live }: { draftId: string; runId: string
   const [view, setView] = useUrlState<"graph" | "timeline">("view", "graph");
   const [step, setStep] = useUrlState("step", "");
   const run = useRun(runId);
-  const runs = useAnalysisRuns(draftId);
   const samples = useSamples(draftId);
   const nodes = run.graph.data?.nodes ?? [];
-  const current = runs.list.some(({ run: r }) => r.id === runId);
 
   return (
     <>
@@ -41,7 +39,7 @@ export function Steps({ draftId, runId, live }: { draftId: string; runId: string
         <Gantt runId={runId} draftId={draftId} nodes={nodes} live={live} selected={step} onSelect={setStep} />
       ) : (
         <section aria-label="Pipeline" className="relative h-[min(60vh,620px)] min-h-[380px] flex flex-col bg-surface border border-line rounded-panel overflow-hidden">
-          <RunCanvas draftId={draftId} runId={runId} nodes={nodes} samples={samples.length} live={live} current={current}
+          <RunCanvas draftId={draftId} runId={runId} nodes={nodes} samples={samples.length} live={live}
                      selected={step || null} onSelect={(id) => setStep(id ?? "")} />
         </section>
       )}

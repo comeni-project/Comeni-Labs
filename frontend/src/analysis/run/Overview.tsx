@@ -10,7 +10,7 @@ import { overAsked, progressOf, retryWhy, samplesOf, type ProcessRow, type RunNo
 import { Measured } from "./Measured";
 import { RunCanvas } from "./RunCanvas";
 import { bytes, seconds } from "./units";
-import { factsOf, useAnalysisRuns, useBuildCanvas, useRun, useSamples, type RunState } from "./useRuns";
+import { factsOf, useBuildCanvas, useRun, useSamples, type RunState } from "./useRuns";
 
 type Machine = components["schemas"]["Machine"];
 
@@ -21,7 +21,6 @@ export function Overview({ draftId, runId, base, state, live, stop }: {
 }) {
   const navigate = useNavigate();
   const run = useRun(runId);
-  const runs = useAnalysisRuns(draftId);
   const canvas = useBuildCanvas(draftId);
   const samples = useSamples(draftId);
   const facts = factsOf(canvas.data);
@@ -29,7 +28,6 @@ export function Overview({ draftId, runId, base, state, live, stop }: {
   const rows = run.overview.data?.rows ?? [];
   const perSample = new Set(nodes.filter((n) => facts[n.id]?.perSample).map((n) => n.process));
   const counted = samplesOf(rows, perSample, samples.length);
-  const current = runs.list.some(({ run: r }) => r.id === runId);
   const retried = useQuery({
     queryKey: ["retried-tasks", runId],
     queryFn: () => fromWiener<{ tasks: Task[]; total: number }>(`/api/runs/${runId}/tasks?retried_only=true&limit=20`),
@@ -95,7 +93,7 @@ export function Overview({ draftId, runId, base, state, live, stop }: {
           <Link to={`${base}/steps`} className="h-[28px] px-3 inline-flex items-center rounded-control border border-line-2 bg-surface text-[12.5px] font-semibold text-ink no-underline hover:bg-surface-2">Open</Link>
         }>
           <div className="relative flex-1 min-h-[440px] flex flex-col border-t border-line-soft" data-testid="run-pipeline">
-            <RunCanvas draftId={draftId} runId={runId} nodes={nodes} samples={samples.length} live={live} current={current}
+            <RunCanvas draftId={draftId} runId={runId} nodes={nodes} samples={samples.length} live={live}
                        selected={null} onSelect={(step) => step && navigate(`${base}/steps?step=${encodeURIComponent(step)}`)} />
           </div>
         </Panel>
