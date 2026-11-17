@@ -5,8 +5,10 @@ a field silently ignored — and the field somebody would try is a path.
 """
 
 import asyncio
+import mimetypes
 import secrets
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated, Literal
 
 from comeni_core.diagnostics import coded
@@ -857,6 +859,8 @@ class ResultFile(BaseModel):
     """Relative to the process directory, so nothing here is an absolute path."""
     size_bytes: int
     modified_ms: int
+    viewable: bool = False
+    """Whether a browser can show it: text, HTML, an image or a PDF. A BAM or a gzip cannot."""
 
 
 class ResultsOut(BaseModel):
@@ -911,6 +915,7 @@ def run_results(run_id: str, after: int = 0, limit: int = 200) -> ResultsOut:
                 name="/".join(path.relative_to(root).parts[1:]) or path.name,
                 size_bytes=path.stat().st_size,
                 modified_ms=int(path.stat().st_mtime * 1000),
+                viewable=_viewable(path),
             )
             for path in page
         ],
@@ -934,6 +939,12 @@ def run_result_file(run_id: str, process: str, name: str) -> FileResponse:
     if not path.is_relative_to(root) or path.parent == root.parent or not path.is_file():
         raise HTTPException(status_code=404)
     served = FileResponse(path, filename=path.name, content_disposition_type="inline")
+    kind = (served.media_type or "").split(";")[0]
+    # **Text is shown, not downloaded** (walk 2026-11-17): a browser downloads a
+    # `text/tab-separated-values` table or a `.out` log; as plain text it opens in the tab.
+    if kind not in _ACTIVE and not _shown(kind) and _is_text(path):
+        served = FileResponse(path, filename=path.name, content_disposition_type="inline",
+                              media_type="text/plain; charset=utf-8")
     # **A report runs in its own origin** (Checkpoint D): a QC report carries a tool's scripts
     # and text from the samples; sandboxed, without allow-same-origin, it cannot reach the app's
     # API or its terminal, while its own charts still draw.
@@ -941,6 +952,29 @@ def run_result_file(run_id: str, process: str, name: str) -> FileResponse:
         served.headers["Content-Security-Policy"] = "sandbox allow-scripts allow-popups"
         served.headers["X-Content-Type-Options"] = "nosniff"
     return served
+
+
+def _shown(kind: str) -> bool:
+    """A type a browser shows as it is: an image, a PDF, or text it renders."""
+    return kind.startswith("image/") or kind in {"application/pdf", "text/plain", "text/html"}
+
+
+def _is_text(path: Path) -> bool:
+    """Text, by its first bytes: no NUL, and UTF-8 (a character cut at the end is allowed)."""
+    with path.open("rb") as handle:
+        head = handle.read(4096)
+    if b"\0" in head or head.startswith(b"\x1f\x8b"):
+        return False
+    try:
+        head.decode("utf-8")
+    except UnicodeDecodeError as cut:
+        return cut.start >= len(head) - 3
+    return True
+
+
+def _viewable(path: Path) -> bool:
+    kind = mimetypes.guess_type(path.name)[0] or ""
+    return kind in _ACTIVE or _shown(kind) or _is_text(path)
 
 
 _ACTIVE = frozenset({"text/html", "application/xhtml+xml", "image/svg+xml", "text/xml",

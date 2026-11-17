@@ -44,10 +44,13 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
               <li key={f.name} className="flex items-center gap-3 px-5 py-[7px]">
                 <span className="flex-1 min-w-0 font-data text-[12.5px] text-ink truncate">{f.name}</span>
                 <span className="font-data text-[12px] text-ink-3">{bytes(f.size_bytes)}</span>
-                <a href={href(f.process, f.name)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${f.name}`}
-                   className="h-[26px] px-[10px] inline-flex items-center rounded-control border border-line-2 bg-surface text-[12px] font-semibold text-ink no-underline hover:bg-surface-2">
-                  Open
-                </a>
+                {/* Open shows the file in a tab; a binary (BAM, gzip) cannot be shown, so is not offered. */}
+                {f.viewable ? (
+                  <a href={href(f.process, f.name)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${f.name}`}
+                     className="h-[26px] px-[10px] inline-flex items-center rounded-control border border-line-2 bg-surface text-[12px] font-semibold text-ink no-underline hover:bg-surface-2">
+                    Open
+                  </a>
+                ) : <span className="w-[52px] text-center text-[11.5px] text-ink-3">binary</span>}
               </li>
             ))}
           </ul>

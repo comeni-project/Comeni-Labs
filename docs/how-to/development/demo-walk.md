@@ -4,7 +4,7 @@ description: The everyday path of the redesign, from a question to a finished ru
 ---
 
 <!--
-Serves: build, run.
+Serves: all four steps.
 -->
 
 # Walk the demo

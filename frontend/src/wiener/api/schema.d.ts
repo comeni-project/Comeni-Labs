@@ -1066,6 +1066,11 @@ export interface components {
             size_bytes: number;
             /** Modified Ms */
             modified_ms: number;
+            /**
+             * Viewable
+             * @default false
+             */
+            viewable: boolean;
         };
         /**
          * ResultsOut
