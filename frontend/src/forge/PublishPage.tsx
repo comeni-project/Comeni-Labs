@@ -4,7 +4,9 @@ import { Link } from "react-router";
 import { Failed } from "../ui/States";
 import { live, valueOf, waiting } from "./items";
 import type { AdaptationView } from "./useAdaptation";
+import { releasedOf } from "./stages";
 import { useForgeActions } from "./useForgeActions";
+import { useUpstream } from "./useUpstream";
 
 const ASSEMBLED = new Set(["assembled", "testing", "tested", "publishing", "in_review", "merged"]);
 const TESTED = new Set(["tested", "publishing", "in_review", "merged"]);
@@ -54,6 +56,8 @@ export function PublishPage({ view }: { view: AdaptationView }) {
   const failed = view.tests.filter((t) => t.state === "failed").length;
   const pull = view.pull_request && view.pull_request.state !== "closed" ? view.pull_request : null;
   const merged = view.phase === "merged";
+  const upstream = useUpstream(view);
+  const released = merged && releasedOf(upstream.data?.row?.state);
   const base = `/forge/${encodeURIComponent(view.id)}`;
   const states = items.filter((i) => i.key.startsWith("vocabulary:type:") && Array.isArray(valueOf(i).add_states)).length;
   const types = items.filter((i) => i.key.startsWith("vocabulary:type:")).length - states;
@@ -95,9 +99,9 @@ export function PublishPage({ view }: { view: AdaptationView }) {
     },
     {
       title: "Released",
-      detail: "reaches the builder with the next release",
-      state: merged ? "now" : "later",
-      action: merged ? <Link to="/registry/releases" className={quiet}>Cut a release</Link> : undefined,
+      detail: released ? "in the release this installation loads" : "reaches the builder with the next release",
+      state: released ? "done" : merged ? "now" : "later",
+      action: merged && !released ? <Link to="/registry/releases" className={quiet}>Cut a release</Link> : undefined,
     },
   ];
 

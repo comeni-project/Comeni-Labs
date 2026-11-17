@@ -1,30 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 
-import { get } from "../api/client";
-import type { components } from "../api/schema";
 import { useTitle } from "../app/useTitle";
 import { Failed, Loading } from "../ui/States";
 import { forgeName, ForgeSlot } from "./ForgeSlot";
 import { PublishPage } from "./PublishPage";
 import { TestsPage } from "./TestsPage";
 import { ToolPage } from "./ToolPage";
-import { useAdaptation, type AdaptationView } from "./useAdaptation";
+import { useAdaptation } from "./useAdaptation";
+import { useUpstream } from "./useUpstream";
 
-type ModuleDetail = components["schemas"]["ModuleDetail"];
 export type ForgingPageName = "tool" | "tests" | "publish";
 
 const TITLE: Record<ForgingPageName, string> = { tool: "Tool", tests: "Tests", publish: "Publish" };
-
-/** What upstream says the tool does, for the header line; absent when the catalogue is down. */
-export function useUpstream(view: AdaptationView | undefined) {
-  return useQuery({
-    queryKey: ["catalogue-module", view?.source, view?.path],
-    queryFn: () => get<ModuleDetail>(`/forge/catalogue/${view?.source}/${view?.path}`),
-    enabled: !!view,
-    retry: false,
-  });
-}
 
 /** `/forge/:id`, `/forge/:id/tests`, `/forge/:id/publish` · **A forging** (board "6 · Forging"):
  *  the rail's three pages and Review, the page's header, and the page. */

@@ -8,7 +8,7 @@ import { useTitle } from "../app/useTitle";
 import { toneOf } from "../registry/families";
 import { Failed, Loading } from "../ui/States";
 import { forgeName, ForgeSlot, useForgings } from "./ForgeSlot";
-import { progressOfSummary, stagesOf, statusOf, type StageState } from "./stages";
+import { progressOfSummary, releasedOf, stagesOf, statusOf, type StageState } from "./stages";
 import { useStartForge } from "./useForgeActions";
 
 type CataloguePage = components["schemas"]["CataloguePage"];
@@ -152,13 +152,22 @@ function NeedsYou({ forgings }: { forgings: Summary[] }) {
     queryKey: ["catalogue-search", "state:update_available"],
     queryFn: () => get<CataloguePage>("/forge/catalogue?state=update_available&limit=4"),
   });
+  const merged = forgings.filter((f) => f.phase === "merged");
+  const states = useQueries({
+    queries: merged.map((f) => ({
+      queryKey: ["catalogue-module", "nf-core", f.path],
+      queryFn: () => get<ModuleDetail>(`/forge/catalogue/nf-core/${f.path}`),
+      retry: false,
+    })),
+  });
+  const waitingRelease = new Set(merged.filter((_, n) => states[n]?.data?.row?.state === "merged_not_released").map((f) => f.id));
   const calls: Call[] = [];
   for (const f of forgings) {
     const name = forgeName(f.path, f.version);
     const at = `/forge/${encodeURIComponent(f.id)}`;
     if (f.waiting > 0) calls.push({ key: `${f.id}-r`, tool: name, what: `${f.waiting} AI choice${f.waiting === 1 ? "" : "s"} to review`, tone: "bg-measured", action: "Review", to: at });
     if ((f.tests_failed ?? 0) > 0) calls.push({ key: `${f.id}-t`, tool: name, what: `${f.tests_failed === 1 ? "a test" : `${f.tests_failed} tests`} failed`, tone: "bg-needs-you", action: "See test", to: `${at}/tests` });
-    if (f.phase === "merged") calls.push({ key: `${f.id}-m`, tool: name, what: "merged, waiting for a release", detail: "the builder can use it after the next release", tone: "bg-now-mid", action: "Cut a release", to: "/registry/releases", primary: true });
+    if (waitingRelease.has(f.id)) calls.push({ key: `${f.id}-m`, tool: name, what: "merged, waiting for a release", detail: "the builder can use it after the next release", tone: "bg-now-mid", action: "Cut a release", to: "/registry/releases", primary: true });
   }
   const total = newer.data?.total ?? 0;
   if (total > 0) {
@@ -189,14 +198,14 @@ function NeedsYou({ forgings }: { forgings: Summary[] }) {
 }
 
 function Card({ forging: f }: { forging: Summary }) {
-  const stages = stagesOf(progressOfSummary(f));
-  const status = statusOf(stages);
   const detail = useQuery({
     queryKey: ["catalogue-module", "nf-core", f.path],
     queryFn: () => get<ModuleDetail>(`/forge/catalogue/nf-core/${f.path}`),
     retry: false,
   });
   const does = detail.data?.row?.description;
+  const stages = stagesOf({ ...progressOfSummary(f), released: releasedOf(detail.data?.row?.state) });
+  const status = statusOf(stages);
   return (
     <Link to={`/forge/${encodeURIComponent(f.id)}`}
           className="flex flex-col gap-2 p-[14px] rounded-panel border border-line bg-surface no-underline hover:border-line-2">

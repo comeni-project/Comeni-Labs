@@ -17,7 +17,7 @@ export function ModuleTable({ rows, selected, onSelect, header, more, footer }: 
     <div role="table" aria-label="nf-core modules"
          className="bg-surface border border-line rounded-panel overflow-hidden flex flex-col min-w-0">
       {header && <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-line">{header}</div>}
-      <div role="rowgroup" className="flex flex-col overflow-y-auto max-h-[640px]">
+      <div role="rowgroup" className="relative flex flex-col overflow-y-auto max-h-[640px]">
         {rows.map((row) => {
           const on = row.path === selected;
           const cut = row.path.lastIndexOf("/") + 1;

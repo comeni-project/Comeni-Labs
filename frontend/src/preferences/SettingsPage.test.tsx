@@ -268,3 +268,22 @@ describe("data retention", () => {
     expect(await screen.findByText(/Last cleared 12 Oct: 3 working folders/)).toBeTruthy();
   });
 });
+
+it("opens without waiting for a value's slower check, then shows it in that row (walk 2026-11-17)", async () => {
+  const menu = { sections: [{
+    key: "system", title: "System", lede: "", order: 9, served_by: "mendel",
+    entries: [{
+      setting: setting("system.model", "readonly", { label: "Default model's server" }),
+      shown: shown({ value: "gemma3:12b at http://ollama:11434", source: "reported", locked: true, checks: true }),
+    }],
+  }] };
+  let answer: (body: unknown) => void = () => {};
+  const fetch = vi.fn().mockImplementation((url: string) => url.endsWith("/system.model/check")
+    ? new Promise((done) => { answer = (body) => done(ok(body)); })
+    : Promise.resolve(url === "/api/wiener/settings" ? ok({ sections: [] }) : ok(menu)));
+  at("/settings", fetch);
+  expect(await screen.findByText("gemma3:12b at http://ollama:11434")).toBeTruthy();
+  expect(screen.getByText("checking…")).toBeTruthy();
+  answer({ says: "nothing answered" });
+  expect(await screen.findByText("nothing answered")).toBeTruthy();
+});

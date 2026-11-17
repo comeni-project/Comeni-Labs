@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { Failed } from "../ui/States";
 import { Assistant } from "./Assistant";
-import { useUpstream } from "./Forging";
+import { useUpstream } from "./useUpstream";
 import { Inspector, type Selection } from "./Inspector";
 import { byAi, describe, live, valueOf, waiting, type ItemView } from "./items";
 import type { AdaptationView } from "./useAdaptation";

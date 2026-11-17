@@ -7,7 +7,8 @@ import type { components } from "../api/schema";
 import { Icon, type IconName } from "../app/rail/icons";
 import { RailControls, RailSlot, useRailMini } from "../app/rail/RailContext";
 import { describe, live, waiting, type ItemView } from "./items";
-import { progressOfSummary, progressOfView, stagesOf, statusOf, type Stage, type StageState } from "./stages";
+import { useUpstream } from "./useUpstream";
+import { progressOfSummary, progressOfView, releasedOf, stagesOf, statusOf, type Stage, type StageState } from "./stages";
 
 type View = components["schemas"]["AdaptationView"];
 type List = components["schemas"]["AdaptationList"];
@@ -32,7 +33,8 @@ export function ForgeSlot({ view, onReview }: { view?: View; onReview?: (key: st
   const mini = useRailMini();
   const forgings = useForgings();
   const list = forgings.data?.adaptations ?? [];
-  const stages = view ? stagesOf(progressOfView(view)) : [];
+  const upstream = useUpstream(view);
+  const stages = view ? stagesOf({ ...progressOfView(view), released: releasedOf(upstream.data?.row?.state) }) : [];
   const review = view ? live(view.items).filter(waiting) : [];
   const base = view ? `/forge/${encodeURIComponent(view.id)}` : "";
 
@@ -70,10 +72,18 @@ export function ForgeSlot({ view, onReview }: { view?: View; onReview?: (key: st
       )}
       {!view && !mini && list.length > 0 && (
         <RailControls label="Forgings">
-          {list.map((f) => {
-            const status = statusOf(stagesOf(progressOfSummary(f)));
-            return (
-              <Link key={f.id} to={`/forge/${encodeURIComponent(f.id)}`}
+          {list.map((f) => <ForgingRow key={f.id} forging={f} />)}
+        </RailControls>
+      )}
+    </>
+  );
+}
+
+function ForgingRow({ forging: f }: { forging: List["adaptations"][number] }) {
+  const upstream = useUpstream({ source: "nf-core", path: f.path });
+  const status = statusOf(stagesOf({ ...progressOfSummary(f), released: releasedOf(upstream.data?.row?.state) }));
+  return (
+              <Link to={`/forge/${encodeURIComponent(f.id)}`}
                     className="flex gap-2 px-[10px] py-[6px] rounded-control no-underline hover:bg-surface-2">
                 <span aria-hidden="true" className={`mt-[6px] w-[7px] h-[7px] rounded-full shrink-0 ${DOT[status.state]}`} />
                 <span className="flex flex-col min-w-0">
@@ -81,11 +91,6 @@ export function ForgeSlot({ view, onReview }: { view?: View; onReview?: (key: st
                   <span className="text-[11.5px] text-ink-3">{status.note}</span>
                 </span>
               </Link>
-            );
-          })}
-        </RailControls>
-      )}
-    </>
   );
 }
 

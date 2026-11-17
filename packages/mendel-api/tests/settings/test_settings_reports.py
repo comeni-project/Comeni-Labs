@@ -67,3 +67,49 @@ def test_the_database_row_is_bounded_in_time(monkeypatch):
     monkeypatch.setattr(reports, "_ENGINE", None)
     assert reports.REPORTERS["system.database"]() == "not reachable"
     assert seen.get("connect_args", {}).get("connect_timeout", 99) <= 3
+
+
+def test_the_model_row_does_not_probe_the_model_server(monkeypatch):
+    """**Settings opens at once** (walk 2026-11-17): the row probed the default model's server on
+    every read, and an unreachable one held the whole page for its timeout (3.3 s). It says what
+    is configured; **Test** on the connection is where the server is tried."""
+    from mendel_api.services import probe
+
+    def probed(*args, **kwargs):
+        raise AssertionError("the menu probed the model server")
+
+    from types import SimpleNamespace
+
+    from mendel_api import settings as mendel_settings
+
+    monkeypatch.setattr(probe, "answers", probed)
+    monkeypatch.setattr(mendel_settings, "model_access",
+                        lambda: SimpleNamespace(model="gemma3:12b", base_url="http://ollama:11434"))
+    said = reports.REPORTERS["system.model"]()
+    assert isinstance(said, str) and said
+    assert "gemma3:12b" in said and "answer" not in said
+
+
+def test_the_model_server_is_checked_on_its_own_after_the_menu(monkeypatch):
+    """The menu says what is configured and that a check follows; the check is its own request,
+    so an unreachable server holds that row, never the page."""
+    from types import SimpleNamespace
+
+    from fastapi.testclient import TestClient
+    from mendel_api import settings as mendel_settings
+    from mendel_api.main import create_app
+    from mendel_api.services import probe
+
+    async def silent(url, *args, **kwargs):
+        return False
+
+    monkeypatch.setattr(probe, "answers", silent)
+    monkeypatch.setattr(mendel_settings, "model_access",
+                        lambda: SimpleNamespace(model="gemma3:12b", base_url="http://ollama:11434"))
+    client = TestClient(create_app())
+    entries = {e["setting"]["key"]: e["shown"]
+               for s in client.get("/api/settings").json()["sections"] for e in s["entries"]}
+    assert entries["system.model"]["checks"] is True
+    assert entries["system.database"].get("checks", False) is False
+    assert client.get("/api/settings/system.model/check").json() == {"says": "nothing answered"}
+    assert client.get("/api/settings/system.database/check").status_code == 404

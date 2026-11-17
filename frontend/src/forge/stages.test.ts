@@ -25,3 +25,9 @@ it("merged is done all through, waiting for a release", () => {
   expect(stages[1].note).toBe("2 passed · 1 not run");
   expect(statusOf(stages).note).toBe("merged · next release");
 });
+
+it("a merged forging the release already carries is released, not waiting (walk 2026-11-17)", () => {
+  const merged = { ...base, phase: "merged", tests_passed: 2, tests_total: 2, pull_request: "merged" };
+  expect(statusOf(stagesOf({ ...merged, released: true })).note).toBe("released");
+  expect(statusOf(stagesOf({ ...merged, released: false })).note).toBe("merged · next release");
+});

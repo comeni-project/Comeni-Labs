@@ -1294,6 +1294,11 @@ export interface components {
             set?: boolean | null;
             /** Last4 */
             last4?: string | null;
+            /**
+             * Checks
+             * @default false
+             */
+            checks: boolean;
         };
         /**
          * Source

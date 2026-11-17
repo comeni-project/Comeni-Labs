@@ -16,6 +16,9 @@ export interface Progress {
   tests_passed: number;
   tests_total: number;
   pull_request: string | null;
+  /** Whether the release this installation loads carries it (the catalogue's state); unknown
+   *  until the catalogue answers, and then a merge is still waiting. */
+  released?: boolean;
 }
 
 const ASSEMBLED = new Set(["assembled", "testing", "tested", "publishing", "in_review", "merged"]);
@@ -45,7 +48,7 @@ export function stagesOf(p: Progress): Stage[] {
   const publish: Stage = {
     name: "publish", label: "Publish",
     state: merged ? "done" : p.phase === "publishing" || p.phase === "in_review" || passed ? "now" : "later",
-    note: merged ? "merged · next release" : p.phase === "in_review" ? "pull request open"
+    note: merged ? (p.released ? "released" : "merged · next release") : p.phase === "in_review" ? "pull request open"
       : p.phase === "publishing" ? "opening a pull request" : passed ? "ready to publish" : "after the tests",
   };
   return [tool, tests, publish];
@@ -73,3 +76,6 @@ export function progressOfView(v: View): Progress {
     pull_request: v.pull_request?.state ?? null,
   };
 }
+
+/** Whether a module's catalogue state says the loaded release carries it. */
+export const releasedOf = (state: string | undefined) => state === "imported" || state === "update_available";

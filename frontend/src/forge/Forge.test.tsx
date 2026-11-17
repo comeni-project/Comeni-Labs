@@ -32,7 +32,7 @@ function at(path: string, view: object) {
     const body = u.endsWith("/forge/adaptations") ? { adaptations: [summary] }
       : u.includes(`/forge/adaptations/${quast.id}`) && !u.includes("/events") ? view
       : u.includes("/forge/catalogue?") ? { rows: [], total: 0, counts: {}, aliases: {} }
-      : u.includes("/forge/catalogue/") ? { row: { description: "Quality Assessment Tool for Genome Assemblies" }, fits: { takes_from: [], feeds: [] } }
+      : u.includes("/forge/catalogue/") ? { row: { description: "Quality Assessment Tool for Genome Assemblies", state: "merged_not_released" }, fits: { takes_from: [], feeds: [] } }
       : u.includes("/registry/choices") ? { types: [], roles: [] }
       : [];
     return Promise.resolve({ ok: true, status: 200, json: async () => body });
