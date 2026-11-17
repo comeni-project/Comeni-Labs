@@ -174,6 +174,22 @@ MD0110:
     A type and its states have one spelling, so a file reads the same way everywhere and a
     reader never has to check two places.
 
+MD0111:
+  emitted_by: compiler
+  concern: conformance
+  says: "an `nf_inputs` entry fills a tuple of a different width than the module declares"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Count the elements of the module's `tuple` for that slot: `val(meta)`, then one per port,
+    then `pad:` for the optional paths the tuple ends in that no port fills.
+  explanation: |
+    A slot declared `tuple val(meta), path(...)` is filled by the `meta` its ports' channel
+    carries, one element per port, and `pad` empty paths after them. Nextflow matches tuple
+    arity, so a tuple of the wrong width dies at launch with "Input tuple does not match tuple
+    declaration". Counting channels is not enough: nf-core/multiqc takes one channel holding
+    six elements (#507).
+
 MD0106:
   emitted_by: compiler
   concern: conformance

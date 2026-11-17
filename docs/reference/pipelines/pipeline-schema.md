@@ -48,7 +48,7 @@ resolves differently as it changes.
 ## The file
 
 ```yaml
-version: 9
+version: 10
 
 intent:                        # what was wanted
   want: [counts.matrix]
@@ -294,6 +294,7 @@ shorthand (a second reading of one field is how root G miswires a pipeline silen
 | field | is | example |
 |---|---|---|
 | `ports` | one or more channels carrying named ports | `{ports: [reads]}` |
+| `ports` with `pad` | the ports' tuple, then that many empty paths (#507) | `{ports: [reports], pad: 4}` |
 | `literal` | a positional constant the process takes | `{literal: false, why: {…}}` |
 | `empty_width` | an empty placeholder channel, and its **tuple width** | `{empty_width: 2, why: {…}}` |
 

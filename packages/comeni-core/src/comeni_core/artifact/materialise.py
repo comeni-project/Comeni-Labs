@@ -352,6 +352,7 @@ def _call(contract: ModuleContract, off: frozenset[str] = frozenset()) -> list[C
             key=spec.key,
             joins=([PortJoin(port=p, join=spec.join[p]) for p in spec.ports[1:]]
                    if isinstance(spec.join, dict) else []),
+            pad=spec.pad,
             why=(
                 Why(
                     tier=Tier.STRUCTURAL,

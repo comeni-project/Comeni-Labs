@@ -103,7 +103,7 @@ def test_a_pipeline_saved_before_this_change_still_loads():
     (it now holds one optional input itself, samtools faidx's index, #465)."""
     import yaml
 
-    raw = yaml.safe_load((ROOT / "tests/fixtures/pipeline-v9/pipeline.yml").read_text())
+    raw = yaml.safe_load((ROOT / "tests/fixtures/pipeline-v10/pipeline.yml").read_text())
     for step in raw["steps"]:
         step.pop("input_states", None)
     for channel in raw["channels"]:

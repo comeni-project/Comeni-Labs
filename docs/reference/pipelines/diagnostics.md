@@ -90,6 +90,7 @@ decline to curate one.
 | `MD0107` | `container` has drifted from the module's directive |
 | `MD0108` | a setting routes to an `ext` key this module never reads |
 | `MD0109` | a `produces[].format` is not what the module's output pattern writes |
+| `MD0111` | an `nf_inputs` entry fills a tuple of a different width than the module declares |
 | `MD0611` | an output the module marks `optional: true` is always written, by the contract |
 
 ## A layer is not arranged the way its manifest says

@@ -87,6 +87,19 @@ def test_an_aggregator_is_called_over_the_whole_channel(stack):
     )
 
 
+def test_the_gathered_reports_fill_the_modules_one_tuple(stack):
+    """**#507.** nf-core/multiqc 1.35 takes one `tuple val(meta), path(files)` and four optional
+    paths. A bare `.collect()` flattened every sample's meta in among the files, and the run died
+    with "Input tuple does not match tuple declaration". The reports are gathered without their
+    metas, under one meta for the call, and padded with the contract's four empty paths.
+    """
+    workflow = _emitted(stack)
+    call = next(one for one in workflow.splitlines() if "MULTIQC(" in one)
+    assert ".map { it -> it[1] }.collect()" in call, call.strip()
+    assert ".map { files -> [ [id: 'summary'], files ] }" in call, call.strip()
+    assert call.rstrip().endswith(".map { it -> it + [[], [], [], []] })"), call.strip()
+
+
 def test_a_one_item_port_is_not_collected(stack):
     """The other half, and the one that would make this vacuous if it failed.
 

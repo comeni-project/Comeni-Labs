@@ -13,7 +13,7 @@
 # `emitted.from_digest` is the digest of everything above it. Nextflow runs `main.nf`, not
 # this file — that digest is what notices if you edit here and forget to re-emit.
 
-version: 9
+version: 10
 intent:
   want:
   - counts.matrix
@@ -54,9 +54,9 @@ facts:
 registry:
   layers:
   - name: comeni-registry-examples
-    digest: sha256:b8d0439919ded6fa6e1943719194c657028b7a78131e35dbc7dbf3d2a74e5751
+    digest: sha256:2090c424bf66c29ba32af7a1dd80ae42a27d2f71edaa1626686d953ea54c0390
     source: https://github.com/comeni-project/comeni-registry
-    commit: 2a31e619ce81b744493c8ede97507e69031baf57
+    commit: 5f2407beee73fd13300d4f54c4aaaa7a98bc6477
     dirty: false
   displaced: []
   unverified: []
@@ -762,7 +762,7 @@ decisions:
   human_override: null
   override_reason: ''
 emitted:
-  schema_version: 9
+  schema_version: 10
   files:
   - name: main.nf
     digest: sha256:3fcd4f5e7a67706f2f85e06948efc57f36bb9a5de63436ba2ddb228af73b1d38
@@ -786,6 +786,6 @@ emitted:
     digest: sha256:84ca06b02950cd0e9ae063704879962755c8c2b807da2911940a9ce6da21392a
   - name: nextflow.config
     digest: sha256:133e2d35ae49ecf7912f24c4e4ec2296576389dc4cc2f4a279e4fc960e21c5a6
-  from_digest: sha256:26424ddb0c6c70f1d84c8bef27e41398907a36c416321cf3df452cf0765ca230
+  from_digest: sha256:bde9a1e9e13095ec1f574ec5cb96dc4932664b1808ffcf73739cca68ba2883c7
 gate: null
 input_form: direct

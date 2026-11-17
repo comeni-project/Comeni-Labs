@@ -122,7 +122,7 @@ def test_no_model_configured_says_so(monkeypatch):
 
 
 def test_the_payload_holds_no_sample_names():
-    data = yaml.safe_load((ROOT / "tests/fixtures/pipeline-v9/pipeline.yml").read_text())
+    data = yaml.safe_load((ROOT / "tests/fixtures/pipeline-v10/pipeline.yml").read_text())
     data["facts"]["measurements"].append(
         {"measurement": "read_length", "value": [101, 151], "source": "said"})
     data["facts"]["measurements"] = [m for m in data["facts"]["measurements"]

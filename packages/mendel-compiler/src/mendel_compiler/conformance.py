@@ -186,6 +186,28 @@ def against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Diag
                 )
             )
 
+        if entry.ports:
+            # `val(meta)` heads the tuple when its ports' channel carries one; then one element
+            # per port, then the padding (#507).
+            heads = 1 if slot.kinds[0] == "val" and slot.width > 1 else 0
+            filled = heads + len(entry.ports) + entry.pad
+            unfilled = slot.width - heads - len(entry.ports)
+            if filled != slot.width:
+                found.append(
+                    Diagnostic(
+                        code="MD0111",
+                        where=contract.id,
+                        summary=(
+                            f"slot {slot.position} is a tuple of {slot.width}; the contract "
+                            f"fills {filled}"
+                        ),
+                        detail=f"    {path}   tuple of {slot.width}: {' '.join(slot.kinds)}"
+                               f"  ({', '.join(n for n in slot.names if n)})",
+                        fix=(f"{{ports: {entry.ports}, pad: {unfilled}}}" if unfilled > 0
+                             else "one port per element of the module's tuple"),
+                    )
+                )
+
         if entry.empty and slot.needs_a_file and not entry.because:
             # The *file* element, never the `val(meta)` beside it. meta.yml documents both
             # and documents `meta` first, so a plain "name in slot.names" lookup reports

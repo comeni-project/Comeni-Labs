@@ -80,7 +80,7 @@ from comeni_core.spell.routes import TEMPLATED, ExtKey, Join, Via
 
 # ---------------- CONSTANTS ----------------
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 """The schema version written and the only one read.
 
 Bump when the serialized shape changes; content digests depend on that shape.
@@ -290,6 +290,8 @@ class CallArg(BaseModel):
     joins: list["PortJoin"] = Field(default_factory=list, exclude_if=lambda joins: not joins)
     """Each later port's own join, when the contract gives one per port (#464); then `join`
     is unset."""
+    pad: int = Field(default=0, ge=0, exclude_if=lambda pad: not pad)
+    """Empty paths appended after the ports' tuple, from the contract's `NfInput.pad` (#507)."""
     why: Why | None = None
     """Provenance for the argument, when supplied."""
 

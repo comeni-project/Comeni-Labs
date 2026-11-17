@@ -5613,3 +5613,13 @@ model call, the text as the answer (not narration), no reminder, no required too
 is a behaviour test, not an invariant guard. MI0227 is retired: nothing emits it, so
 `test_every_declared_code_is_emitted` refused it; its band comment in `diagnostics.yml` keeps it
 from being reused.
+
+## MULTIQC's one tuple, 2026-11-17 (#507)
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-17 | `test_conformance.py` "a tuple filled short of the module's width" | restored `conformance.py` without the MD0111 width check | failed | `StopIteration`: no MD0111 for `{ports: [reports]}` against MULTIQC's tuple of 6 |
+| 2026-11-17 | `test_fan_in.py` "the gathered reports fill the module's one tuple" | restored `emit.py` with the bare `.collect()` and no `pad` | failed | the call is `MULTIQC(FASTQC.out.zip.collect())` |
+
+Across the registry the width check flagged MULTIQC alone among 20 port entries before its
+contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).

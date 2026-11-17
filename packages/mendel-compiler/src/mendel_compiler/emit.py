@@ -159,7 +159,12 @@ def _port_expression(pipeline: Pipeline, step: Step, port_name: str,
                 f"it[0].comeni_groups['{key}']), it ] }}.groupTuple().map {{ k, items -> "
                 f"[ [id: k.toString(), {key}: k.toString()], "
                 "items.collect { it[1] }.flatten() ] }")
-    return f"{expression}.collect()" if wiring.gather else expression
+    if wiring.gather:
+        # One call over the study, as `[meta, files]` like a gather per key: a bare `.collect()`
+        # flattened every sample's meta in among the files, which no module declares (#507).
+        return (f"{expression}.map {{ it -> it[1] }}.collect()"
+                f".map {{ files -> [ [id: '{step.id}'], files ] }}")
+    return expression
 
 
 def _argument(pipeline: Pipeline, step: Step, arg, measured: dict[str, str] | None = None) -> str:
@@ -189,6 +194,16 @@ def _argument(pipeline: Pipeline, step: Step, arg, measured: dict[str, str] | No
         return _render_literal(setting.value)
     if not arg.ports:
         return _render_literal(arg.literal)
+    expression = _ports_argument(pipeline, step, arg, measured)
+    if arg.pad:
+        # Empty paths for the optional files a tuple ends in, in the module's order (#507).
+        return f"{expression}.map {{ it -> it + [{', '.join(['[]'] * arg.pad)}] }}"
+    return expression
+
+
+def _ports_argument(pipeline: Pipeline, step: Step, arg,
+                    measured: dict[str, str] | None = None) -> str:
+    """The channel an argument's ports make: one port's, or several joined into one tuple."""
     # A port that is off has no channel: the tuple is built from the ports that are on, and
     # `[]` then takes each left-out port's position, so the order still matches the module's
     # input block (#464). The first port that is on stands in for the head.

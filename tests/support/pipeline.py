@@ -181,7 +181,7 @@ SERIALISED_SHAPE = {
         "overrode",
     ],
     "CallArg": ["ports", "literal", "empty_width", "from_setting", "join", "key", "joins",
-                "why"],
+                "pad", "why"],
     "MetaEntry": ["key", "value", "why"],
     "Emitted": ["schema_version", "files", "from_digest"],
     "ParamDecision": [

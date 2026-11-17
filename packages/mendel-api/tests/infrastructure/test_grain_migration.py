@@ -2,6 +2,7 @@
 
 import importlib.util
 
+import pytest
 from support.paths import ROOT
 
 _PATH = ROOT / "packages/mendel-api/migrations/versions/e6c4a2f8b913_grain.py"
@@ -45,6 +46,31 @@ second = importlib.util.module_from_spec(_spec_2)
 _spec_2.loader.exec_module(second)
 
 
+_PATH_10 = ROOT / "packages/mendel-api/migrations/versions/f3a8c1d6e290_pipeline_version_10.py"
+_spec_10 = importlib.util.spec_from_file_location("pipeline_version_10", _PATH_10)
+tenth = importlib.util.module_from_spec(_spec_10)
+_spec_10.loader.exec_module(tenth)
+
+
+def test_a_session_saved_at_version_9_still_opens():
+    """Version 10 adds only `CallArg.pad`, left out when 0 (#507): the version moves, nothing
+    else does, and a blueprint at another version is left for its reader to refuse."""
+    import json
+
+    from mendel_authoring.blueprint import Blueprint
+
+    current = json.loads((ROOT / "packages/mendel-authoring/tests/fixtures/blueprint-star.json")
+                         .read_text())
+    saved = {**current, "pipeline": {**current["pipeline"], "version": 9}}
+    with pytest.raises(ValueError, match="MD0207"):
+        Blueprint.model_validate(saved)
+    assert Blueprint.model_validate(tenth.upgrade_blueprint_9_to_10(saved)) == (
+        Blueprint.model_validate(current))
+    eighth = {**current, "pipeline": {**current["pipeline"], "version": 8}}
+    assert tenth.upgrade_blueprint_9_to_10(eighth) is eighth
+    assert tenth.upgrade_blueprint_9_to_10({}) == {}
+
+
 def test_a_session_saved_before_grain_still_opens():
     """A blueprint is a whole `pipeline.yml`; one at version 8 is refused by today's reader, so
     the session holding it would not open (Task 1 review)."""
@@ -53,7 +79,8 @@ def test_a_session_saved_before_grain_still_opens():
     from mendel_authoring.blueprint import Blueprint
 
     old = json.loads((ROOT / "packages/mendel-api/tests/fixtures/blueprint-v8.json").read_text())
-    upgraded = second.upgrade_pipeline_authoring_session_1_to_2(old)
+    upgraded = tenth.upgrade_blueprint_9_to_10(
+        second.upgrade_pipeline_authoring_session_1_to_2(old))
     blueprint = Blueprint.model_validate(upgraded)
     assert {c.grain.value for c in blueprint.pipeline.channels} == {"study", "sample"}
 

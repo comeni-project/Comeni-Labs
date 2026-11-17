@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- `NfInput.pad` and `CallArg.pad`: empty paths appended after an entry's ports, for a tuple that ends in optional files nothing models (#507). **SCHEMA_VERSION 10**: a version-9 `pipeline.yml` is refused (MD0207) and rebuilt from its intent and facts.
 - Builder egress: `RepliedView`, the validated message of the agent's `reply`; and
   `DataView.reference_files` (`ReferenceCandidate`): the analysis's reference candidates by an
   opaque file ID, file and collection name and possible types, never a path.
@@ -176,6 +177,8 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- A port gathered over the study reaches its process as one `[meta, files]` tuple, as a gather per key does; a bare `.collect()` mixed every sample's `meta` in among the files. MULTIQC now runs after FastQC (#507).
+- MD0111: conformance compares a tuple's width, `val(meta)` plus one per port plus `pad`, with the module's, not only the number of channels (#507).
 - `orchestrate.build(..., ai=)` takes the caller's AI provenance, so a value a model settled builds (#535).
 
 - `mendel lint` checks a measurer piece's imports and calls (MD0027), whatever the layer's

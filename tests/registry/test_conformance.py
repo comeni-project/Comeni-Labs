@@ -111,6 +111,19 @@ def test_M0103_an_empty_placeholder_of_the_wrong_width(registry):
     assert "3" in next(d for d in diagnostics if d.code == "MD0103").detail
 
 
+def test_M0111_a_tuple_filled_short_of_the_modules_width(registry):
+    """#507: MULTIQC's one channel is a tuple of six. One input channel matched one entry, so a
+    contract filling two of the six passed until the run died at launch."""
+    from comeni_core.declared.contract import NfInput
+
+    multiqc = "nf-core/multiqc@1.35"
+    assert "MD0111" not in codes(check(registry, MODULES))
+    doctored = _doctored(registry, multiqc, nf_inputs=[NfInput(ports=["reports"])])
+    found = next(d for d in check(doctored, MODULES) if d.code == "MD0111")
+    assert "tuple of 6" in found.summary and "fills 2" in found.summary
+    assert "pad: 4" in found.fix
+
+
 def test_M0105_an_output_the_module_does_not_emit(registry):
     from comeni_core.declared.contract import OutputPort
 
