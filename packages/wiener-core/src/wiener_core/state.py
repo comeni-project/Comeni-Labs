@@ -119,6 +119,29 @@ def _counts(tasks: Mapping[int, TaskState]) -> Counts:
     )
 
 
+_COUNTED = {
+    TaskStatus.COMPLETED: "succeeded",
+    TaskStatus.FAILED: "failed",
+    TaskStatus.CACHED: "cached",
+    TaskStatus.RUNNING: "running",
+    TaskStatus.SUBMITTED: "submitted",
+}
+
+
+def _shifted(counts: Counts, was: TaskStatus | None, now: TaskStatus) -> Counts:
+    """`counts` with one task moved from `was` (absent: a new task) to `now`: what `_counts`
+    would answer for the changed tasks, without recounting all of them (#565). A recount on
+    every event made a replay O(events × tasks); `restore` still recounts, once."""
+    if was is now:
+        return counts
+    moved = counts.model_dump()
+    if (field := _COUNTED.get(was)) is not None:
+        moved[field] -= 1
+    if (field := _COUNTED.get(now)) is not None:
+        moved[field] += 1
+    return Counts(**moved)
+
+
 def _phase(seen: frozenset[EventKind], succeeded: bool | None, started: bool) -> RunPhase:
     # **First, and above `ERROR`.** Cancelling a run makes Nextflow exit non-zero, so a cancel
     # and the error it causes arrive together — and *a person stopped this* is the truer
@@ -163,6 +186,7 @@ def fold(state: RunState, event: RunEvent) -> RunState:
         return state
 
     tasks = dict(state.tasks)
+    counts = state.counts
     if (tr := event.trace) is not None:
         prior = tasks.get(tr.task_id)
         attempt = Attempt(
@@ -191,6 +215,7 @@ def fold(state: RunState, event: RunEvent) -> RunState:
             first_seen_ms=prior.first_seen_ms if prior else event.at_ms,
             last_change_ms=event.at_ms,
         )
+        counts = _shifted(counts, prior.status if prior else None, tr.status)
 
     seen = state.terminal_seen | ({event.kind} if event.kind in _TERMINAL else frozenset())
     succeeded = state.run_succeeded
@@ -210,7 +235,7 @@ def fold(state: RunState, event: RunEvent) -> RunState:
     return state.model_copy(update={
         "run_id": event.run_id or state.run_id,
         "tasks": tasks,
-        "counts": _counts(tasks),
+        "counts": counts,
         "last_seq": event.seq,
         "last_activity_ms": activity,
         "terminal_seen": seen,

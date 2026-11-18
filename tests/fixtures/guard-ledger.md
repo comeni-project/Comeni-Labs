@@ -5587,3 +5587,8 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   by copy and `git show HEAD:path`: failed. `every row and the header share one width` failed on
   the `w-max` rows; `the agent hears data change until it has built` failed with one notice of
   two; the analysis-list test failed on `draft d1` not refreshed. All pass after.
+- 2026-11-18, perf audit (#565): `test_the_polled_run_views_do_not_replay_the_record` run against the
+  committed `routes/runs.py` (`state_of` in the three routes): failed, `a polled view read the run's
+  record`. `test_the_counts_kept_per_event_are_the_counts_of_the_tasks` against `_shifted` with its
+  decrement removed: failed. `test_the_series_never_folds_the_event_stream`, repointed at
+  `repository.events`, against a series route that called `projection.state_of`: failed. All pass after.
