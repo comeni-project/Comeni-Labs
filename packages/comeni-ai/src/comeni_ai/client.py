@@ -351,7 +351,8 @@ class LiteLLMTransport:
         return response.choices[0].message.content or "", _usage(access, response, started)
 
     def converse(self, access: ModelAccess, messages: list[dict], tools: list, *,
-                 tool_choice: "Literal['required'] | None" = None) -> "AgentReply":
+                 tool_choice: "Literal['required'] | None" = None,
+                 cache_key: str | None = None) -> "AgentReply":
         """A conversation with tools, through the provider's own tool calls (checked on the
         subscription route: `docs/notes/agent-tool-calling-check.md`). Failures map to the
         same coded errors as :meth:`deliver`."""
@@ -373,6 +374,7 @@ class LiteLLMTransport:
                 temperature=access.temperature,
                 **({"reasoning_effort": access.reasoning_effort}
                    if access.reasoning_effort else {}),
+                **_continuing(access.model, cache_key),
             ), required=tool_choice == "required", unsupported=self._auto_tool_endpoints)
         except litellm.AuthenticationError as failure:
             raise ModelUnavailableError(
@@ -390,6 +392,22 @@ class LiteLLMTransport:
             ) from failure
         return reply_of(access, response, started).model_copy(
             update={"tool_choice": effective_choice})
+
+
+def _continuing(model: str, cache_key: str | None) -> dict:
+    """How to tell an OpenAI-shaped provider which conversation a call continues (#555).
+
+    The ChatGPT subscription route keys its cache by session, and LiteLLM fell back to the
+    per-call `litellm_call_id`, so every round looked new; `litellm_session_id` is the session.
+    OpenAI's own API takes `prompt_cache_key`. Another provider is sent neither, as LiteLLM
+    may refuse a parameter it does not map; Claude is marked by `_cacheable` instead."""
+    if not cache_key:
+        return {}
+    if model.startswith("chatgpt/"):
+        return {"litellm_session_id": cache_key}
+    if model.startswith("openai/"):
+        return {"prompt_cache_key": cache_key}
+    return {}
 
 def _limited(failure: Exception) -> str:
     """The usage limit, and when the provider says it resets (walk 2026-11-16)."""

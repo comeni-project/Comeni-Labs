@@ -90,6 +90,15 @@ def start_session(draft_id: str, *, who: str) -> str:
     return session_id
 
 
+def cache_key(session_id: str) -> str:
+    """What the provider is told this conversation is, so its prompt cache finds the prefix of
+    the last round (#555): a digest of the session id, the same for every round and turn of one
+    session, and saying nothing about the session or the person."""
+    import hashlib
+
+    return hashlib.sha256(f"comeni-builder:{session_id}".encode()).hexdigest()[:32]
+
+
 def add_person_turn(session_id: str, text: str, console=None) -> int:
     """The person's words, and the agent's turn waiting to answer them: its `seq`."""
     with session_scope() as db:
@@ -323,7 +332,7 @@ def _run_turn(session_id: str, seq: int, transport: AgentTransport | None) -> st
     spent = 0
     for step in range(settings.agent_max_steps):
         try:
-            reply = transport.converse(access, messages, tools)
+            reply = transport.converse(access, messages, tools, cache_key=cache_key(session_id))
         except Exception as failure:  # noqa: BLE001 — every provider failure ends the turn coded
             invocation = _record(session_id, access, messages, None, _code(failure))
             blocks.append(Notice(id=f"failed-{seq}", notice=NoticeKind.REFUSAL,

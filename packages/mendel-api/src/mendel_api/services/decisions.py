@@ -405,12 +405,34 @@ def retain_fact(draft_id, subject, *, who, expected_revision=None):
         raise ValueError("there is no current fact to retain")
 
 
+_MEMO: ContextVar[dict | None] = ContextVar("decisions_memo", default=None)
+
+
+@contextmanager
+def remembered():
+    """Within this, `read` decides each draft once per decision revision (#561): one change
+    request read the decisions 8 to 10 times. **Keyed by the revision**, which every write
+    moves, so a read after a write decides again. The data's facts are merged on every read,
+    as a scan writes them without moving the revision. One per HTTP request (`main`)."""
+    token = _MEMO.set({})
+    try:
+        yield
+    finally:
+        _MEMO.reset(token)
+
+
 def read(draft_id):
     """The draft's decisions, **with what its data measured beside them** (#511): facts about the
     data are derived from `analysis_data` at every read, never logged (`services.data.facts`)."""
     with session_scope() as db:
-        _readable(db, draft_id)
-        return _with_data(db, draft_id, _decided(db, draft_id))
+        row = _readable(db, draft_id)
+        memo, key = _MEMO.get(), (draft_id, row.decision_revision)
+        decided = memo.get(key) if memo is not None else None
+        if decided is None:
+            decided = _decided(db, draft_id)
+            if memo is not None:
+                memo[key] = decided
+        return _with_data(db, draft_id, decided)
 
 
 def _with_data(db, draft_id, decided):
