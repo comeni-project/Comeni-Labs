@@ -477,3 +477,59 @@ def test_the_agent_hears_data_change_until_it_has_built(clean, client, root, mon
     scanning.scan(d, who="ana")
     asyncio.run(chat.data_scanned(d))
     assert len(said) == 2, "the same reading is not said twice"
+
+
+def _counting(monkeypatch) -> list[int]:
+    """How many samples the scan measures, by counting the inspections it starts."""
+    measured, inspected = [0], inspect.inspect_sample
+
+    def inspecting(files, stack, claimed=None, sizes=()):
+        measured[0] += 1
+        return inspected(files, stack, claimed, sizes=sizes)
+
+    monkeypatch.setattr(inspect, "inspect_sample", inspecting)
+    return measured
+
+
+def test_a_rescan_reuses_what_unchanged_samples_measured(clean, client, root, monkeypatch):
+    """#570. Every tick, fix and rescan measured every sample again from scratch, about 1.25 s
+    a sample, so 500 samples took 10 minutes a click. A sample whose files are the same files,
+    unchanged, under the same registry, keeps what it measured; a changed file is measured
+    again, and only its sample."""
+    import os
+
+    d = draft(client)
+    folder = pairs(root / "liver", "L01", "L02", "L03")
+    tick(client, d, folder)
+    measured = _counting(monkeypatch)
+    scanning.scan(d, who="ana")
+    first = view(client, d)
+    assert measured[0] == 3 and len(first["samples"]) == 3
+
+    scanning.scan(d, who="ana")
+    assert measured[0] == 3, "an unchanged sample was measured again"
+    assert view(client, d)["samples"] == first["samples"]
+    assert all("key" not in s for s in first["samples"]), "the reuse key is not the page's"
+
+    changed = folder / "L02_R1.fq.gz"
+    changed.write_bytes(changed.read_bytes())
+    later = os.stat(changed).st_mtime_ns + 1_000_000_000
+    os.utime(changed, ns=(later, later))
+    scanning.scan(d, who="ana")
+    assert measured[0] == 4, "only the sample with a changed file is measured again"
+
+
+def test_a_changed_registry_measures_every_sample_again(clean, client, root, monkeypatch):
+    """#570. The facts are the registry's measurers' answers, so a changed registry (a new
+    measurer piece, a fixed one) must not serve facts the old one measured."""
+    from mendel_api.services import registry
+
+    d = draft(client)
+    tick(client, d, pairs(root / "liver", "L01", "L02"))
+    measured = _counting(monkeypatch)
+    scanning.scan(d, who="ana")
+    assert measured[0] == 2
+    digest = registry.digest()
+    monkeypatch.setattr(registry, "digest", lambda: "0" * 64 if digest != "0" * 64 else "1" * 64)
+    scanning.scan(d, who="ana")
+    assert measured[0] == 4

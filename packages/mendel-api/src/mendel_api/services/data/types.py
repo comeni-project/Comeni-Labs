@@ -37,6 +37,15 @@ class DataSample(BaseModel):
     left_out: bool = False
 
 
+class StoredSample(DataSample):
+    """A sample as the scan stores it: with the key its facts were measured under (#570).
+
+    **Never shown.** Views build `DataSample` from the stored row, which drops `key`; it is a
+    digest, not the stats it was made from, and it is not logged."""
+
+    key: str | None = None
+
+
 class Scan(BaseModel):
     state: Literal["idle", "scanning", "done", "failed"] = "idle"
     done: int = 0

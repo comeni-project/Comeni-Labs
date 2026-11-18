@@ -5,6 +5,7 @@ freshly sequenced redeliveries converge. Terminal events accumulate as a set, so
 not depend on arrival order and cancellation can retain precedence over its resulting error.
 """
 
+from collections import Counter
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
 
@@ -108,15 +109,41 @@ EMPTY = RunState()
 _TERMINAL = {EventKind.COMPLETED, EventKind.ERROR, EventKind.CANCELLED}
 
 
+_COUNTED = {
+    TaskStatus.COMPLETED: "succeeded",
+    TaskStatus.FAILED: "failed",
+    TaskStatus.CACHED: "cached",
+    TaskStatus.RUNNING: "running",
+    TaskStatus.SUBMITTED: "submitted",
+}
+
+
+def counts_of(statuses: Mapping[TaskStatus, int]) -> Counts:
+    """The counts for this many tasks in each status: one mapping from status to count, used
+    by `_counts`, `_shifted` and a projection that counts its tasks in SQL (#566)."""
+    tally = dict.fromkeys(_COUNTED.values(), 0)
+    for status, n in statuses.items():
+        if (field := _COUNTED.get(TaskStatus(status))) is not None:
+            tally[field] += n
+    return Counts(**tally)
+
+
 def _counts(tasks: Mapping[int, TaskState]) -> Counts:
-    by = [t.status for t in tasks.values()]
-    return Counts(
-        succeeded=by.count(TaskStatus.COMPLETED),
-        failed=by.count(TaskStatus.FAILED),
-        cached=by.count(TaskStatus.CACHED),
-        running=by.count(TaskStatus.RUNNING),
-        submitted=by.count(TaskStatus.SUBMITTED),
-    )
+    return counts_of(Counter(t.status for t in tasks.values()))
+
+
+def _shifted(counts: Counts, was: TaskStatus | None, now: TaskStatus) -> Counts:
+    """`counts` with one task moved from `was` (absent: a new task) to `now`: what `_counts`
+    would answer for the changed tasks, without recounting all of them (#565). A recount on
+    every event made a replay O(events × tasks); `restore` still recounts, once."""
+    if was is now:
+        return counts
+    moved = counts.model_dump()
+    if (field := _COUNTED.get(was)) is not None:
+        moved[field] -= 1
+    if (field := _COUNTED.get(now)) is not None:
+        moved[field] += 1
+    return Counts(**moved)
 
 
 def _phase(seen: frozenset[EventKind], succeeded: bool | None, started: bool) -> RunPhase:
@@ -158,40 +185,42 @@ def _merge(prior: Attempt | None, latest: Attempt) -> Attempt:
     return Attempt.model_validate(merged)
 
 
-def fold(state: RunState, event: RunEvent) -> RunState:
-    if event.seq <= state.last_seq:
-        return state
+def _task_after(prior: TaskState | None, event: RunEvent) -> TaskState:
+    """The task `event.trace` describes, once the event is folded into `prior`."""
+    tr = event.trace
+    if tr is None or (prior is not None and prior.task_id != tr.task_id):
+        raise ValueError("a task folds only the event that describes it")
+    attempt = Attempt(
+        n=tr.attempt, status=tr.status, exit=tr.exit, at_ms=event.at_ms,
+        start_ms=tr.start_ms, complete_ms=tr.complete_ms,
+        duration_ms=tr.duration_ms, realtime_ms=tr.realtime_ms,
+        cpus=tr.cpus, pct_cpu=tr.pct_cpu,
+        memory_bytes=tr.memory_bytes, peak_rss_bytes=tr.peak_rss_bytes,
+        rchar=tr.rchar, wchar=tr.wchar,
+        read_bytes=tr.read_bytes, write_bytes=tr.write_bytes,
+    )
+    # Keyed by attempt number, not appended — A176. Three events describe one try, and a
+    # redelivered body is a fourth; all four are the same attempt reaching a later status.
+    #
+    # **Merged, not replaced.** Only `process_completed` carries the resources, so replacing
+    # an attempt with a redelivered `process_started` erases them — and the loss is
+    # invisible, because an absent field is also what a run without `trace.enabled` looks
+    # like. Merging makes the fold converge whatever order bodies arrive in, which is the
+    # same property A176 asked of everything else the fold writes.
+    by_n = {a.n: a for a in (prior.attempts if prior else ())}
+    by_n[attempt.n] = _merge(by_n.get(attempt.n), attempt)
+    attempts = tuple(by_n[n] for n in sorted(by_n))
+    return TaskState(
+        task_id=tr.task_id, process=tr.process, status=tr.status,
+        attempts=attempts, latest_exit=tr.exit,
+        first_seen_ms=prior.first_seen_ms if prior else event.at_ms,
+        last_change_ms=event.at_ms,
+    )
 
-    tasks = dict(state.tasks)
-    if (tr := event.trace) is not None:
-        prior = tasks.get(tr.task_id)
-        attempt = Attempt(
-            n=tr.attempt, status=tr.status, exit=tr.exit, at_ms=event.at_ms,
-            start_ms=tr.start_ms, complete_ms=tr.complete_ms,
-            duration_ms=tr.duration_ms, realtime_ms=tr.realtime_ms,
-            cpus=tr.cpus, pct_cpu=tr.pct_cpu,
-            memory_bytes=tr.memory_bytes, peak_rss_bytes=tr.peak_rss_bytes,
-            rchar=tr.rchar, wchar=tr.wchar,
-            read_bytes=tr.read_bytes, write_bytes=tr.write_bytes,
-        )
-        # Keyed by attempt number, not appended — A176. Three events describe one try, and a
-        # redelivered body is a fourth; all four are the same attempt reaching a later status.
-        #
-        # **Merged, not replaced.** Only `process_completed` carries the resources, so replacing
-        # an attempt with a redelivered `process_started` erases them — and the loss is
-        # invisible, because an absent field is also what a run without `trace.enabled` looks
-        # like. Merging makes the fold converge whatever order bodies arrive in, which is the
-        # same property A176 asked of everything else the fold writes.
-        by_n = {a.n: a for a in (prior.attempts if prior else ())}
-        by_n[attempt.n] = _merge(by_n.get(attempt.n), attempt)
-        attempts = tuple(by_n[n] for n in sorted(by_n))
-        tasks[tr.task_id] = TaskState(
-            task_id=tr.task_id, process=tr.process, status=tr.status,
-            attempts=attempts, latest_exit=tr.exit,
-            first_seen_ms=prior.first_seen_ms if prior else event.at_ms,
-            last_change_ms=event.at_ms,
-        )
 
+def _advanced(state: RunState, event: RunEvent, tasks: Mapping[int, TaskState],
+              counts: Counts) -> RunState:
+    """The run's own facts after `event`, around tasks and counts already folded."""
     seen = state.terminal_seen | ({event.kind} if event.kind in _TERMINAL else frozenset())
     succeeded = state.run_succeeded
     if event.manifest is not None and event.manifest.success is not None:
@@ -210,7 +239,7 @@ def fold(state: RunState, event: RunEvent) -> RunState:
     return state.model_copy(update={
         "run_id": event.run_id or state.run_id,
         "tasks": tasks,
-        "counts": _counts(tasks),
+        "counts": counts,
         "last_seq": event.seq,
         "last_activity_ms": activity,
         "terminal_seen": seen,
@@ -219,6 +248,37 @@ def fold(state: RunState, event: RunEvent) -> RunState:
         "ended_at_ms": event.at_ms if seen and not state.ended_at_ms else state.ended_at_ms,
         "phase": _phase(seen, succeeded, started),
     })
+
+
+def fold(state: RunState, event: RunEvent) -> RunState:
+    if event.seq <= state.last_seq:
+        return state
+    tasks = dict(state.tasks)
+    counts = state.counts
+    if (tr := event.trace) is not None:
+        prior = tasks.get(tr.task_id)
+        tasks[tr.task_id] = _task_after(prior, event)
+        counts = _shifted(counts, prior.status if prior else None, tr.status)
+    return _advanced(state, event, tasks, counts)
+
+
+def fold_task(state: RunState, task: TaskState | None,
+              event: RunEvent) -> tuple[RunState, TaskState | None]:
+    """`fold` for a caller that holds the run's facts and only the task `event` touches
+    (#566): ingest, which would otherwise load every task to fold one event.
+
+    `task` is that task's state before the event (`None` when it is new, or when the event
+    describes none). `state.tasks` is neither read nor changed; `state.counts` must be the
+    whole run's. Returns the run's facts and the task after the event, equal to what `fold`
+    gives for them — `test_folding_one_task_is_folding_the_run` holds the two together, and
+    they share every line that decides anything."""
+    if event.seq <= state.last_seq:
+        return state, task
+    counts = state.counts
+    if (tr := event.trace) is not None:
+        counts = _shifted(counts, task.status if task else None, tr.status)
+        task = _task_after(task, event)
+    return _advanced(state, event, state.tasks, counts), task
 
 
 def restore(

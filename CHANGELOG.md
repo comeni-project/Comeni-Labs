@@ -268,6 +268,7 @@ or a complete commit history.
 ### mendel-api
 
 - Reading a draft's decisions takes no row lock, so the page's 1.5 s poll no longer queues behind the agent's writes, and a read fetches every fact's observation in one statement instead of one per fact (#561).
+- A rescan, tick, fix or reference change reuses what each sample measured when its files are unchanged (same files, sizes, modification times and inodes, same registry and measurer versions) instead of measuring every sample again: 20 unchanged samples 2.56 s → 0.01 s (#570).
 - Registry, Forge and Settings for the redesign (#511): `GET /data/readers` gives each reader's facts with their units, the rules and settings that decide by them and their tests, and lists tool measurers; a forging's summary says its failed tests and pull request state; `GET /settings/{key}/check` tries a slower check after the menu (the default model's server), so Settings never waits on it. The builder agent sets a setting it is asked about as its tier-4 choice, hears a change in Data until it has built, and builds and compiles with the draft's AI provenance (a value it set was refused with MD0225).
 
 - Data for the redesign (#511): `GET /data/readers`; `/data/tree` says what each folder looks like; files in a folder named for references are offered as references, files nothing reads are not samples, and a number ten times off the median is checked. The builder agent sees references (`DataView.references`), suggests commands on Run → Console (`suggest_command`, paths shortened in what the page carries), and a reached subscription limit says when it resets (MA0010). `POST /pipeline/authoring/{id}/tidy` lays the canvas out again; steps carry their input rules (`StepView.rules`) and settings their `explain`.
@@ -552,6 +553,8 @@ or a complete commit history.
 
 ### wiener-core
 
+- `fold` keeps the task counts by the one task an event changed instead of recounting every task, so a replay is linear in events: 10k events 2.1 s → 0.45 s (#565).
+- `fold_task` folds one event against a run's facts and the one task it touches, sharing its code with `fold`; `counts_of` turns per-status task counts into `Counts` (#566).
 - `series` draws cores used: each task's mean CPU spread over its run (derived), beside cores reserved (#511).
 
 #### Added
@@ -566,6 +569,9 @@ or a complete commit history.
   Telemetry mapping stays pure, with export handled outside the package.
 
 ### wiener-api
+
+- `/runs/{id}`, `/graph` and `/overview`, polled every 4 s while a run is live, answer from the projection instead of replaying the run's whole record (#565).
+- Ingest reads the run's facts, its task counts (in SQL) and the one task an event describes, instead of every task of the run: per event 13 ms → 0.03 ms of fold CPU at 3.3k tasks (#566). The full state is restored once, at a run's end, when telemetry is on.
 
 - A run's text results are served as plain text, inline, and each listed file says whether a browser can show it (`viewable`).
 

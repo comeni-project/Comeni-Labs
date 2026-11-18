@@ -371,6 +371,16 @@ def tasks(session: Session, lab_id: str, run_id: str) -> list[RunTask]:
     ))
 
 
+def task_statuses(session: Session, lab_id: str, run_id: str) -> dict[str, int]:
+    """How many of a run's tasks are in each status, counted in SQL: what ingest needs of the
+    tasks it does not touch (#566), without loading them."""
+    return {status: n for status, n in session.execute(
+        select(RunTask.status, func.count())
+        .where(RunTask.lab_id == lab_id, RunTask.run_id == run_id)
+        .group_by(RunTask.status)
+    )}
+
+
 def task(session: Session, lab_id: str, run_id: str, task_id: int) -> RunTask | None:
     return session.scalar(
         select(RunTask).where(
