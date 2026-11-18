@@ -164,6 +164,11 @@ class InputPort(BaseModel):
             data.pop("many", None)
         return data
 
+    def gathers_study(self) -> bool:
+        """One call over every sample's items (`grain: study, many: true`), as MULTIQC's
+        reports (#435)."""
+        return self.grain is Grain.STUDY and self.many
+
     def alternatives(self) -> list[Alternative]:
         """The conventional form first, the structural form as the fallback.
 

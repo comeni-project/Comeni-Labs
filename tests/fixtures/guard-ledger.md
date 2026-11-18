@@ -5623,3 +5623,11 @@ from being reused.
 
 Across the registry the width check flagged MULTIQC alone among 20 port entries before its
 contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
+
+## Every kind of data reaches an aggregator, 2026-11-17 (#435, #483)
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-17 | `test_fan_in.py` "the aggregator gathers a report on each kind of data" | restored `router.py` and `resolve.py` without per-kind routing and `_gather_every_producer` | failed | MULTIQC's reports fed by `fastqc.zip` alone |
+| 2026-11-17 | `test_fan_in.py` "the gathered reports are mixed into one call" | the same | failed | no `FASTQC.out.zip.mix(QUAST.out.results)` |
+| 2026-11-17 | `test_join.py` "a gathered port in a shared slot passes every sample's files" | restored `emit.py` from before #507 | failed | `.combine(X.collect().map { it[1] })`, one sample's file |

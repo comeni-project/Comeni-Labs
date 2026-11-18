@@ -138,6 +138,7 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- A port that gathers over the study (`grain: study, many: true`) routes one producer per kind of data the analysis has, and takes one output from every step that makes what it reads: MULTIQC gathers FastQC's reports on the reads and QUAST's on the assemblies. Producers reached from the same data still compete, and a person's source pin keeps only theirs (#435).
 - Rule proposals (#462): `proposals` turns a kept pipeline's decisions into cases, gathers a person's tier-4 answers per target (`MIN_CASES = 3`), judges a proposed row against them (contradicted, unsupported or never firing), narrows it to where the existing rows missed, and replays it over every past decision of its target.
 
 - Parts (#466): a step that can run on parts of each sample is split before it and merged after it whenever the registry has a splitter and a merger and the step's only per-sample input is the split one, unless the person keeps it whole.
@@ -177,7 +178,7 @@ or a complete commit history.
 
 ### mendel-compiler
 
-- A port gathered over the study reaches its process as one `[meta, files]` tuple, as a gather per key does; a bare `.collect()` mixed every sample's `meta` in among the files. MULTIQC now runs after FastQC (#507).
+- A port gathered over the study reaches its process as one `[meta, files]` tuple, as a gather per key does; a bare `.collect()` mixed every sample's `meta` in among the files. MULTIQC now runs after FastQC (#507). Inside a shared slot, such a port passes every sample's files rather than one (#483).
 - MD0111: conformance compares a tuple's width, `val(meta)` plus one per port plus `pad`, with the module's, not only the number of channels (#507).
 - `orchestrate.build(..., ai=)` takes the caller's AI provenance, so a value a model settled builds (#535).
 

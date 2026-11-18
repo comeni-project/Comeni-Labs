@@ -108,6 +108,21 @@ def test_broadcast_emits_combine(spine):
     assert ".join(" not in rendered
 
 
+def test_a_gathered_port_in_a_shared_slot_passes_every_samples_files(spine):
+    """**#483.** A gathered port inside a broadcast slot was `.combine(X.collect().map { it[1] })`:
+    `collect()` made one list of every `[meta, file]`, and `it[1]` took the *second item* of that
+    list, which is one sample's file. Gathered as `[meta, files]` (#507), `it[1]` is the files."""
+    step = _featurecounts(spine)
+    gathered = step.model_copy(update={"inputs": [
+        i.model_copy(update={"gather": True}) if i.port == "annotation" else i
+        for i in step.inputs]})
+    rendered = _argument(spine, gathered,
+                         CallArg(ports=["bam", "annotation"], join=Join.BROADCAST))
+    combined = rendered[rendered.index(".combine("):]
+    assert ".map { it -> it[1] }.collect().map { files -> [ [id: " in combined, rendered
+    assert combined.rstrip().endswith("files ] }.map { it[1] })"), rendered
+
+
 def test_the_shipped_spine_declares_broadcast(spine):
     """featureCounts' annotation is one GTF for every sample, and the artifact says so.
 

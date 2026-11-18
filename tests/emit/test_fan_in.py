@@ -135,3 +135,55 @@ def test_the_spine_is_unchanged_by_this(stack):
     """
     golden = (ROOT / "tests" / "golden" / "spine" / "main.nf").read_text()
     assert ".collect()" not in golden.replace("params.input.collect", "")
+
+
+# ── every kind of data reaches the aggregator (#435) ──────────────────────────────────────────
+
+
+def _reads_and_assemblies(stack):
+    from mendel_resolver.goal import Goal, GoalInput
+    from mendel_resolver.resolve import resolve
+
+    goal = Goal(have=[GoalInput(type_id="fastq.reads"), GoalInput(type_id="assembly.fasta")],
+                want=["qc.report"],
+                constraints={"required_states": {"qc.report": ["aggregated"]}})
+    return goal, resolve(goal, stack.registry, stack.rules, stack.measurements,
+                         vocabulary=stack.vocabulary)
+
+
+def _feeding(ir) -> list[tuple[str, str]]:
+    return sorted((e.from_node, e.from_port) for e in ir.edges
+                  if e.to_node == "multiqc" and e.to_port == "reports")
+
+
+def test_the_aggregator_gathers_a_report_on_each_kind_of_data(stack):
+    """**#435.** FastQC and QUAST share the role `qc_per_sample`, so routing MULTIQC's reports
+    took one and the other never ran. One producer per kind of data: FastQC on the reads, QUAST
+    on the assemblies, and QUAST's first report only, not all three of its outputs."""
+    _, ir = _reads_and_assemblies(stack)
+    assert _feeding(ir) == [("fastqc", "zip"), ("quast", "results")]
+    assert [n.id for n in ir.nodes].index("multiqc") == len(ir.nodes) - 1
+    assert not [d for d in ir.decisions if d.subject == "source:reports"]
+
+
+def test_the_gathered_reports_are_mixed_into_one_call(stack):
+    from comeni_core.artifact.pipeline import Pipeline
+
+    goal, ir = _reads_and_assemblies(stack)
+    workflow = emit(Pipeline.of(ir, stack.registry, stack.vocabulary, stack.measurements,
+                                stack.paths, goal=goal))
+    call = next(one for one in workflow.splitlines() if "MULTIQC(" in one)
+    assert "FASTQC.out.zip.mix(QUAST.out.results)" in call, call.strip()
+
+
+def test_one_kind_of_data_still_routes_one_producer(stack):
+    """With reads alone QUAST could only be reached through an assembler, which competes with
+    FastQC on the reads and loses; no assembler is added to feed a report."""
+    from mendel_resolver.goal import Goal, GoalInput
+    from mendel_resolver.resolve import resolve
+
+    goal = Goal(have=[GoalInput(type_id="fastq.reads")], want=["qc.report"],
+                constraints={"required_states": {"qc.report": ["aggregated"]}})
+    ir = resolve(goal, stack.registry, stack.rules, stack.measurements,
+                 vocabulary=stack.vocabulary)
+    assert _feeding(ir) == [("fastqc", "zip")]
