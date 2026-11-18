@@ -112,12 +112,15 @@ async def follow_registry_releases(ctx: dict) -> str:
 
 async def startup(ctx: dict) -> None:
     """Scans a lost worker left 'scanning' say they were interrupted (a queued one still runs,
-    and writes over this when it finishes)."""
+    and writes over this when it finishes). The registry is loaded now, not by the first
+    job (#545)."""
+    from mendel_api.main import _warm
     from mendel_api.services.data import scan
 
     swept = await asyncio.to_thread(scan.sweep_interrupted)
     if swept:
         logging.getLogger(__name__).warning("%d interrupted scans marked failed", swept)
+    await asyncio.to_thread(_warm)
 
 
 class WorkerSettings:

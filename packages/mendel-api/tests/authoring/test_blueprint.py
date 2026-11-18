@@ -279,3 +279,42 @@ def test_each_step_knows_its_site_and_its_candidates():
         "the sorter consumes the BAM it would stand in for"
     )
     assert bp.candidates(blueprint, "no_such_step") == []
+
+
+def test_a_build_loads_the_registry_once_per_registry_state(monkeypatch):
+    """#545. `orchestrate.build` loaded the layers and ran conformance on every build, about
+    200 ms each, bypassing the cache `registry.stack()` keeps by digest. A warm build loads
+    nothing; the registry is loaded again only when its digest moves."""
+    from mendel_resolver import layers
+
+    bp.resolve(_rnaseq())
+    loads, load = [0], layers.load
+
+    def counted(roots):
+        loads[0] += 1
+        return load(roots)
+
+    monkeypatch.setattr(layers, "load", counted)
+    bp.resolve(_rnaseq())
+    bp.resolve(_one_step())
+    assert loads[0] == 0, "a warm build loaded the registry again"
+
+
+def test_a_build_from_the_cached_registry_is_the_build_from_a_fresh_one():
+    """#545. The cached layers are shared between builds, so a build that mutated them would
+    change the next one. The saved pipeline from the cache is byte for byte a fresh build's."""
+    from comeni_core.artifact.digest import digest_of_directory
+    from mendel_api.settings import registry_roots
+    from mendel_compiler import orchestrate, pipeline_file
+    from mendel_resolver.ports import FlagOnlyResolver
+
+    roots = list(registry_roots())
+    for goal in (_rnaseq(), _one_step(), _rnaseq()):
+        cached = orchestrate.build(goal, registry_roots=roots, resolver=FlagOnlyResolver(),
+                                   prepared=registry.prepared(roots))
+        fresh = orchestrate.build(goal, registry_roots=roots, resolver=FlagOnlyResolver())
+        assert pipeline_file.dump(cached.pipeline) == pipeline_file.dump(fresh.pipeline)
+        # Both builds take their digests from `prepare`, so they are also checked against the
+        # layers' bytes: what a pipeline pins is the content, however it was remembered.
+        assert [layer.digest for layer in cached.pipeline.registry.layers] == [
+            str(digest_of_directory(root)) for root in roots]
