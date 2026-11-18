@@ -259,7 +259,7 @@ def test_the_ai_may_not_contradict_what_the_data_measured(clean, monkeypatch):
     before = _revision(draft)
     with pytest.raises(ValueError, match="MI0228"):
         changes.apply(draft, DecisionChange(kind="measurement", subject="read_length", value=150,
-                                            actor="model"), who="mendel-ai")
+                                            actor="model"), who="builder-agent")
     assert _revision(draft) == before
 
 
@@ -272,4 +272,4 @@ def test_a_person_may_say_the_measurement_is_wrong(clean, monkeypatch):
 def test_the_ai_may_agree_with_the_data(clean, monkeypatch):
     draft = _measured(monkeypatch, _draft(), 99)
     changes.apply(draft, DecisionChange(kind="measurement", subject="read_length", value=99,
-                                        actor="model"), who="mendel-ai")
+                                        actor="model"), who="builder-agent")

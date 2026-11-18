@@ -109,7 +109,7 @@ compliance, call data anonymised, or promise cloud data handling that has not be
 | Decisions and projections / the forge's flow engine | `packages/mendel-authoring/`, `packages/comeni-flow/` |
 | The builder agent: tools, loop, chat and MCP | `packages/mendel-api/src/mendel_api/agent/` |
 | Build sessions, API, jobs and installation settings | `packages/mendel-api/` |
-| Shared provider transport / Mendel model integration | `packages/comeni-ai/`, `packages/mendel-ai/` |
+| Shared provider transport | `packages/comeni-ai/` |
 | The forge: module catalogue, sources and state against the registry (#360) | `packages/mendel-forge/` |
 | Module fetching into a registry layer | `packages/comeni-vendor/` |
 | Sample inspection subprocesses | `packages/comeni-inspect/` |

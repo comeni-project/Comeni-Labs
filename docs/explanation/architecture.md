@@ -20,7 +20,6 @@ This page explains component ownership and the construction path. Use the
 | `wiener-core` | Run-state transitions and decisions from supplied events | Pure |
 | `dag-core` | Graph layout shared by the canvases | Pure |
 | `comeni-ai` | Provider transport and reusable model integration | I/O adapters |
-| `mendel-ai` | Deprecated re-exports of `comeni-ai` | Compatibility only |
 | `comeni-vendor` | Fetching module source and checking its pins | I/O adapters |
 | `comeni-inspect` | Sample-inspection subprocesses | I/O adapters |
 | `mendel-api` | Build sessions, drafts, jobs, settings and HTTP routes | Service and persistence |
@@ -637,6 +636,5 @@ than a boundary.
 **It was `mendel-ai` until 2026-09-04.** The rename is not cosmetic: an engine-specific name on
 the shared transport is what would have produced three clients, one each for the forge, the
 builder and Wiener's agents, and `MENDEL_MODEL` configuring a Wiener agent is a lie in a `.env`
-file. The configuration is `COMENI_AI_*` and the `MENDEL_*` spellings are read as a fallback.
-`mendel-ai` survives as a deprecation shim that re-exports this package and holds no code;
-`packages/mendel-ai/tests/test_shim.py` refuses a new in-repo import of it.
+file. The configuration is `COMENI_AI_*` only: the deprecation shim and the `MENDEL_*`
+fallbacks were removed before the first release (#298).

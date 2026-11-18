@@ -26,7 +26,6 @@ runtime import or establish that every module is placed well.
 | `mendel-api` | Mendel HTTP routes, stored drafts/sessions/decisions, registry and workspace integration, application settings, worker entry points and queue orchestration. | Core, authoring, resolver, compiler, AI, inspection and graph layout. | Browser and external HTTP clients; worker processes load it directly. No other workspace package imports it. |
 | `wiener-core` | Event normalization, run-state folds, execution policy, timelines, series, graph views and telemetry descriptions. | Core and graph layout. | Wiener API. |
 | `wiener-api` | Run/artifact persistence, launch and ingest processes, Redis fan-out, execution worker, telemetry export and HTTP routes. | Core, Wiener core and graph layout. | Browser and external HTTP clients; ingest and worker processes load it directly. No other workspace package imports it. |
-| `mendel-ai` | Compatibility re-exports and a deprecation warning. It implements no AI behavior and has no source consumer elsewhere in this workspace. | AI. | Released external consumers may still use the old import. Removal is tracked separately. |
 
 Package manifests declare installation dependencies; `src/<module>/__init__.py` records exported
 names where the package has a facade. Submodule imports are also current interfaces: an `__all__`
@@ -122,9 +121,9 @@ call a model. See [AI ownership](mendel-ai-ownership.md) for the call paths and 
    `AiInvocation` rows. Separating this requires explicit application adapters; moving the whole
    module into shared `comeni-ai` would move database and builder knowledge with it. Keep package
    boundaries now and use the proposed subpackage boundary in [#310](https://github.com/comeni-project/Comeni-Labs/issues/310).
-2. **The compatibility package is easy to misread as a proposed new owner.**
-   `mendel-ai` only re-exports `comeni-ai`; its tests prohibit new in-repo consumers. Remove it
-   under [#298](https://github.com/comeni-project/Comeni-Labs/issues/298), after resolving its released-consumer compatibility policy. Do not put builder AI code there.
+2. **The old `mendel-ai` name is gone.** Its re-export shim was removed before the first release
+   ([#298](https://github.com/comeni-project/Comeni-Labs/issues/298)). Do not reuse the name for
+   builder AI code; that belongs in `mendel-api`.
 3. **Egress declarations need an explicit placement policy.**
    `comeni_core/egress/` describes pipeline payloads (the forge's workflow has none declared
    yet), while protection and transport live in API/adaptor code. Keep those roles distinct;

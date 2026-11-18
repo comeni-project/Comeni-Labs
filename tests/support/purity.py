@@ -228,7 +228,6 @@ BANLIST_PACKAGES = ["mendel-compiler"]
 
 IMPURE_PACKAGES: list[str] = [
     "comeni-ai",
-    "mendel-ai",
     "mendel-api",
     "wiener-api",
     "comeni-vendor",
@@ -256,11 +255,9 @@ guards are `tests/guards/test_inspector_pieces.py` (the pieces' own closed allow
 network client, for the same reason as `comeni-vendor`. Its parser and state comparison are
 pure functions, but the package is classified by what it may do, not by its quietest module.
 
-`mendel-ai` arrived with forge Phase 2 and is where the network lives — it is the package
-the purity guards exist to keep the pure three away from. `mendel-api` is still absent, and
-is deliberately *not* listed ahead of time: a name in a classification list that matches no
-directory is a guard nobody is running, and `test_every_package_is_classified` refuses that
-too.
+`comeni-ai` is where the model network lives, the package the purity guards exist to keep the
+pure packages away from. A name in a classification list that matches no directory is a guard
+nobody is running, and `test_every_package_is_classified` refuses that too.
 
 A67, issue #31: the scan globs `packages/<name>/src`, and a missing directory yields nothing
 while the assertion runs over an empty list — so a package intended pure but renamed carries

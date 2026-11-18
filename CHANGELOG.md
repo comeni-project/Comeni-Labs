@@ -496,6 +496,7 @@ or a complete commit history.
 
 ### comeni-ai
 
+- **Breaking:** the `MENDEL_MODEL`, `MENDEL_API_KEY`, `MENDEL_BASE_URL`, `MENDEL_TIMEOUT_SECONDS` and `MENDEL_TEMPERATURE` fallbacks are no longer read; set `COMENI_AI_*`. `access.NAMES` lists what `from_env` reads (#298).
 - `reply_of` reads every choice of a `chatgpt/` reply. LiteLLM's Responses bridge returns
   narration and tool calls as separate choices, so the builder lost its tool calls whenever it
   narrated first. Other providers' choices are alternative generations; the first is kept.
@@ -517,11 +518,10 @@ or a complete commit history.
 
 ### mendel-ai
 
-#### Changed
+#### Removed
 
-- Mendel model integration uses the shared `comeni-ai` transport. The package split does not
-  yet encompass all Mendel prompts or worker orchestration; ownership is tracked in
-  [issue #310](https://github.com/comeni-project/Comeni-Labs/issues/310).
+- **The package is gone** (#298). It only re-exported `comeni-ai`, which every caller imports
+  directly. It was never tagged for release.
 
 ### comeni-inspect
 

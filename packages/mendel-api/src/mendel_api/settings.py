@@ -126,9 +126,8 @@ class Settings(BaseSettings):
     def _the_shared_name_wins(self) -> "Settings":
         """`COMENI_AI_MAX_CONCURRENT_JOBS` over `MENDEL_AI_MAX_JOBS` when both are set.
 
-        The direction `access.DEPRECATED` already chose, and for its reason: an installation
-        that sets both gets the shared name, which is the only direction that cannot silently
-        un-migrate somebody.
+        An installation that sets both gets the shared name, which is the only direction that
+        cannot silently un-migrate somebody.
         """
         shared = os.environ.get("COMENI_AI_MAX_CONCURRENT_JOBS", "").strip()
         if shared:

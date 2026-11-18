@@ -103,56 +103,15 @@ def test_it_can_be_raised_deliberately() -> None:
     assert access.temperature == 0.7
 
 
-def test_the_deprecated_mendel_names_are_still_read() -> None:
-    """The compatibility window. A deployment that has not edited its `.env` still works."""
-    access = ModelAccess.from_env({"MENDEL_MODEL": "ollama/llama3", "MENDEL_API_KEY": "k"})
-    assert access is not None
-    assert access.model == "ollama/llama3"
-    assert access.api_key == "k"
+def test_the_old_mendel_names_are_not_read() -> None:
+    """The compatibility window closed before any release (#298): `COMENI_AI_*` only."""
+    assert ModelAccess.from_env({"MENDEL_MODEL": "ollama/llama3", "MENDEL_API_KEY": "k"}) is None
+    access = ModelAccess.from_env({"COMENI_AI_MODEL": "m", "MENDEL_API_KEY": "k"})
+    assert access is not None and access.api_key is None
 
 
-def test_the_new_name_wins_when_both_are_set() -> None:
-    """The only safe direction. A half-migrated `.env` that kept the old line must not
-    silently un-migrate somebody who added the new one."""
-    access = ModelAccess.from_env(
-        {"COMENI_AI_MODEL": "anthropic/new", "MENDEL_MODEL": "anthropic/old"}
-    )
-    assert access is not None
-    assert access.model == "anthropic/new"
-
-
-def test_an_empty_new_name_falls_through_rather_than_shadowing() -> None:
-    """`COMENI_AI_API_KEY=` exported and empty is the half-migration that reads as complete.
-
-    An empty string is not a value anywhere else in this module, and it must not become one
-    here — shadowing the old name with a blank would make the credential vanish.
-    """
-    access = ModelAccess.from_env(
-        {
-            "COMENI_AI_MODEL": "",
-            "MENDEL_MODEL": "m",
-            "COMENI_AI_API_KEY": "",
-            "MENDEL_API_KEY": "k",
-        }
-    )
-    assert access is not None
-    assert access.model == "m"
-    assert access.api_key == "k"
-
-
-def test_every_new_name_has_a_deprecated_partner() -> None:
-    """The map is what makes the window closable: one place lists what may still be read."""
-    from comeni_ai import access as module
-
-    assert set(module.DEPRECATED) == {
-        module.MODEL,
-        module.API_KEY,
-        module.BASE_URL,
-        module.TIMEOUT,
-        module.TEMPERATURE,
-    }
-    assert all(old.startswith("MENDEL_") for old in module.DEPRECATED.values())
-    assert all(new.startswith("COMENI_AI_") for new in module.DEPRECATED)
+def test_a_blank_name_is_unset() -> None:
+    assert ModelAccess.from_env({"COMENI_AI_MODEL": "  "}) is None
 
 
 def test_the_refusal_names_the_current_spelling() -> None:

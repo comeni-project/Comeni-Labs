@@ -24,29 +24,13 @@ TEMPERATURE = "COMENI_AI_TEMPERATURE"
 MAX_CONCURRENT_JOBS = "COMENI_AI_MAX_CONCURRENT_JOBS"
 """Shared worker-concurrency setting; application workers, not this package, consume it."""
 
-DEPRECATED: dict[str, str] = {
-    MODEL: "MENDEL_MODEL",
-    API_KEY: "MENDEL_API_KEY",
-    BASE_URL: "MENDEL_BASE_URL",
-    TIMEOUT: "MENDEL_TIMEOUT_SECONDS",
-    TEMPERATURE: "MENDEL_TEMPERATURE",
-}
-"""Deprecated ``MENDEL_*`` names read only when the corresponding current value is blank.
-
-The mapping is a temporary compatibility surface. Current ``COMENI_AI_*`` values always take
-precedence when both spellings are present.
-"""
+NAMES: tuple[str, ...] = (MODEL, API_KEY, BASE_URL, TIMEOUT, TEMPERATURE)
+"""Every name `from_env` reads. The old ``MENDEL_*`` spellings are not read (#298)."""
 
 
 def _read(env: Mapping[str, str], name: str) -> str:
-    """Return the current value, its deprecated fallback, or an empty string.
-
-    Blank current values do not shadow a non-blank deprecated value.
-    """
-    current = env.get(name, "").strip()
-    if current:
-        return current
-    return env.get(DEPRECATED.get(name, ""), "").strip()
+    """Return the value, or an empty string when it is unset or blank."""
+    return env.get(name, "").strip()
 
 
 class ModelAccess(BaseModel):
