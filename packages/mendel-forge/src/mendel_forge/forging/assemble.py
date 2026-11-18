@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 
 import yaml
+from comeni_core import yaml_strict
 from comeni_core.declared.contract import ModuleContract, Provenance
 from comeni_core.declared.signature import join
 from comeni_core.declared.tooltest import ToolTest
@@ -196,7 +197,7 @@ def prove(base: Path, below: list[Path], draft: Path) -> Proof:
                      problems=[Problem(code="MF0511", says=f"the draft does not load: {said}")])
     # The draft's own contracts, read from its files: it cannot load alone, since its types
     # are the registry's.
-    contracts = {yaml.safe_load(p.read_text())["id"] for p in draft.rglob("contract.yml")}
+    contracts = {yaml_strict.loads(p.read_text())["id"] for p in draft.rglob("contract.yml")}
     found = [d for d in conformance.blocking(
                  conformance.check(stack.registry, stack.modules, stack.measurements,
                                    stack.vocabulary))

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Protocol
 
 import yaml
+from comeni_core import yaml_strict
 from comeni_core.diagnostics import coded
 from mendel_compiler import conformance, registry_lint
 from mendel_compiler.cli import layer_verbs
@@ -135,7 +136,7 @@ def place(draft: Path, checkout: Path, module_id: str, tool: ToolFacts) -> list[
 
 def _measured(draft: Path) -> set[str]:
     """The measurements the draft's own measurers produce."""
-    return {yaml.safe_load(p.read_text()).get("measures")
+    return {yaml_strict.loads(p.read_text()).get("measures")
             for p in (draft / "measurers" / "measures").glob("*/measurer.yml")}
 
 
@@ -165,7 +166,7 @@ def _drops_assertion_only(source: Path, target: Path) -> bool:
     """Whether the draft is the registry's measurement with only `assertion_only` (and its
     reason) dropped: what a tool that now measures it may change (#487). Compared parsed, so
     the draft's own key order and folding do not count as a change."""
-    draft, shared = yaml.safe_load(source.read_text()), yaml.safe_load(target.read_text())
+    draft, shared = yaml_strict.loads(source.read_text()), yaml_strict.loads(target.read_text())
     if not (isinstance(draft, dict) and isinstance(shared, dict)
             and shared.get("declares") == "measurement" and shared.get("assertion_only")):
         return False
@@ -176,7 +177,7 @@ def _drops_assertion_only(source: Path, target: Path) -> bool:
 def _states_missing(source: Path, target: Path) -> list[str] | None:
     """For a type extension (`add_states`), the states the registry's type still lacks; `None`
     when the draft file is not an extension of that type."""
-    draft, shared = yaml.safe_load(source.read_text()), yaml.safe_load(target.read_text())
+    draft, shared = yaml_strict.loads(source.read_text()), yaml_strict.loads(target.read_text())
     if (not isinstance(draft, dict) or "add_states" not in draft
             or draft.get("id") != shared.get("id")):
         return None
@@ -185,7 +186,7 @@ def _states_missing(source: Path, target: Path) -> list[str] | None:
 
 def _roles(path: Path, checkout: Path) -> list[Path]:
     placed = []
-    for role in yaml.safe_load(path.read_text())["roles"]:
+    for role in yaml_strict.loads(path.read_text())["roles"]:
         target = checkout / "vocabulary" / "roles" / f"{role['id']}.yml"
         if not target.exists():
             target.parent.mkdir(parents=True, exist_ok=True)

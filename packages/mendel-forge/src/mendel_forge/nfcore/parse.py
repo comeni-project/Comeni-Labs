@@ -15,6 +15,9 @@ from mendel_forge.model import Channel, NfTest, Problem, UpstreamModule, Upstrea
 from mendel_forge.topics import formats_of, topics_of
 from mendel_forge.versions import parse_packages, tool_version
 
+# nf-core's own files, not declared data (#575): SafeLoader's behaviour, in C when it is built.
+_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 _LABEL = re.compile(r"""^\s*label\s+['"](process_\w+)['"]""", re.M)
 _TEST = re.compile(r"""^\s*test\(\s*["'](.+?)["']\s*\)""", re.M)
 _DATASET = re.compile(r"""modules_testdata_base_path\s*\+\s*['"]([^'"]+)['"]""")
@@ -63,7 +66,7 @@ def parse_module(folder: Path, path: str, source: str = "nf-core") -> UpstreamMo
 
 def _meta(path: Path, problems: list[Problem]) -> dict[str, Any]:
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = yaml.load(path.read_text(encoding="utf-8"), Loader=_LOADER)  # noqa: S506 — the safe loader, in C
     except (OSError, ValueError, yaml.YAMLError) as error:
         problems.append(Problem(code="MF0500", says=f"meta.yml cannot be read: {error}"))
         return {}

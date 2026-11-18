@@ -24,6 +24,7 @@ from pathlib import Path
 
 import sqlalchemy as sa
 import yaml
+from comeni_core import yaml_strict
 from comeni_core.diagnostics import coded
 from comeni_core.spell.marks import ParamValue
 from comeni_flow.interpret import Refused
@@ -349,7 +350,7 @@ def read() -> ProposalsView:
         folder = own_layer() / LEARNED
         for path in sorted(folder.glob("*.yml")) if folder.is_dir() else []:
             row = approved.get(path.stem)
-            decision = Decision.model_validate(yaml.safe_load(path.read_text())["decisions"][0])
+            decision = Decision.model_validate(yaml_strict.loads(path.read_text())["decisions"][0])
             target = decision.targets()[0]
             in_use.append(InUseView(
                 slug=path.stem, target_key=target.key(), target=words(target),

@@ -5689,3 +5689,5 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 - 2026-11-18, perf audit (#561 part 3): `test_reads_in_one_request_decide_once_per_revision` failed before
   `remembered` existed. `test_every_http_request_has_its_own_memo` against `main` with the middleware's memo
   replaced by a `nullcontext`: failed. Both pass after.
+- 2026-11-18, perf audit (#575): `test_declared_data_is_not_read_with_plain_safe_load` run against the
+  committed sources: failed, six readers outside the allowlist. Passes after.

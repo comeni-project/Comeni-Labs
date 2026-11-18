@@ -295,6 +295,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- Learned rules and forge tests read their declared files with `yaml_strict`, which refuses a repeated key, instead of `yaml.safe_load` (#575).
 - Data's files say what each is used as now: a reference shows its kind, and a left-out sample's file carries `left_out` (`ScannedFile.left_out`). Release refusals name each release and why, and say what to do; they said only "4 release(s) could not be used" (#535).
 - A session's agent turns run one at a time, under an advisory lock; with two AI jobs, two turns wrote to one draft at once. Sample names are cut to 200 characters, as `SampleName` allows, where a rule cut them to 256 and the agent's data reads then refused. A tool's `KeyError` is a refusal to the model only when the model named the missing key; any other fails the turn as the engine's error. `read_pipeline` tells the agent a step is unreviewed only while the person has not reviewed it (#505).
 - A fact a person said and the data measured otherwise carries the data's value beside it (`FactDecision.measured`, derived at every read). The AI may not set a measured fact to another value: MI0228, nothing written (#510).
@@ -555,6 +556,7 @@ or a complete commit history.
 
 ### mendel-forge
 
+- Declared files are read with `yaml_strict`, and nf-core's own `meta.yml` and `environment.yml` with the C safe loader: `parse_module` 19.7 ms → 0.9 ms a module, the same output (#575).
 - The forge drafts measurers (#487). A new last step, **Measurers**, proposes a `by: tool`
   parser of one of the tool's outputs, with its tests, and any new measurement. The parser is
   checked with MD0027 and is never run on Mendel's server. A forge test runs it on the tool's real
