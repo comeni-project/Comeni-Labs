@@ -5682,3 +5682,6 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   run against the committed `projection.append` (`restored()` before each fold): failed, `ingest loaded every
   task of the run`. `test_a_broken_exporter_does_not_lose_the_terminal_event`, now with telemetry on, against
   an `append` that exported its task-less state: failed. All pass after.
+- 2026-11-18, perf audit (#551): `test_a_turn_resolves_each_state_of_the_decisions_once` run against the
+  committed `agent/read.py` (on `issue-sweep`): failed, `the resolve tool built the pipeline more than once`.
+  Passes after.
