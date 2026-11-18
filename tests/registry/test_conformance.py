@@ -124,6 +124,35 @@ def test_M0111_a_tuple_filled_short_of_the_modules_width(registry):
     assert "pad: 4" in found.fix
 
 
+def test_M0112_inputs_wired_in_the_wrong_order(registry):
+    """#414: HISAT2_BUILD takes the genome, then the annotation. Swapped, every count and width
+    still matched, and only the run would have failed. The module's meta.yml says `fasta` takes
+    `*.{fa,fasta,fna}` and `gtf` takes `*.{gtf}`; the types' formats come from the test data."""
+    from comeni_core.declared.contract import NfInput
+
+    vocabulary = layers.load(ROOT / "registry").vocabulary
+    hisat2 = "nf-core/hisat2/build@2.2.2"
+    assert "MD0112" not in codes(check(registry, MODULES, vocabulary=vocabulary))
+    contract = registry.get(hisat2)
+    swapped = [NfInput(ports=["gtf"]), NfInput(ports=["fasta"]), *contract.nf_inputs[2:]]
+    found = [d for d in check(_doctored(registry, hisat2, nf_inputs=swapped), MODULES,
+                              vocabulary=vocabulary) if d.code == "MD0112"]
+    assert len(found) == 2
+    assert "port gtf (gtf) fills slot 0's fasta" in found[0].summary
+    assert "as gtf" in found[0].fix
+
+
+def test_M0112_is_silent_where_nothing_names_a_format(registry):
+    """Without the vocabulary's test data neither type has a known format, so the swap is
+    unverified rather than refused: no guess."""
+    from comeni_core.declared.contract import NfInput
+
+    hisat2 = "nf-core/hisat2/build@2.2.2"
+    contract = registry.get(hisat2)
+    swapped = [NfInput(ports=["gtf"]), NfInput(ports=["fasta"]), *contract.nf_inputs[2:]]
+    assert "MD0112" not in codes(check(_doctored(registry, hisat2, nf_inputs=swapped), MODULES))
+
+
 def test_M0105_an_output_the_module_does_not_emit(registry):
     from comeni_core.declared.contract import OutputPort
 

@@ -190,6 +190,22 @@ MD0111:
     declaration". Counting channels is not enough: nf-core/multiqc takes one channel holding
     six elements (#507).
 
+MD0112:
+  emitted_by: compiler
+  concern: conformance
+  says: "a port fills a slot whose file pattern takes none of its type's formats"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Order `nf_inputs` as the module's `input:` block declares its slots, so each port fills the
+    element whose meta.yml pattern takes its files.
+  explanation: |
+    A contract that wires a module's inputs in the wrong order passes every count and width
+    check, and fails only at run time, or runs on the wrong file. The module's meta.yml says
+    which files each element takes (`fasta: *.{fa,fasta,fna}`), and a type's formats are what
+    the contracts making it write and what its test data is. When the two share none, the port
+    is in the wrong slot (#414). Where either says nothing the element is not checked.
+
 MD0106:
   emitted_by: compiler
   concern: conformance
