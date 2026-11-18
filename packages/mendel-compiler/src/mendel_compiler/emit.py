@@ -1325,6 +1325,41 @@ def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:
     ]
 
 
+STUB_SAMPLESHEET = "stub-data/samplesheet.csv"
+"""What the `stub_data` profile points `params.input` at when the pipeline takes a table (#542):
+two rows of empty files, written by `gates.materialise_stub_data`."""
+
+STUB_SAMPLES = ("sampleA", "sampleB")
+"""Two rows, not one: with one, a queue of one and a value channel look the same."""
+
+
+def stub_samplesheet(pipeline: Pipeline, data: str) -> tuple[str, list[str]]:
+    """The stub samplesheet's text and the files its cells name, under `data` (#542). A row per
+    `STUB_SAMPLES`, each column an empty file, each fact the test samplesheet's value."""
+    columns: list[str] = [SAMPLE_COLUMN]
+    rows: list[list[str]] = [[sample] for sample in STUB_SAMPLES]
+    files: list[str] = []
+    for channel in pipeline.channels:
+        if channel.grain is not Grain.SAMPLE:
+            continue
+        suffix = ".fastq.gz" if channel.type_id == "fastq.reads" else ".txt"
+        for column in channel.columns:
+            columns.append(column)
+            for sample, row in zip(STUB_SAMPLES, rows, strict=True):
+                name = f"{sample}_{column}{suffix}"
+                files.append(name)
+                row.append(f"{data}/{name}")
+    for fact in pipeline.sheet_facts:
+        columns.append(fact.column)
+        for row in rows:
+            row.append(_test_cell(fact))
+    if any(c.units for c in pipeline.channels):
+        columns.append(UNIT_COLUMN)
+        for row in rows:
+            row.append("1")
+    return ",".join(columns) + "\n" + "".join(",".join(r) + "\n" for r in rows), files
+
+
 TEST_SAMPLESHEET = "test-samplesheet.csv"
 """What the `test` profile points `params.input` at when the pipeline takes a table.
 
@@ -1697,7 +1732,9 @@ def emit_config(pipeline: Pipeline) -> str:
     lines += ["profiles {", "    stub_data {", SMOKE_LIMITS]
     for name in params:
         pattern = (
-            '"${projectDir}/stub-data/*_R{1,2}.fastq.gz"'
+            f'"${{projectDir}}/{STUB_SAMPLESHEET}"'
+            if name == "input" and pipeline.input_form is InputForm.SAMPLESHEET
+            else '"${projectDir}/stub-data/*_R{1,2}.fastq.gz"'
             if name == "input"
             else f'"${{projectDir}}/stub-data/{name}.txt"'
         )

@@ -124,7 +124,7 @@ def of(directory: Path, gate: Gate) -> GateResult:
     (directory / "main.nf").write_text(emit(pipeline))
     (directory / "nextflow.config").write_text(emit_config(pipeline))
     if gate is Gate.STUB:
-        materialise_stub_data(directory, entry_params(pipeline))
+        materialise_stub_data(directory, entry_params(pipeline), pipeline)
     return _run(gate, directory)
 
 

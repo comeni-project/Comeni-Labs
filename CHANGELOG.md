@@ -180,6 +180,7 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- A samplesheet pipeline's `stub_data` profile points `params.input` at a stub samplesheet, two rows of empty files the stub gate writes (`STUB_SAMPLESHEET`, `stub_samplesheet`); it was a FASTQ glob the workflow would parse as a CSV. `materialise_stub_data` takes the pipeline (#542).
 - MD0112: conformance compares each port's formats, from what the contracts making its type write and its test data, with the file pattern the module's meta.yml documents for the element it fills, so inputs wired in the wrong order are refused at build. An element where either names no format is not checked. `check` takes the vocabulary (#414).
 - `entry_params` lists `input` for a samplesheet pipeline in place of its per-sample channels' params, which the workflow never reads: `nextflow.config` declares what the run reads, and a forge test is sent exactly those (#484).
 - A port gathered over the study reaches its process as one `[meta, files]` tuple, as a gather per key does; a bare `.collect()` mixed every sample's `meta` in among the files. MULTIQC now runs after FastQC (#507). Inside a shared slot, such a port passes every sample's files rather than one (#483).

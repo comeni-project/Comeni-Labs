@@ -5640,3 +5640,4 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 | 2026-11-17 | `test_layered.py` "a tuple key is recorded as one word" (#448) | none needed: run before the fix | failed | `"('nf-core/star/align@2.7.11b', 'small')" is not a key` |
 | 2026-11-17 | `test_diagnostics.py` "explain ends with what to write" (#67) | restored `diagnostics.py` from HEAD | failed | no `Fix:` block in the long form |
 | 2026-11-18 | `test_conformance.py` "inputs wired in the wrong order" (#414) | `against` without the `_misplaced` call | failed | no MD0112 for HISAT2_BUILD with `gtf` and `fasta` swapped; across the registry MD0112 found nothing before the swap |
+| 2026-11-18 | `test_gates.py` "a stub gate materialises every local input" (#542) | restored `gates.py` from HEAD | failed | no `stub-data/samplesheet.csv`; FASTQ pairs written for a samplesheet pipeline |
