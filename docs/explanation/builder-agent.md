@@ -49,7 +49,10 @@ tools are served to other agents over MCP, behind a bearer token: see
 
 A turn is bounded by a step limit and a token limit (`agent_max_steps`, `agent_max_tokens`).
 At either limit the turn ends with a notice rather than running on. With no model configured,
-the turn ends with `MI0106` and calls nothing.
+the turn ends with `MI0106` and calls nothing. Each call carries only the conversation's last
+`agent_history_turns` turns (20 by default). When earlier ones are left out, the system prompt
+says so and points the agent at `read_goal` and `read_pipeline`: what was decided before them
+is in the decisions, not in the words that led to them.
 
 ## Rules are advice
 
