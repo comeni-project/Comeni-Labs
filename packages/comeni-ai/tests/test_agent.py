@@ -90,3 +90,24 @@ def test_a_reached_usage_limit_says_so_and_when_it_resets():
             'has been reached","resets_at":1794868080,"resets_in_seconds":10510}}')
     assert _limited(Exception(body)) == "the model's usage limit is reached; it resets at 22:28 UTC"
     assert _limited(Exception("429 Too Many Requests")) == "the model's usage limit is reached"
+
+
+def test_an_openai_shaped_route_is_told_which_conversation_a_call_continues():
+    """#555. LiteLLM gave each ChatGPT-subscription call its own session id (the per-call
+    `litellm_call_id`), so every round looked like a new conversation to the provider's prompt
+    cache. The caller's stable key goes as `litellm_session_id` there and as
+    `prompt_cache_key` to OpenAI; a provider that takes neither is sent neither. `converse`
+    spreads exactly this into `litellm.completion`; the live transport is not named in a test
+    (`tests/guards/test_no_live_model.py`)."""
+    from comeni_ai.client import _continuing
+
+    key = "c0ffee" * 5
+    assert _continuing("chatgpt/gpt-6.1-sol", key) == {"litellm_session_id": key}
+    assert _continuing("openai/gpt-6.1", key) == {"prompt_cache_key": key}
+    assert _continuing("anthropic/claude-sonnet-5", key) == {}
+    assert _continuing("chatgpt/gpt-6.1-sol", None) == {}
+
+def test_a_scripted_transport_keeps_the_cache_key_it_was_sent():
+    script = ScriptedAgentTransport([AgentReply(text="ok")])
+    script.converse(ACCESS, [{"role": "user", "content": "hi"}], [ADD], cache_key="k")
+    assert script.keys == ["k"]

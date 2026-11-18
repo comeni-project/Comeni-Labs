@@ -71,7 +71,7 @@ def test_retry_requeues_only_a_failed_turn(clean, queued, monkeypatch):
     assert client.post(f"{BASE}/{session['id']}/turns/1/retry").status_code == 409
 
     class Down:
-        def converse(self, access, messages, tools):
+        def converse(self, access, messages, tools, *, cache_key=None):
             raise TimeoutError("MA0003: no answer")
 
     seq = client.post(f"{BASE}/{session['id']}/messages", json={"text": "again"}).json()["seq"]
