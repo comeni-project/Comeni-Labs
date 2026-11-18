@@ -36,7 +36,7 @@ from wiener_api.services.artifacts import (
     run_rules,
     store,
 )
-from wiener_api.services.projection import state_of
+from wiener_api.services.projection import restored
 from wiener_api.settings import settings
 from wiener_api.task_query import TaskQuery
 
@@ -427,7 +427,7 @@ def read(run_id: str) -> dict:
         row = repository.run(session, settings.lab_id, run_id)
         if row is None:
             raise HTTPException(status_code=404)
-        state = state_of(session, settings.lab_id, run_id).model_dump(mode="json")
+        state = restored(session, settings.lab_id, run_id).model_dump(mode="json")
         # **Beside the projection, never inside it.** `RunState` is what `wiener-core` folded
         # from the events, and a name is not in the events — it came off the upload. Folding it
         # in would put a field on the pure type that no event can produce, which is how a
@@ -546,7 +546,7 @@ def graph(run_id: str) -> RunGraphOut:
         pipeline = _pipeline_of(session, run_id)
         if pipeline is None:
             raise HTTPException(status_code=404, detail="this run's artifact cannot be read")
-        state = state_of(session, settings.lab_id, run_id)
+        state = restored(session, settings.lab_id, run_id)
 
     laid = dag_core.of(graph_of(pipeline))
     run = coloured(pipeline, laid, state)
@@ -646,7 +646,7 @@ def run_overview(run_id: str) -> OverviewOut:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
         pipeline = _pipeline_of(session, run_id)
-        state = state_of(session, settings.lab_id, run_id)
+        state = restored(session, settings.lab_id, run_id)
 
     declared = [step.process for step in pipeline.steps] if pipeline is not None else []
     got = overview(state, declared)

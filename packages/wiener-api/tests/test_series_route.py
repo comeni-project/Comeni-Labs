@@ -34,16 +34,17 @@ def test_the_series_never_folds_the_event_stream(client, session, a_run, monkeyp
     **The first version of this guard was inert**, and it is the gotcha `CLAUDE.md` names by
     hand: `runs.py` does `from …projection import state_of`, so patching the attribute on the
     `projection` module binds past the name the route actually calls. It passed against a route
-    reverted to fold. Both spellings are patched here, so neither import style escapes.
+    reverted to fold. Since #565 `runs.py` imports no fold at all, so the record itself is
+    refused as well: a replay by any import style has to read `repository.events`.
     """
-    from wiener_api.routes import runs as runs_route
+    from wiener_api import repository
     _replay_into(session, a_run.id)
 
     def _refuse(*args, **kwargs):
         raise AssertionError("the series folded the event stream")
 
     monkeypatch.setattr(projection, "state_of", _refuse)
-    monkeypatch.setattr(runs_route, "state_of", _refuse)
+    monkeypatch.setattr(repository, "events", _refuse)
 
     answer = client.get(f"/api/runs/{a_run.id}/series")
     assert answer.status_code == 200

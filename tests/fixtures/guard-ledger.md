@@ -5591,3 +5591,21 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   committed `orchestrate.build` (`layers.load` on every build): failed. `test_a_build_from_the_cached_registry_is_the_build_from_a_fresh_one`
   failed before `prepared` existed and, once its digest check was added, against a `prepare` that pinned a
   wrong layer digest (the first version passed that mutant, as both builds share `prepare`). Both pass after.
+- 2026-11-18, perf audit (#561): `test_reading_the_decisions_locks_nothing` run against the committed
+  `decisions.py` (`_draft` with `FOR UPDATE` in `read`/`revision`): failed on the `FOR UPDATE` select.
+  `test_reading_more_facts_sends_no_more_statements` against it: failed, 16 statements for 4 facts against
+  13 for one. Both pass after.
+- 2026-11-18, perf audit (#570): `test_a_rescan_reuses_what_unchanged_samples_measured` run against the
+  committed `scan.py` (every sample measured on every scan): failed, `an unchanged sample was measured again`.
+  `test_a_changed_registry_measures_every_sample_again` against a key without the registry digest: failed.
+  Both pass after.
+- 2026-11-18, perf audit (#565): `test_the_polled_run_views_do_not_replay_the_record` run against the
+  committed `routes/runs.py` (`state_of` in the three routes): failed, `a polled view read the run's
+  record`. `test_the_counts_kept_per_event_are_the_counts_of_the_tasks` against `_shifted` with its
+  decrement removed: failed. `test_the_series_never_folds_the_event_stream`, repointed at
+  `repository.events`, against a series route that called `projection.state_of`: failed. All pass after.
+- 2026-11-18, perf audit (#566): `test_folding_one_task_is_folding_the_run` failed before `fold_task`
+  existed, and against a `fold_task` that skipped its count shift. `test_ingest_reads_only_the_task_an_event_touches`
+  run against the committed `projection.append` (`restored()` before each fold): failed, `ingest loaded every
+  task of the run`. `test_a_broken_exporter_does_not_lose_the_terminal_event`, now with telemetry on, against
+  an `append` that exported its task-less state: failed. All pass after.

@@ -125,6 +125,24 @@ def test_ingest_never_replays_the_run(ingest_client, a_run, monkeypatch):
     assert _post_all(ingest_client, a_run) > 3
 
 
+def test_ingest_reads_only_the_task_an_event_touches(ingest_client, a_run, session, monkeypatch):
+    """#566. Restoring the whole projection to fold one event read every `run_task` row, so an
+    ingest cost O(tasks): 26.7 ms an event at 3.3k tasks. Ingest folds against the run's facts
+    and the one task the event describes; what it writes still restores to the replay."""
+    from wiener_api import repository
+    from wiener_api.services import projection
+
+    def every_task(*args, **kwargs):
+        raise AssertionError("ingest loaded every task of the run")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(repository, "tasks", every_task)
+        assert _post_all(ingest_client, a_run) > 3
+    restored = projection.restored(session, a_run.lab_id, a_run.id)
+    assert restored.tasks, "no task projected: this would compare nothing"
+    assert restored == projection.state_of(session, a_run.lab_id, a_run.id)
+
+
 def test_the_projection_restores_the_folded_state_at_every_event(ingest_client, a_run, session):
     """The projection now stands in for the replay, so it has to hold everything the fold
     needs: what it restores must be what the record folds to, after every event — the whole

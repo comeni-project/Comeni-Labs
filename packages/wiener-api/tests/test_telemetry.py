@@ -156,13 +156,21 @@ def test_the_active_gauge_goes_up_once_and_back_down(session, a_run, tail, monke
 
 
 def test_a_broken_exporter_does_not_lose_the_terminal_event(session, a_run, monkeypatch):
-    """Telemetry is a lossy lens; the database record remains authoritative when it fails."""
+    """Telemetry is a lossy lens; the database record remains authoritative when it fails.
+
+    And what it is handed is the whole run (#566): ingest folds one task at a time, so the
+    spans' per-task state is restored at the end, and must be the replay's, tasks and all."""
     from wiener_api import repository
     from wiener_api.services import projection, telemetry
 
-    def broken_export(*args):
+    handed = []
+
+    def broken_export(state, *args):
+        handed.append(state)
         raise RuntimeError("collector unavailable")
 
+    monkeypatch.setattr(telemetry, "configure", lambda: True)
+    monkeypatch.setattr(telemetry, "in_flight", lambda *args: None)
     monkeypatch.setattr(telemetry, "export", broken_export)
     for line in SPINE_RUN.read_text().splitlines():
         if line.strip():
@@ -170,4 +178,7 @@ def test_a_broken_exporter_does_not_lose_the_terminal_event(session, a_run, monk
             projection.append(session, a_run.lab_id, a_run.id, event)
 
     assert repository.run(session, a_run.lab_id, a_run.id).phase is RunPhase.SUCCEEDED
-    assert projection.state_of(session, a_run.lab_id, a_run.id).phase is RunPhase.SUCCEEDED
+    replayed = projection.state_of(session, a_run.lab_id, a_run.id)
+    assert replayed.phase is RunPhase.SUCCEEDED
+    assert handed and replayed.tasks, "nothing exported: this would compare nothing"
+    assert handed[-1] == replayed

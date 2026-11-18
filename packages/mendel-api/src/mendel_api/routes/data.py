@@ -262,7 +262,8 @@ def keep_fix(draft_id: str, index: int) -> AnalysisDataView:
 @router.post("/{draft_id}/rescan", operation_id="rescanData",
              summary="Read the ticked folders again", responses=REFUSES)
 async def rescan(draft_id: str) -> AnalysisDataView:
-    """Files added, changed or removed since the last scan are read again."""
+    """Files added, changed or removed since the last scan are read again; a sample whose files
+    are unchanged keeps what it measured (#570)."""
     return await _rescan(draft_id, lambda row: None)
 
 
