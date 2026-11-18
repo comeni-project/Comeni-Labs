@@ -125,6 +125,14 @@ function Candidate({ file, label, onUse }: { file: File; label: string; onUse: (
   );
 }
 
+/** The one reference kind a file's name ends with (`genome.fasta` → `genome.fasta`), compression
+ *  off; none when no kind or several match. A guess the person can change (#535). */
+export function guessKind(file: string, types: string[]): string {
+  const name = file.toLowerCase().replace(/\.gz$/, "");
+  const matching = types.filter((t) => name.endsWith(`.${t.split(".").pop()}`));
+  return matching.length === 1 ? matching[0] : "";
+}
+
 /** A reference the pipeline does not ask for (yet), added by kind. */
 function ByKind({ choices, onAdd }: { choices: File[]; onAdd: (path: string, typeId: string) => void }) {
   const typeName = useTypeNames();
@@ -146,7 +154,11 @@ function ByKind({ choices, onAdd }: { choices: File[]; onAdd: (path: string, typ
     <Panel title="Add a reference by kind">
       <div className="flex flex-wrap items-end gap-2 px-5 pb-4">
         <label className="flex flex-col gap-1 text-[12px] text-ink-3 min-w-[200px] flex-1">File
-          <select aria-label="File" value={path} onChange={(e) => setPath(e.target.value)} className={field}>
+          <select aria-label="File" value={path} className={field} onChange={(e) => {
+            setPath(e.target.value);
+            const name = choices.find((f) => f.path === e.target.value)?.name ?? "";
+            if (!kind) setKind(guessKind(name, types.data ?? []));
+          }}>
             <option value="">Choose a file in your folders</option>
             {choices.map((f) => <option key={f.path} value={f.path}>{f.name}</option>)}
           </select>

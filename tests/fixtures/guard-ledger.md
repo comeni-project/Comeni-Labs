@@ -5654,3 +5654,9 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 | 2026-11-18 | `tests/golden/spine/main.nf` (#467) | `_default_entry` back to `[ [:], f ]` | failed | `test_matches_the_golden_file`: the default entry gives no id |
 | 2026-11-18 | `test_keep_review.py` "the agent is told a reviewed step is reviewed" (#505) | `ai_unreviewed` back to "the AI chose here" | failed | `hisat2_align` still flagged after "Looks right" |
 | 2026-11-18 | `test_tool_errors.py` "a key the model never named is the engine's error" (#505) | restored `tools.py` from HEAD | failed | `KeyError: pieces` came back to the model as a refusal |
+
+## Walk defects, 2026-11-18 (#509, #535)
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-18 | `test_fixes.py` "a file named as a reference is not a sample" and "a left-out sample's files say so" (#535) | restored `routes/data.py` from HEAD | failed | `recognised` is `None` for the reference; no `left_out` on the files |

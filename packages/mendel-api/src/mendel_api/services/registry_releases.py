@@ -143,10 +143,25 @@ def follow() -> str | None:
     if chosen is None and wanted != LATEST:
         problem = problem or f"release {wanted} is not available; nothing changed"
     elif refused and problem is None:
-        problem = f"{len(refused)} release(s) could not be used"
+        problem = _refusals(refused, _using())
     _write_status(FollowStatus(using=_using(), wanted=wanted, checked_at=datetime.now(UTC),
                                problem=problem, refused=refused))
     return _using()
+
+
+def _refusals(refused: dict[str, str], using: str | None) -> str:
+    """Which releases this installation cannot use, and why, so a person can act (#535): it said
+    only "4 release(s) could not be used"."""
+    tags = newest_first([Release(tag=tag) for tag in refused]) or [
+        Release(tag=tag) for tag in sorted(refused)]
+    named = "; ".join(f"{r.tag}: {refused[r.tag]}" for r in tags[:3])
+    more = f"; and {len(tags) - 3} more" if len(tags) > 3 else ""
+    # Every refused one is newer than the one in use: following the newest stops at the first
+    # this Mendel can read, and a release a person pinned that fails says so another way.
+    held = f"Using {using}, the newest release this Mendel can read. " if using else ""
+    return (f"{held}This Mendel cannot use {len(tags)} published release"
+            f"{'' if len(tags) == 1 else 's'} ({named}{more}). Update Mendel to use "
+            f"{'it' if len(tags) == 1 else 'them'}.")
 
 
 def _choose(wanted: str, published: list[Release], refused: dict[str, str]) -> str | None:

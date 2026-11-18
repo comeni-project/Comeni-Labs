@@ -24,6 +24,8 @@ class ScannedFile(BaseModel):
     used_as: Literal["reference", "candidate"] | None = None
     """What it is for when it is not a sample's: a reference, or a candidate for one (it sits in
     a folder named for references, so it is offered on Data → References, not made a sample)."""
+    left_out: bool = False
+    """Its sample is left out of the analysis, so nothing uses it (#535)."""
 
 
 class DataSample(BaseModel):

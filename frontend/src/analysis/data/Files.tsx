@@ -41,7 +41,9 @@ export function Files({ draftId }: { draftId: string }) {
             cell: (f) => <span className="text-ink-2">{f.recognised ?? "—"}</span> },
           { id: "use", header: "Used for", width: "180px", cell: (f) => (
             <span className={f.sample || f.used_as ? "text-ink-2" : "text-needs-you-ink"}>
-              {f.used_as === "reference" ? "reference" : f.sample ? `sample ${f.sample}` : "did not fit the rule"}
+              {f.used_as === "reference" ? "reference" : f.sample
+                ? (f.left_out ? `nothing: sample ${f.sample} is left out` : `sample ${f.sample}`)
+                : "did not fit the rule"}
             </span>
           ) },
           { id: "size", header: "Size", width: "90px", cell: (f) => <span className="font-data text-[12px] text-ink-3">{size(f.size)}</span> },

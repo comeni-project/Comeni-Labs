@@ -8,7 +8,7 @@ import { analysis } from "./fixtures";
 vi.mock("../../api/client", () => ({
   get: vi.fn(async (url: string) => {
     if (url.endsWith("/reference-types")) return ["annotation.gff", "annotation.gtf", "genome.fasta"];
-    if (url.endsWith("/vocabulary")) return { names: { "annotation.gff": "Reference annotation (GFF)", "genome.fasta": "reference genome (FASTA)" } };
+    if (url.endsWith("/vocabulary")) return { names: { "annotation.gff": "reference annotation (GFF)", "genome.fasta": "reference genome (FASTA)" } };
     if (url === "/data/readers") return [{ id: "fasta", type_id: "assembly.fasta", extensions: [".fasta", ".fna"], compressed: [".gz"], measures: [] }];
     if (url.startsWith("/pipeline/authoring/")) return { canvas: { channels: [
       { name: "genome", grain: "study", type_id: "genome.fasta", param: "genome", ports: [], states: [] },
@@ -23,7 +23,7 @@ vi.mock("../../api/client", () => ({
   post: vi.fn(async () => ({ session_id: "s1" })),
 }));
 
-import { References } from "./References";
+import { guessKind, References } from "./References";
 
 function refs(data = analysis(), add = vi.fn(), remove = vi.fn()) {
   render(
@@ -61,4 +61,12 @@ it("another file can be found by name, and standard references are later", async
   expect(await within(gff).findByText("notes.txt")).toBeTruthy();
   expect(screen.getByText(/downloaded once and kept/)).toBeTruthy();
   expect(screen.queryByText("one file each, for the whole analysis")).toBeNull();
+});
+
+it("guesses a reference's kind from its file name, and only when one kind fits (issue 535)", () => {
+  const kinds = ["annotation.gff", "annotation.gtf", "genome.fai", "genome.fasta"];
+  expect(guessKind("genome.fasta", kinds)).toBe("genome.fasta");
+  expect(guessKind("Saccharomyces.R64.gtf.gz", kinds)).toBe("annotation.gtf");
+  expect(guessKind("notes.txt", kinds)).toBe("");
+  expect(guessKind("x.fasta", ["genome.fasta", "assembly.fasta"])).toBe("");
 });

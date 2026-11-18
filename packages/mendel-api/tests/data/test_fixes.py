@@ -167,6 +167,19 @@ def test_a_file_named_as_a_reference_is_not_a_sample(clean, client, root):
     assert [s["name"] for s in after["samples"]] == ["Y1"]
     files = {f["name"]: f for f in client.get(f"/api/data/{d}/files").json()["files"]}
     assert files["genome.fasta"]["used_as"] == "reference"
+    # Its kind, not "—" (#535).
+    assert files["genome.fasta"]["recognised"] == "genome.fasta"
+
+
+def test_a_left_out_samples_files_say_so(clean, client, root):
+    """#535: a left-out sample's files still said they were used for it."""
+    d = draft(client)
+    tick(client, d, pairs(root / "a", "Y1", "Y2"))
+    scanning.scan(d, who="ana")
+    client.post(f"/api/data/{d}/fixes", json={"kind": "leave_out", "sample": "Y1"})
+    scanning.scan(d, who="ana")
+    files = client.get(f"/api/data/{d}/files").json()["files"]
+    assert files and {f["sample"]: f["left_out"] for f in files} == {"Y1": True, "Y2": False}
 
 
 def stray(client, root):

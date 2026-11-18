@@ -152,8 +152,17 @@ def read_files(draft_id: str, offset: int = 0, limit: int = 200) -> FilesPage:
         _draft(db, draft_id)
         row = db.get(AnalysisData, draft_id)
         files = list(row.files or []) if row else []
+        references = {r["path"]: r["type_id"] for r in (row.references or [])} if row else {}
+        left_out = {s["name"] for s in (row.samples or []) if s.get("left_out")} if row else set()
     limit = max(1, min(limit, 1000))
-    return FilesPage(files=[ScannedFile(**f) for f in files[max(0, offset):offset + limit]],
+
+    def shown(f: dict) -> ScannedFile:
+        # What it is used as now, read beside the file (#535): a reference is its kind, and a
+        # left-out sample's file is used for nothing.
+        return ScannedFile(**{**f, "recognised": f.get("recognised") or references.get(f["path"]),
+                              "left_out": bool(f.get("sample")) and f["sample"] in left_out})
+
+    return FilesPage(files=[shown(f) for f in files[max(0, offset):offset + limit]],
                      total=len(files))
 
 

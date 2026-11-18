@@ -5517,6 +5517,11 @@ export interface components {
             recognised?: string | null;
             /** Used As */
             used_as?: ("reference" | "candidate") | null;
+            /**
+             * Left Out
+             * @default false
+             */
+            left_out: boolean;
         };
         /** Setting */
         Setting: {
