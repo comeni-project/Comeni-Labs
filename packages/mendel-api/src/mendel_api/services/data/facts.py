@@ -53,6 +53,16 @@ _SAID = (FactOrigin.PERSON_SAID, FactOrigin.MODEL_READ, FactOrigin.VARIES)
 again (Checkpoint B). Scans write no decision, so a decided `varies` is always someone's word."""
 
 
+def _beside(said: FactDecision, data: FactDecision | None) -> FactDecision:
+    """A said fact with what the data measured beside it, when the two disagree (#510). Only a
+    person's word: the AI may not contradict the data (`changes`, MI0228), and a `varies` has
+    no value to compare."""
+    if (data is None or data.origin is not FactOrigin.MEASURED
+            or said.origin is not FactOrigin.PERSON_SAID or data.value == said.value):
+        return said
+    return said.model_copy(update={"measured": data.value})
+
+
 def merge(decided_facts, decided_inputs, samples, references=()):
     """Decided facts and inputs with the data's beside them: a fact someone said stands; one the
     data measured replaces an older measured one; an input decided either way stands."""
@@ -64,6 +74,9 @@ def merge(decided_facts, decided_inputs, samples, references=()):
         have.add(kind)
     said = {f.subject: f for f in decided_facts if f.origin in _SAID}
     derived = {f.subject: f for f in facts}
+    # A person's word stands over the data's, and when they disagree both are kept (#510).
+    decided_facts = [_beside(f, derived.get(f.subject)) if f.subject in said else f
+                     for f in decided_facts]
     merged = [f for f in decided_facts if f.subject in said or f.subject not in derived]
     merged += [f for s, f in derived.items() if s not in said]
     # An input decided either way stands, except one forgotten (`open`): the data says it again.

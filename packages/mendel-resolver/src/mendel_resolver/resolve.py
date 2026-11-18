@@ -796,7 +796,8 @@ def _resolve_param(
             source=ValueSource.MODEL,
             reason=f"the AI set {param.name} to {override.value}{because}",
             overrode=(Overrode(rule=ruled.reason, value=ruled.value, cite=ruled.axis_reason)
-                      if ruled.tier is Tier.DATA_PROFILED else None),
+                      if ruled.tier is Tier.DATA_PROFILED
+                      or any(p.contradicted for p in ruled.premise) else None),
         ), None
     if override is not None:
         return ResolvedValue(
@@ -821,7 +822,7 @@ def _resolve_param(
     if pin is not None:
         return ResolvedValue(
             value=pin.value,
-            tier=Tier.DATA_PROFILED,
+            tier=pin.tier(),
             # No trailing colon when the row has nothing of its own to add. A row may be
             # justified entirely by its block (a one-row rule often is), and `MD0301` allows
             # that — but "rule param:strandedness: " reads as a truncation rather than as an

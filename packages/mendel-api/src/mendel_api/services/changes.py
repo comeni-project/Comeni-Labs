@@ -211,6 +211,12 @@ def apply(draft_id: str, change: DecisionChange, *, who: str) -> bool:
     if kind == "measurement":
         _measurement(stack, subject, None if change.retract else change.value)
         current = {f.subject: f for f in decisions.read(draft_id).facts}
+        data = current.get(subject)
+        if (said["actor_kind"] is ActorKind.MODEL and not change.retract and data is not None
+                and data.origin is FactOrigin.MEASURED and data.value != change.value):
+            raise ValueError(coded(
+                "MI0228", f"the data measured {subject} as {data.value}; the AI may not set it "
+                f"to {change.value}. Only the person can say the measurement is wrong."))
         if change.retract and current.get(subject) is None:
             return False
         decisions.set_fact(

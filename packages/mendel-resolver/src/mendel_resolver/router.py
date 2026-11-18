@@ -772,7 +772,7 @@ def _by_rule(here: _Here) -> Choice | None:
     if match:
         return Choice(
             match[0],
-            Tier.DATA_PROFILED,
+            pinned.tier(),
             pinned.reason_line(pinned.row.when),
             pinned=f"rule condition: {pinned.row.when}",
             pin=pinned,

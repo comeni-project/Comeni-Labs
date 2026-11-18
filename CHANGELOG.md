@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- A fact a person said that the data measures otherwise keeps both: `Measured.measured` and `PremiseRecord.measured` (only on a said value; `PremiseRecord.contradicted`), and the premise reads `read_length is 150, asserted, not measured; the data measures 99` (#510).
 - `explain` (`mendel explain`, `forge explain`) prints a code's `says:` line, its explanation, then its `fix:`, which neither CLI showed (#67).
 - A displacement of a tuple-keyed declaration records the key as `contract#test`: two layers declaring the same tool test no longer fail to load (#448).
 - `NfInput.pad` and `CallArg.pad`: empty paths appended after an entry's ports, for a tuple that ends in optional files nothing models (#507). **SCHEMA_VERSION 10**: a version-9 `pipeline.yml` is refused (MD0207) and rebuilt from its intent and facts.
@@ -140,6 +141,7 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- A rule's choice that read a contradicted fact is tier 4, flagged for review, with the same value and both values in its reason (`Pin.tier()`), for producers and settings alike (#510).
 - A port that gathers over the study (`grain: study, many: true`) routes one producer per kind of data the analysis has, and takes one output from every step that makes what it reads: MULTIQC gathers FastQC's reports on the reads and QUAST's on the assemblies. Producers reached from the same data still compete, and a person's source pin keeps only theirs (#435).
 - Rule proposals (#462): `proposals` turns a kept pipeline's decisions into cases, gathers a person's tier-4 answers per target (`MIN_CASES = 3`), judges a proposed row against them (contradicted, unsupported or never firing), narrows it to where the existing rows missed, and replays it over every past decision of its target.
 
@@ -288,6 +290,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- A fact a person said and the data measured otherwise carries the data's value beside it (`FactDecision.measured`, derived at every read). The AI may not set a measured fact to another value: MI0228, nothing written (#510).
 - Builder agent, protocol `builder.agent.v4`: a `reply` tool ends the turn with a validated
   message, and a reply without tools is still the answer. The announce-and-nudge heuristic is
   gone. Each model call records a digest of the tool definitions and the tool choice it was

@@ -97,6 +97,9 @@ class FactDecision(_Value):
     by: ContractId | None = None
     pieces: list[PieceRef] = Field(default_factory=list)
     evidence: Evidence | None = None
+    measured: ParamValue | list[ParamValue] | None = None
+    """What the data measured, when someone said otherwise (#510). Derived at every read,
+    never logged: their word stands, and a decision reading it is flagged with both."""
 
     @model_validator(mode="after")
     def _unknown_has_no_value(self) -> Self:
@@ -241,7 +244,8 @@ class Decisions(_Value):
             profile=measurements.profile_of(
                 [
                     MeasuredEntry(
-                        f.subject, f.value, _SOURCE[f.origin], f.by, tuple(f.pieces), f.evidence
+                        f.subject, f.value, _SOURCE[f.origin], f.by, tuple(f.pieces), f.evidence,
+                        f.measured if f.origin is FactOrigin.PERSON_SAID else None,
                     )
                     for f in self.facts
                     if f.origin not in (FactOrigin.OPEN, FactOrigin.VARIES)

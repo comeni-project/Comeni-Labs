@@ -4175,6 +4175,8 @@ export interface components {
             /** Pieces */
             pieces?: string[];
             evidence?: components["schemas"]["Evidence"] | null;
+            /** Measured */
+            measured?: number | boolean | string | (number | boolean | string | null)[] | null;
         };
         /** MeasuredFact */
         MeasuredFact: {

@@ -3807,6 +3807,20 @@ MI0226:
   explanation: |
     A fix that names nothing in the data would be kept and do nothing, while saying it was
     applied. It is refused instead, whoever offers it: the person's page or the AI.
+MI0228:
+  emitted_by: api
+  concern: workflow
+  says: "the AI set a fact the data measured to another value"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Leave the fact as the data measured it, or ask the person: only they may say the
+    measurement is wrong, and then both values stay on the record for review.
+  explanation: |
+    What the files measured is a fact about the person's data. A person may override it, for
+    example when it was read from the start of a file, and the choices that read it are then
+    flagged with both values. The AI may not: a model's assertion would replace a measurement of
+    someone's data with no one having looked (#510).
 MI0300:
   emitted_by: api
   concern: settings
