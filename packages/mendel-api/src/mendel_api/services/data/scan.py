@@ -1,6 +1,11 @@
 """Scanning an analysis's ticked folders (#511): every file listed, paired into samples, and each
 sample measured from its files' heads where they lie.
 
+**A sample measured once.** A rescan reuses what a sample measured when it is the same files,
+each with the same size, modification time and inode, under the same registry and measurer
+versions (#570); anything else is measured again. A rewrite that keeps all three stats is not
+seen, which the operator accepted on 2026-11-18 over hashing every head.
+
 **One sample's heads at a time.** Hundreds of samples are read in turn: a sample's heads are
 read, measured and dropped before the next, and only the facts are kept. Nothing is copied.
 
@@ -8,6 +13,9 @@ read, measured and dropped before the next, and only the facts are kept. Nothing
 is written down as `failed`, with what went wrong, and the person can tick again.
 """
 
+import hashlib
+import importlib.metadata
+import json
 import os
 import stat
 from datetime import UTC, datetime
@@ -20,7 +28,7 @@ from mendel_api.services import decisions, inspect, registry
 from mendel_api.services.data import rule
 from mendel_api.services.data.roots import inside_roots
 from mendel_api.services.data.rule import Fix, Rule
-from mendel_api.services.data.types import DataSample, Scan, ScannedFile
+from mendel_api.services.data.types import Scan, ScannedFile, StoredSample
 from mendel_api.settings import settings
 
 
@@ -80,9 +88,25 @@ def _save(draft_id: str, revision: int, **columns) -> None:
             setattr(row, name, value)
 
 
+def _measurers() -> str:
+    """What measures a sample besides the registry: the inspection code's released versions."""
+    return ",".join(importlib.metadata.version(name) for name in ("comeni-inspect", "mendel-api"))
+
+
+def _key(digest: str, chosen: list[Path], stats: list[os.stat_result]) -> str:
+    """The reuse key of one sample (#570): its files in order, each file's size, modification
+    time and inode, the registry digest and the measurers' versions. A digest of them, so the
+    stored key says nothing about the files."""
+    made = [digest, _measurers(),
+            [[str(p), st.st_size, st.st_mtime_ns, st.st_ino] for p, st in zip(chosen, stats,
+                                                                              strict=True)]]
+    return "sha256:" + hashlib.sha256(json.dumps(made).encode()).hexdigest()
+
+
 def scan(draft_id: str, *, who: str, revision: int | None = None) -> None:
-    """Read the ticked folders of `draft_id` again, from scratch. `revision` is the tick this
-    scan answers; a newer tick makes it stale and it stops writing."""
+    """Read the ticked folders of `draft_id` again. A sample whose files are unchanged keeps
+    what it measured (#570); every other is measured from its files' heads. `revision` is the
+    tick this scan answers; a newer tick makes it stale and it stops writing."""
     try:
         with session_scope() as db:
             row = db.get(AnalysisData, draft_id)
@@ -93,7 +117,8 @@ def scan(draft_id: str, *, who: str, revision: int | None = None) -> None:
             reading = Rule(**row.rule) if row.rule else Rule()
             fixes = [Fix(**f) for f in row.fixes or []]
             references = {r["path"] for r in row.references or []}
-        _run(draft_id, folders, revision, who, reading, fixes, references)
+            measured = {s["key"]: s for s in row.samples or [] if s.get("key")}
+        _run(draft_id, folders, revision, who, reading, fixes, references, measured)
     except _Stale:
         return
 
@@ -104,14 +129,16 @@ REFERENCE_FOLDERS = frozenset({"reference", "references", "ref", "refs"})
 
 
 def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Rule,
-         fixes: list[Fix], references: set[str] = frozenset()) -> None:
+         fixes: list[Fix], references: set[str] = frozenset(),
+         measured: dict[str, dict] | None = None) -> None:
+    measured = measured or {}
     try:
         groups = _files(folders)
         total = sum(len(g) for g in groups)
         _save(draft_id, revision, scan=Scan(state="scanning", total=total).model_dump())
-        stack = registry.stack()
+        stack, digest = registry.stack(), registry.digest()
         files: list[ScannedFile] = []
-        samples: list[DataSample] = []
+        samples: list[StoredSample] = []
         taken: set[str] = set()
         unfit: list[str] = []
         left_out = {f.sample for f in fixes if f.kind == "leave_out"}
@@ -141,7 +168,21 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
             for name, indexes in grouped.samples:
                 chosen = [paths[i] for i in indexes]
                 try:
-                    sizes = tuple(p.stat().st_size for p in chosen)
+                    stats = [p.stat() for p in chosen]
+                except OSError:
+                    continue  # gone since it was listed: not a sample
+                sizes = tuple(st.st_size for st in stats)
+                key = _key(digest, chosen, stats)
+                if (kept := measured.get(key)) is not None:
+                    # Unchanged since it was measured: its facts are still what it measures.
+                    samples.append(StoredSample(**{**kept, "name": name,
+                                                   "left_out": name in left_out}))
+                    files += [ScannedFile(path=str(p), name=p.name, size=s, sample=name,
+                                          recognised=kept["type_id"])
+                              for p, s in zip(chosen, sizes, strict=True)]
+                    done += len(chosen)
+                    continue
+                try:
                     heads = [(p.name, _head(p, inspect.HEAD_BYTES)) for p in chosen]
                 except OSError:
                     continue  # gone, or not a regular file any more: not a sample
@@ -154,9 +195,9 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
                               for p, s in zip(chosen, sizes, strict=True)]
                     done += len(chosen)
                     continue
-                samples.append(DataSample(
+                samples.append(StoredSample(
                     name=name, files=[str(p) for p in chosen], outcome=found.outcome,
-                    type_id=found.type_id, left_out=name in left_out,
+                    type_id=found.type_id, left_out=name in left_out, key=key,
                     facts=[SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage,
                                       pieces=list(f.pieces))
                            for f in found.facts if f.undetermined is None]))

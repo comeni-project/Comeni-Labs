@@ -59,3 +59,28 @@ def test_every_declared_step_is_a_row_before_the_run_starts(client):
 
 def test_an_unknown_run_has_no_overview(client):
     assert client.get("/api/runs/nope/overview").status_code == 404
+
+
+def test_the_polled_run_views_do_not_replay_the_record(client, ingest_client, session, monkeypatch):
+    """#565. `/runs/{id}`, `/graph` and `/overview` are polled every 4 s while a run is live,
+    and each replayed every event the run produced: O(events × tasks) per poll. They read the
+    projection, which `test_the_projection_restores_the_folded_state_at_every_event` holds
+    equal to the replay, so their answers must not change when the record cannot be read."""
+    from wiener_api import repository
+    from wiener_api.settings import settings
+
+    artifact = client.post("/api/artifacts",
+                           files={"bundle": ("p.zip", _spine_bundle())}).json()
+    run_id = client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
+                                            "params": {"input": "x"}}).json()["run_id"]
+    _ingest(ingest_client, repository.run(session, settings.lab_id, run_id))
+    paths = [f"/api/runs/{run_id}", f"/api/runs/{run_id}/graph", f"/api/runs/{run_id}/overview"]
+    replayed = [client.get(path) for path in paths]
+    assert [r.status_code for r in replayed] == [200, 200, 200]
+    assert replayed[0].json()["tasks"], "no task folded: this would compare nothing"
+
+    def unreadable(*args, **kwargs):
+        raise AssertionError("a polled view read the run's record")
+
+    monkeypatch.setattr(repository, "events", unreadable)
+    assert [client.get(path).json() for path in paths] == [r.json() for r in replayed]

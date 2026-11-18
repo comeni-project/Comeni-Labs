@@ -76,6 +76,7 @@ def of(
     goal: Goal,
     ai: AiProvenance | None = None,
     locators: Mapping[LayerName, Locator] | None = None,
+    layer_digests: Sequence[str] | None = None,
 ) -> Pipeline:
     """Build a Pipeline from resolved nodes, edges, decisions, and declarations.
 
@@ -84,7 +85,7 @@ def of(
     and AI provenance. Model construction validates the resulting artifact.
     """
 
-    lock = Lockfile.of(ir, registry, layers, locators)
+    lock = Lockfile.of(ir, registry, layers, locators, layer_digests)
     pinned = {entry.id: entry for entry in lock.contracts}
 
     # The first edge into a port is its source; any other is a branch rejoining it (#466).

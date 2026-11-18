@@ -11,6 +11,8 @@ cannot be generated for and an agent reading the schema cannot find. `tests/test
 holds both halves — no mounts, and no request body carrying a path.
 """
 
+import logging
+
 from comeni_core.settings import SettingLocked
 from fastapi import FastAPI
 
@@ -47,7 +49,20 @@ TAGS = [
 ]
 
 
+def _warm() -> None:
+    """Load and check the registry before the first request, so the first build a person asks
+    for is not the one that pays for it (#545). Never fatal: a registry that cannot load is
+    met, and said, by the first build."""
+    from mendel_api.services import registry
+
+    try:
+        registry.warm()
+    except Exception:  # noqa: BLE001 — starting is not the place to refuse a registry
+        logging.getLogger(__name__).exception("the registry could not be loaded at startup")
+
+
 def create_app() -> FastAPI:
+    import asyncio
     from contextlib import asynccontextmanager
 
     from mendel_api.agent import mcp as served
@@ -58,6 +73,7 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_app):
+        await asyncio.to_thread(_warm)
         async with served.server.session_manager.run():
             yield
 

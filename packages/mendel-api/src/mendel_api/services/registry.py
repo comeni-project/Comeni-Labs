@@ -28,6 +28,7 @@ from pathlib import Path
 
 from comeni_core import yaml_strict
 from comeni_core.artifact.digest import digest_of_directory
+from mendel_compiler import orchestrate
 from mendel_compiler.locate import INSTALLATION_FILE, RELEASE_FILE
 from mendel_resolver import layers
 from mendel_resolver.layers import Layers
@@ -112,11 +113,39 @@ def digest() -> str:
     `signature()` moves. **Over every layer the installation builds with**, its own included, so
     a learned rule written or withdrawn moves it (#462).
     """
-    return combine([_digest_for(root, signature(root)) for root in registry_roots()])
+    return digest_of(list(registry_roots()))
 
 
 def stack() -> Layers:
     return _load(tuple(registry_roots()), digest())
+
+
+@lru_cache(maxsize=4)
+def _prepare(roots: tuple[Path, ...], digest: str) -> orchestrate.Prepared:
+    """The same key as `_load`, and the same `Layers`: a build and every reader of `stack()`
+    share one loaded registry."""
+    return orchestrate.prepare(list(roots), loaded=_load(roots, digest))
+
+
+def prepared(roots: list[Path] | None = None) -> orchestrate.Prepared:
+    """What every build needs of the registry, for the registry in this exact state (#545):
+    what `orchestrate.build` would otherwise load and check again, about 200 ms a build.
+    `roots` defaults to the installation's stack."""
+    found = tuple(roots if roots is not None else registry_roots())
+    return _prepare(found, digest_of(list(found)))
+
+
+def digest_of(roots: list[Path]) -> str:
+    """`digest()` for any stack of layers: exact, and re-hashed only when a layer's
+    `signature()` moves."""
+    return combine([_digest_for(root, signature(root)) for root in roots])
+
+
+def warm() -> None:
+    """Load and check the registry now, so the first build a person asks for is not the one
+    that pays for it. Called when the API and the worker start; a failure here is not fatal,
+    the first build will meet it and say so."""
+    prepared()
 
 
 OWN_LAYER_NAME = "installation"

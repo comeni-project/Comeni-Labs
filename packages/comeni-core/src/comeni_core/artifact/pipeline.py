@@ -991,7 +991,8 @@ class Pipeline(EgressPayload):
 
     @classmethod
     def of(
-        cls, ir, registry, vocab, measurements=None, layers=(), *, goal, ai=None, locators=None
+        cls, ir, registry, vocab, measurements=None, layers=(), *, goal, ai=None, locators=None,
+        layer_digests=None,
     ) -> "Pipeline":
         """Build a fully materialised Pipeline by delegating to materialise.of()."""
         # Import locally because materialise imports these models.
@@ -999,5 +1000,5 @@ class Pipeline(EgressPayload):
 
         return materialise.of(
             ir, registry, vocab, measurements=measurements, layers=layers, goal=goal, ai=ai,
-            locators=locators,
+            locators=locators, layer_digests=layer_digests,
         )

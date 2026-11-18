@@ -117,6 +117,17 @@ def _draft(db, draft_id, expected_revision=None):
     return row
 
 
+def _readable(db, draft_id):
+    """The draft row for a read: **no lock** (#561). `_draft` takes `FOR UPDATE` for writes,
+    and a read that took it queued behind every write, and every write behind the page's
+    1.5 s poll. A read's own session ends when it returns, so no caller could hold that lock
+    across a later write; writes still check the revision they expected."""
+    row = db.get(PipelineDraft, draft_id)
+    if row is None:
+        raise KeyError(draft_id)
+    return row
+
+
 def _seq(draft):
     draft.decision_sequence += 1
     return draft.decision_sequence
@@ -398,7 +409,7 @@ def read(draft_id):
     """The draft's decisions, **with what its data measured beside them** (#511): facts about the
     data are derived from `analysis_data` at every read, never logged (`services.data.facts`)."""
     with session_scope() as db:
-        _draft(db, draft_id)
+        _readable(db, draft_id)
         return _with_data(db, draft_id, _decided(db, draft_id))
 
 
@@ -417,6 +428,11 @@ def _with_data(db, draft_id, decided):
 
 
 def _decided(db, draft_id):
+    facts = _current(db, draft_id, "fact")
+    # Every fact's observation in one statement, as `heard_of` reads them (#561).
+    wanted = [r.observation_id for s, r in facts if r.observation_id]
+    observed = {o.id: o for o in db.scalars(
+        select(PipelineObservation).where(PipelineObservation.id.in_(wanted)))} if wanted else {}
     return Decisions(
         inputs=[
             InputDecision(
@@ -440,10 +456,7 @@ def _decided(db, draft_id):
             )
             for s, r in _current(db, draft_id, "want")
         ],
-        facts=[
-            _fact(_observation(db, r.observation_id), s.subject_key)
-            for s, r in _current(db, draft_id, "fact")
-        ],
+        facts=[_fact(observed.get(r.observation_id), s.subject_key) for s, r in facts],
         producers=[
             ProducerChoice(site=Site(type_id=r.type_id, states=r.states), contract=r.contract,
                            **_authored(r))
@@ -481,7 +494,7 @@ def _authored(revision) -> dict:
 def revision(draft_id) -> int:
     """The decisions' revision: it moves with every change, whoever made it."""
     with session_scope() as db:
-        return _draft(db, draft_id).decision_revision
+        return _readable(db, draft_id).decision_revision
 
 
 def goal(draft_id):

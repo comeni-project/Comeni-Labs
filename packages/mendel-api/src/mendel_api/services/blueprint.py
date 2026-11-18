@@ -22,7 +22,6 @@ since 14.7.8.2 and are re-exported here. The building stage
 from collections.abc import Sequence
 from pathlib import Path
 
-from comeni_core.artifact.digest import digest_of_directory
 from mendel_authoring.blueprint import (  # re-exported: the shell's callers keep `bp.<name>`
     PRESENCE_AXIS,
     SELECTION_AXIS,
@@ -62,7 +61,7 @@ def registry_digest(roots: Sequence[Path]) -> str:
     the system already prints. A stack is a digest of its layers' digests in order — order
     matters, because the same two layers stacked the other way round are a different registry.
     """
-    return registry.combine([str(digest_of_directory(root)) for root in roots])
+    return registry.digest_of(list(roots))
 
 
 def _after_measurers(order: list[str], pipeline) -> list[str]:
@@ -101,10 +100,13 @@ def resolve(goal: Goal, *, roots: Sequence[Path] | None = None, ai=None) -> tupl
     is the model calls made, always none now, kept so a later Tier-4 answers fork can return
     them for `ai_invocation`."""
     stack = list(roots or registry_roots())
-    built = orchestrate.build(goal, registry_roots=stack, resolver=FlagOnlyResolver(), ai=ai)
+    prepared = registry.prepared(stack)
+    built = orchestrate.build(goal, registry_roots=stack, resolver=FlagOnlyResolver(), ai=ai,
+                              prepared=prepared)
     # **Each step's declared ports, not only its wired ones** (plan 2 review): a step is drawn
     # as tall as its declared ports (#494), so its rank's next step must be placed below that.
-    routing = registry.stack().routing
+    # The layers this build routed with: `registry.stack()`'s own when `roots` is the stack.
+    routing = built.layers.routing
     declared = {}
     measuring = set()
     for step in built.pipeline.steps:
@@ -118,7 +120,8 @@ def resolve(goal: Goal, *, roots: Sequence[Path] | None = None, ai=None) -> tupl
         [node.id for node in sorted(placed.nodes, key=lambda n: (n.rank, n.order, n.id))],
         built.pipeline)
     blueprint = Blueprint(
-        registry=registry_digest(stack),
+        # The digests the build pinned, combined: no second walk of the layers (#545).
+        registry=registry.combine(list(prepared.digests)),
         order=order,
         placed={node.id: (node.x, node.y) for node in placed.nodes},
         pipeline=built.pipeline,

@@ -252,3 +252,47 @@ def test_persisted_goal_keeps_required_state_order_independent_of_wants():
     )
     service.import_goal(draft, goal, who="ana")
     assert service.goal(draft).model_dump(mode="json") == goal.model_dump(mode="json")
+
+
+def _statements(during) -> list[str]:
+    """Every SQL statement `during()` sends, as text."""
+    from mendel_api.db import engine
+    from sqlalchemy import event
+
+    sent = []
+
+    def heard(conn, cursor, statement, parameters, context, executemany):
+        sent.append(statement)
+
+    event.listen(engine, "before_cursor_execute", heard)
+    try:
+        during()
+    finally:
+        event.remove(engine, "before_cursor_execute", heard)
+    return sent
+
+
+def test_reading_the_decisions_locks_nothing():
+    """#561. `read()` and `revision()` took `FOR UPDATE` on the draft row, and the page polls a
+    read every 1.5 s while the agent works, so reads and writes on a draft queued behind each
+    other. A read takes no lock; writes still check the revision they expected."""
+    service = _service()
+    draft = drafts.create(DraftGraph(), "reads", "ana")
+    service.set_fact(draft, "read_length", 150, who="ana")
+    sent = _statements(lambda: (service.read(draft), service.revision(draft)))
+    assert sent, "no statement captured: this would check nothing"
+    assert not [s for s in sent if "FOR UPDATE" in s.upper()]
+
+
+def test_reading_more_facts_sends_no_more_statements():
+    """#561. Each fact's observation was its own `SELECT`, so a read cost one statement per
+    fact. They are read together, as `heard_of` reads them."""
+    service = _service()
+    draft = drafts.create(DraftGraph(), "facts", "ana")
+    service.set_fact(draft, "read_length", 150, who="ana")
+    one = len(_statements(lambda: service.read(draft)))
+    service.set_fact(draft, "paired", True, who="ana")
+    service.set_fact(draft, "strandedness", "reverse", who="ana")
+    service.set_fact(draft, "organism", "homo_sapiens", who="ana")
+    assert len(service.read(draft).facts) >= 4
+    assert len(_statements(lambda: service.read(draft))) == one
