@@ -92,38 +92,20 @@ def test_a_reached_usage_limit_says_so_and_when_it_resets():
     assert _limited(Exception("429 Too Many Requests")) == "the model's usage limit is reached"
 
 
-def _sent(monkeypatch, model: str, cache_key: str | None) -> dict:
-    """What `converse` hands LiteLLM for `model`, without calling a provider."""
-    import litellm
-    from comeni_ai.client import LiteLLMTransport
-
-    seen = {}
-
-    def completion(**kwargs):
-        seen.update(kwargs)
-        return _response('{"a": 2}')
-
-    monkeypatch.setattr(litellm, "completion", completion)
-    LiteLLMTransport().converse(ModelAccess(model=model), [{"role": "user", "content": "hi"}],
-                                [ADD], cache_key=cache_key)
-    return seen
-
-
-def test_an_openai_shaped_route_is_told_which_conversation_a_call_continues(monkeypatch):
+def test_an_openai_shaped_route_is_told_which_conversation_a_call_continues():
     """#555. LiteLLM gave each ChatGPT-subscription call its own session id (the per-call
     `litellm_call_id`), so every round looked like a new conversation to the provider's prompt
     cache. The caller's stable key goes as `litellm_session_id` there and as
-    `prompt_cache_key` to OpenAI; a provider that takes neither is sent neither."""
-    key = "c0ffee" * 5
-    chatgpt = _sent(monkeypatch, "chatgpt/gpt-6.1-sol", key)
-    assert chatgpt.get("litellm_session_id") == key and "prompt_cache_key" not in chatgpt
-    openai = _sent(monkeypatch, "openai/gpt-6.1", key)
-    assert openai.get("prompt_cache_key") == key and "litellm_session_id" not in openai
-    claude = _sent(monkeypatch, "anthropic/claude-sonnet-5", key)
-    assert "prompt_cache_key" not in claude and "litellm_session_id" not in claude
-    unkeyed = _sent(monkeypatch, "chatgpt/gpt-6.1-sol", None)
-    assert "litellm_session_id" not in unkeyed
+    `prompt_cache_key` to OpenAI; a provider that takes neither is sent neither. `converse`
+    spreads exactly this into `litellm.completion`; the live transport is not named in a test
+    (`tests/guards/test_no_live_model.py`)."""
+    from comeni_ai.client import _continuing
 
+    key = "c0ffee" * 5
+    assert _continuing("chatgpt/gpt-6.1-sol", key) == {"litellm_session_id": key}
+    assert _continuing("openai/gpt-6.1", key) == {"prompt_cache_key": key}
+    assert _continuing("anthropic/claude-sonnet-5", key) == {}
+    assert _continuing("chatgpt/gpt-6.1-sol", None) == {}
 
 def test_a_scripted_transport_keeps_the_cache_key_it_was_sent():
     script = ScriptedAgentTransport([AgentReply(text="ok")])
