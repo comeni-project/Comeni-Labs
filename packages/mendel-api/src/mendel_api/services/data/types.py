@@ -29,7 +29,8 @@ class ScannedFile(BaseModel):
 class DataSample(BaseModel):
     """One sample: its files (paths, read 1 first) and what was measured on it."""
 
-    name: str = Field(min_length=1, max_length=256)
+    name: str = Field(min_length=1, max_length=200)
+    """At most 200, as `SampleName`: a longer name could reach no door a sample may cross (#505)."""
     files: list[str]
     outcome: str
     type_id: str | None = None

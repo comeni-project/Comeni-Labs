@@ -96,7 +96,7 @@ def set_reading_rule(ctx: ToolContext, a: RuleArgs) -> TextView:
 
 class ApplyFixArgs(BaseModel):
     kind: Literal["use_file", "leave_out"]
-    sample: str = Field(min_length=1, max_length=256)
+    sample: str = Field(min_length=1, max_length=200)
     file: str | None = Field(default=None, max_length=256, description="for use_file")
     because: str = Field(min_length=1, max_length=300)
 

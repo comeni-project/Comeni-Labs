@@ -5648,4 +5648,9 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 
 | date | guard | broke | result | message |
 |---|---|---|---|---|
+| 2026-11-18 | `test_rule.py` "a long sample name is cut to what a sample may carry" (#505) | the cut back at 256 | failed | a 240-character name kept whole |
+| 2026-11-18 | `test_decisions.py` "the AI's choices come back as the AI's" (#505) | `from_goal` without `by` and `because` | failed | the AI's pin and setting came back as the person's |
+| 2026-11-18 | `test_loop.py` "a session's turns run one at a time" (#505) | `run_turn` without the advisory lock | failed | the turn ran while the one before held the session |
 | 2026-11-18 | `tests/golden/spine/main.nf` (#467) | `_default_entry` back to `[ [:], f ]` | failed | `test_matches_the_golden_file`: the default entry gives no id |
+| 2026-11-18 | `test_keep_review.py` "the agent is told a reviewed step is reviewed" (#505) | `ai_unreviewed` back to "the AI chose here" | failed | `hisat2_align` still flagged after "Looks right" |
+| 2026-11-18 | `test_tool_errors.py` "a key the model never named is the engine's error" (#505) | restored `tools.py` from HEAD | failed | `KeyError: pieces` came back to the model as a refusal |

@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from secrets import token_hex
 
+import sqlalchemy as sa
 from comeni_ai.agent import AgentTransport
 from comeni_ai.client import LiteLLMTransport
 from comeni_core.egress.agent import AgentRequest, AgentTurn, ConsoleView, Speaker
@@ -33,7 +34,7 @@ from mendel_api.authoring.types import (
     TurnRole,
     TurnState,
 )
-from mendel_api.db import session_scope
+from mendel_api.db import engine, session_scope
 from mendel_api.models import AiInvocation, PipelineAuthoringSession, PipelineAuthoringTurn
 from mendel_api.services import decisions
 from mendel_api.settings import settings
@@ -280,10 +281,31 @@ def _code(failure: Exception) -> str:
     return found.group(1) if found else "MA0007"
 
 
+def turn_key(session_id: str) -> int:
+    """The advisory-lock key a session's turns take: a stable 63-bit number."""
+    return int.from_bytes(hashlib.sha256(f"agent_turn:{session_id}".encode()).digest()[:8],
+                          "big") >> 1
+
+
 def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None) -> str:
-    """Answer the pending turn `seq`. Returns the turn's final state."""
-    with session_scope() as db:
-        draft_id = db.get(PipelineAuthoringSession, session_id).draft_id
+    """Answer the pending turn `seq`. Returns the turn's final state.
+
+    **One turn per session at a time** (#505). Each message queues a turn, and with more than
+    one AI job a worker took the second while the first was still writing to the same draft.
+    A session-level advisory lock on its own connection: a later turn waits, then reads the
+    earlier one's answer in its history; Postgres releases it if the worker dies."""
+    with engine.connect() as connection:
+        connection.execute(sa.text("SELECT pg_advisory_lock(:k)"), {"k": turn_key(session_id)})
+        try:
+            return _run_turn(session_id, seq, transport)
+        finally:
+            connection.execute(sa.text("SELECT pg_advisory_unlock(:k)"),
+                               {"k": turn_key(session_id)})
+
+
+def _run_turn(session_id: str, seq: int, transport: AgentTransport | None) -> str:
+    with session_scope() as session:
+        draft_id = session.get(PipelineAuthoringSession, session_id).draft_id
     blocks: list[dict] = []
     access = model_access()
     if access is None:

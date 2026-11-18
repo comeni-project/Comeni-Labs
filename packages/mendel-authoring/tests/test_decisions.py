@@ -137,3 +137,19 @@ def test_composition_preserves_required_state_order_independently_of_wanted_outp
     )
     restored = _module().Decisions.from_goal(goal).goal(MeasurementRegistry.load(REGISTRY))
     assert restored.model_dump(mode="json") == goal.model_dump(mode="json")
+
+
+def test_the_ais_choices_come_back_as_the_ais():
+    """#505: a goal imported from a pipeline the AI built dropped `by` and `because`, so the
+    AI's tool and setting came back as the person's own."""
+    from comeni_core.goal.asked import Constraints, ParamOverride, ProducerPin, Site
+
+    goal = Goal(want=["counts.matrix"], constraints=Constraints(
+        producers=[ProducerPin(site=Site(type_id="alignment.bam"),
+                               contract="nf-core/hisat2/align@2.2.2", by="model",
+                               because="short reads")],
+        params=[ParamOverride(name="seq_platform", value="ILLUMINA", by="model",
+                              because="the run says Illumina")]))
+    restored = _module().Decisions.from_goal(goal).goal(MeasurementRegistry.load(REGISTRY))
+    assert restored.constraints.producers == goal.constraints.producers
+    assert restored.constraints.params == goal.constraints.params

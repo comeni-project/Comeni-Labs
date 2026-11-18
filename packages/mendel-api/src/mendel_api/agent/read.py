@@ -114,6 +114,9 @@ def read_pipeline(ctx: ToolContext, _: Nothing) -> PipelineView:
     if blueprint is None:
         return PipelineView(unbuilt=unbuilt or "nothing is wanted yet")
     pipeline = blueprint.pipeline
+    # What the person has not yet reviewed, as the page counts it (#505): a step whose AI
+    # choice they accepted is no longer unreviewed, whoever made it.
+    reviewed = _unreviewed_nodes(ctx)
     steps = []
     for step in pipeline.steps:
         contract = stack.routing.get(step.module.contract_id)
@@ -125,7 +128,8 @@ def read_pipeline(ctx: ToolContext, _: Nothing) -> PipelineView:
             makes=sorted({p.type_id for p in contract.produces if p.type_id}),
             chosen_by=step.why.source.value,
             open_values=[s.name for s in step.settings if s.value is None and s.at_run is None],
-            ai_unreviewed=(step.why.source.value == "model"
+            ai_unreviewed=(step.id in reviewed if reviewed is not None
+                           else step.why.source.value == "model"
                            or any(s.why.source.value == "model" for s in step.settings)),
         ))
     return PipelineView(
@@ -133,6 +137,16 @@ def read_pipeline(ctx: ToolContext, _: Nothing) -> PipelineView:
         inputs=[_type_line(stack, c.type_id) for c in pipeline.channels],
         gives=[_type_line(stack, t) for t in pipeline.goal.want],
     )
+
+
+def _unreviewed_nodes(ctx: ToolContext) -> set[str] | None:
+    """The steps whose AI choices await the person's review; `None` outside a session (MCP),
+    where the pipeline's own record of who chose is all there is."""
+    if ctx.session_id is None:
+        return None
+    from mendel_api.agent import chat
+
+    return {m["node"] for m in chat.unreviewed(ctx.session_id)}
 
 
 def read_step(ctx: ToolContext, args: StepArgs) -> StepView:

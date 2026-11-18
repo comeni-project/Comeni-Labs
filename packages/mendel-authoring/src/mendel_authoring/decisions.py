@@ -305,11 +305,14 @@ class Decisions(_Value):
                 for f in goal.profile.measurements
             ] + [FactDecision(subject=m, origin=FactOrigin.VARIES)
                  for m in goal.constraints.varies],
+            # Who chose, and why, cross with the choice: the AI's comes back as the AI's (#505).
             producers=[
-                ProducerChoice(site=p.site, contract=p.contract) for p in goal.constraints.producers
+                ProducerChoice(site=p.site, contract=p.contract, by=p.by, because=p.because)
+                for p in goal.constraints.producers
             ],
             parameters=[
-                ParameterChoice(name=p.name, value=p.value) for p in goal.constraints.params
+                ParameterChoice(name=p.name, value=p.value, by=p.by, because=p.because)
+                for p in goal.constraints.params
             ],
             roles=[RoleChoice(role=a.role) for a in goal.constraints.absent_roles],
             exclusions=[

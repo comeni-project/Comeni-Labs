@@ -78,3 +78,21 @@ def test_a_pipeline_drawn_by_hand_records_no_ai_choices(clean):
 
 def _reply(message):
     return AgentReply(calls=[ToolCall(id="final", name="reply", arguments={"message": message})])
+
+
+def test_the_agent_is_told_a_reviewed_step_is_reviewed(built):
+    """#505: `read_pipeline` called a step unreviewed whenever the AI had chosen there, so after
+    the person reviewed it the agent kept telling them to review it."""
+    from mendel_api.agent import read
+    from mendel_api.agent.tools import ToolContext
+
+    client, session = built
+    ctx = ToolContext(draft_id=session["draft_id"], session_id=session["id"], who="t",
+                      expected_revision=decisions.revision(session["draft_id"]))
+
+    def flagged():
+        return {s.node for s in read.read_pipeline(ctx, read.Nothing()).steps if s.ai_unreviewed}
+
+    assert "hisat2_align" in flagged()
+    assert client.post(f"{BASE}/{session['id']}/reviewed", json={"nodes": "all"}).status_code == 200
+    assert flagged() == set()

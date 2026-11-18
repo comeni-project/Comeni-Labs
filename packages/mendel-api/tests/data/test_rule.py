@@ -155,3 +155,17 @@ def test_a_sample_flagged_twice_is_one_to_check():
                     sample("c", ["c.fna"], contigs=4, n50=2872769),
                     sample("d", ["d.fna"], contigs=65, n50=85010)], [])
     assert len(found) == 2 and to_check(found) == 1
+
+
+def test_a_long_sample_name_is_cut_to_what_a_sample_may_carry():
+    """#505: a rule cut names to 256 while `SampleName` allows 200, so a name of 201 to 256
+    characters made every read of the data refuse, echoing the name."""
+    from comeni_core.spell.marks import SampleName
+    from pydantic import TypeAdapter
+
+    long = "s" * 240
+    found = group([f"{long}_R1.fastq.gz", f"{long}_R2.fastq.gz"],
+                  Rule(pattern="{sample}_R{read}.fastq.gz", origin="you"), [])
+    [(name, files)] = found.samples
+    assert len(name) == 200 and files == [0, 1]
+    TypeAdapter(SampleName).validate_python(name)

@@ -300,3 +300,27 @@ def test_tool_rounds_still_stop_at_the_token_limit(clean, monkeypatch):
     session_id, seq, script = _started(monkeypatch, [reply])
     assert len(script.sent) == 1
     assert _turn(session_id, seq).blocks[-1]["notice"] == "limit"
+
+
+def test_a_sessions_turns_run_one_at_a_time(clean, monkeypatch):
+    """#505: each message queues a turn, and with two AI jobs a worker took the second while
+    the first was still writing to the draft. A turn now waits for the one before it."""
+    import threading
+
+    import sqlalchemy as sa
+    from mendel_api.db import engine
+
+    monkeypatch.setattr(loop, "model_access", lambda: object())
+    session_id = loop.start_session(drafts.create(DraftGraph(), "agent", "ana"), who="ana")
+    seq = loop.add_person_turn(session_id, "gene counts")
+    done = threading.Event()
+    with engine.connect() as first:  # the turn before, still running
+        first.execute(sa.text("SELECT pg_advisory_lock(:k)"), {"k": loop.turn_key(session_id)})
+        worker = threading.Thread(target=lambda: (
+            loop.run_turn(session_id, seq, transport=ScriptedAgentTransport([_say("done")])),
+            done.set()))
+        worker.start()
+        assert not done.wait(1.0), "the turn ran while the one before held the session"
+        first.execute(sa.text("SELECT pg_advisory_unlock(:k)"), {"k": loop.turn_key(session_id)})
+    worker.join(10)
+    assert done.is_set() and _turn(session_id, seq).state == "answered"

@@ -258,6 +258,7 @@ or a complete commit history.
 
 ### mendel-authoring
 
+- `Decisions.from_goal` keeps a pin's and a setting's `by` and `because`: a goal imported from a pipeline the AI built kept the AI's choices as the person's (#505).
 - A setting a model settled names its author: the committing actor when its decision record names none (#535).
 
 - The memory rendered for the model says how uploaded samples spread over each fact they differ on (#466).
@@ -292,6 +293,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- A session's agent turns run one at a time, under an advisory lock; with two AI jobs, two turns wrote to one draft at once. Sample names are cut to 200 characters, as `SampleName` allows, where a rule cut them to 256 and the agent's data reads then refused. A tool's `KeyError` is a refusal to the model only when the model named the missing key; any other fails the turn as the engine's error. `read_pipeline` tells the agent a step is unreviewed only while the person has not reviewed it (#505).
 - A fact a person said and the data measured otherwise carries the data's value beside it (`FactDecision.measured`, derived at every read). The AI may not set a measured fact to another value: MI0228, nothing written (#510).
 - Builder agent, protocol `builder.agent.v4`: a `reply` tool ends the turn with a validated
   message, and a reply without tools is still the answer. The announce-and-nudge heuristic is
