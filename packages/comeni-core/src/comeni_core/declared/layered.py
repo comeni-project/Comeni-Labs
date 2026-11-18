@@ -154,6 +154,13 @@ def layers_of(paths: "Path | Sequence[Path]") -> list[Layer]:
     ]
 
 
+def _spelled(key: object) -> str:
+    """A storage key as a `Displacement` records it. A tool test's is `(contract, name)`, and
+    `str()` of a tuple has a space no key may hold (#448), so its parts are joined by `#`. The
+    record is read, never parsed back into a key."""
+    return "#".join(map(str, key)) if isinstance(key, tuple) else str(key)
+
+
 class Displacement(BaseModel):
     """Serializable record of declarations removed by a higher layer."""
 
@@ -406,8 +413,8 @@ def stack[K, T](
                         key=group,
                         winning_layer=layer.name,
                         displaced_layer=name_of[losing.pop()],
-                        displaced_keys=[str(k) for k in victims],
-                        winning_key=str(kind.key(winner)),
+                        displaced_keys=[_spelled(k) for k in victims],
+                        winning_key=_spelled(kind.key(winner)),
                     )
                 )
                 for victim in victims:
@@ -425,7 +432,7 @@ def stack[K, T](
                     displaced.append(
                         Displacement(
                             kind=kind.which,
-                            key=str(key),
+                            key=_spelled(key),
                             winning_layer=layer.name,
                             displaced_layer=name_of[origin[key]],
                         )

@@ -260,3 +260,14 @@ def test_a_displacement_satisfies_the_egress_leaf_rule():
     for name in Displacement.model_fields:
         problems += _leaf_problems(hints[name], f"Displacement.{name}", {Displacement})
     assert problems == [], problems
+
+
+def test_a_tuple_key_is_recorded_as_one_word(tmp_path):
+    """A tool test is keyed on `(contract, name)`, and `str()` of that tuple has a space the key
+    validator refuses: two layers declaring STAR's `small` test failed to load (#448)."""
+    kind = _kind(key=lambda e: ("nf-core/star/align@2.7.11b", e["id"]))
+    _write(tmp_path, "base", "measurements", "small.yml", {"value": "base"})
+    _write(tmp_path, "lab", "measurements", "small.yml", {"value": "lab"})
+    result = stack(_layers(tmp_path, "base", "lab"), kind)
+    assert result.entries[("nf-core/star/align@2.7.11b", "small")]["value"] == "lab"
+    assert [d.key for d in result.displaced] == ["nf-core/star/align@2.7.11b#small"]

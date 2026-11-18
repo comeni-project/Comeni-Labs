@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- A displacement of a tuple-keyed declaration records the key as `contract#test`: two layers declaring the same tool test no longer fail to load (#448).
 - `NfInput.pad` and `CallArg.pad`: empty paths appended after an entry's ports, for a tuple that ends in optional files nothing models (#507). **SCHEMA_VERSION 10**: a version-9 `pipeline.yml` is refused (MD0207) and rebuilt from its intent and facts.
 - Builder egress: `RepliedView`, the validated message of the agent's `reply`; and
   `DataView.reference_files` (`ReferenceCandidate`): the analysis's reference candidates by an

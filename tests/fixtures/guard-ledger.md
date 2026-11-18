@@ -5637,3 +5637,4 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 | date | guard | broke | result | message |
 |---|---|---|---|---|
 | 2026-11-17 | `test_forge_testing.py` "a test may leave out a port in a shared slot", its params assertion (#484) | restored `entry_params` to every channel's params | failed | `['input'] == ['bai', 'bam', 'model']` |
+| 2026-11-17 | `test_layered.py` "a tuple key is recorded as one word" (#448) | none needed: run before the fix | failed | `"('nf-core/star/align@2.7.11b', 'small')" is not a key` |
