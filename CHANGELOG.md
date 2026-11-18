@@ -267,6 +267,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- Reading a draft's decisions takes no row lock, so the page's 1.5 s poll no longer queues behind the agent's writes, and a read fetches every fact's observation in one statement instead of one per fact (#561).
 - Registry, Forge and Settings for the redesign (#511): `GET /data/readers` gives each reader's facts with their units, the rules and settings that decide by them and their tests, and lists tool measurers; a forging's summary says its failed tests and pull request state; `GET /settings/{key}/check` tries a slower check after the menu (the default model's server), so Settings never waits on it. The builder agent sets a setting it is asked about as its tier-4 choice, hears a change in Data until it has built, and builds and compiles with the draft's AI provenance (a value it set was refused with MD0225).
 
 - Data for the redesign (#511): `GET /data/readers`; `/data/tree` says what each folder looks like; files in a folder named for references are offered as references, files nothing reads are not samples, and a number ten times off the median is checked. The builder agent sees references (`DataView.references`), suggests commands on Run → Console (`suggest_command`, paths shortened in what the page carries), and a reached subscription limit says when it resets (MA0010). `POST /pipeline/authoring/{id}/tidy` lays the canvas out again; steps carry their input rules (`StepView.rules`) and settings their `explain`.
