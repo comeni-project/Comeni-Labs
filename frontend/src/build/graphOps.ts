@@ -31,6 +31,24 @@ export function withNode(g: DraftGraph, node: DraftNode): DraftGraph {
 
 /** Remove a node and every wire touching it — a wire to a node that is gone is not a wire, and
  *  leaving it would make `validate` report MD0509 for something already deleted. */
+/** The steps that go when `id` does (#509): each one whose every wire out leads into a step that
+ *  goes, so it was there only to feed them. A step with no wire out makes a result, and stays. */
+export function feedingOnly(g: DraftGraph, id: string): string[] {
+  const going = new Set([id]);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const n of g.nodes) {
+      if (going.has(n.id)) continue;
+      const out = g.edges.filter((e) => e.from_node === n.id);
+      if (out.length > 0 && out.every((e) => going.has(e.to_node))) {
+        going.add(n.id);
+        grew = true;
+      }
+    }
+  }
+  return g.nodes.map((n) => n.id).filter((n) => n !== id && going.has(n));
+}
+
 export function withoutNode(g: DraftGraph, id: string): DraftGraph {
   return {
     ...g,
