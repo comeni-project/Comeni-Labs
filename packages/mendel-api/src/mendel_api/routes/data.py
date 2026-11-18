@@ -7,6 +7,7 @@ from typing import Literal
 
 from comeni_core.diagnostics import coded
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from mendel_api import identity, jobs
@@ -166,9 +167,8 @@ def read_files(draft_id: str, offset: int = 0, limit: int = 200) -> FilesPage:
                      total=len(files))
 
 
-async def _rescan(draft_id: str, change) -> AnalysisDataView:
-    """Apply `change` to the analysis's data row, then queue a scan of its newest revision. A scan
-    that cannot be queued says so rather than scanning for ever."""
+def _changed(draft_id: str, change) -> int:
+    """Apply `change` to the analysis's data row and move it to a new revision, scanning."""
     with session_scope() as db:
         _draft(db, draft_id)
         row = db.get(AnalysisData, draft_id)
@@ -183,18 +183,36 @@ async def _rescan(draft_id: str, change) -> AnalysisDataView:
 
     # What the data says may have moved already (a reference is an input at once).
     decisions.data_changed(draft_id)
+    return revision
+
+
+def _not_started(draft_id: str, revision: int) -> None:
+    with session_scope() as db:
+        row = db.get(AnalysisData, draft_id)
+        if row is not None and row.revision == revision:
+            said = "the scan could not start; tick the folder again"
+            row.scan = Scan(state="failed", error=said).model_dump()
+
+
+def _current_view(draft_id: str) -> AnalysisDataView:
+    with session_scope() as db:
+        return _view(draft_id, db.get(AnalysisData, draft_id))
+
+
+async def _rescan(draft_id: str, change) -> AnalysisDataView:
+    """Apply `change` to the analysis's data row, then queue a scan of its newest revision. A scan
+    that cannot be queued says so rather than scanning for ever.
+
+    **Async only to await the queue** (#560): the database work runs in the thread pool, as
+    the API is one process and a query on the event loop holds every other request."""
+    revision = await run_in_threadpool(_changed, draft_id, change)
     try:
         await jobs.enqueue("scan_analysis_data", draft_id, identity.default_author(), revision,
                            job_id=jobs.job_id_for("scan", draft_id, str(revision)))
     except Exception:  # noqa: BLE001 — a scan nobody will run must not say it is scanning
         log.exception("scan %s:%s could not be queued", draft_id, revision)
-        with session_scope() as db:
-            row = db.get(AnalysisData, draft_id)
-            if row is not None and row.revision == revision:
-                said = "the scan could not start; tick the folder again"
-                row.scan = Scan(state="failed", error=said).model_dump()
-    with session_scope() as db:
-        return _view(draft_id, db.get(AnalysisData, draft_id))
+        await run_in_threadpool(_not_started, draft_id, revision)
+    return await run_in_threadpool(_current_view, draft_id)
 
 
 @router.put("/{draft_id}/folders", operation_id="tickDataFolders",
@@ -202,7 +220,8 @@ async def _rescan(draft_id: str, change) -> AnalysisDataView:
 async def tick_folders(draft_id: str, body: Folders) -> AnalysisDataView:
     """Each folder is checked against the data roots, then the scan is queued: the page polls
     `readAnalysisData` while it runs."""
-    ticked = sorted({str(roots.inside_folder(f, settings.data_roots)) for f in body.folders})
+    ticked = await run_in_threadpool(
+        lambda: sorted({str(roots.inside_folder(f, settings.data_roots)) for f in body.folders}))
     return await _rescan(draft_id, lambda row: setattr(row, "folders", ticked))
 
 
@@ -338,11 +357,9 @@ class NamedFile(BaseModel):
     type_id: str
 
 
-@router.post("/{draft_id}/references", operation_id="addReference",
-             summary="Add a study-wide file, such as a genome, with its type", responses=REFUSES)
-async def add_reference(draft_id: str, body: NamedFile) -> AnalysisDataView:
-    """The file is checked against the data roots and its type against the vocabulary, then its
-    head is measured like a sample's. It becomes an input the analysis has."""
+def _measured_reference(body: NamedFile) -> Reference:
+    """The file checked against the data roots and its type against the vocabulary, and its head
+    measured: file reads and inspection subprocesses, so never on the event loop (#560)."""
     from mendel_api.authoring.types import SampleFact
     from mendel_api.services import inspect, registry
     from mendel_api.services.data.scan import _head
@@ -354,10 +371,18 @@ async def add_reference(draft_id: str, body: NamedFile) -> AnalysisDataView:
         raise ValueError(coded("MI0224", f"{body.type_id} is not a declared type"))
     found = inspect.inspect_sample([(path.name, _head(path, inspect.HEAD_BYTES))],
                                    registry.stack(), None, sizes=(path.stat().st_size,))
-    made = Reference(path=str(path), name=path.name, type_id=body.type_id, facts=[
+    return Reference(path=str(path), name=path.name, type_id=body.type_id, facts=[
         SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage,
                    pieces=list(f.pieces))
         for f in found.facts if f.undetermined is None])
+
+
+@router.post("/{draft_id}/references", operation_id="addReference",
+             summary="Add a study-wide file, such as a genome, with its type", responses=REFUSES)
+async def add_reference(draft_id: str, body: NamedFile) -> AnalysisDataView:
+    """The file is checked against the data roots and its type against the vocabulary, then its
+    head is measured like a sample's. It becomes an input the analysis has."""
+    made = await run_in_threadpool(_measured_reference, body)
 
     def keep(row):
         row.references = [*(row.references or []), made.model_dump(mode="json")]

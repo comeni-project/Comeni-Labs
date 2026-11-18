@@ -295,6 +295,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- The data routes that queue a scan (tick, rule, rescan, add or remove a reference) do their database work, file reads and inspection in the thread pool instead of on the event loop: a request made during a 2 s inspection waited 2,080 ms, now 3 ms (#560).
 - Data's files say what each is used as now: a reference shows its kind, and a left-out sample's file carries `left_out` (`ScannedFile.left_out`). Release refusals name each release and why, and say what to do; they said only "4 release(s) could not be used" (#535).
 - A session's agent turns run one at a time, under an advisory lock; with two AI jobs, two turns wrote to one draft at once. Sample names are cut to 200 characters, as `SampleName` allows, where a rule cut them to 256 and the agent's data reads then refused. A tool's `KeyError` is a refusal to the model only when the model named the missing key; any other fails the turn as the engine's error. `read_pipeline` tells the agent a step is unreviewed only while the person has not reviewed it (#505).
 - A fact a person said and the data measured otherwise carries the data's value beside it (`FactDecision.measured`, derived at every read). The AI may not set a measured fact to another value: MI0228, nothing written (#510).

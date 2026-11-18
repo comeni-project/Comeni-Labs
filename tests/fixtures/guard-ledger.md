@@ -5682,3 +5682,5 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   run against the committed `projection.append` (`restored()` before each fold): failed, `ingest loaded every
   task of the run`. `test_a_broken_exporter_does_not_lose_the_terminal_event`, now with telemetry on, against
   an `append` that exported its task-less state: failed. All pass after.
+- 2026-11-18, perf audit (#560): `test_the_data_routes_do_their_blocking_work_off_the_event_loop` run against
+  the committed `routes/data.py` (on `issue-sweep`): failed, `inside_folder ran on the event loop`. Passes after.
