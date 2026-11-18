@@ -5643,3 +5643,9 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 | 2026-11-18 | `test_gates.py` "a stub gate materialises every local input" (#542) | restored `gates.py` from HEAD | failed | no `stub-data/samplesheet.csv`; FASTQ pairs written for a samplesheet pipeline |
 | 2026-11-18 | `test_said_against_measured.py` "a choice on a contradicted fact is flagged with both values" (#510) | `Pin.tier()` always tier 3 | failed | STAR at tier 3 on `read_length: 150, said` against 99 measured |
 | 2026-11-18 | `test_changes.py` "the AI may not contradict what the data measured" (#510) | the MI0228 condition short-circuited | failed | the AI's 150 written over a measured 99 |
+
+## Issue sweep, 2026-11-18 (#505, #467)
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-18 | `tests/golden/spine/main.nf` (#467) | `_default_entry` back to `[ [:], f ]` | failed | `test_matches_the_golden_file`: the default entry gives no id |

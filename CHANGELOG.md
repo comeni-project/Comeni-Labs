@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- A type with no `entry_channel` gives each file `[ [id: <its base name>], file ]`, as the curated types do; it gave `[ [:], f ]`, so a module named every output `null`. A run guard's sentence names the params a person sets: `; set \`fasta\` as --fasta_2` (#467).
 - A fact a person said that the data measures otherwise keeps both: `Measured.measured` and `PremiseRecord.measured` (only on a said value; `PremiseRecord.contradicted`), and the premise reads `read_length is 150, asserted, not measured; the data measures 99` (#510).
 - `explain` (`mendel explain`, `forge explain`) prints a code's `says:` line, its explanation, then its `fix:`, which neither CLI showed (#67).
 - A displacement of a tuple-keyed declaration records the key as `contract#test`: two layers declaring the same tool test no longer fail to load (#448).
@@ -141,6 +142,7 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- MD0609 says a missing setting is not set, and a missing input not connected; it called both unconnected (#467).
 - A rule's choice that read a contradicted fact is tier 4, flagged for review, with the same value and both values in its reason (`Pin.tier()`), for producers and settings alike (#510).
 - A port that gathers over the study (`grain: study, many: true`) routes one producer per kind of data the analysis has, and takes one output from every step that makes what it reads: MULTIQC gathers FastQC's reports on the reads and QUAST's on the assemblies. Producers reached from the same data still compete, and a person's source pin keeps only theirs (#435).
 - Rule proposals (#462): `proposals` turns a kept pipeline's decisions into cases, gathers a person's tier-4 answers per target (`MIN_CASES = 3`), judges a proposed row against them (contradicted, unsupported or never firing), narrows it to where the existing rows missed, and replays it over every past decision of its target.

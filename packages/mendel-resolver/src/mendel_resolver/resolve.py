@@ -98,9 +98,17 @@ def _constraints_hold(contract: ModuleContract, node: IRNode,
     verdict = evaluate(contract, setup_of(contract, node, types))
     why = "; ".join(verdict.sentences) or "its constraints"
     if verdict.missing:
+        # An input is connected; a setting is set (#467). A row may require either.
+        ports = {p.name for p in contract.consumes}
+        inputs = [m for m in verdict.missing if m in ports or m.startswith("one of ")]
+        settings = [m for m in verdict.missing if m not in inputs]
+        needs = "; ".join(
+            [f"{', '.join(inputs)}, which {'is' if len(inputs) == 1 else 'are'} not connected"]
+            * bool(inputs)
+            + [f"{', '.join(settings)}, which {'is' if len(settings) == 1 else 'are'} not set"]
+            * bool(settings))
         raise ConstraintViolation(coded(
-            "MD0609", f"{contract.id} needs {', '.join(verdict.missing)}, which is not "
-            f"connected: {why} — `mendel explain MD0609`."))
+            "MD0609", f"{contract.id} needs {needs}: {why} — `mendel explain MD0609`."))
     if verdict.forbidden:
         raise ConstraintViolation(coded(
             "MD0610", f"{contract.id} cannot have {', '.join(verdict.forbidden)} with these "

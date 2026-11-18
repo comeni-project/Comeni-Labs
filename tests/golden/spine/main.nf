@@ -12,7 +12,7 @@ include { STAR_ALIGN } from './modules/nf-core/star/align/main'
 workflow {
     ch_gtf = (Channel.fromPath(params.gtf, checkIfExists: true).map { gtf -> [ [id: gtf.baseName], gtf ] }).first()
     ch_reads = ( params.input instanceof List ? Channel.of([ [id: 'test'], params.input.collect { file(it, checkIfExists: true) } ]) : Channel.fromFilePairs(params.input, checkIfExists: true).map { id, reads -> [ [id: id], reads ] } )
-    ch_star = (Channel.fromPath(params.star, checkIfExists: true).map { f -> [ [:], f ] }).first()
+    ch_star = (Channel.fromPath(params.star, checkIfExists: true).map { f -> [ [id: f.baseName], f ] }).first()
 
     TRIMGALORE(ch_reads)
     STAR_ALIGN(TRIMGALORE.out.reads, ch_star, ch_gtf, false)

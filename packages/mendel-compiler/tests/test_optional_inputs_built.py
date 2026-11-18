@@ -169,8 +169,10 @@ def _param(pipeline: Pipeline, type_id: str) -> str:
 def test_a_rule_only_a_run_can_settle_is_on_the_step(tmp_path):
     pipeline = _both_optional(tmp_path)
     rules = _quast_step(pipeline).run_rules
+    fasta = _param(pipeline, "genome.fasta")
+    # The person launching sets params, so the sentence names the one they set (#467).
     assert [(r.given, r.requires, r.forbids, r.says) for r in rules] == [
-        ([_param(pipeline, "annotation.gff")], [_param(pipeline, "genome.fasta")], [], SAYS)]
+        ([_param(pipeline, "annotation.gff")], [fasta], [], f"{SAYS}; set `fasta` as --{fasta}")]
 
 
 def test_the_pipeline_refuses_a_gff_without_a_reference_at_its_start(tmp_path):
