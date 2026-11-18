@@ -5609,3 +5609,6 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   run against the committed `projection.append` (`restored()` before each fold): failed, `ingest loaded every
   task of the run`. `test_a_broken_exporter_does_not_lose_the_terminal_event`, now with telemetry on, against
   an `append` that exported its task-less state: failed. All pass after.
+- 2026-11-18, perf audit (#561 part 3): `test_reads_in_one_request_decide_once_per_revision` failed before
+  `remembered` existed. `test_every_http_request_has_its_own_memo` against `main` with the middleware's memo
+  replaced by a `nullcontext`: failed. Both pass after.
