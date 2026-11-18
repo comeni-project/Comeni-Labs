@@ -5613,3 +5613,6 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   and `test_a_scripted_transport_keeps_the_cache_key_it_was_sent` failed before `cache_key` existed.
   `test_every_call_of_a_session_names_the_same_conversation` against a loop that sent no key: failed.
   All pass after.
+- 2026-11-18, perf audit (#561 part 3): `test_reads_in_one_request_decide_once_per_revision` failed before
+  `remembered` existed. `test_every_http_request_has_its_own_memo` against `main` with the middleware's memo
+  replaced by a `nullcontext`: failed. Both pass after.
