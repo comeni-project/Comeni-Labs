@@ -178,6 +178,7 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- `entry_params` lists `input` for a samplesheet pipeline in place of its per-sample channels' params, which the workflow never reads: `nextflow.config` declares what the run reads, and a forge test is sent exactly those (#484).
 - A port gathered over the study reaches its process as one `[meta, files]` tuple, as a gather per key does; a bare `.collect()` mixed every sample's `meta` in among the files. MULTIQC now runs after FastQC (#507). Inside a shared slot, such a port passes every sample's files rather than one (#483).
 - MD0111: conformance compares a tuple's width, `val(meta)` plus one per port plus `pad`, with the module's, not only the number of channels (#507).
 - `orchestrate.build(..., ai=)` takes the caller's AI provenance, so a value a model settled builds (#535).

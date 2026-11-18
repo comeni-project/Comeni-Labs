@@ -123,8 +123,10 @@ def test_a_stub_gate_materialises_every_local_input(tmp_path):
         "sampleB_R1.fastq.gz",
         "sampleB_R2.fastq.gz",
     ]
-    assert (tmp_path / "stub-data/fasta.txt").is_file()
-    assert (tmp_path / "stub-data/gtf.txt").is_file()
+    # The spine's fasta and gtf are per-sample here, so they are samplesheet columns, not
+    # params: nothing would read a stub file named after them (#484).
+    assert not (tmp_path / "stub-data/fasta.txt").exists()
+    assert not (tmp_path / "stub-data/gtf.txt").exists()
 
 
 def test_a_test_gate_materialises_the_samplesheet_without_stub_data(tmp_path):

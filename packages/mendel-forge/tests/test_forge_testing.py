@@ -173,6 +173,8 @@ def test_a_test_may_leave_out_a_port_in_a_shared_slot(tmp_path):
                 if line.strip().startswith("GATK4_HAPLOTYPECALLER("))
     assert "[ meta, a, b, [], c ]" in call
     assert "tool_intervals" not in {c.name for c in pipeline.channels}
+    # The run is sent exactly the params the pipeline reads (#484).
+    assert sorted(params_for(test, pipeline)) == entry_params(pipeline)
 
 
 def test_an_input_that_accepts_several_types_round_trips_through_items():

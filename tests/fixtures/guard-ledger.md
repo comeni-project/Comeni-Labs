@@ -5631,3 +5631,9 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 | 2026-11-17 | `test_fan_in.py` "the aggregator gathers a report on each kind of data" | restored `router.py` and `resolve.py` without per-kind routing and `_gather_every_producer` | failed | MULTIQC's reports fed by `fastqc.zip` alone |
 | 2026-11-17 | `test_fan_in.py` "the gathered reports are mixed into one call" | the same | failed | no `FASTQC.out.zip.mix(QUAST.out.results)` |
 | 2026-11-17 | `test_join.py` "a gathered port in a shared slot passes every sample's files" | restored `emit.py` from before #507 | failed | `.combine(X.collect().map { it[1] })`, one sample's file |
+
+## Issue sweep, 2026-11-17 (#484, #448, #67)
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-17 | `test_forge_testing.py` "a test may leave out a port in a shared slot", its params assertion (#484) | restored `entry_params` to every channel's params | failed | `['input'] == ['bai', 'bam', 'model']` |

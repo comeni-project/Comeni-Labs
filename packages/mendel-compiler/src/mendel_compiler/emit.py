@@ -1266,8 +1266,14 @@ def emit(pipeline: Pipeline) -> str:
 
 
 def entry_params(pipeline: Pipeline) -> list[str]:
-    """The `params.<name>` a generated pipeline expects the laboratory to supply."""
-    return sorted({name for channel in pipeline.channels for name in channel.params})
+    """The `params.<name>` a generated pipeline expects the laboratory to supply.
+
+    A samplesheet pipeline reads every per-sample channel from `params.input` (`_from_samplesheet`)
+    and never the channels' own params, so it lists `input` in their place (#484)."""
+    sheet = pipeline.input_form is InputForm.SAMPLESHEET
+    names = {name for channel in pipeline.channels
+             if not (sheet and channel.grain is Grain.SAMPLE) for name in channel.params}
+    return sorted(names | {"input"} if sheet else names)
 
 
 def _render_test_data(value: list[str]) -> str:
