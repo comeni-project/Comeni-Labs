@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { typeEntries, useChoices } from "../registry/parts/useChoices";
 import { Failed } from "../ui/States";
@@ -42,6 +42,11 @@ function Seg<T extends string>({ value, options, onChange, name }: { value: T; o
 export function Inspector({ view, sel, onPick, actions }: { view: AdaptationView; sel: Selection; onPick: (s: Selection) => void; actions: Actions }) {
   const items = live(view.items);
   const [editing, setEditing] = useState<string | null>(null);
+  // The command is shared by every part: its error belongs to the part it was sent from, not to
+  // the next one picked (#535).
+  const { reset } = actions.command;
+  const picked = sel.adding ?? sel.key ?? sel.card;
+  useEffect(() => { reset(); }, [picked, reset]);
 
   if (sel.adding) {
     return (
