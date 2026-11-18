@@ -5587,3 +5587,7 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   by copy and `git show HEAD:path`: failed. `every row and the header share one width` failed on
   the `w-max` rows; `the agent hears data change until it has built` failed with one notice of
   two; the analysis-list test failed on `draft d1` not refreshed. All pass after.
+- 2026-11-18, perf audit (#545): `test_a_build_loads_the_registry_once_per_registry_state` run against the
+  committed `orchestrate.build` (`layers.load` on every build): failed. `test_a_build_from_the_cached_registry_is_the_build_from_a_fresh_one`
+  failed before `prepared` existed and, once its digest check was added, against a `prepare` that pinned a
+  wrong layer digest (the first version passed that mutant, as both builds share `prepare`). Both pass after.

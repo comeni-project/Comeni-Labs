@@ -769,9 +769,11 @@ def _built(goal_json: str, registry_digest: str) -> BuiltPipeline:
     """Both halves of the key matter: a changed goal is a different pipeline, and a changed
     registry can resolve the same goal differently. Leaving the digest out is how a cache
     outlives the thing it was computed from."""
+    roots = list(registry_roots())
     built = orchestrate.build(
         Goal.model_validate_json(goal_json),
-        registry_roots=registry_roots(),
+        registry_roots=roots,
+        prepared=registry.prepared(roots),
     )
     return _view(built.ir, built.pipeline, built.layers)
 

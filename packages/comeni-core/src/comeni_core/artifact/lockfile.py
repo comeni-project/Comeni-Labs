@@ -89,10 +89,17 @@ class Lockfile(BaseModel):
 
     @classmethod
     def of(cls, ir: PipelineIR, registry: Registry, layers: Sequence[Path],
-           locators: Mapping[LayerName, Locator] | None = None) -> "Lockfile":
+           locators: Mapping[LayerName, Locator] | None = None,
+           digests: Sequence[str] | None = None) -> "Lockfile":
         """Fingerprint each used contract and each supplied registry layer.
 
-        Contracts are deduplicated and sorted by ID. Layer order is preserved."""
+        Contracts are deduplicated and sorted by ID. Layer order is preserved. `digests` are
+        the layers' `digest_of_directory`, in order, when the caller already holds them (#545);
+        otherwise each layer is hashed here."""
+        if digests is None:
+            digests = [str(digest_of_directory(path)) for path in layers]
+        if len(digests) != len(layers):
+            raise ValueError("one digest per layer")
         used = sorted({node.contract_id for node in ir.nodes})
         return cls(
             contracts=[
@@ -105,9 +112,9 @@ class Lockfile(BaseModel):
             ],
             layers=[
                 # Use the manifest name so moving a directory does not change its identity.
-                LockedLayer(name=layer_name(path), digest=digest_of_directory(path),
+                LockedLayer(name=layer_name(path), digest=digest,
                             **(locators or {}).get(layer_name(path), Locator()).model_dump())
-                for path in layers
+                for path, digest in zip(layers, digests, strict=True)
             ],
         )
 

@@ -30,6 +30,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- `Pipeline.of`, `materialise.of` and `Lockfile.of` take the layers' digests when the caller already holds them, instead of hashing every layer again (#545).
 - `Shown.checks`: a setting's slower check is read on its own after the menu (#511).
 
 - `Pipeline.content_digest()` leaves out `gate` as well as `emitted`, so a gated pipeline's runs match their analysis (#529). A contract param may carry a one-line `explain`, not serialised when empty (#511). Egress: `ConsoleView` and `CommandView` for Run → Console (#511).
@@ -164,6 +165,7 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- `orchestrate.prepare` holds what a build needs of a registry before it sees a goal (layers, conformance diagnostics, facts read, layer digests); `orchestrate.build(prepared=...)` takes one a caller kept for the same registry state (#545).
 - `orchestrate.build(..., ai=)` takes the caller's AI provenance, so a value a model settled builds (#535).
 
 - `mendel lint` checks a measurer piece's imports and calls (MD0027), whatever the layer's
@@ -267,6 +269,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- Builds take the loaded and checked registry from the cache `registry.stack()` already keeps by content digest, and the API and worker load it at startup: a warm blueprint resolve 240 ms → 26 ms (#545).
 - Registry, Forge and Settings for the redesign (#511): `GET /data/readers` gives each reader's facts with their units, the rules and settings that decide by them and their tests, and lists tool measurers; a forging's summary says its failed tests and pull request state; `GET /settings/{key}/check` tries a slower check after the menu (the default model's server), so Settings never waits on it. The builder agent sets a setting it is asked about as its tier-4 choice, hears a change in Data until it has built, and builds and compiles with the draft's AI provenance (a value it set was refused with MD0225).
 
 - Data for the redesign (#511): `GET /data/readers`; `/data/tree` says what each folder looks like; files in a folder named for references are offered as references, files nothing reads are not samples, and a number ten times off the median is checked. The builder agent sees references (`DataView.references`), suggests commands on Run → Console (`suggest_command`, paths shortened in what the page carries), and a reached subscription limit says when it resets (MA0010). `POST /pipeline/authoring/{id}/tidy` lays the canvas out again; steps carry their input rules (`StepView.rules`) and settings their `explain`.
