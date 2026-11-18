@@ -267,6 +267,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- Reading a draft's decisions takes no row lock, so the page's 1.5 s poll no longer queues behind the agent's writes, and a read fetches every fact's observation in one statement instead of one per fact (#561).
 - A rescan, tick, fix or reference change reuses what each sample measured when its files are unchanged (same files, sizes, modification times and inodes, same registry and measurer versions) instead of measuring every sample again: 20 unchanged samples 2.56 s → 0.01 s (#570).
 - Registry, Forge and Settings for the redesign (#511): `GET /data/readers` gives each reader's facts with their units, the rules and settings that decide by them and their tests, and lists tool measurers; a forging's summary says its failed tests and pull request state; `GET /settings/{key}/check` tries a slower check after the menu (the default model's server), so Settings never waits on it. The builder agent sets a setting it is asked about as its tier-4 choice, hears a change in Data until it has built, and builds and compiles with the draft's AI provenance (a value it set was refused with MD0225).
 
