@@ -22,7 +22,8 @@ from wiener_core.state import (
     RunPhase,
     RunState,
     TaskState,
-    fold,
+    counts_of,
+    fold_task,
     replay,
     restore,
 )
@@ -67,25 +68,17 @@ def state_of(session: Session, lab_id: str, run_id: str) -> RunState:
                   repository.events(session, lab_id, run_id))
 
 
-def restored(session: Session, lab_id: str, run_id: str) -> RunState:
-    """The run's state as the projection holds it, rebuilt without reading the record (issue
-    282). `run` and `run_task` hold every fact the fold needs, so this equals `state_of` after
-    every event — `test_the_projection_restores_the_folded_state_at_every_event` holds it to
-    that. A run with no row has no projection: it is replayed."""
-    run = repository.run(session, lab_id, run_id)
-    if run is None:
-        return state_of(session, lab_id, run_id)
-    tasks = {
-        row.task_id: TaskState(
-            task_id=row.task_id, process=row.process, status=row.status,
-            attempts=tuple(Attempt.model_validate(a) for a in row.attempts or ()),
-            latest_exit=row.latest_exit,
-            first_seen_ms=row.first_seen_ms if row.first_seen_ms is not None
-            else row.last_change_ms,
-            last_change_ms=row.last_change_ms,
-        )
-        for row in repository.tasks(session, lab_id, run_id)
-    }
+def _task_state(row: RunTask) -> TaskState:
+    return TaskState(
+        task_id=row.task_id, process=row.process, status=row.status,
+        attempts=tuple(Attempt.model_validate(a) for a in row.attempts or ()),
+        latest_exit=row.latest_exit,
+        first_seen_ms=row.first_seen_ms if row.first_seen_ms is not None else row.last_change_ms,
+        last_change_ms=row.last_change_ms,
+    )
+
+
+def _restore(run, run_id: str, tasks: dict[int, TaskState]) -> RunState:
     return restore(
         run_id=run_id if run.last_seq >= 0 else "",
         tasks=tasks,
@@ -96,6 +89,29 @@ def restored(session: Session, lab_id: str, run_id: str) -> RunState:
         terminal_seen=frozenset(EventKind(kind) for kind in run.terminal_seen or ()),
         run_succeeded=run.run_succeeded,
     )
+
+
+def restored(session: Session, lab_id: str, run_id: str) -> RunState:
+    """The run's state as the projection holds it, rebuilt without reading the record (issue
+    282). `run` and `run_task` hold every fact the fold needs, so this equals `state_of` after
+    every event — `test_the_projection_restores_the_folded_state_at_every_event` holds it to
+    that. A run with no row has no projection: it is replayed."""
+    run = repository.run(session, lab_id, run_id)
+    if run is None:
+        return state_of(session, lab_id, run_id)
+    return _restore(run, run_id, {row.task_id: _task_state(row)
+                                  for row in repository.tasks(session, lab_id, run_id)})
+
+
+def _facts(session: Session, lab_id: str, run_id: str) -> RunState:
+    """The run's own facts and counts, with no task loaded (#566): what `fold_task` folds
+    against. The counts are counted in SQL from the same rows `restored` would load."""
+    run = repository.run(session, lab_id, run_id)
+    if run is None:
+        return restored(session, lab_id, run_id).model_copy(update={"tasks": {}})
+    head = _restore(run, run_id, {})
+    return head.model_copy(update={
+        "counts": counts_of(repository.task_statuses(session, lab_id, run_id))})
 
 
 def next_seq(session: Session, lab_id: str, run_id: str) -> int:
@@ -195,15 +211,12 @@ def _label(row, event: RunEvent) -> None:
     row.tag = row.labels[-1].get("tag")
 
 
-def _update_task(
-    session: Session, lab_id: str, run_id: str, state: RunState, event: RunEvent
-) -> None:
-    """Refresh the projection for the one task described by `event`, if any."""
-    touched = event.trace.task_id if event.trace is not None else None
-    if touched not in state.tasks:
+def _update_task(session: Session, lab_id: str, run_id: str, existing: RunTask | None,
+                 task: TaskState | None, event: RunEvent) -> None:
+    """Refresh the projection for the one task described by `event`, if any. Only this
+    event's task is written; rewriting every task made ingest O(tasks) writes."""
+    if task is None:
         return
-    task = state.tasks[touched]
-    existing = repository.task(session, lab_id, run_id, task.task_id)
     if existing is None:
         existing = RunTask(run_id=run_id, task_id=task.task_id)
         repository.add(session, lab_id, existing)
@@ -224,7 +237,10 @@ def _update_task(
 
 
 def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunState:
-    """Persist one admitted event, fold it, refresh the projections, publish the tail."""
+    """Persist one admitted event, fold it, refresh the projections, publish the tail.
+
+    Returns the run's facts and counts after the event, **with no tasks** (#566): no caller
+    reads them, and loading them is the O(tasks) cost this path avoids. `restored` has them."""
     seq = event.seq
 
     # **`prior` is read BEFORE the row is written.** It used to be read after, so `state_of`
@@ -240,14 +256,20 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
     # **Restored, not replayed** (issue 282): the replay above was O(events) per event. The
     # projection holds every fact the fold needs, so the state before this event is rebuilt
     # from it; `state_of` is the rebuild and the check, never this path.
-    prior = restored(session, lab_id, run_id) if seq else EMPTY
+    #
+    # **And only the task the event touches** (#566): restoring every task was O(tasks) per
+    # event. `fold_task` folds against the run's facts and that one task, and
+    # `test_folding_one_task_is_folding_the_run` holds it equal to `fold`.
+    touched = event.trace.task_id if event.trace is not None else None
+    task_row = repository.task(session, lab_id, run_id, touched) if touched is not None else None
+    prior = _facts(session, lab_id, run_id) if seq else EMPTY
 
     repository.add(session, lab_id, RunEventRow(
         run_id=run_id, seq=seq, kind=event.kind, at_ms=event.at_ms,
         payload=event.model_dump(mode="json"), received_at=datetime.now(UTC),
     ))
 
-    state = fold(prior, event)
+    state, task = fold_task(prior, _task_state(task_row) if task_row is not None else None, event)
 
     if (row := repository.run(session, lab_id, run_id)) is not None:
         row.phase = state.phase
@@ -259,8 +281,7 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
         row.terminal_seen = sorted(kind.value for kind in state.terminal_seen)
         row.run_succeeded = state.run_succeeded
 
-    # Only this event's task is refreshed; rewriting every task makes ingest O(tasks) writes.
-    _update_task(session, lab_id, run_id, state, event)
+    _update_task(session, lab_id, run_id, task_row, task, event)
 
     session.flush()
     # **After the flush and never before.** A stream entry for an event Postgres has not
@@ -280,8 +301,13 @@ def append(session: Session, lab_id: str, run_id: str, event: RunEvent) -> RunSt
         # **After the flush, like the stream publish, and for the same reason**: telemetry for
         # an event Postgres has not accepted disagrees with the record. Failing to export must
         # not fail the ingest — §8 is that the backend is a lens and the record is not.
+        #
+        # The spans are per task, so only here, at a run's end and with telemetry on, is every
+        # task loaded: after the flush, the projection is this state with its tasks.
         try:
-            telemetry.export(state, _artifact_pipeline(session, lab_id, run_id))
+            if telemetry.configure():
+                telemetry.export(restored(session, lab_id, run_id),
+                                 _artifact_pipeline(session, lab_id, run_id))
         except Exception as exc:  # noqa: BLE001 — a lens that breaks must not lose an event
             log.warning("run %s: recorded but not exported: %s", run_id, exc)
 

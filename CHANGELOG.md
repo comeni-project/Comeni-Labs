@@ -551,6 +551,8 @@ or a complete commit history.
 
 ### wiener-core
 
+- `fold` keeps the task counts by the one task an event changed instead of recounting every task, so a replay is linear in events: 10k events 2.1 s → 0.45 s (#565).
+- `fold_task` folds one event against a run's facts and the one task it touches, sharing its code with `fold`; `counts_of` turns per-status task counts into `Counts` (#566).
 - `series` draws cores used: each task's mean CPU spread over its run (derived), beside cores reserved (#511).
 
 #### Added
@@ -565,6 +567,9 @@ or a complete commit history.
   Telemetry mapping stays pure, with export handled outside the package.
 
 ### wiener-api
+
+- `/runs/{id}`, `/graph` and `/overview`, polled every 4 s while a run is live, answer from the projection instead of replaying the run's whole record (#565).
+- Ingest reads the run's facts, its task counts (in SQL) and the one task an event describes, instead of every task of the run: per event 13 ms → 0.03 ms of fold CPU at 3.3k tasks (#566). The full state is restored once, at a run's end, when telemetry is on.
 
 - A run's text results are served as plain text, inline, and each listed file says whether a browser can show it (`viewable`).
 

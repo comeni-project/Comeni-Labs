@@ -179,3 +179,54 @@ def test_a_state_restored_from_its_stored_facts_is_the_state():
             ended_at_ms=state.ended_at_ms, terminal_seen=state.terminal_seen,
             run_succeeded=state.run_succeeded,
         ) == state
+
+
+def test_the_counts_kept_per_event_are_the_counts_of_the_tasks():
+    """#565. `fold` adjusts the counts by the one task an event changed rather than recounting
+    every task, which made a replay O(events × tasks). Whatever order and however often the
+    bodies arrive, the counts after each event are the tasks' own."""
+    import random
+
+    from wiener_core.state import EMPTY, _counts, fold
+
+    bodies = [json.loads(line) for line in FIXTURE.read_text().splitlines() if line.strip()]
+    shuffled = bodies[:]
+    random.Random(565).shuffle(shuffled)
+    # Numbered in arrival order, as `record` numbers them, so a redelivered or late body is
+    # folded rather than dropped as already seen.
+    orders = [bodies, bodies + bodies, list(reversed(bodies)), shuffled]
+    checked = 0
+    for order in orders:
+        state = EMPTY
+        for seq, body in enumerate(order):
+            event = admit(body, run_id="r1", seq=seq)
+            state = fold(state, event)
+            assert state.counts == _counts(state.tasks)
+            checked += bool(state.tasks)
+    assert checked, "no event touched a task: this would compare nothing"
+
+
+def test_folding_one_task_is_folding_the_run():
+    """#566. Ingest folds against the run's facts and the one task an event touched, not every
+    task. `fold_task` and `fold` share their code; this holds them equal after every event, in
+    every arrival order: the same run facts, and the same task."""
+    import random
+
+    from wiener_core.state import EMPTY, fold, fold_task
+
+    bodies = [json.loads(line) for line in FIXTURE.read_text().splitlines() if line.strip()]
+    shuffled = bodies[:]
+    random.Random(566).shuffle(shuffled)
+    checked = 0
+    for order in (bodies, bodies + bodies, list(reversed(bodies)), shuffled):
+        state = EMPTY
+        for seq, body in enumerate(order):
+            event = admit(body, run_id="r1", seq=seq)
+            touched = event.trace.task_id if event.trace is not None else None
+            head, task = fold_task(state.model_copy(update={"tasks": {}}),
+                                   state.tasks.get(touched), event)
+            state = fold(state, event)
+            assert head == state.model_copy(update={"tasks": {}})
+            assert task == state.tasks.get(touched)
+            checked += task is not None
+    assert checked, "no event touched a task: this would compare nothing"
