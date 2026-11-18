@@ -268,7 +268,7 @@ export function MachineCard({ runId, rows, live, nameOf }: {
               <Stat label={live ? "Tasks running" : "Tasks at once"} value={live ? String(last(tasks)) : `${peak(tasks)} at most`}
                     detail={`${rows.reduce((n, r) => n + r.done, 0)} finished in all`} />
               {heaviest?.memory_peak_bytes ? (
-                <Stat label="Most memory used" value={gb(heaviest.memory_peak_bytes)}
+                <Stat label="Most memory one task used" value={gb(heaviest.memory_peak_bytes)}
                       detail={`${nameOf(heaviest.process)}${heaviest.memory_asked_bytes ? `, of ${gb(heaviest.memory_asked_bytes)} asked` : ""}`} />
               ) : null}
               {longest?.realtime_ms ? (

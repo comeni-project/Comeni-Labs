@@ -5,7 +5,7 @@ import { expect, it, vi } from "vitest";
 import { analysis } from "./fixtures";
 
 vi.mock("../../api/client", () => ({
-  get: vi.fn(async () => ({ names: { "fastq.reads": "sequencing reads (FASTQ)", "assembly.fasta": "Assembly sequences (FASTA)" } })),
+  get: vi.fn(async () => ({ names: { "fastq.reads": "sequencing reads (FASTQ)", "assembly.fasta": "assembly sequences (FASTA)" } })),
 }));
 import { Samples } from "./Samples";
 import type { AnalysisData } from "./types";

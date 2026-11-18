@@ -826,7 +826,7 @@
    "status": "approved",
    "value": {
     "id": "annotation.gff",
-    "name": "Reference annotation (GFF)",
+    "name": "reference annotation (GFF)",
     "grain": "study",
     "states": [],
     "explain": "Genomic features in GFF format for the reference genome, shared across the run. Usually supplied with the reference genome or produced by an annotation tool.",
@@ -853,7 +853,7 @@
    "status": "approved",
    "value": {
     "id": "assembly.fasta",
-    "name": "Assembly sequences (FASTA)",
+    "name": "assembly sequences (FASTA)",
     "grain": "sample",
     "states": [],
     "explain": "Assembled contig or scaffold sequences in FASTA format for one sample. Usually produced by an assembly tool and supplied to QUAST for quality assessment.",
