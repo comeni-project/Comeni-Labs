@@ -32,9 +32,18 @@ export function useAdaptations() {
   return useQuery({
     queryKey: ["adaptations"],
     queryFn: () => get<AdaptationList>("/forge/adaptations"),
-    refetchInterval: (query) => query.state.data?.adaptations.some((a) => a.drafting
-      || ["assembling", "testing", "publishing", "in_review"].includes(a.phase)) ? 5_000 : false,
+    refetchInterval: (query) => listInterval(query.state.data),
   });
+}
+
+/** How often the forge's list asks again: every five seconds while a forging is working, every
+ *  fifteen while they only wait in review, which can last days (#576), else not at all. */
+export function listInterval(list: AdaptationList | undefined): number | false {
+  const forgings = list?.adaptations ?? [];
+  if (forgings.some((a) => a.drafting || ["assembling", "testing", "publishing"].includes(a.phase))) {
+    return 5_000;
+  }
+  return forgings.some((a) => a.phase === "in_review") ? 15_000 : false;
 }
 
 /** `parameters:param:min_contig` → `min_contig`; `rules:none` → `none needed`. */

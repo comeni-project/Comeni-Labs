@@ -5691,3 +5691,7 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   replaced by a `nullcontext`: failed. Both pass after.
 - 2026-11-18, perf audit (#575): `test_declared_data_is_not_read_with_plain_safe_load` run against the
   committed sources: failed, six readers outside the allowlist. Passes after.
+- 2026-11-18, perf audit (#576): `test_the_forging_list_costs_the_same_statements_however_many_forgings`
+  run against the committed `summaries()`: failed, 13 statements for two forgings against 7 for one.
+  `test_a_module_is_parsed_again_only_when_its_files_change` failed before `module_source` existed.
+  Both pass after.

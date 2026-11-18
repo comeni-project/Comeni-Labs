@@ -5,6 +5,11 @@ Recomputed on every read and never stored: advice describes what is there now. R
 adaptation view (collapsed rows), the question context (the open card) and the prompts.
 """
 
+import os
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+
 from comeni_core.declared.constraints import check_constraints
 from comeni_core.declared.contract import Provenance
 from mendel_compiler.modulespec import ModuleSpec
@@ -65,6 +70,47 @@ def _with_rule_checks(found: dict[str, list[QuestionFinding]],
     return found
 
 
+@dataclass(frozen=True)
+class ModuleSource:
+    """What the checks read of a module's source: its parsed `main.nf`, its text, and its input
+    channels as `meta.yml` declares them. Shared between reads, so nothing may change it."""
+
+    spec: ModuleSpec
+    text: str
+    channels: dict
+
+
+_FILES = ("main.nf", "meta.yml", "environment.yml")
+
+
+def _stamp(folder: Path) -> tuple:
+    """Each source file's size, modification time and inode: what says the source moved."""
+    found = []
+    for name in _FILES:
+        try:
+            st = os.stat(folder / name)
+        except OSError:
+            continue
+        found.append((name, st.st_size, st.st_mtime_ns, st.st_ino))
+    return tuple(found)
+
+
+@lru_cache(maxsize=32)
+def _parsed(folder: Path, path: str, source: str, _stamp: tuple) -> ModuleSource:
+    main_nf = folder / "main.nf"
+    return ModuleSource(
+        spec=ModuleSpec.parse(main_nf), text=main_nf.read_text(),
+        channels={c.name: c for c in parse_module(folder, path, source).inputs})
+
+
+def module_source(folder: Path, path: str, source: str) -> ModuleSource:
+    """The module's source, parsed once for each state of its files (#576): `forging.read`
+    is polled every 2 s while a forging drafts or asks, and each read parsed `main.nf` and
+    `meta.yml` again, 5 to 20 ms. **Keyed by the files' stats**, so an edit is parsed again; a
+    rewrite keeping size, modification time and inode is not seen, as with the data scan."""
+    return _parsed(folder, path, source, _stamp(folder))
+
+
 def _module_findings(source: str, path: str, state: Adaptation,
                      items: dict) -> dict[str, list[QuestionFinding]]:
     asked = {k: v for k, v in asked_questions(state).items()
@@ -76,14 +122,14 @@ def _module_findings(source: str, path: str, state: Adaptation,
     main_nf = folder / "main.nf"
     if not main_nf.is_file():
         return {}
-    spec = ModuleSpec.parse(main_nf)
+    module = module_source(folder, path, source)
+    spec = module.spec
     found: dict[str, list[QuestionFinding]] = {}
     if asked:
-        channels = {c.name: c for c in parse_module(folder, path, source).inputs}
-        found.update(findings(items, dict(registry.stack().vocabulary.grains), spec, channels,
-                              asked))
+        found.update(findings(items, dict(registry.stack().vocabulary.grains), spec,
+                              dict(module.channels), asked))
     if drafted:
-        for key, more in contract_findings(items, spec, main_nf.read_text()).items():
+        for key, more in contract_findings(items, spec, module.text).items():
             found.setdefault(key, []).extend(more)
         found = _with_constraint_checks(found, items)
     return found

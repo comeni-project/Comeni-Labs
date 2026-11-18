@@ -794,19 +794,44 @@ def _item_view(item: Item, findings: list[QuestionFinding] = ()) -> ItemView:
 
 
 def summaries() -> AdaptationList:
+    """Every open forging, as the forge's home lists it. **One statement for each kind of row,
+    however many forgings** (#576): the list is polled every 5 s while any forging waits in
+    review, which can be days. A summary needs each item's piece and status, not its revisions,
+    so `load` is not called; `rules.next_piece` reads nothing else."""
     with db.session_scope() as session:
         rows = session.scalars(
             sa.select(ForgeAdaptation).where(ForgeAdaptation.abandoned_at.is_(None))
             .order_by(ForgeAdaptation.started_at.desc())
         ).all()
         ids = [r.id for r in rows]
-        meta = {r.id: r for r in rows}
+        items: dict[str, dict[str, Item]] = {i: {} for i in ids}
+        failed: dict[str, int] = dict.fromkeys(ids, 0)
+        pulls: dict[str, str] = {}
+        if ids:
+            for i in session.scalars(sa.select(ForgeItem).where(ForgeItem.adaptation.in_(ids))):
+                items[i.adaptation][i.item] = Item(key=i.item, piece=i.piece, status=i.status,
+                                                   revisions=())
+            # Each forging's latest attempt, as `_test_views` reads it.
+            latest = (sa.select(ForgeTestRun.adaptation,
+                                sa.func.max(ForgeTestRun.attempt).label("attempt"))
+                      .where(ForgeTestRun.adaptation.in_(ids))
+                      .group_by(ForgeTestRun.adaptation).subquery())
+            for adaptation, n in session.execute(
+                    sa.select(ForgeTestRun.adaptation, sa.func.count())
+                    .join(latest, sa.and_(ForgeTestRun.adaptation == latest.c.adaptation,
+                                          ForgeTestRun.attempt == latest.c.attempt))
+                    .where(ForgeTestRun.state == "failed")
+                    .group_by(ForgeTestRun.adaptation)):
+                failed[adaptation] = n
+            # Each forging's newest pull request, as `_pull_request_view` reads it.
+            for adaptation, state in session.execute(
+                    sa.select(ForgePullRequest.adaptation, ForgePullRequest.state)
+                    .where(ForgePullRequest.adaptation.in_(ids))
+                    .order_by(ForgePullRequest.id.desc())):
+                pulls.setdefault(adaptation, state)
     found = []
-    for adaptation_id in ids:
-        state, row = load(adaptation_id), meta[adaptation_id]
-        with db.session_scope() as session:
-            tests = _test_views(session, adaptation_id)
-            pull = _pull_request_view(session, adaptation_id)
+    for row in rows:
+        state = Adaptation(items=items[row.id], depends_on=tuple(row.depends_on or ()))
         statuses = [i.status for i in state.items.values() if i.status is not Status.REMOVED]
         nxt = rules.next_piece(state)
         found.append(AdaptationSummary(
@@ -816,8 +841,8 @@ def summaries() -> AdaptationList:
             waiting=sum(s in {Status.PROPOSED, Status.REOPENED} for s in statuses),
             drafting=row.phase in {Phase.DRAFTING, Phase.ASKING},
             started_by=row.started_by, started_at=row.started_at,
-            tests_failed=sum(t.state == "failed" for t in tests),
-            pull_request=pull.state if pull else None,
+            tests_failed=failed[row.id],
+            pull_request=pulls.get(row.id),
         ))
     return AdaptationList(adaptations=found)
 

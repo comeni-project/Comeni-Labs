@@ -296,3 +296,31 @@ def test_a_summary_says_failed_tests_and_the_pull_request_state(client):
     summary = client.get("/api/forge/adaptations").json()["adaptations"][0]
     assert summary["tests_failed"] == 1
     assert summary["pull_request"] == "merged"
+
+
+def test_the_forging_list_costs_the_same_statements_however_many_forgings(client):
+    """#576. `summaries()` loaded each forging whole (its items and every revision) to count
+    statuses, then opened two more sessions for its tests and pull request: polled every 5 s
+    while any forging waits in review, which can be days. It reads every forging's items,
+    latest tests and pull request in one statement each."""
+    from mendel_api.db import engine
+    from mendel_api.services import forging
+
+    def statements() -> int:
+        sent = []
+
+        def heard(*args):
+            sent.append(1)
+
+        sa.event.listen(engine, "before_cursor_execute", heard)
+        try:
+            forging.summaries()
+        finally:
+            sa.event.remove(engine, "before_cursor_execute", heard)
+        return len(sent)
+
+    _start(client)
+    one = statements()
+    _start(client, path="star/align")
+    assert len(forging.summaries().adaptations) == 2
+    assert statements() == one
