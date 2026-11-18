@@ -61,8 +61,12 @@ class AgentTransport(Protocol):
     """Send a conversation and the tools it may use; return what the model answered."""
 
     def converse(self, access: ModelAccess, messages: list[dict],
-                 tools: list[ToolSpec], *, tool_choice: Literal["required"] | None = None
-                 ) -> AgentReply: ...
+                 tools: list[ToolSpec], *, tool_choice: Literal["required"] | None = None,
+                 cache_key: str | None = None) -> AgentReply:
+        """`cache_key` names the conversation a call continues, the same for every call of
+        one (#555): an opaque digest, never a person's words, so a provider's prompt cache can
+        find the prefix it already holds."""
+        ...
 
 
 class ScriptedAgentTransport:
@@ -72,12 +76,14 @@ class ScriptedAgentTransport:
         self._replies = list(replies)
         self.sent: list[list[dict]] = []
         self.tool_choices: list[Literal["required"] | None] = []
+        self.keys: list[str | None] = []
 
     def converse(self, access: ModelAccess, messages: list[dict],
-                 tools: list[ToolSpec], *, tool_choice: Literal["required"] | None = None
-                 ) -> AgentReply:
+                 tools: list[ToolSpec], *, tool_choice: Literal["required"] | None = None,
+                 cache_key: str | None = None) -> AgentReply:
         self.sent.append([dict(m) for m in messages])
         self.tool_choices.append(tool_choice)
+        self.keys.append(cache_key)
         if len(self.sent) > len(self._replies):
             raise AssertionError("the script ran out: the agent called the model again")
         return self._replies[len(self.sent) - 1]

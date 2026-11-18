@@ -5685,3 +5685,10 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 - 2026-11-18, perf audit (#551): `test_a_turn_resolves_each_state_of_the_decisions_once` run against the
   committed `agent/read.py` (on `issue-sweep`): failed, `the resolve tool built the pipeline more than once`.
   Passes after.
+- 2026-11-18, perf audit (#555): `test_an_openai_shaped_route_is_told_which_conversation_a_call_continues`
+  and `test_a_scripted_transport_keeps_the_cache_key_it_was_sent` failed before `cache_key` existed.
+  `test_every_call_of_a_session_names_the_same_conversation` against a loop that sent no key: failed.
+  All pass after.
+- 2026-11-18, perf audit (#561 part 3): `test_reads_in_one_request_decide_once_per_revision` failed before
+  `remembered` existed. `test_every_http_request_has_its_own_memo` against `main` with the middleware's memo
+  replaced by a `nullcontext`: failed. Both pass after.
