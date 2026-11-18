@@ -296,3 +296,41 @@ def test_reading_more_facts_sends_no_more_statements():
     service.set_fact(draft, "organism", "homo_sapiens", who="ana")
     assert len(service.read(draft).facts) >= 4
     assert len(_statements(lambda: service.read(draft))) == one
+
+
+def test_reads_in_one_request_decide_once_per_revision():
+    """#561. One change request read the decisions 8 to 10 times, each a dozen statements. In a
+    request's memo they are decided once per decision revision: a later read costs the
+    revision and the data, and a write moves the revision, so nothing stale is served."""
+    service = _service()
+    draft = drafts.create(DraftGraph(), "memo", "ana")
+    service.set_fact(draft, "read_length", 150, who="ana")
+    with service.remembered():
+        first = len(_statements(lambda: service.read(draft)))
+        again = len(_statements(lambda: service.read(draft)))
+        assert again < first and again <= 2, (first, again)
+        service.set_fact(draft, "read_length", 100, who="ana")
+        assert service.goal(draft).profile.get("read_length") == 100
+    assert len(_statements(lambda: service.read(draft))) == first, "outside a request, no memo"
+
+
+def test_every_http_request_has_its_own_memo():
+    """#561. The memo is opened per request by `main`, and a sync route, which FastAPI runs in a
+    thread, sees it; two requests never share one."""
+    from fastapi.testclient import TestClient
+    from mendel_api.main import create_app
+
+    service = _service()
+    app = create_app()
+    seen = []
+
+    def probe() -> dict:
+        memo = service._MEMO.get()
+        seen.append(memo)
+        return {"memo": memo is not None}
+
+    app.add_api_route("/probe", probe)
+    client = TestClient(app)
+    assert client.get("/probe").json() == {"memo": True}
+    assert client.get("/probe").json() == {"memo": True}
+    assert seen[0] is not seen[1]
