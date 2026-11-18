@@ -185,7 +185,7 @@ def test_the_turn_stops_at_the_step_limit(clean, monkeypatch):
 
 def test_a_provider_failure_fails_the_turn_with_its_code(clean, monkeypatch):
     class Down:
-        def converse(self, access, messages, tools):
+        def converse(self, access, messages, tools, *, cache_key=None):
             raise ModelUnavailableError(coded("MA0007", "fake/test: unreachable"))
 
     monkeypatch.setattr(loop, "model_access", lambda: object())
@@ -201,7 +201,7 @@ def test_a_reached_usage_limit_says_so_rather_than_did_not_answer(clean, monkeyp
     """Walk 2026-11-16: the person read "The AI did not answer. Try again." for a limit that
     lasts hours."""
     class Limited:
-        def converse(self, access, messages, tools):
+        def converse(self, access, messages, tools, *, cache_key=None):
             raise ModelUnavailableError(coded(
                 "MA0010", "the model's usage limit is reached; it resets at 22:28 UTC"))
 
@@ -250,3 +250,18 @@ def test_the_conversation_crosses_as_the_declared_payload(clean, monkeypatch):
         (Speaker.PERSON, "gene counts from my RNA-seq reads"),
         (Speaker.AGENT, "Gene counts, then."),
         (Speaker.PERSON, "and trim the reads first"), (Speaker.AGENT, "Done.")]
+
+
+def test_every_call_of_a_session_names_the_same_conversation(clean, monkeypatch):
+    """#555. Each round and each turn of one session sends the provider the same cache key, so
+    its prompt cache finds the prefix of the last round; another session sends another. The
+    key is a digest: the session id itself does not leave."""
+    session_id, seq, script = _started(monkeypatch, [_call("read_goal"), _say("Built")])
+    again = loop.add_person_turn(session_id, "and now?")
+    later = ScriptedAgentTransport([_say("Done")])
+    loop.run_turn(session_id, again, transport=later)
+    keys = script.keys + later.keys
+    assert len(keys) == 3 and len(set(keys)) == 1 and keys[0], keys
+    assert session_id not in keys[0]
+    other, _, elsewhere = _started(monkeypatch, [_say("Hi")])
+    assert elsewhere.keys[0] != keys[0]

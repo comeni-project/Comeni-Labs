@@ -269,6 +269,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- The builder agent sends one cache key per session, a digest of the session id (#555).
 - Builds take the loaded and checked registry from the cache `registry.stack()` already keeps by content digest, and the API and worker load it at startup: a warm blueprint resolve 240 ms → 26 ms (#545).
 - Reading a draft's decisions takes no row lock, so the page's 1.5 s poll no longer queues behind the agent's writes, and a read fetches every fact's observation in one statement instead of one per fact (#561).
 - A rescan, tick, fix or reference change reuses what each sample measured when its files are unchanged (same files, sizes, modification times and inodes, same registry and measurer versions) instead of measuring every sample again: 20 unchanged samples 2.56 s → 0.01 s (#570).
@@ -457,6 +458,7 @@ or a complete commit history.
 
 ### comeni-ai
 
+- `AgentTransport.converse` takes a `cache_key`: sent as `litellm_session_id` on the ChatGPT subscription route and as `prompt_cache_key` to OpenAI, so a conversation's rounds share the provider's prompt cache instead of each looking new (#555).
 - A provider's usage limit is MA0010, with the reset time it gives (#528).
 
 #### Added

@@ -5609,3 +5609,7 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   run against the committed `projection.append` (`restored()` before each fold): failed, `ingest loaded every
   task of the run`. `test_a_broken_exporter_does_not_lose_the_terminal_event`, now with telemetry on, against
   an `append` that exported its task-less state: failed. All pass after.
+- 2026-11-18, perf audit (#555): `test_an_openai_shaped_route_is_told_which_conversation_a_call_continues`
+  and `test_a_scripted_transport_keeps_the_cache_key_it_was_sent` failed before `cache_key` existed.
+  `test_every_call_of_a_session_names_the_same_conversation` against a loop that sent no key: failed.
+  All pass after.

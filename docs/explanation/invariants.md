@@ -163,7 +163,10 @@ declared id alias, or carries a mark: `Mark.FREE_TEXT` for what a person typed o
 `tests/support/egress.py` are the counts. Only the builder agent's door may reach a sample, and
 only by name. A prompt composed only from public sources (registry files, vendored modules) is not
 a door. Publication carries the `Pipeline` itself, so what a person reads before publishing and
-what crosses cannot disagree; it is the door with no undo.
+what crosses cannot disagree; it is the door with no undo. Transport metadata is not a door
+either: the builder agent tells an OpenAI-shaped provider which conversation a call continues,
+for its prompt cache, with a digest of the session id (`agent.loop.cache_key`, #555), never the
+id itself or anything a person wrote.
 
 ### 15. A pipeline never holds a person's data
 
