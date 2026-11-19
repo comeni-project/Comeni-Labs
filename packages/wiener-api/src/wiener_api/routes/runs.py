@@ -12,7 +12,16 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from comeni_core.diagnostics import coded
-from fastapi import APIRouter, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from wiener_core.events import EventKind, RunEvent, TaskStatus
@@ -421,12 +430,32 @@ def board_summary(days: int = 14) -> BoardSummary:
         )
 
 
+def _tag(row, *more) -> str:
+    """What a polled view of a run is a function of (#593): its record's last event, its phase
+    and when it ended, and anything else the view names. The page polls `/runs/{id}`, `/graph`
+    and `/overview` every 4 s; an answer the browser already holds is a 304, with nothing
+    restored or laid out again. A browser revalidates with `If-None-Match` on its own."""
+    ended = row.ended_at.isoformat() if row.ended_at else ""
+    return '"' + "-".join(str(part) for part in (row.last_seq, row.phase, ended, *more)) + '"'
+
+
+def _unchanged(request: Request, response: Response, tag: str) -> Response | None:
+    response.headers["ETag"] = tag
+    response.headers["Cache-Control"] = "no-cache"
+    if request.headers.get("if-none-match") == tag:
+        return Response(status_code=304, headers={"ETag": tag, "Cache-Control": "no-cache"})
+    return None
+
+
 @router.get("/runs/{run_id}", operation_id="readRun", summary="A run, projected")
-def read(run_id: str) -> dict:
+def read(run_id: str, request: Request, response: Response) -> dict:
     with db.session_scope() as session:
         row = repository.run(session, settings.lab_id, run_id)
         if row is None:
             raise HTTPException(status_code=404)
+        held = _unchanged(request, response, _tag(row, row.executor, row.work_cleared_at))
+        if held is not None:
+            return held
         state = restored(session, settings.lab_id, run_id).model_dump(mode="json")
         # **Beside the projection, never inside it.** `RunState` is what `wiener-core` folded
         # from the events, and a name is not in the events — it came off the upload. Folding it
@@ -533,7 +562,7 @@ class RunGraphOut(BaseModel):
 
 @router.get("/runs/{run_id}/graph", operation_id="readRunGraph",
             summary="The pipeline's own graph, coloured by what the run did")
-def graph(run_id: str) -> RunGraphOut:
+def graph(run_id: str, request: Request, response: Response) -> RunGraphOut:
     """**Nothing new is computed** — §9.1. The layout is `dag-core`'s, the same one the builder
     draws, and the colouring is the fold's. A graph that cannot disagree with either.
     """
@@ -541,11 +570,15 @@ def graph(run_id: str) -> RunGraphOut:
     from wiener_core.graph import coloured, graph_of
 
     with db.session_scope() as session:
-        if repository.run(session, settings.lab_id, run_id) is None:
+        row = repository.run(session, settings.lab_id, run_id)
+        if row is None:
             raise HTTPException(status_code=404)
         pipeline = _pipeline_of(session, run_id)
         if pipeline is None:
             raise HTTPException(status_code=404, detail="this run's artifact cannot be read")
+        held = _unchanged(request, response, _tag(row))
+        if held is not None:
+            return held
         state = restored(session, settings.lab_id, run_id)
 
     laid = dag_core.of(graph_of(pipeline))
@@ -635,7 +668,7 @@ class OverviewOut(BaseModel):
 
 @router.get("/runs/{run_id}/overview", operation_id="readOverview",
             summary="One row per process the artifact declares")
-def run_overview(run_id: str) -> OverviewOut:
+def run_overview(run_id: str, request: Request, response: Response) -> OverviewOut:
     """**It does not 404 on an unreadable artifact** — A192, and deliberately unlike `/graph`.
     The counts come from the fold and are true whatever happened to the directory; what is lost
     is the declared list, so every row says `declared: false` and the bar has no denominator.
@@ -643,9 +676,13 @@ def run_overview(run_id: str) -> OverviewOut:
     from wiener_core.overview import overview
 
     with db.session_scope() as session:
-        if repository.run(session, settings.lab_id, run_id) is None:
+        row = repository.run(session, settings.lab_id, run_id)
+        if row is None:
             raise HTTPException(status_code=404)
         pipeline = _pipeline_of(session, run_id)
+        held = _unchanged(request, response, _tag(row, pipeline is not None))
+        if held is not None:
+            return held
         state = restored(session, settings.lab_id, run_id)
 
     declared = [step.process for step in pipeline.steps] if pipeline is not None else []

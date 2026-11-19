@@ -5750,3 +5750,6 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   Both pass after.
 - 2026-11-19, perf follow-ups (#592): `test_the_polled_view_counts_the_files_where_they_are_kept` run against
   the committed `_view`: failed, `the file list was loaded`. Passes after.
+- 2026-11-19, perf follow-ups (#593): `test_an_unchanged_run_answers_the_poll_with_not_modified` failed
+  before the ETags (no `etag` header). `test_a_finished_process_is_reaped_without_anyone_waiting` run
+  against the committed `_spawn`: failed, `returncode` stayed `None`. Both pass after.

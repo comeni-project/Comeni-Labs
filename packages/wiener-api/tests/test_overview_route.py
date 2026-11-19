@@ -84,3 +84,29 @@ def test_the_polled_run_views_do_not_replay_the_record(client, ingest_client, se
 
     monkeypatch.setattr(repository, "events", unreadable)
     assert [client.get(path).json() for path in paths] == [r.json() for r in replayed]
+
+
+def test_an_unchanged_run_answers_the_poll_with_not_modified(client, ingest_client, session):
+    """#593. The run page asks for `/runs/{id}`, `/graph` and `/overview` every 4 s, and each
+    restored the run and laid it out again though nothing had happened. Each says what its
+    answer is a function of (an ETag); the same tag back is a 304, and an event changes it."""
+    from wiener_api import repository
+    from wiener_api.settings import settings
+
+    artifact = client.post("/api/artifacts",
+                           files={"bundle": ("p.zip", _spine_bundle())}).json()
+    run_id = client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
+                                            "params": {"input": "x"}}).json()["run_id"]
+    run = repository.run(session, settings.lab_id, run_id)
+    lines = [line for line in FIXTURE.read_text().splitlines() if line.strip()]
+    ingest_client.post(f"/events/{run.id}/{run.ingest_secret}", json=json.loads(lines[0]))
+    for path in (f"/api/runs/{run_id}", f"/api/runs/{run_id}/graph",
+                 f"/api/runs/{run_id}/overview"):
+        first = client.get(path)
+        tag = first.headers["etag"]
+        assert first.status_code == 200 and tag
+        again = client.get(path, headers={"If-None-Match": tag})
+        assert again.status_code == 304 and again.content == b""
+    ingest_client.post(f"/events/{run.id}/{run.ingest_secret}", json=json.loads(lines[1]))
+    moved = client.get(f"/api/runs/{run_id}/overview", headers={"If-None-Match": tag})
+    assert moved.status_code == 200 and moved.headers["etag"] != tag
