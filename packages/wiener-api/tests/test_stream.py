@@ -281,3 +281,33 @@ def test_a_page_of_events_is_read_as_a_page(client, a_bundle, session, tail, mon
     page = client.get(f"/api/runs/{run_id}/events?after=1&limit=2").json()
     assert [e["seq"] for e in page["events"]] == [2, 3] and page["cursor"] == 3
     assert read == [2], f"rows read for a page of two: {read}"
+
+
+def test_each_run_is_beaten_in_its_own_transaction(session, a_run, tail, monkeypatch):
+    """#568. The heartbeat beat every unfinished run in one transaction, and each beat takes
+    its run's row lock, so every run stayed locked until the last was done, and one failure
+    undid them all. Each run is beaten and committed on its own; it runs in a thread, off the
+    worker's event loop."""
+    import asyncio
+    import threading
+
+    import wiener_rows
+    from wiener_api import worker
+    from wiener_api.services.projection import state_of
+
+    second = wiener_rows.a_run(session)
+    session.commit()
+    real, threads = worker.beat, []
+
+    def failing_on_the_second(db, lab_id, run_id, at_ms):
+        threads.append(threading.current_thread() is threading.main_thread())
+        if len(threads) == 2:
+            raise RuntimeError("the second run's beat failed")
+        return real(db, lab_id, run_id, at_ms)
+
+    monkeypatch.setattr(worker, "beat", failing_on_the_second)
+    with pytest.raises(RuntimeError, match="second run"):
+        asyncio.run(worker.heartbeat_job({}))
+    beaten = [state_of(session, r.lab_id, r.id).last_seq for r in (a_run, second)]
+    assert sorted(beaten) == [-1, 0], "the first beat was undone with the second"
+    assert threads and not any(threads), "the heartbeat ran on the event loop's thread"

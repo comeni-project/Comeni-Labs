@@ -36,6 +36,9 @@ log = logging.getLogger(__name__)
 
 _TERMINAL = {RunPhase.SUCCEEDED, RunPhase.FAILED, RunPhase.CANCELLED, RunPhase.LOST}
 
+_PIPELINES: dict = {}
+"""Read artifacts by path, oldest dropped first past 64 (#568)."""
+
 
 def _artifact_pipeline(session, lab_id: str, run_id: str):
     """The run's own `pipeline.yml`: for `cicd.pipeline.name`, and for what the run may have
@@ -55,10 +58,19 @@ def _artifact_pipeline(session, lab_id: str, run_id: str):
     if row is None:
         return None
     path = settings.artifact_root / row.artifact_id / "pipeline.yml"
+    # **Read once per artifact** (#568): an artifact is never changed after upload, and `/graph`
+    # and `/overview` parsed it on every 4 s poll, `append` up to three times at a run's end.
+    # Only a pipeline that was read is kept; an unreadable one is tried again next time.
+    if (kept := _PIPELINES.get(path)) is not None:
+        return kept
     try:
-        return Pipeline.model_validate(yaml_strict.load(path))
+        pipeline = Pipeline.model_validate(yaml_strict.load(path))
     except Exception:  # noqa: BLE001 — an unreadable artifact is not a reason to lose a trace
         return None
+    if len(_PIPELINES) >= 64:
+        _PIPELINES.pop(next(iter(_PIPELINES)))
+    _PIPELINES[path] = pipeline
+    return pipeline
 
 
 def state_of(session: Session, lab_id: str, run_id: str) -> RunState:

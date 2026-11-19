@@ -5719,3 +5719,6 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 - 2026-11-19, perf audit (#567): `test_a_page_of_events_is_read_as_a_page` run against the committed
   route: failed, 13 rows read for a page of 2. `test_the_console_tail_reads_only_the_end_of_the_log`
   against the committed `plain_tail`: failed, `the whole log was read`. Both pass after.
+- 2026-11-19, perf audit (#568): `test_each_run_is_beaten_in_its_own_transaction` run against the
+  committed `heartbeat_job`: failed, `[-1, -1] == [-1, 0]` (the first beat undone with the second).
+  Passes after.
