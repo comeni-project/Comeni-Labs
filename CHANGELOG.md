@@ -268,6 +268,7 @@ or a complete commit history.
 
 ### mendel-authoring
 
+- `canonical.canonical_json` is the one spelling of sorted, compact JSON that drafts' fingerprints, decision site keys and review fingerprints are made from; the bytes are unchanged (#595).
 - `Decisions.from_goal` keeps a pin's and a setting's `by` and `because`: a goal imported from a pipeline the AI built kept the AI's choices as the person's (#505).
 - A setting a model settled names its author: the committing actor when its decision record names none (#535).
 

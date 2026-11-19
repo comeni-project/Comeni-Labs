@@ -4,7 +4,6 @@ All writes lock the draft first and join the dispatcher's transaction. Observati
 never select themselves: only an explicit selection changes the goal.
 """
 
-import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -15,6 +14,7 @@ from secrets import token_hex
 
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import Goal, InputState, Site
+from mendel_authoring.canonical import canonical_json
 from mendel_authoring.decisions import (
     ActorKind,
     Attribution,
@@ -524,7 +524,7 @@ def goal(draft_id):
 
 
 def _site_key(site):
-    return json.dumps(site.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    return canonical_json(site.model_dump(mode="json"))
 
 
 def import_goal(draft_id, goal: Goal, *, who, expected_revision=None):

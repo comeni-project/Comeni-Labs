@@ -10,7 +10,6 @@ only a developer machine could check.
 """
 
 import hashlib
-import json
 import logging
 import secrets
 from datetime import UTC, datetime
@@ -33,6 +32,7 @@ from comeni_core.plan.ir import ValueSource
 from comeni_core.plan.tiers import Tier
 from comeni_core.spell.marks import NodeId, PortName
 from comeni_core.spell.routes import OMITTABLE
+from mendel_authoring.canonical import canonical_json
 from mendel_compiler import locate, pipeline_file, staging
 from mendel_resolver.materialise import goal_of, ir_of
 from pydantic import BaseModel, ConfigDict, Field
@@ -579,7 +579,7 @@ def keep(draft_id: str, *, by: str = "", ai: AiProvenance | None = None) -> Path
 
 def fingerprint(graph: DraftGraph) -> str:
     """The graph's content, as a digest: what *changed since kept* compares (issue 277)."""
-    canonical = json.dumps(graph.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    canonical = canonical_json(graph.model_dump(mode="json"))
     return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
 
 
