@@ -7,7 +7,7 @@ refusal from the engine, into a result the model reads, never an exception that 
 
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from comeni_ai.agent import ToolSpec
 from comeni_core.egress.agent import AgentToolResult
@@ -22,6 +22,9 @@ class ToolContext:
     session_id: str | None
     who: str
     expected_revision: int
+    builds: dict = field(default_factory=dict, compare=False, repr=False)
+    """The pipelines built in this context, by what each was built from (#551): one turn's
+    `resolve`, `read_pipeline` and `read_step` build once per state of the decisions."""
 
 
 # Here, not in `read`, so every tool module can take it without importing `read` while `read` is
