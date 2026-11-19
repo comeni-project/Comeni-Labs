@@ -13,7 +13,6 @@ premise validity, module stacking, and displacement reporting.
 """
 
 from collections.abc import Sequence
-from functools import cached_property
 from pathlib import Path
 
 from comeni_core.declared.families import FamilyVocabulary
@@ -33,7 +32,7 @@ from comeni_core.declared.tools import ToolCatalogue
 from comeni_core.declared.tooltest import ToolTest, test_kind
 from comeni_core.declared.vocabulary import UnknownStateError, Vocabulary
 from comeni_core.diagnostics import coded
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from mendel_resolver.rules import RuleTable
 
@@ -42,6 +41,8 @@ class Layers(BaseModel):
     """Everything a build needs from disk, loaded and cross-validated."""
 
     model_config = ConfigDict(extra="forbid")
+    _routing: Registry | None = PrivateAttr(default=None)
+    """`routing`, once worked out (#549). Private, so it is no field of the model."""
 
     measurements: MeasurementRegistry
     vocabulary: Vocabulary
@@ -81,7 +82,7 @@ class Layers(BaseModel):
     my overlay change" is one field rather than four conventions.
     """
 
-    @cached_property
+    @property
     def routing(self) -> Registry:
         """The registry a build routes with and maps its graph back through: the layers'
         contracts plus the generated measuring steps (#465). Everything that turns a node back
@@ -92,7 +93,10 @@ class Layers(BaseModel):
         changed after it is loaded (`services/registry.py` shares one between requests)."""
         from mendel_resolver.measure_steps import contracts_for
 
-        return self.registry.with_contracts(contracts_for(self.inspection, self.registry))
+        if self._routing is None:
+            self._routing = self.registry.with_contracts(
+                contracts_for(self.inspection, self.registry))
+        return self._routing
 
 
 def load(layers: str | Path | Sequence[str | Path]) -> Layers:
