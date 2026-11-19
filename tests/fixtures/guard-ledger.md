@@ -5722,3 +5722,6 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 - 2026-11-19, perf audit (#568): `test_each_run_is_beaten_in_its_own_transaction` run against the
   committed `heartbeat_job`: failed, `[-1, -1] == [-1, 0]` (the first beat undone with the second).
   Passes after.
+- 2026-11-19, perf audit (#571): `test_scan_of_many_samples_holds_one_samples_heads_at_a_time` is widened
+  from a peak of 2 heads to at most `2 * AT_ONCE`: two samples are measured at once. It still fails on a
+  scan that reads every head first (peak 60). Output identity was checked with `bench_scan_par.py`.

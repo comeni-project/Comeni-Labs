@@ -92,7 +92,8 @@ def test_scan_reads_at_most_head_bytes_per_file(clean, client, root, monkeypatch
 
 def test_scan_of_many_samples_holds_one_samples_heads_at_a_time(clean, client, root, monkeypatch):
     """Heads read and not yet measured: counted up when read, down when their sample has been
-    inspected. A scan that read every head first would peak at 60 (Checkpoint A, finding 7)."""
+    inspected. A scan that read every head first would peak at 60 (Checkpoint A, finding 7).
+    Two samples are measured at once since #571, so at most `AT_ONCE` pairs are held."""
     d = draft(client)
     pairs(root / "many", *[f"s{n:03}" for n in range(30)])
     held, peak = [0], [0]
@@ -114,7 +115,7 @@ def test_scan_of_many_samples_holds_one_samples_heads_at_a_time(clean, client, r
     tick(client, d, root / "many")
     scanning.scan(d, who="ana")
     assert len(view(client, d)["samples"]) == 30
-    assert peak[0] == 2
+    assert 2 <= peak[0] <= 2 * inspect.AT_ONCE
 
 
 def test_a_failed_scan_says_so_and_does_not_raise(clean, client, root, monkeypatch):

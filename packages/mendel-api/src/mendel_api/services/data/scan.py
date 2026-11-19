@@ -6,8 +6,9 @@ each with the same size, modification time and inode, under the same registry an
 versions (#570); anything else is measured again. A rewrite that keeps all three stats is not
 seen, which the operator accepted on 2026-11-18 over hashing every head.
 
-**One sample's heads at a time.** Hundreds of samples are read in turn: a sample's heads are
-read, measured and dropped before the next, and only the facts are kept. Nothing is copied.
+**At most `inspect.AT_ONCE` samples' heads at a time** (#571): two samples are measured at
+once, each sample's heads read, measured and dropped before that worker takes the next, and
+only the facts are kept. Never every head first. Nothing is copied.
 
 **It never raises.** A job that raised would leave the page saying *scanning* for ever; a failure
 is written down as `failed`, with what went wrong, and the person can tick again.
@@ -18,6 +19,7 @@ import importlib.metadata
 import json
 import os
 import stat
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -165,48 +167,67 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
                 files.append(ScannedFile(path=str(paths[index]), name=paths[index].name,
                                          size=size))
                 done += 1
+            # Planned in order, then measured two at a time (#571): `inspect.AT_ONCE` children
+            # may run at once, and samples went one after another. Results are taken in the
+            # order planned, never in the order they finish, so the output is the same.
+            plan = []
             for name, indexes in grouped.samples:
                 chosen = [paths[i] for i in indexes]
                 try:
                     stats = [p.stat() for p in chosen]
                 except OSError:
                     continue  # gone since it was listed: not a sample
-                sizes = tuple(st.st_size for st in stats)
                 key = _key(digest, chosen, stats)
-                if (kept := measured.get(key)) is not None:
-                    # Unchanged since it was measured: its facts are still what it measures.
-                    samples.append(StoredSample(**{**kept, "name": name,
-                                                   "left_out": name in left_out}))
-                    files += [ScannedFile(path=str(p), name=p.name, size=s, sample=name,
-                                          recognised=kept["type_id"])
-                              for p, s in zip(chosen, sizes, strict=True)]
-                    done += len(chosen)
-                    continue
+                plan.append((name, chosen, tuple(st.st_size for st in stats), key,
+                             measured.get(key)))
+
+            def measure(entry):
+                _, chosen, sizes, _, _ = entry
                 try:
                     heads = [(p.name, _head(p, inspect.HEAD_BYTES)) for p in chosen]
                 except OSError:
-                    continue  # gone, or not a regular file any more: not a sample
-                found = inspect.inspect_sample(heads, stack, None, sizes=sizes)
-                del heads
-                if found.type_id is None:
-                    # Nothing reads it: listed with the other unread files, not a sample.
-                    unfit += [p.name for p in chosen]
-                    files += [ScannedFile(path=str(p), name=p.name, size=s)
+                    return None  # gone, or not a regular file any more: not a sample
+                return inspect.inspect_sample(heads, stack, None, sizes=sizes)
+
+            pool = ThreadPoolExecutor(max_workers=inspect.AT_ONCE)
+            try:
+                results = pool.map(measure, [e for e in plan if e[4] is None])
+                for entry in plan:
+                    name, chosen, sizes, key, kept = entry
+                    if kept is not None:
+                        # Unchanged since it was measured: its facts are still what it measures.
+                        samples.append(StoredSample(**{**kept, "name": name,
+                                                       "left_out": name in left_out}))
+                        files += [ScannedFile(path=str(p), name=p.name, size=s, sample=name,
+                                              recognised=kept["type_id"])
+                                  for p, s in zip(chosen, sizes, strict=True)]
+                        done += len(chosen)
+                        continue
+                    found = next(results)
+                    if found is None:
+                        continue
+                    if found.type_id is None:
+                        # Nothing reads it: listed with the other unread files, not a sample.
+                        unfit += [p.name for p in chosen]
+                        files += [ScannedFile(path=str(p), name=p.name, size=s)
+                                  for p, s in zip(chosen, sizes, strict=True)]
+                        done += len(chosen)
+                        continue
+                    samples.append(StoredSample(
+                        name=name, files=[str(p) for p in chosen], outcome=found.outcome,
+                        type_id=found.type_id, left_out=name in left_out, key=key,
+                        facts=[SampleFact(measurement=f.measurement, value=f.value,
+                                          coverage=f.coverage, pieces=list(f.pieces))
+                               for f in found.facts if f.undetermined is None]))
+                    files += [ScannedFile(path=str(p), name=p.name, size=s, sample=name,
+                                          recognised=found.type_id)
                               for p, s in zip(chosen, sizes, strict=True)]
                     done += len(chosen)
-                    continue
-                samples.append(StoredSample(
-                    name=name, files=[str(p) for p in chosen], outcome=found.outcome,
-                    type_id=found.type_id, left_out=name in left_out, key=key,
-                    facts=[SampleFact(measurement=f.measurement, value=f.value, coverage=f.coverage,
-                                      pieces=list(f.pieces))
-                           for f in found.facts if f.undetermined is None]))
-                files += [ScannedFile(path=str(p), name=p.name, size=s, sample=name,
-                                      recognised=found.type_id)
-                          for p, s in zip(chosen, sizes, strict=True)]
-                done += len(chosen)
-                _save(draft_id, revision,
-                      scan=Scan(state="scanning", done=done, total=total).model_dump())
+                    _save(draft_id, revision,
+                          scan=Scan(state="scanning", done=done, total=total).model_dump())
+            finally:
+                # A stale or failed scan starts no more children than are already running.
+                pool.shutdown(wait=True, cancel_futures=True)
         _save(draft_id, revision, files=[f.model_dump() for f in files],
               samples=[s.model_dump(mode="json") for s in samples], unfit=unfit)
         decisions.data_changed(draft_id)
