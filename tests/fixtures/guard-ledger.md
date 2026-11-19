@@ -5712,3 +5712,5 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   against the committed `_cacheable`: failed, the tool result unmarked. Passes after.
 - 2026-11-19, perf audit (#557): `test_a_passing_provider_failure_is_tried_again_and_each_try_recorded`
   failed before `_conversed` existed and against `TRIES = 1`. Passes after.
+- 2026-11-19, perf audit (#562): `test_the_drafts_list_reads_each_kept_pipeline_once_per_keep` run against
+  the committed `list_drafts`: failed, `a kept pipeline was parsed again unchanged`. Passes after.

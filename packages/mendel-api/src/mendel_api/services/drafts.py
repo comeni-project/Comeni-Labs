@@ -13,6 +13,7 @@ import hashlib
 import json
 import secrets
 from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
 
@@ -247,6 +248,20 @@ def _provenance_of(pipeline: Pipeline) -> tuple[Provenance, list[OpenValue], int
     return Provenance(**tally), named, unnamed
 
 
+LIMIT = 200
+"""The most drafts one page lists, whatever is asked (#562)."""
+
+
+@lru_cache(maxsize=512)
+def _kept_summary(path: Path, digest: str) -> tuple:
+    """What the list shows of a kept pipeline: its provenance, open values and what it makes.
+    **Kept by the artifact's digest** (#562): a new keep moves it, so a summary is never older
+    than its file; each list request parsed every kept `pipeline.yml` again (7 to 9 ms each)."""
+    kept = pipeline_file.load(path)
+    provenance, named, unnamed = _provenance_of(kept)
+    return provenance, named, unnamed, list(kept.goal.want)
+
+
 def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int]:
     """Every pipeline this laboratory has, newest edit first.
 
@@ -259,6 +274,7 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
     laboratory's own work rather than with how much the product knows, which is the right thing
     for it to grow with. Audit A138 records where a number like this stops being true.
     """
+    limit = max(1, min(limit, LIMIT))
     with session_scope() as session:
         total = session.query(PipelineDraft).count()
         rows = (
@@ -304,16 +320,15 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
                        data=data.get(draft_id))
         artifact = _output_root() / draft_id / "pipeline.yml"
         if was_kept and artifact.is_file():
-            kept = pipeline_file.load(artifact)
-            provenance, named, unnamed = _provenance_of(kept)
+            provenance, named, unnamed, makes = _kept_summary(artifact, digest or "")
             row = row.model_copy(update={
                 "kept": True,
                 "changed_since_kept": fingerprint(graph) != kept_graph,
                 "digest": digest,
                 "provenance": provenance,
-                "open_values": named,
+                "open_values": list(named),
                 "open_not_named": unnamed,
-                "makes": list(kept.goal.want),
+                "makes": list(makes),
             })
         out.append(row)
     return out, total
