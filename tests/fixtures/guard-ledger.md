@@ -5682,6 +5682,11 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   run against the committed `projection.append` (`restored()` before each fold): failed, `ingest loaded every
   task of the run`. `test_a_broken_exporter_does_not_lose_the_terminal_event`, now with telemetry on, against
   an `append` that exported its task-less state: failed. All pass after.
+- 2026-11-18, perf audit (#551): `test_a_turn_resolves_each_state_of_the_decisions_once` run against the
+  committed `agent/read.py` (on `issue-sweep`): failed, `the resolve tool built the pipeline more than once`.
+  Passes after.
+- 2026-11-18, perf audit (#560): `test_the_data_routes_do_their_blocking_work_off_the_event_loop` run against
+  the committed `routes/data.py` (on `issue-sweep`): failed, `inside_folder ran on the event loop`. Passes after.
 - 2026-11-18, perf audit (#555): `test_an_openai_shaped_route_is_told_which_conversation_a_call_continues`
   and `test_a_scripted_transport_keeps_the_cache_key_it_was_sent` failed before `cache_key` existed.
   `test_every_call_of_a_session_names_the_same_conversation` against a loop that sent no key: failed.
