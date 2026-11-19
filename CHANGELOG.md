@@ -23,12 +23,29 @@ mounted here as a submodule. Its changes and releases are recorded in that repos
 - Production requires separate administrator, Mendel and Wiener database passwords.
 - The API and the AI worker share `.run/chatgpt` as `CHATGPT_TOKEN_DIR`, for a ChatGPT
   subscription's sign-in (#457).
+- Production now mounts `.run/chatgpt` in the API and the AI worker as development does. The
+  AI worker mounts the data root read-only at the same path in both, so the builder's Data tools
+  open references at the paths the API saved.
+- `make prepare` creates `.run/chatgpt` and stops when it is not writable. It records the host
+  Docker socket's group as `DOCKER_GID_SOCK` in `.env`, keeping a value already set there or in
+  the environment.
 
 These notes consolidate the earlier unreleased entries and backfill notable changes
 through the explain-inputs and retention work on this branch. They are not a new release
 or a complete commit history.
 
 ### comeni-core
+
+- A type with no `entry_channel` gives each file `[ [id: <its base name>], file ]`, as the curated types do; it gave `[ [:], f ]`, so a module named every output `null`. A run guard's sentence names the params a person sets: `; set \`fasta\` as --fasta_2` (#467).
+- A fact a person said that the data measures otherwise keeps both: `Measured.measured` and `PremiseRecord.measured` (only on a said value; `PremiseRecord.contradicted`), and the premise reads `read_length is 150, asserted, not measured; the data measures 99` (#510).
+- `explain` (`mendel explain`, `forge explain`) prints a code's `says:` line, its explanation, then its `fix:`, which neither CLI showed (#67).
+- A displacement of a tuple-keyed declaration records the key as `contract#test`: two layers declaring the same tool test no longer fail to load (#448).
+- `NfInput.pad` and `CallArg.pad`: empty paths appended after an entry's ports, for a tuple that ends in optional files nothing models (#507). **SCHEMA_VERSION 10**: a version-9 `pipeline.yml` is refused (MD0207) and rebuilt from its intent and facts.
+- Builder egress: `RepliedView`, the validated message of the agent's `reply`; and
+  `DataView.reference_files` (`ReferenceCandidate`): the analysis's reference candidates by an
+  opaque file ID, file and collection name and possible types, never a path.
+- A model connection records its `provider` (`connection.provider`): Ollama, LM Studio, OpenAI,
+  Anthropic, Gemini, OpenRouter, a ChatGPT subscription or a custom server.
 
 - `Pipeline.of`, `materialise.of` and `Lockfile.of` take the layers' digests when the caller already holds them, instead of hashing every layer again (#545).
 - `Shown.checks`: a setting's slower check is read on its own after the menu (#511).
@@ -126,6 +143,9 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- MD0609 says a missing setting is not set, and a missing input not connected; it called both unconnected (#467).
+- A rule's choice that read a contradicted fact is tier 4, flagged for review, with the same value and both values in its reason (`Pin.tier()`), for producers and settings alike (#510).
+- A port that gathers over the study (`grain: study, many: true`) routes one producer per kind of data the analysis has, and takes one output from every step that makes what it reads: MULTIQC gathers FastQC's reports on the reads and QUAST's on the assemblies. Producers reached from the same data still compete, and a person's source pin keeps only theirs (#435).
 - Rule proposals (#462): `proposals` turns a kept pipeline's decisions into cases, gathers a person's tier-4 answers per target (`MIN_CASES = 3`), judges a proposed row against them (contradicted, unsupported or never firing), narrows it to where the existing rows missed, and replays it over every past decision of its target.
 
 - Parts (#466): a step that can run on parts of each sample is split before it and merged after it whenever the registry has a splitter and a merger and the step's only per-sample input is the split one, unless the person keeps it whole.
@@ -165,6 +185,11 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- A samplesheet pipeline's `stub_data` profile points `params.input` at a stub samplesheet, two rows of empty files the stub gate writes (`STUB_SAMPLESHEET`, `stub_samplesheet`); it was a FASTQ glob the workflow would parse as a CSV. `materialise_stub_data` takes the pipeline (#542).
+- MD0112: conformance compares each port's formats, from what the contracts making its type write and its test data, with the file pattern the module's meta.yml documents for the element it fills, so inputs wired in the wrong order are refused at build. An element where either names no format is not checked. `check` takes the vocabulary (#414).
+- `entry_params` lists `input` for a samplesheet pipeline in place of its per-sample channels' params, which the workflow never reads: `nextflow.config` declares what the run reads, and a forge test is sent exactly those (#484).
+- A port gathered over the study reaches its process as one `[meta, files]` tuple, as a gather per key does; a bare `.collect()` mixed every sample's `meta` in among the files. MULTIQC now runs after FastQC (#507). Inside a shared slot, such a port passes every sample's files rather than one (#483).
+- MD0111: conformance compares a tuple's width, `val(meta)` plus one per port plus `pad`, with the module's, not only the number of channels (#507).
 - `orchestrate.prepare` holds what a build needs of a registry before it sees a goal (layers, conformance diagnostics, facts read, layer digests); `orchestrate.build(prepared=...)` takes one a caller kept for the same registry state (#545).
 - `orchestrate.build(..., ai=)` takes the caller's AI provenance, so a value a model settled builds (#535).
 
@@ -235,6 +260,7 @@ or a complete commit history.
 
 ### mendel-authoring
 
+- `Decisions.from_goal` keeps a pin's and a setting's `by` and `because`: a goal imported from a pipeline the AI built kept the AI's choices as the person's (#505).
 - A setting a model settled names its author: the committing actor when its decision record names none (#535).
 
 - The memory rendered for the model says how uploaded samples spread over each fact they differ on (#466).
@@ -268,6 +294,31 @@ or a complete commit history.
   questions are not asked again. Build and Spawn are consolidated into one authoring flow.
 
 ### mendel-api
+
+- The drafts list keeps an analysis whose kept `pipeline.yml` this Mendel cannot read (MD0207 after SCHEMA_VERSION 10), marked changed since it was kept; one such file made the whole list 422 and Home never loaded.
+- A change in Data while the agent's turn is pending is said to it next, queued behind that turn, rather than dropped; the readers view names every role a rule decides, not the first (#535).
+- Data's files say what each is used as now: a reference shows its kind, and a left-out sample's file carries `left_out` (`ScannedFile.left_out`). Release refusals name each release and why, and say what to do; they said only "4 release(s) could not be used" (#535).
+- A session's agent turns run one at a time, under an advisory lock; with two AI jobs, two turns wrote to one draft at once. Sample names are cut to 200 characters, as `SampleName` allows, where a rule cut them to 256 and the agent's data reads then refused. A tool's `KeyError` is a refusal to the model only when the model named the missing key; any other fails the turn as the engine's error. `read_pipeline` tells the agent a step is unreviewed only while the person has not reviewed it (#505).
+- A fact a person said and the data measured otherwise carries the data's value beside it (`FactDecision.measured`, derived at every read). The AI may not set a measured fact to another value: MI0228, nothing written (#510).
+- Builder agent, protocol `builder.agent.v4`: a `reply` tool ends the turn with a validated
+  message, and a reply without tools is still the answer. The announce-and-nudge heuristic is
+  gone. Each model call records a digest of the tool definitions and the tool choice it was
+  sent. `add_reference` picks a reference from `read_data`'s candidates by ID, recorded as the
+  AI's with its reason. The prompt tells the agent to match the collection to the analysis.
+- Data: a sample choice and its undo apply to the saved measurements, reading only files whose
+  pairing changes, then rebuild an existing pipeline in the background. They no longer rescan
+  every folder. `/data/tree` lists a folder's files, 200 at a time (`file_offset`), each with its
+  size and kind. Run bindings count only the samples a pipeline's inputs take.
+- Guided model setup under `/settings/models/`: detect local Ollama and LM Studio servers, list
+  a draft connection's models before saving it, and sign in to a ChatGPT subscription with a
+  device code. Model listing sends Anthropic's own headers and explains 401, 403 and 404 answers.
+  The subscription catalogue is requested with the Codex client's current version, read from
+  public npm metadata every six hours; no credentials are sent there.
+- Registry tool tests (`/tool-tests`): list a held tool's registered tests, prepare one as a
+  bundle for the run service, and check a run's published outputs against the test's expected
+  files.
+- Forge: answering, approving, writing or changing an item queues the AI's draft of the next
+  empty piece. It approves nothing the AI proposed.
 
 - The builder agent sends one cache key per session, a digest of the session id (#555).
 - Each HTTP request decides a draft's decisions once per decision revision (`decisions.remembered`, opened per request in `main`): one change request made 8 full decision reads and 162 statements, now 1 and 85 (#561).
@@ -459,6 +510,15 @@ or a complete commit history.
 
 ### comeni-ai
 
+- **Breaking:** the `MENDEL_MODEL`, `MENDEL_API_KEY`, `MENDEL_BASE_URL`, `MENDEL_TIMEOUT_SECONDS` and `MENDEL_TEMPERATURE` fallbacks are no longer read; set `COMENI_AI_*`. `access.NAMES` lists what `from_env` reads (#298).
+- `reply_of` reads every choice of a `chatgpt/` reply. LiteLLM's Responses bridge returns
+  narration and tool calls as separate choices, so the builder lost its tool calls whenever it
+  narrated first. Other providers' choices are alternative generations; the first is kept.
+- `AgentTransport.converse` takes an optional `tool_choice="required"` (`comeni_ai.tool_policy`):
+  sent only to hosted providers that support it, retried without it after an unsupported-parameter
+  refusal, never sent to local endpoints. `AgentReply.tool_choice` records what was sent. The
+  builder does not request it.
+
 - `AgentTransport.converse` takes a `cache_key`: sent as `litellm_session_id` on the ChatGPT subscription route and as `prompt_cache_key` to OpenAI, so a conversation's rounds share the provider's prompt cache instead of each looking new (#555).
 - A provider's usage limit is MA0010, with the reset time it gives (#528).
 
@@ -473,11 +533,10 @@ or a complete commit history.
 
 ### mendel-ai
 
-#### Changed
+#### Removed
 
-- Mendel model integration uses the shared `comeni-ai` transport. The package split does not
-  yet encompass all Mendel prompts or worker orchestration; ownership is tracked in
-  [issue #310](https://github.com/comeni-project/Comeni-Labs/issues/310).
+- **The package is gone** (#298). It only re-exported `comeni-ai`, which every caller imports
+  directly. It was never tagged for release.
 
 ### comeni-inspect
 
@@ -616,6 +675,22 @@ or a complete commit history.
 - Shared pure graph layout supports the build and run canvases.
 
 ### frontend
+
+- The Forge's Part panel clears a refused command's error when another part is picked (#535).
+- From the walk of 2026-11-17 (#509, #532, #535): removing a step names the steps that only fed it, which go too; adding a reference guesses its kind from the file name; a left-out sample's files say they are used for nothing; a cut release reads *released* and names who cut it only when known; the machine card's memory is *Most memory one task used*.
+- **Settings → Models**: guided connection setup with provider cards, local server detection,
+  model discovery before saving and ChatGPT subscription sign-in. Connections are listed with
+  their checks.
+- **Data**: a folder row opens onto its files, with their sizes and kinds. A file name shows its
+  location inside the added folders. Each kind of data has its own table, all in view, with a
+  *Pipeline use* column. Folder checkboxes are larger.
+- **Run** counts only the samples the pipeline takes, and a step pulses only while its tasks run.
+  Outputs offers *Show in folder*, served by the local development server (`/api/local/reveal`,
+  same-origin loopback only), and opens only HTML reports in a new tab. Console fits the window.
+- **Registry · Tools** is three pinned columns (filters, list, selected tool) that fold at
+  narrower widths. A held tool's registered tests run from its card and its page.
+- **Forge**: the side panel opens on the Assistant, which shows drafting progress, waiting
+  questions with their answer choices and the next piece, and stays scrolled to the latest.
 
 - **Registry, Forge and Settings to the board** (#511, #513). **Registry**: Tools (search, a format flow, the selected tool with its fits and the rules that decide by it), Vocabulary, **Measurers** (one entry a reader: what it reads, the facts it makes, the rules and settings that decide by each, its tests) and Releases. **Forge** (`/forge`): search nf-core with how each match fits your registry, what needs you, and each forging's Tool · Tests · Publish; a forging (`/forge/:id`) draws the tool as a small pipeline with its parts, an inspector a part with the AI's waiting choices under Review, the assistant, its tests and what they cover, and the track to release. **Settings** is a page (`/settings`), its sections in the rail; the `?settings=` overlay is gone. Outputs opens text in the browser and does not offer a binary.
 

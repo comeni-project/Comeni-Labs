@@ -1,5 +1,5 @@
 import { useQueries } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { listModels } from "./useAction";
 import { FIELD } from "./shared";
@@ -90,6 +90,20 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
     })),
   });
   const current = entry.shown.value as Choice;
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const box = useRef<HTMLSpanElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    searchInput.current?.focus();
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const escape = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); trigger.current?.focus(); } };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", escape); };
+  }, [open]);
   const [other, setOther] = useState<{ connection: string; model: string } | null>(null);
   const encode = (c: Choice) => (c ? `${c.connection}\u0000${c.model}` : "");
   const options = records.flatMap((r, i) =>
@@ -99,26 +113,49 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
     lists[i].error ? [{ name: r.name, says: lists[i].error?.message ?? "" }]
       : lists[i].data?.ok === false ? [{ name: r.name, says: lists[i].data?.says ?? "" }] : []);
 
+  const isDefault = entry.setting.key === "models.default";
+  const emptyLabel = isDefault ? "No default model" : entry.setting.inherit_default === false ? "Off" : "Same as the default";
+  const choose = (choice: Choice) => {
+    setOther(null); setOpen(false);
+    onWrite(choice?.model.startsWith("chatgpt/") && choice.temperature === undefined ? { ...choice, temperature: 1 } : choice);
+    trigger.current?.focus();
+  };
+  const visible = options.filter((o) => `${o.connection} ${o.model}`.toLowerCase().includes(search.toLowerCase()));
+  const listing = lists.some((l) => l.isPending);
+
   return (
-    <span className="flex flex-wrap items-center gap-[8px]">
-      <select
-        aria-label={entry.setting.label}
-        disabled={entry.shown.locked}
-        value={other ? "\u0001" : encode(current)}
-        onChange={(event) => {
-          const v = event.target.value;
-          if (v === "\u0001") return setOther({ connection: records[0]?.name ?? "", model: "" });
-          setOther(null);
-          // A new model starts untuned: its call settings were the old model's.
-          onWrite(v ? { connection: v.split("\u0000")[0], model: v.split("\u0000")[1] } : null);
+    <span ref={box} className="relative flex flex-wrap items-center gap-[8px]">
+      <button ref={trigger} id={entry.setting.key} type="button" aria-label={entry.setting.label}
+        aria-haspopup="dialog" aria-expanded={open} disabled={entry.shown.locked}
+        onClick={() => {
+          setSearch(""); setOpen(!open);
+          if (!open) lists.forEach((list) => { if (list.isStale) void list.refetch(); });
         }}
-        className={FIELD}
-      >
-        <option value="">{entry.setting.inherit_default === false ? "Off" : "Same as the default"}</option>
-        {current && !known && <option value={encode(current)}>{current.connection} · {short(current.model)}</option>}
-        {options.map((o) => <option key={encode(o)} value={encode(o)}>{o.connection} · {short(o.model)}</option>)}
-        <option value={"\u0001"}>Other…</option>
-      </select>
+        className={`${FIELD} flex items-center justify-between gap-2 text-left cursor-pointer`}>
+        <span className="truncate">{current ? short(current.model) : emptyLabel}</span><span aria-hidden>⌄</span>
+      </button>
+      {open && <div role="dialog" aria-label={`Choose model for ${entry.setting.label}`} className="model-popover">
+        <label className="sr-only" htmlFor={`search-${entry.setting.key}`}>Search models</label>
+        <input ref={searchInput} id={`search-${entry.setting.key}`} type="search" value={search}
+          onChange={(e) => setSearch(e.target.value)} placeholder="Search models or connections…" className="connection-field" />
+        <div className="model-popover-options">
+          <button type="button" onClick={() => choose(null)} className="model-popover-option">
+            <span>{emptyLabel}</span>{!current && <span aria-hidden>✓</span>}
+          </button>
+          {current && !known && <button type="button" onClick={() => choose(current)} className="model-popover-option">
+            <span>{short(current.model)}<small>{current.connection}</small></span><span aria-hidden>✓</span>
+          </button>}
+          {visible.map((o) => <button type="button" key={encode(o)} onClick={() => choose(o)} className="model-popover-option">
+            <span>{short(o.model)}<small>{o.connection}</small></span>{encode(o) === encode(current) && <span aria-hidden>✓</span>}
+          </button>)}
+          {listing && <p role="status" className="m-0 p-3 text-secondary text-ink-3">Loading models…</p>}
+          {!listing && !visible.length && <p role="status" className="m-0 p-3 text-secondary text-ink-3">{records.length ? "No models match. Check a connection or enter an ID below." : "Add a connection above to discover models."}</p>}
+        </div>
+        {records.length > 0 && <button type="button" className="model-popover-option text-now-ink" onClick={() => {
+          setOther({ connection: records[0].name, model: "" }); setOpen(false);
+        }}>Enter a model ID…</button>}
+        <button type="button" className="connection-text-button" onClick={() => { setOpen(false); trigger.current?.focus(); }}>Close</button>
+      </div>}
       {/* One line however many connections failed, naming them; the server's own words are in
           its title. A connection whose list could not be read still offers *Other…*. */}
       {failed.length > 0 && (
@@ -140,8 +177,8 @@ export function ModelPicker({ entry, menu, onWrite }: { entry: Entry; menu: Menu
           <input aria-label="Model id" placeholder="provider/model" value={other.model}
                  onChange={(e) => setOther({ ...other, model: e.target.value })}
                  className={FIELD} />
-          <button type="button" disabled={!other.model.includes("/")}
-                  onClick={() => { onWrite(other); setOther(null); }}
+          <button type="button" disabled={!other.connection || !other.model.includes("/") || entry.shown.locked}
+                  onClick={() => choose(other)}
                   className="bg-transparent text-now-ink cursor-pointer text-secondary">Use</button>
         </>
       )}

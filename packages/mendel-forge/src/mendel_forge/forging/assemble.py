@@ -198,7 +198,8 @@ def prove(base: Path, below: list[Path], draft: Path) -> Proof:
     # are the registry's.
     contracts = {yaml.safe_load(p.read_text())["id"] for p in draft.rglob("contract.yml")}
     found = [d for d in conformance.blocking(
-                 conformance.check(stack.registry, stack.modules, stack.measurements))
+                 conformance.check(stack.registry, stack.modules, stack.measurements,
+                                   stack.vocabulary))
              if d.where in contracts]
     if found:
         return Proof(loaded=True, conforms=False, blames=Piece.CONTRACT, problems=[

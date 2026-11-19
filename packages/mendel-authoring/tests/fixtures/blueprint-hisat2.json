@@ -30,7 +30,7 @@
   ]
  },
  "pipeline": {
-  "version": 9,
+  "version": 10,
   "intent": {
    "want": [
     "counts.matrix"

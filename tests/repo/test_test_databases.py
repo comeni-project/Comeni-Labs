@@ -53,3 +53,13 @@ def test_the_developers_model_is_dropped():
     environ = {"COMENI_AI_MODEL": "ollama_chat/x", "COMENI_AI_BASE_URL": "http://ollama:11434"}
     configure(environ)
     assert environ == {k: v for k, v in environ.items() if not k.startswith("COMENI_AI_")}
+
+
+def test_a_developers_deploy_secrets_do_not_reach_the_tests():
+    """`make test` loads `.env`; a Wiener token in it made 60 tests 401 (#455)."""
+    from support.databases import DEPLOY_SECRETS
+
+    environ = {name: "from-dot-env" for name in DEPLOY_SECRETS}
+    assert {"WIENER_API_TOKEN", "COMENI_FORGE_GITHUB_TOKEN"} <= set(environ)
+    configure(environ)
+    assert not set(DEPLOY_SECRETS) & set(environ)

@@ -6,7 +6,7 @@ its top half, `intent` and `facts`; building it writes the rest.
 
 ```yaml
 # examples/rnaseq.yml
-version: 9
+version: 10
 intent:
   want: [counts.matrix]
   constraints:
@@ -166,6 +166,7 @@ Model: `comeni_core.goal.profile.Measured`
 | `by` | string \| null | `null` | the contract that measured it, when something did |
 | `pieces` | [string] | `[]` | the inspector pieces that measured an uploaded sample, e.g. `[fastq@1.1.0, read_length@1.0.0]`; left out when empty, and never set together with `by` |
 | `evidence` | object \| null | `null` | how much the pieces read: `records`, `rows`, `share` (counts only, each written only when known, at least one); left out when there is none |
+| `measured` | value \| null | `null` | what the data measured, when you said a different value: your value stands, and every choice that read it is tier 4 and names both. Only on a value you said; left out when they agree (#510) |
 
 **Only declared measurements are accepted** — an unknown one is refused, which is what stops a
 `sample_name` from ever building.

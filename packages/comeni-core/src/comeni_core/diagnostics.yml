@@ -30,6 +30,8 @@
 #   MI0001-MI0099  the API: gating a drawn pipeline
 #   MI0100-MI0199  the API: retired with the old forge (#361), except MI0106
 #   MI0200-MI0299  the API: the builder — sessions, turns and the agent's tools (#463)
+#   MI0227         retired: a builder turn that replied without tools twice (2026-11-17, removed
+#                  with the slip rule the same day; never reused)
 #   MI0300-MI0399  the API: settings — what the menu may change
 #   MI0400-MI0499  the API: what is stored — shapes and retention
 #   MI0500-MI0599  the API: rules proposed from people's answers (#462)
@@ -171,6 +173,38 @@ MD0110:
   explanation: |
     A type and its states have one spelling, so a file reads the same way everywhere and a
     reader never has to check two places.
+
+MD0111:
+  emitted_by: compiler
+  concern: conformance
+  says: "an `nf_inputs` entry fills a tuple of a different width than the module declares"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Count the elements of the module's `tuple` for that slot: `val(meta)`, then one per port,
+    then `pad:` for the optional paths the tuple ends in that no port fills.
+  explanation: |
+    A slot declared `tuple val(meta), path(...)` is filled by the `meta` its ports' channel
+    carries, one element per port, and `pad` empty paths after them. Nextflow matches tuple
+    arity, so a tuple of the wrong width dies at launch with "Input tuple does not match tuple
+    declaration". Counting channels is not enough: nf-core/multiqc takes one channel holding
+    six elements (#507).
+
+MD0112:
+  emitted_by: compiler
+  concern: conformance
+  says: "a port fills a slot whose file pattern takes none of its type's formats"
+  fires_on: [build]
+  refuses: true
+  fix: |
+    Order `nf_inputs` as the module's `input:` block declares its slots, so each port fills the
+    element whose meta.yml pattern takes its files.
+  explanation: |
+    A contract that wires a module's inputs in the wrong order passes every count and width
+    check, and fails only at run time, or runs on the wrong file. The module's meta.yml says
+    which files each element takes (`fasta: *.{fa,fasta,fna}`), and a type's formats are what
+    the contracts making it write and what its test data is. When the two share none, the port
+    is in the wrong slot (#414). Where either says nothing the element is not checked.
 
 MD0106:
   emitted_by: compiler
@@ -3773,6 +3807,20 @@ MI0226:
   explanation: |
     A fix that names nothing in the data would be kept and do nothing, while saying it was
     applied. It is refused instead, whoever offers it: the person's page or the AI.
+MI0228:
+  emitted_by: api
+  concern: workflow
+  says: "the AI set a fact the data measured to another value"
+  fires_on: [authoring]
+  refuses: true
+  fix: |
+    Leave the fact as the data measured it, or ask the person: only they may say the
+    measurement is wrong, and then both values stay on the record for review.
+  explanation: |
+    What the files measured is a fact about the person's data. A person may override it, for
+    example when it was read from the start of a file, and the choices that read it are then
+    flagged with both values. The AI may not: a model's assertion would replace a measurement of
+    someone's data with no one having looked (#510).
 MI0300:
   emitted_by: api
   concern: settings

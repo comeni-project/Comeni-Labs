@@ -29,11 +29,18 @@ class Folder(BaseModel):
     """Its files counted by kind (`kinds.looks_like`), filled by the route."""
 
 
+class FolderFile(BaseModel):
+    name: str
+    size: int
+    type_id: str | None = None
+
+
 class FolderListing(BaseModel):
     path: str | None
     """The folder listed; `None` for the roots themselves."""
     folders: list[Folder]
     files: int
+    entries: list[FolderFile] = []
 
 
 def inside_roots(path: str | Path, roots: list[Path]) -> Path:
@@ -79,7 +86,7 @@ def _count(folder: Path) -> tuple[int, int]:
         return (0, 0)
 
 
-def list_folder(path: Path | str | None, roots: list[Path]) -> FolderListing:
+def list_folder(path: Path | str | None, roots: list[Path], *, offset: int = 0) -> FolderListing:
     """A folder's subfolders, each with how many files it holds, and its own file count. Hidden
     entries are left out. `None` lists the roots."""
     if path is None:
@@ -93,7 +100,21 @@ def list_folder(path: Path | str | None, roots: list[Path]) -> FolderListing:
     try:
         with os.scandir(folder) as entries:
             visible = _visible(entries)
-            files = sum(1 for e in visible if e.is_file())
+            file_entries = []
+            for entry in sorted(visible, key=lambda e: e.name):
+                try:
+                    resolved = inside_roots(entry.path, roots)
+                    if resolved.is_file():
+                        file_entries.append(entry)
+                except (ValueError, OSError):
+                    continue
+            files = len(file_entries)
+            metadata = []
+            for entry in file_entries[offset:offset + 200]:
+                try:
+                    metadata.append(FolderFile(name=entry.name, size=entry.stat().st_size))
+                except OSError:
+                    continue
             subs = []
             for e in visible:
                 # A subfolder that is a link out of the roots is not listed, nor looked into.
@@ -106,5 +127,5 @@ def list_folder(path: Path | str | None, roots: list[Path]) -> FolderListing:
                                    folders=folders_in))
     except PermissionError:
         raise ValueError(coded("MI0221", f"{path} is not a folder Comeni can read")) from None
-    return FolderListing(path=str(folder), files=files,
+    return FolderListing(path=str(folder), files=files, entries=metadata,
                          folders=sorted(subs, key=lambda f: f.name))

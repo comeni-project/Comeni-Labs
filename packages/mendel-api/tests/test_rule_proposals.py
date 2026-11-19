@@ -26,7 +26,7 @@ from support.paths import ROOT
 pytestmark = pytest.mark.skipif(not reachable(), reason="no database")
 
 STAR, HISAT2 = "nf-core/star/align@2.7.11b", "nf-core/hisat2/align@2.2.2"
-FIXTURE = ROOT / "tests/fixtures/pipeline-v9/pipeline.yml"
+FIXTURE = ROOT / "tests/fixtures/pipeline-v10/pipeline.yml"
 SLUG = "implementation-alignment"
 
 

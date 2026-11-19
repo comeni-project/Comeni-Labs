@@ -98,9 +98,17 @@ def _constraints_hold(contract: ModuleContract, node: IRNode,
     verdict = evaluate(contract, setup_of(contract, node, types))
     why = "; ".join(verdict.sentences) or "its constraints"
     if verdict.missing:
+        # An input is connected; a setting is set (#467). A row may require either.
+        ports = {p.name for p in contract.consumes}
+        inputs = [m for m in verdict.missing if m in ports or m.startswith("one of ")]
+        settings = [m for m in verdict.missing if m not in inputs]
+        needs = "; ".join(
+            [f"{', '.join(inputs)}, which {'is' if len(inputs) == 1 else 'are'} not connected"]
+            * bool(inputs)
+            + [f"{', '.join(settings)}, which {'is' if len(settings) == 1 else 'are'} not set"]
+            * bool(settings))
         raise ConstraintViolation(coded(
-            "MD0609", f"{contract.id} needs {', '.join(verdict.missing)}, which is not "
-            f"connected: {why} — `mendel explain MD0609`."))
+            "MD0609", f"{contract.id} needs {needs}: {why} — `mendel explain MD0609`."))
     if verdict.forbidden:
         raise ConstraintViolation(coded(
             "MD0610", f"{contract.id} cannot have {', '.join(verdict.forbidden)} with these "
@@ -579,6 +587,8 @@ def _resolve_once(
 
         ir.nodes.append(node)
 
+    _gather_every_producer(ir, registry, goal, produced)
+
     # Already resolved and recorded, by `route()`, where the answer could still change the
     # selection. This loop used to call `resolver.resolve()` itself — after `ir.nodes` and
     # `ir.edges` were built — so the answer went into a record and nowhere else, and asking
@@ -587,6 +597,42 @@ def _resolve_once(
     ir.decisions.extend(plan.decisions)
 
     return ir
+
+
+def _gather_every_producer(ir: PipelineIR, registry: Registry, goal: Goal,
+                           produced: list[tuple[str, str, str, frozenset[str]]]) -> None:
+    """**A port that gathers over the study takes every step that makes what it reads** (#435):
+    one output from each, its first that qualifies, so QUAST's three reports do not reach MULTIQC
+    three times. Not its own step or one after it, which MULTIQC's own aggregated report would
+    otherwise be. A person who chose the port's source keeps only theirs. The steps are then
+    ordered so each comes after what feeds it."""
+    added = False
+    for node in list(ir.nodes):
+        contract = registry.get(node.contract_id)
+        off = {r.port for r in node.inputs if r.state is InputState.OFF}
+        for port in contract.consumes:
+            if not port.gathers_study() or port.name in off:
+                continue
+            if goal.constraints.source_at(contract.id, port.name) is not None:
+                continue
+            wired = [e for e in ir.edges if e.to_node == node.id and e.to_port == port.name]
+            if not wired:
+                continue
+            alternative = next(a for a in port.alternatives()
+                               if a.type_id == wired[0].type_id and a.states <= wired[0].states)
+            after = _downstream(ir, node.id)
+            feeding = {e.from_node for e in wired}
+            for from_node, from_port, type_id, states in produced:
+                if from_node in after or from_node in feeding:
+                    continue
+                if type_id == alternative.type_id and alternative.states <= states:
+                    feeding.add(from_node)
+                    ir.edges.append(IREdge(from_node=from_node, from_port=from_port,
+                                           to_node=node.id, to_port=port.name,
+                                           type_id=type_id, states=states))
+                    added = True
+    if added:
+        ir.nodes = _ordered([ir], {n.id: n for n in ir.nodes}, ir.edges)
 
 
 def _node_of(ir: PipelineIR, contract_id: str) -> str | None:
@@ -666,6 +712,9 @@ def _source_for(
 
     best = min(surplus(source) for source in qualifying)
     equally_good = [source for source in qualifying if surplus(source) == best]
+    if port.gathers_study():
+        # Every one is gathered (#435, `_gather_every_producer`), so there is nothing to ask.
+        return equally_good[-1]
     if port.prefer and len(equally_good) > 1:
         preferred = [source for source in equally_good if port.prefer <= source[3]]
         equally_good = preferred or equally_good
@@ -755,7 +804,8 @@ def _resolve_param(
             source=ValueSource.MODEL,
             reason=f"the AI set {param.name} to {override.value}{because}",
             overrode=(Overrode(rule=ruled.reason, value=ruled.value, cite=ruled.axis_reason)
-                      if ruled.tier is Tier.DATA_PROFILED else None),
+                      if ruled.tier is Tier.DATA_PROFILED
+                      or any(p.contradicted for p in ruled.premise) else None),
         ), None
     if override is not None:
         return ResolvedValue(
@@ -780,7 +830,7 @@ def _resolve_param(
     if pin is not None:
         return ResolvedValue(
             value=pin.value,
-            tier=Tier.DATA_PROFILED,
+            tier=pin.tier(),
             # No trailing colon when the row has nothing of its own to add. A row may be
             # justified entirely by its block (a one-row rule often is), and `MD0301` allows
             # that — but "rule param:strandedness: " reads as a truncation rather than as an

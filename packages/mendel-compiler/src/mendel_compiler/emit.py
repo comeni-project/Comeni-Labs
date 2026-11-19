@@ -159,7 +159,12 @@ def _port_expression(pipeline: Pipeline, step: Step, port_name: str,
                 f"it[0].comeni_groups['{key}']), it ] }}.groupTuple().map {{ k, items -> "
                 f"[ [id: k.toString(), {key}: k.toString()], "
                 "items.collect { it[1] }.flatten() ] }")
-    return f"{expression}.collect()" if wiring.gather else expression
+    if wiring.gather:
+        # One call over the study, as `[meta, files]` like a gather per key: a bare `.collect()`
+        # flattened every sample's meta in among the files, which no module declares (#507).
+        return (f"{expression}.map {{ it -> it[1] }}.collect()"
+                f".map {{ files -> [ [id: '{step.id}'], files ] }}")
+    return expression
 
 
 def _argument(pipeline: Pipeline, step: Step, arg, measured: dict[str, str] | None = None) -> str:
@@ -189,6 +194,16 @@ def _argument(pipeline: Pipeline, step: Step, arg, measured: dict[str, str] | No
         return _render_literal(setting.value)
     if not arg.ports:
         return _render_literal(arg.literal)
+    expression = _ports_argument(pipeline, step, arg, measured)
+    if arg.pad:
+        # Empty paths for the optional files a tuple ends in, in the module's order (#507).
+        return f"{expression}.map {{ it -> it + [{', '.join(['[]'] * arg.pad)}] }}"
+    return expression
+
+
+def _ports_argument(pipeline: Pipeline, step: Step, arg,
+                    measured: dict[str, str] | None = None) -> str:
+    """The channel an argument's ports make: one port's, or several joined into one tuple."""
     # A port that is off has no channel: the tuple is built from the ports that are on, and
     # `[]` then takes each left-out port's position, so the order still matches the module's
     # input block (#464). The first port that is on stands in for the head.
@@ -1251,8 +1266,14 @@ def emit(pipeline: Pipeline) -> str:
 
 
 def entry_params(pipeline: Pipeline) -> list[str]:
-    """The `params.<name>` a generated pipeline expects the laboratory to supply."""
-    return sorted({name for channel in pipeline.channels for name in channel.params})
+    """The `params.<name>` a generated pipeline expects the laboratory to supply.
+
+    A samplesheet pipeline reads every per-sample channel from `params.input` (`_from_samplesheet`)
+    and never the channels' own params, so it lists `input` in their place (#484)."""
+    sheet = pipeline.input_form is InputForm.SAMPLESHEET
+    names = {name for channel in pipeline.channels
+             if not (sheet and channel.grain is Grain.SAMPLE) for name in channel.params}
+    return sorted(names | {"input"} if sheet else names)
 
 
 def _render_test_data(value: list[str]) -> str:
@@ -1302,6 +1323,41 @@ def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:
         ],
         "    }",
     ]
+
+
+STUB_SAMPLESHEET = "stub-data/samplesheet.csv"
+"""What the `stub_data` profile points `params.input` at when the pipeline takes a table (#542):
+two rows of empty files, written by `gates.materialise_stub_data`."""
+
+STUB_SAMPLES = ("sampleA", "sampleB")
+"""Two rows, not one: with one, a queue of one and a value channel look the same."""
+
+
+def stub_samplesheet(pipeline: Pipeline, data: str) -> tuple[str, list[str]]:
+    """The stub samplesheet's text and the files its cells name, under `data` (#542). A row per
+    `STUB_SAMPLES`, each column an empty file, each fact the test samplesheet's value."""
+    columns: list[str] = [SAMPLE_COLUMN]
+    rows: list[list[str]] = [[sample] for sample in STUB_SAMPLES]
+    files: list[str] = []
+    for channel in pipeline.channels:
+        if channel.grain is not Grain.SAMPLE:
+            continue
+        suffix = ".fastq.gz" if channel.type_id == "fastq.reads" else ".txt"
+        for column in channel.columns:
+            columns.append(column)
+            for sample, row in zip(STUB_SAMPLES, rows, strict=True):
+                name = f"{sample}_{column}{suffix}"
+                files.append(name)
+                row.append(f"{data}/{name}")
+    for fact in pipeline.sheet_facts:
+        columns.append(fact.column)
+        for row in rows:
+            row.append(_test_cell(fact))
+    if any(c.units for c in pipeline.channels):
+        columns.append(UNIT_COLUMN)
+        for row in rows:
+            row.append("1")
+    return ",".join(columns) + "\n" + "".join(",".join(r) + "\n" for r in rows), files
 
 
 TEST_SAMPLESHEET = "test-samplesheet.csv"
@@ -1676,7 +1732,9 @@ def emit_config(pipeline: Pipeline) -> str:
     lines += ["profiles {", "    stub_data {", SMOKE_LIMITS]
     for name in params:
         pattern = (
-            '"${projectDir}/stub-data/*_R{1,2}.fastq.gz"'
+            f'"${{projectDir}}/{STUB_SAMPLESHEET}"'
+            if name == "input" and pipeline.input_form is InputForm.SAMPLESHEET
+            else '"${projectDir}/stub-data/*_R{1,2}.fastq.gz"'
             if name == "input"
             else f'"${{projectDir}}/stub-data/{name}.txt"'
         )

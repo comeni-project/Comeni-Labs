@@ -45,9 +45,10 @@ export function FormatFlow({ page }: { page: CataloguePage; total: number }) {
   const rows = Math.max(1, left.length, right.length);
 
   return (
-    <section aria-labelledby="flow-title" className="bg-surface border border-line rounded-panel px-4 py-3 flex flex-col gap-2">
-      <div className="flex flex-wrap items-baseline gap-x-[10px] gap-y-1">
-        <h2 id="flow-title" className="m-0 text-[15px] font-semibold">Formats</h2>
+    <section aria-labelledby="flow-title" className="reg-formats bg-surface border border-line rounded-panel px-5 pt-4 pb-3 flex flex-col gap-1">
+      <div className="flex flex-wrap items-baseline gap-x-[10px] gap-y-1 min-h-[26px]">
+        <h2 id="flow-title" className="m-0 text-[15px] font-semibold">How file formats connect</h2>
+        <span className="text-[12.5px] text-ink-3">Each band is the tools that take the left format and make the right one. Pick a format to see its tools.</span>
         {(reads || makes) && (
           <button type="button" onClick={() => filters.change((next) => { next.delete("reads"); next.delete("makes"); })}
                   className="ml-auto h-[26px] px-[10px] rounded-full border border-now-line bg-now-soft text-[12px] font-semibold text-now-ink cursor-pointer">

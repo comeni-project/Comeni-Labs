@@ -105,4 +105,7 @@ def explain(code: str) -> str:
             f"{code} is not a diagnostic this version emits.\n"
             f"Known: {', '.join(sorted(REGISTRY))}"
         )
-    return f"{code}\n\n{REGISTRY[code].explanation.rstrip()}"
+    spec = REGISTRY[code]
+    # What to write is the most actionable part, and it was readable only in the YAML (#67).
+    fix = "\n".join(f"  {line}" if line else "" for line in spec.fix.rstrip().splitlines())
+    return f"{code}: {spec.says}\n\n{spec.explanation.rstrip()}\n\nFix:\n{fix}"

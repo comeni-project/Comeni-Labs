@@ -463,6 +463,7 @@ def _premises_read(row: DecisionRow, premises: "dict[str, object]") -> list[Prem
                 by=premise.by,
                 pieces=premise.pieces,
                 coverage=getattr(premise, "coverage", None),
+                measured=getattr(premise, "measured", None),
             )
         )
     return read

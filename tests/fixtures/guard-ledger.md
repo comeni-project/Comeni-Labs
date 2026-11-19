@@ -5587,6 +5587,79 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
   by copy and `git show HEAD:path`: failed. `every row and the header share one width` failed on
   the `w-max` rows; `the agent hears data change until it has built` failed with one notice of
   two; the analysis-list test failed on `draft d1` not refreshed. All pass after.
+
+## Builder turn completion, 2026-11-17
+
+Guard: `packages/mendel-api/tests/agent/test_loop.py::test_checking_samples_without_tools_is_a_slip_not_completion`.
+The baseline was exercised before changing the loop, not simulated by deleting its test.
+
+| date | guard | what was reverted | what happened | message |
+|---|---|---|---|---|
+| 2026-11-17 | `test_checking_samples_without_tools_is_a_slip_not_completion` | Original `_ANNOUNCES` / text-only ANSWERED implementation, before this fix | `uv run pytest packages/mendel-api/tests/agent/test_loop.py::test_checking_samples_without_tools_is_a_slip_not_completion -q` failed: 1 failed in 0.59 s | `AssertionError: progress narration ended the turn before read_data ran`; `assert 1 == 3` |
+
+After replacing heuristic completion, the same guard passed in the focused run of
+`test_loop.py`, `test_agent_routes.py`, `test_keep_review.py`, `comeni-ai/tests/test_agent.py`
+and `tests/guards/test_egress.py`: **83 passed in 7.85 s**. The test uses the exact live
+“I'm checking the uploaded yeast samples…” response, then existing `read_data` / `ask` tools;
+it does not depend on a missing `reply` implementation to fail. Both runs used scripted
+transport and isolated databases on localhost:5442, without live model calls.
+
+**Retired the same day by operator override.** At the operator's request the slip rule was
+removed (builder protocol v4: a tool-free reply is the answer; `docs/superpowers/plans/2026-11-17-builder-explicit-turn-completion.md`,
+"Operator override"). `test_checking_samples_without_tools_is_a_slip_not_completion` and the
+other slip tests asserted the removed rule and were deleted. Their replacement,
+`test_a_tool_free_reply_is_the_answer_and_ends_the_turn`, records the current contract: one
+model call, the text as the answer (not narration), no reminder, no required tool choice. It
+is a behaviour test, not an invariant guard. MI0227 is retired: nothing emits it, so
+`test_every_declared_code_is_emitted` refused it; its band comment in `diagnostics.yml` keeps it
+from being reused.
+
+## MULTIQC's one tuple, 2026-11-17 (#507)
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-17 | `test_conformance.py` "a tuple filled short of the module's width" | restored `conformance.py` without the MD0111 width check | failed | `StopIteration`: no MD0111 for `{ports: [reports]}` against MULTIQC's tuple of 6 |
+| 2026-11-17 | `test_fan_in.py` "the gathered reports fill the module's one tuple" | restored `emit.py` with the bare `.collect()` and no `pad` | failed | the call is `MULTIQC(FASTQC.out.zip.collect())` |
+
+Across the registry the width check flagged MULTIQC alone among 20 port entries before its
+contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
+
+## Every kind of data reaches an aggregator, 2026-11-17 (#435, #483)
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-17 | `test_fan_in.py` "the aggregator gathers a report on each kind of data" | restored `router.py` and `resolve.py` without per-kind routing and `_gather_every_producer` | failed | MULTIQC's reports fed by `fastqc.zip` alone |
+| 2026-11-17 | `test_fan_in.py` "the gathered reports are mixed into one call" | the same | failed | no `FASTQC.out.zip.mix(QUAST.out.results)` |
+| 2026-11-17 | `test_join.py` "a gathered port in a shared slot passes every sample's files" | restored `emit.py` from before #507 | failed | `.combine(X.collect().map { it[1] })`, one sample's file |
+
+## Issue sweep, 2026-11-17 (#484, #448, #67)
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-17 | `test_forge_testing.py` "a test may leave out a port in a shared slot", its params assertion (#484) | restored `entry_params` to every channel's params | failed | `['input'] == ['bai', 'bam', 'model']` |
+| 2026-11-17 | `test_layered.py` "a tuple key is recorded as one word" (#448) | none needed: run before the fix | failed | `"('nf-core/star/align@2.7.11b', 'small')" is not a key` |
+| 2026-11-17 | `test_diagnostics.py` "explain ends with what to write" (#67) | restored `diagnostics.py` from HEAD | failed | no `Fix:` block in the long form |
+| 2026-11-18 | `test_conformance.py` "inputs wired in the wrong order" (#414) | `against` without the `_misplaced` call | failed | no MD0112 for HISAT2_BUILD with `gtf` and `fasta` swapped; across the registry MD0112 found nothing before the swap |
+| 2026-11-18 | `test_gates.py` "a stub gate materialises every local input" (#542) | restored `gates.py` from HEAD | failed | no `stub-data/samplesheet.csv`; FASTQ pairs written for a samplesheet pipeline |
+| 2026-11-18 | `test_said_against_measured.py` "a choice on a contradicted fact is flagged with both values" (#510) | `Pin.tier()` always tier 3 | failed | STAR at tier 3 on `read_length: 150, said` against 99 measured |
+| 2026-11-18 | `test_changes.py` "the AI may not contradict what the data measured" (#510) | the MI0228 condition short-circuited | failed | the AI's 150 written over a measured 99 |
+
+## Issue sweep, 2026-11-18 (#505, #467)
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-18 | `test_rule.py` "a long sample name is cut to what a sample may carry" (#505) | the cut back at 256 | failed | a 240-character name kept whole |
+| 2026-11-18 | `test_decisions.py` "the AI's choices come back as the AI's" (#505) | `from_goal` without `by` and `because` | failed | the AI's pin and setting came back as the person's |
+| 2026-11-18 | `test_loop.py` "a session's turns run one at a time" (#505) | `run_turn` without the advisory lock | failed | the turn ran while the one before held the session |
+| 2026-11-18 | `tests/golden/spine/main.nf` (#467) | `_default_entry` back to `[ [:], f ]` | failed | `test_matches_the_golden_file`: the default entry gives no id |
+| 2026-11-18 | `test_keep_review.py` "the agent is told a reviewed step is reviewed" (#505) | `ai_unreviewed` back to "the AI chose here" | failed | `hisat2_align` still flagged after "Looks right" |
+| 2026-11-18 | `test_tool_errors.py` "a key the model never named is the engine's error" (#505) | restored `tools.py` from HEAD | failed | `KeyError: pieces` came back to the model as a refusal |
+
+## Walk defects, 2026-11-18 (#509, #535)
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-18 | `test_fixes.py` "a file named as a reference is not a sample" and "a left-out sample's files say so" (#535) | restored `routes/data.py` from HEAD | failed | `recognised` is `None` for the reference; no `left_out` on the files |
 - 2026-11-18, perf audit (#545): `test_a_build_loads_the_registry_once_per_registry_state` run against the
   committed `orchestrate.build` (`layers.load` on every build): failed. `test_a_build_from_the_cached_registry_is_the_build_from_a_fresh_one`
   failed before `prepared` existed and, once its digest check was added, against a `prepare` that pinned a
@@ -5616,3 +5689,12 @@ reverted by restoring the file, and the purity guards then ran 19/19 green.
 - 2026-11-18, perf audit (#561 part 3): `test_reads_in_one_request_decide_once_per_revision` failed before
   `remembered` existed. `test_every_http_request_has_its_own_memo` against `main` with the middleware's memo
   replaced by a `nullcontext`: failed. Both pass after.
+
+## #535 minors, 2026-11-18
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-18 | `test_roots.py` "a rule deciding several roles names them all" | restored `kinds.py` from HEAD | failed | only `trimming` named |
+| 2026-11-18 | `Forge.test.tsx` "a refused command's error stays with its part" | restored `Inspector.tsx` from HEAD | failed | the error still shown on the next part |
+| 2026-11-18 | `test_scan.py` "a change while the agent works is said after it" | restored `chat.py` from HEAD | failed | the reference added during a pending turn was never said |
+| 2026-11-18 | `test_drafts.py` "a file kept by an older Mendel does not empty the list" (#507 follow-up) | restored `drafts.py` from HEAD | failed | `422`: MD0207 for the one version-9 file emptied the list |

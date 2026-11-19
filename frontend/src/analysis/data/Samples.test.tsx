@@ -5,7 +5,7 @@ import { expect, it, vi } from "vitest";
 import { analysis } from "./fixtures";
 
 vi.mock("../../api/client", () => ({
-  get: vi.fn(async () => ({ names: { "fastq.reads": "sequencing reads (FASTQ)", "assembly.fasta": "Assembly sequences (FASTA)" } })),
+  get: vi.fn(async () => ({ names: { "fastq.reads": "sequencing reads (FASTQ)", "assembly.fasta": "assembly sequences (FASTA)" } })),
 }));
 import { Samples } from "./Samples";
 import type { AnalysisData } from "./types";
@@ -123,7 +123,7 @@ it("assemblies: lengths read in Mb by their unit, counts with separators, one sa
   expect(screen.getByText("2.84 Mb")).toBeTruthy();
   expect(screen.getByText("85 kb")).toBeTruthy();
   expect(screen.getByText("12,065")).toBeTruthy();
-  expect(screen.getByText("one file each, named by the file")).toBeTruthy();
+  expect(screen.getByText(/1 file per sample/)).toBeTruthy();
   expect(screen.queryByText(/read 1 and 2/)).toBeNull();
 });
 
@@ -142,18 +142,20 @@ it("a number column draws a bar, amber only where that measurement is flagged (b
   expect(amber[0].closest("[role='row']")).toHaveTextContent("BAC47");
 });
 
-it("two kinds of data get one tab each, with that kind's columns", async () => {
+it("two kinds of data get one table each, both in view, with that kind's columns (demo 2026-11-17)", async () => {
   const base = analysis();
   samples(analysis({
     samples: [...base.samples, { name: "ASM1", files: ["/d/ASM1.fna"], outcome: "measured", type_id: "assembly.fasta", left_out: false,
                                  facts: [{ measurement: "contigs", value: 3, coverage: "all", pieces: [] }] }],
   }));
-  const tabs = await screen.findByRole("group", { name: "Kind of data" });
-  expect(within(tabs).getAllByRole("button")).toHaveLength(2);
-  expect(screen.queryByText("ASM1")).toBeNull();
-  fireEvent.click(await within(tabs).findByRole("button", { name: /Assembly/ }));
-  expect(screen.getByText("ASM1")).toBeTruthy();
-  expect(screen.getByRole("columnheader", { name: "Contigs" })).toBeTruthy();
+  const tables = await screen.findAllByRole("table");
+  expect(tables).toHaveLength(2);
+  const assemblies = tables.find((t) => /Assembl/i.test(t.getAttribute("aria-label") ?? ""))!;
+  expect(within(assemblies).getByText("ASM1")).toBeTruthy();
+  expect(within(assemblies).getByRole("columnheader", { name: "Contigs" })).toBeTruthy();
+  const reads = tables.find((t) => t !== assemblies)!;
+  expect(within(reads).queryByText("ASM1")).toBeNull();
+  expect(within(reads).queryByRole("columnheader", { name: "Contigs" })).toBeNull();
 });
 
 it("the rule's count says how many of its samples are left out (walk 2026-11-17)", () => {

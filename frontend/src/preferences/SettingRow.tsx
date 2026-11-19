@@ -7,6 +7,7 @@ import { FIELD, sourceOf } from "./shared";
 import { useBrowserSetting } from "./useBrowserSetting";
 import { Collection } from "./Collection";
 import { ModelPicker } from "./ModelPicker";
+import { ModelConnections } from "./ModelConnections";
 import { Report } from "./Report";
 import { useQuery } from "@tanstack/react-query";
 import { get } from "../api/client";
@@ -46,6 +47,8 @@ const INLINE = new Set(["model", "text", "number", "toggle", "secret"]);
 /** The badge for where a value came from. Words are the menu's own chrome; colour says one thing:
  *  blue is *you set this here*, everything else is quiet. */
 const TONE: Record<string, string> = {
+  default: "text-ink-3 border-transparent",
+  reported: "text-ink-3 border-transparent",
   installation: "text-now-ink bg-now-soft border-[var(--now-line)]",
   environment: "text-ink-2 bg-surface border-line-2",
 };
@@ -71,7 +74,7 @@ function Row({
     <Control entry={entry} value={value} disabled={shown.locked} onWrite={onWrite} menu={menu} />
   );
   return (
-    <div data-testid="preference" className="py-[14px] border-t border-line-soft first:border-t-0">
+    <div data-testid="preference" className="setting-row py-[16px] border-t border-line-soft first:border-t-0">
       <div
         className={`grid gap-x-[20px] gap-y-[8px] items-center grid-cols-[minmax(0,1fr)_auto]
                     ${inline ? "md:grid-cols-[minmax(0,1fr)_280px_110px]" : ""}`}
@@ -79,7 +82,7 @@ function Row({
         <div className="relative flex flex-wrap items-center gap-x-[6px] gap-y-[4px] min-w-0">
           <label
             htmlFor={setting.key}
-            className={`text-body ${shown.locked ? "text-ink-2" : "text-ink"}`}
+            className={`text-body font-medium ${shown.locked ? "text-ink-2" : "text-ink"}`}
           >
             {setting.label}
           </label>
@@ -127,7 +130,7 @@ function Control({
             role="radiogroup"
             aria-label={setting.label}
             // Stacked rows on a phone, one segmented line on a desk (the design's phone artboard).
-            className={`flex flex-col md:inline-flex md:flex-row md:flex-wrap max-w-full
+            className={`flex flex-col md:inline-flex md:flex-row md:flex-wrap w-fit max-w-full
                         rounded-control border border-line-2 ${disabled ? "border-dashed" : ""}`}
           >
             {(setting.options ?? []).map((option) => {
@@ -136,7 +139,7 @@ function Control({
               return (
                 <label
                   key={option.value}
-                  className={`px-[12px] py-[8px] min-h-[44px] md:min-h-0 flex items-center
+                  className={`relative px-[12px] py-[8px] min-h-[44px] md:min-h-0 flex items-center
                               text-[12px] border-b last:border-b-0 md:border-b-0 md:border-r
                               md:last:border-r-0 border-line-2
                               ${off ? "border-dashed cursor-not-allowed" : "cursor-pointer"}
@@ -170,6 +173,7 @@ function Control({
         <input
           id={setting.key}
           type="checkbox"
+          className="setting-toggle"
           aria-label={setting.label}
           checked={value === true}
           disabled={disabled}
@@ -185,7 +189,8 @@ function Control({
     case "secret":
       return <Secret entry={entry} disabled={disabled} onWrite={onWrite} set={shown.set === true} last4={shown.last4 ?? null} />;
     case "collection":
-      return <Collection entry={entry} onWrite={onWrite} />;
+      return setting.key === "models.connections" && setting.fields.some((f) => f.key === "connection.provider")
+        ? <ModelConnections entry={entry} menu={menu} /> : <Collection entry={entry} onWrite={onWrite} />;
     case "model":
       return menu ? <ModelPicker entry={entry} menu={menu} onWrite={onWrite} /> : null;
     case "readonly":
@@ -209,6 +214,8 @@ function Typed({
     <input
       id={entry.setting.key}
       type={numeric ? "number" : "text"}
+      min={numeric ? entry.setting.minimum ?? undefined : undefined}
+      max={numeric ? entry.setting.maximum ?? undefined : undefined}
       aria-label={entry.setting.label}
       value={draft}
       disabled={disabled}

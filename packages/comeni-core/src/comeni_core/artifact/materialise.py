@@ -353,6 +353,7 @@ def _call(contract: ModuleContract, off: frozenset[str] = frozenset()) -> list[C
             key=spec.key,
             joins=([PortJoin(port=p, join=spec.join[p]) for p in spec.ports[1:]]
                    if isinstance(spec.join, dict) else []),
+            pad=spec.pad,
             why=(
                 Why(
                     tier=Tier.STRUCTURAL,
@@ -527,9 +528,16 @@ def _run_rules(contract: ModuleContract, node: IRNode, fed: dict[str, str]) -> l
             continue
         given = [fed[k.partition(".")[2]] for k in row.when
                  if k.startswith("given.") and k.partition(".")[2] in fed]
+        ports = [k.partition(".")[2] for k in row.when if k.startswith("given.")]
+        named = sorted({n for n in [*ports, *row.requires, *row.forbids]
+                        if n in fed and fed[n] != n})
+        # The person launching sets params, not ports: QUAST's guard said `fasta` where they set
+        # `--fasta_2` (#467). The sentence stays the rule's; the params follow it.
+        shown = says + ("; set " + ", ".join(f"`{n}` as --{fed[n]}" for n in named)
+                        if named else "")
         rule = RunRule(given=sorted(given),
                        requires=sorted(fed[n] for n in row.requires if n in fed),
-                       forbids=sorted(fed[n] for n in row.forbids if n in fed), says=says)
+                       forbids=sorted(fed[n] for n in row.forbids if n in fed), says=shown)
         # A row with no condition left to test still binds the run when it forbids something:
         # `forbids: [gff]` becomes `if (params.gff) error` (second review I3). One that only
         # requires, with nothing given, would already be a build-time refusal.
@@ -810,10 +818,12 @@ def _substitute(expression: str, param: str) -> str:
 def _default_entry() -> str:
     """Supply a file input expression when the vocabulary defines none.
 
-    Each matched path becomes a tuple containing empty metadata and the file.
+    Each matched path becomes `[ [id: <its base name>], file ]`, as the curated types declare. It
+    was `[ [:], f ]`, so a module read `meta.id` as null and QUAST named every output `null`:
+    several samples would overwrite each other (#467).
     """
     return (
-        "Channel.fromPath(params.{param}, checkIfExists: true).map { f -> [ [:], f ] }"
+        "Channel.fromPath(params.{param}, checkIfExists: true).map { f -> [ [id: f.baseName], f ] }"
     )
 
 

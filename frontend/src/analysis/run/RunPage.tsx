@@ -85,9 +85,9 @@ function RunView({ draftId, runId, n, sub, base }: {
   const now = Date.now();
 
   return (
-    <div className="overflow-y-auto h-full">
-      <div className="page min-h-full">
-        <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
+    <div className={sub === "console" ? "h-full min-h-0 overflow-hidden" : "overflow-y-auto h-full"}>
+      <div className={sub === "console" ? "page h-full min-h-0 box-border overflow-hidden" : "page min-h-full"}>
+        <header className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1">
           <h1 className="m-0 text-[22px] font-semibold tracking-[-.015em] text-ink">{title}</h1>
           <span data-testid="run-phase" className="flex items-center gap-[6px] px-2 py-[3px] rounded-control text-[12px] font-semibold"
                 style={{ color: inkOf(state.phase), background: `color-mix(in srgb, ${dotOf(state.phase)} 13%, transparent)` }}>

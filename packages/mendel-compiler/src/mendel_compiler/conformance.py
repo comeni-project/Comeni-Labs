@@ -12,11 +12,12 @@ from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.measurement import MeasurementRegistry
 from comeni_core.declared.module import ENTRY, Module, key_of
 from comeni_core.declared.registry import Registry
+from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import explain  # re-exported: `mendel explain` calls it here
 from comeni_core.spell.routes import ExtKey, Via
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from mendel_compiler.modulespec import ModuleSpec
+from mendel_compiler.modulespec import ModuleSpec, _format
 
 
 class Diagnostic(BaseModel):
@@ -93,10 +94,28 @@ def blocking(found: list[Diagnostic]) -> list[Diagnostic]:
     return [d for d in found if diagnostics.spec_for(d.code).refuses]
 
 
+def type_formats(registry: Registry, vocabulary: Vocabulary | None = None) -> dict[str, set[str]]:
+    """The file formats each type is known to come in (#414): what the contracts making it
+    write, and the format of its declared `test_data`. Types declare no format of their own, so
+    a type nothing makes and with no test data has none, and a slot it fills is not checked."""
+    found: dict[str, set[str]] = {}
+    for contract in registry.all():
+        for port in contract.produces:
+            found.setdefault(port.type_id, set()).update(f for f in port.format if f != "folder")
+    for type_id, data in ((vocabulary.test_data if vocabulary else {}) or {}).items():
+        urls = data if isinstance(data, list) else [data]
+        for url in urls:
+            name = url.rsplit("/", 1)[-1]
+            if (format_ := _format(name)) and format_ != "folder" and "." in name:
+                found.setdefault(type_id, set()).add(format_)
+    return found
+
+
 def check(
     registry: Registry,
     modules: Mapping[str, Module],
     measurements: MeasurementRegistry | None = None,
+    vocabulary: Vocabulary | None = None,
 ) -> list[Diagnostic]:
     """Every way a contract disagrees with the module it claims to describe.
 
@@ -106,6 +125,7 @@ def check(
     MD0106 cannot be evaluated without one. Silence beats a wrong answer.
     """
     found: list[Diagnostic] = []
+    formats = type_formats(registry, vocabulary)
     for contract in registry.all():
         path = module_path(contract, modules)
         if path is None or not path.exists():
@@ -123,13 +143,14 @@ def check(
                 )
             )
             continue
-        found += against(contract, ModuleSpec.parse(path), path)
+        found += against(contract, ModuleSpec.parse(path), path, formats=formats)
     if measurements is not None:
         found += _meta_keys(registry, modules, measurements)
     return sorted(found, key=lambda d: (d.where, d.code, d.detail))
 
 
-def against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Diagnostic]:
+def against(contract: ModuleContract, spec: ModuleSpec, path: Path,
+            formats: Mapping[str, set[str]] | None = None) -> list[Diagnostic]:
     """Every way *one* contract disagrees with *one* module.
 
     Public because the forge checks a single draft where `check` checks a whole registry,
@@ -185,6 +206,31 @@ def against(contract: ModuleContract, spec: ModuleSpec, path: Path) -> list[Diag
                     fix=f"{{empty: {slot.width}, because: ...}}",
                 )
             )
+
+        if entry.ports:
+            # `val(meta)` heads the tuple when its ports' channel carries one; then one element
+            # per port, then the padding (#507).
+            heads = 1 if slot.kinds[0] == "val" and slot.width > 1 else 0
+            filled = heads + len(entry.ports) + entry.pad
+            unfilled = slot.width - heads - len(entry.ports)
+            if filled != slot.width:
+                found.append(
+                    Diagnostic(
+                        code="MD0111",
+                        where=contract.id,
+                        summary=(
+                            f"slot {slot.position} is a tuple of {slot.width}; the contract "
+                            f"fills {filled}"
+                        ),
+                        detail=f"    {path}   tuple of {slot.width}: {' '.join(slot.kinds)}"
+                               f"  ({', '.join(n for n in slot.names if n)})",
+                        fix=(f"{{ports: {entry.ports}, pad: {unfilled}}}" if unfilled > 0
+                             else "one port per element of the module's tuple"),
+                    )
+                )
+
+        if entry.ports and formats:
+            found += _misplaced(contract, entry, slot, spec, path, formats)
 
         if entry.empty and slot.needs_a_file and not entry.because:
             # The *file* element, never the `val(meta)` beside it. meta.yml documents both
@@ -457,4 +503,44 @@ def _dead_ext_routes(contract: ModuleContract, spec: ModuleSpec, path: Path) -> 
                 ),
             )
         )
+    return found
+
+
+def _port_formats(contract: ModuleContract, port_name: str,
+                  formats: Mapping[str, set[str]]) -> set[str]:
+    port = next((p for p in contract.consumes if p.name == port_name), None)
+    if port is None:
+        return set()
+    return {f for a in port.alternatives() for f in formats.get(a.type_id, ())}
+
+
+def _misplaced(contract: ModuleContract, entry, slot, spec: ModuleSpec, path: Path,
+               formats: Mapping[str, set[str]]) -> list[Diagnostic]:
+    """**A port in the wrong slot** (#414, MD0112): its type's formats share none with the file
+    pattern meta.yml documents for the element it fills. A reversed `nf_inputs` passed every
+    other check and failed only at run time. Silent where either side names no format: that
+    element is unverified, not confirmed."""
+    heads = 1 if slot.kinds[0] == "val" and slot.width > 1 else 0
+    documented = {d.name: d for d in spec.documented}
+    found = []
+    for n, port_name in enumerate(entry.ports):
+        at = heads + n
+        if at >= len(slot.names):
+            break
+        element = documented.get(slot.names[at])
+        wanted = set(element.formats) if element else set()
+        offered = _port_formats(contract, port_name, formats)
+        if not wanted or not offered or wanted & offered:
+            continue
+        fits = sorted(d.name for d in spec.documented if set(d.formats) & offered)
+        found.append(Diagnostic(
+            code="MD0112",
+            where=contract.id,
+            summary=(f"port {port_name} ({', '.join(sorted(offered))}) fills slot {slot.position}"
+                     f"'s {element.name}, which takes {', '.join(sorted(wanted))}"),
+            detail=f"    {path.parent / 'meta.yml'}   {element.name}: {element.pattern}",
+            fix=(f"the module takes {', '.join(sorted(offered))} as {', '.join(fits)}: put "
+                 f"{port_name} in that slot's entry" if fits
+                 else "order nf_inputs as the module's input block declares its slots"),
+        ))
     return found

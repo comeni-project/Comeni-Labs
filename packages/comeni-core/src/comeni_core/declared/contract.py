@@ -164,6 +164,11 @@ class InputPort(BaseModel):
             data.pop("many", None)
         return data
 
+    def gathers_study(self) -> bool:
+        """One call over every sample's items (`grain: study, many: true`), as MULTIQC's
+        reports (#435)."""
+        return self.grain is Grain.STUDY and self.many
+
     def alternatives(self) -> list[Alternative]:
         """The conventional form first, the structural form as the fallback.
 
@@ -419,6 +424,12 @@ class NfInput(BaseModel):
     rule is `empty`'s. Required when every port is optional, refused otherwise: an entry with a
     required port is never left out whole (#464)."""
 
+    pad: int = Field(default=0, ge=0)
+    """Empty paths appended after the ports, for a tuple that ends in optional files the type
+    system does not model (#507): nf-core/multiqc takes `tuple val(meta), path(files),
+    path(config), path(logo), path(replace_names), path(sample_names)`, so its contract says
+    `{ports: [reports], pad: 4}`. Only on an entry with ports."""
+
     @field_serializer("join")
     def _sorted_join(self, join: "Join | dict[str, Join] | None") -> Any:
         """A join map in port order, so its digest does not depend on how it was written."""
@@ -432,11 +443,16 @@ class NfInput(BaseModel):
         data = handler(self)
         if not self.absent:
             data.pop("absent", None)
+        if not self.pad:
+            data.pop("pad", None)
         return data
 
     @model_validator(mode="after")
     def _join_declared_when_it_matters(self) -> "NfInput":
         """Require an explicit join policy when one input combines multiple ports."""
+        if self.pad and not self.ports:
+            raise ValueError("`pad` appends empty paths after an entry's ports, and this entry "
+                             "has none; a whole placeholder is `empty:`")
         if len(self.ports) > 1 and self.join is None:
             raise ValueError(coded(
                 "MD0613",

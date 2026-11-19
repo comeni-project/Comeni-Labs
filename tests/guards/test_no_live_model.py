@@ -80,7 +80,3 @@ def test_the_scan_actually_reads_some_files() -> None:
     assert any("comeni-ai" in str(path) for path in files), (
         "comeni-ai's tests are not scanned — that is the package holding the real transport"
     )
-    assert any("mendel-ai" in str(path) for path in files), (
-        "mendel-ai's tests are not scanned. It is a deprecation shim as of 2026-09-04 and its "
-        "suite is small, which is exactly when a directory quietly stops being collected"
-    )

@@ -21,7 +21,7 @@ function waitingView() {
   return view;
 }
 
-function at(path: string, view: object) {
+function at(path: string, view: object, refuse = false) {
   const calls: Call[] = [];
   const summary = { id: quast.id, path: "quast", version: "5.3.0", phase: "merged", next_piece: null, approved: 29,
                     total: 29, waiting: 0, drafting: false, started_by: "person", started_at: quast.started_at,
@@ -29,6 +29,9 @@ function at(path: string, view: object) {
   vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     const u = String(url);
     calls.push({ url: u, method: init?.method ?? "GET", body: init?.body ? JSON.parse(String(init.body)) : null });
+    if (refuse && u.endsWith("/commands")) {
+      return Promise.resolve({ ok: false, status: 409, json: async () => ({ detail: "MF0501: the draft moved" }) });
+    }
     const body = u.endsWith("/forge/adaptations") ? { adaptations: [summary] }
       : u.includes(`/forge/adaptations/${quast.id}`) && !u.includes("/events") ? view
       : u.includes("/forge/catalogue?") ? { rows: [], total: 0, counts: {}, aliases: {} }
@@ -64,6 +67,8 @@ it("the tool draws its ports, and Looks right approves the AI's waiting choice",
   // Waiting, it is both a port on the canvas and a row under Review in the rail.
   expect(within(tool).getByRole("button", { name: "Output misassemblies" })).toBeTruthy();
   expect(screen.getAllByRole("button", { name: /misassemblies/ }).length).toBe(2);
+  // The side panel opens on the Assistant unless a part is named; the waiting choice is on Part.
+  fireEvent.click(screen.getByRole("tab", { name: "Part" }));
   fireEvent.click(await screen.findByRole("button", { name: "Looks right" }));
   await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/commands"))).toBe(true));
   const sent = calls.find((c) => c.url.endsWith("/commands"))!.body as { move: string; item: string };
@@ -98,4 +103,14 @@ it("switching parts shows the new part's fields, never the last one's (final rev
   await waitFor(() => expect(within(screen.getByRole("radiogroup", { name: "Needed" }))
     .getByRole("radio", { name: "Optional" }).getAttribute("aria-checked")).toBe("true"));
   expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+});
+
+it("a refused command's error stays with its part, not the next one picked (issue 535)", async () => {
+  at(`/forge/${quast.id}`, waitingView(), true);
+  const tool = await screen.findByRole("region", { name: "The tool" });
+  fireEvent.click(screen.getByRole("tab", { name: "Part" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Looks right" }));
+  expect(await screen.findByText(/the draft moved/)).toBeTruthy();
+  fireEvent.click(within(tool).getByRole("button", { name: "Input consensus" }));
+  await waitFor(() => expect(screen.queryByText(/the draft moved/)).toBeNull());
 });

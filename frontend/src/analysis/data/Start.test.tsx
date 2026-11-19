@@ -28,7 +28,8 @@ it("picks folders on the page, each saying what it looks like, then reads them (
   expect(await within(folders).findByText("10 · sequencing reads (FASTQ)")).toBeTruthy();
   expect(within(folders).getByText("reference genome (FASTA)")).toBeTruthy();
   fireEvent.click(within(folders).getByRole("checkbox", { name: "Use reads" }));
-  fireEvent.click(within(folders).getByRole("checkbox", { name: "Use reference" }));
+  fireEvent.click(within(folders).getByText("reference", { selector: "label" }));
+  expect(within(folders).getByRole("checkbox", { name: "Use reference" })).toBeChecked();
   expect(within(folders).getByText("2 folders", { selector: "b" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Read these folders" }));
   expect(onTick).toHaveBeenCalledWith(["/d/reads", "/d/reference"]);

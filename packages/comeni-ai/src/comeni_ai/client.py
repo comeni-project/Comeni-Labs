@@ -11,7 +11,7 @@ fixtures.
 
 import json
 import re
-from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, TypeVar, runtime_checkable
 
 from comeni_core.diagnostics import coded
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -297,6 +297,9 @@ class LiteLLMTransport:
     enforces_formats = True
     """Indicates support for provider response formats."""
 
+    def __init__(self) -> None:
+        self._auto_tool_endpoints: set[tuple[str, str]] = set()
+
     def send(
         self,
         access: ModelAccess,
@@ -348,6 +351,7 @@ class LiteLLMTransport:
         return response.choices[0].message.content or "", _usage(access, response, started)
 
     def converse(self, access: ModelAccess, messages: list[dict], tools: list, *,
+                 tool_choice: "Literal['required'] | None" = None,
                  cache_key: str | None = None) -> "AgentReply":
         """A conversation with tools, through the provider's own tool calls (checked on the
         subscription route: `docs/notes/agent-tool-calling-check.md`). Failures map to the
@@ -356,9 +360,11 @@ class LiteLLMTransport:
 
         import litellm
 
+        from comeni_ai.tool_policy import complete
+
         started = time.monotonic()
         try:
-            response = litellm.completion(
+            response, effective_choice = complete(access, dict(
                 model=access.model,
                 messages=_cacheable(access.model, messages),
                 tools=[tool.as_provider() for tool in tools] or None,
@@ -369,7 +375,7 @@ class LiteLLMTransport:
                 **({"reasoning_effort": access.reasoning_effort}
                    if access.reasoning_effort else {}),
                 **_continuing(access.model, cache_key),
-            )
+            ), required=tool_choice == "required", unsupported=self._auto_tool_endpoints)
         except litellm.AuthenticationError as failure:
             raise ModelUnavailableError(
                 coded("MA0002", "the provider refused the credentials")
@@ -384,7 +390,8 @@ class LiteLLMTransport:
             raise ModelUnavailableError(
                 coded("MA0007", f"{access.model}: {failure}")
             ) from failure
-        return reply_of(access, response, started)
+        return reply_of(access, response, started).model_copy(
+            update={"tool_choice": effective_choice})
 
 
 def _continuing(model: str, cache_key: str | None) -> dict:
@@ -462,10 +469,16 @@ def reply_of(access: ModelAccess, response: object, started: float) -> "AgentRep
     def field(thing: object, name: str) -> object:
         return thing.get(name) if isinstance(thing, dict) else getattr(thing, name, None)
 
-    choice = (field(response, "choices") or [None])[0]
-    message = field(choice, "message") if choice is not None else None
+    choices = field(response, "choices") or []
+    # LiteLLM's subscription Responses bridge emits narration and function calls as
+    # separate choices from ONE generation. Reading choices[0] loses its tool calls.
+    # Other providers' choices are alternative generations, so keep their first one.
+    parts = choices if access.model.startswith("chatgpt/") else choices[:1]
+    messages = [field(choice, "message") for choice in parts]
+    choice = next((part for part in parts if field(field(part, "message"), "tool_calls")),
+                  parts[0] if parts else None)
     calls, refusal = [], None
-    for raw in field(message, "tool_calls") or []:
+    for raw in [call for message in messages for call in field(message, "tool_calls") or []]:
         function = field(raw, "function")
         text = field(function, "arguments") or "{}"
         try:
@@ -480,7 +493,8 @@ def reply_of(access: ModelAccess, response: object, started: float) -> "AgentRep
                               arguments=arguments))
     usage = field(response, "usage")
     return AgentReply(
-        text=field(message, "content") or "",
+        text="\n\n".join(field(message, "content") for message in messages
+                          if field(message, "content")),
         calls=calls,
         usage=Usage(
             model=field(response, "model") or access.model,

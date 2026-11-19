@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router";
+import { useEffect } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 
 import type { components } from "../api/schema";
 import { useTitle } from "../app/useTitle";
@@ -7,6 +8,7 @@ import { Failed, Loading } from "../ui/States";
 import { useStartForge } from "../forge/useForgeActions";
 import { ToolDiagram } from "./parts/ToolDiagram";
 import { RegistryTabs } from "./RegistryTabs";
+import { RegisteredTests } from "./RegisteredTests";
 import { colourOf, labelOf, StateIcon } from "./states";
 
 type ModulePage = components["schemas"]["ModulePage"];
@@ -34,6 +36,10 @@ export function Tool() {
     retry: (count, error) => !/^[A-Z]{2}\d{4}:/.test(error.message) && count < 3,
   });
   const tool = page.data;
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (tool && hash === "#tool-tests") document.getElementById("tool-tests")?.scrollIntoView({ block: "start" });
+  }, [tool, hash]);
   const path = tool?.upstream?.path.replace(/^modules\/nf-core\//, "") ?? id;
   useTitle(path);
 
@@ -78,20 +84,7 @@ function Body({ tool, path }: { tool: ModulePage; path: string }) {
           <Rules tool={tool} />
           <section aria-labelledby="tool-tests" className={panel}>
             <h2 id="tool-tests" className={heading}>Tests</h2>
-            {tool.tests.length > 0 ? (
-              <ul className="m-0 p-0 list-none">
-                {tool.tests.map((test) => (
-                  <li key={test.name} className="px-5 py-3 border-t border-line-soft flex flex-wrap gap-x-4">
-                    <span className="font-data font-medium">{test.name}</span>
-                    <span className="font-data text-[13px] text-ink-2">{test.feeds.join(", ")} → {test.expects.join(", ")}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="m-0 px-5 py-4 text-ink-2">
-                No tests yet. Tools added before the forge have none; re-forge the tool to add them.
-              </p>
-            )}
+            <div className="p-5"><RegisteredTests toolId={tool.id} tests={tool.tests} /></div>
           </section>
         </div>
         <aside aria-label="Where it comes from" className="flex-[1_1_280px] max-w-[340px] flex flex-col gap-4">

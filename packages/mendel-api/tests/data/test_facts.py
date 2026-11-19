@@ -92,3 +92,24 @@ def test_a_measured_fact_keeps_what_measured_it():
                    "pieces": ["fastq@1.1.0", "read_length@1.0.0"]}]
     facts, _ = derive([s])
     assert facts[0].pieces == ["fastq@1.1.0", "read_length@1.0.0"]
+
+
+def test_a_said_fact_the_data_contradicts_keeps_both():
+    """#510: `read_length: 150, said` chose STAR while the reads measured about 99. The person's
+    word still stands; what the data measured is kept beside it."""
+    from mendel_api.services.data.facts import merge
+    from mendel_authoring.decisions import FactDecision
+
+    said = [FactDecision(subject="read_length", value=150, origin=FactOrigin.PERSON_SAID)]
+    facts, _ = merge(said, [], [sample("a", read_length=99), sample("b", read_length=99)])
+    assert [(f.subject, f.value, f.origin, f.measured) for f in facts] == [
+        ("read_length", 150, FactOrigin.PERSON_SAID, 99)]
+
+
+def test_a_said_fact_the_data_agrees_with_carries_nothing_beside_it():
+    from mendel_api.services.data.facts import merge
+    from mendel_authoring.decisions import FactDecision
+
+    said = [FactDecision(subject="read_length", value=99, origin=FactOrigin.PERSON_SAID)]
+    facts, _ = merge(said, [], [sample("a", read_length=99)])
+    assert [f.measured for f in facts] == [None]

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 // Vitest's defineConfig types both the Vite application and the test configuration.
 import { defineConfig } from "vitest/config";
 import { loadEnv } from "vite";
+import { localFiles } from "./localFiles.ts";
 
 export default defineConfig(({ mode }) => {
   const root = fileURLToPath(new URL("../", import.meta.url));
@@ -11,7 +12,7 @@ export default defineConfig(({ mode }) => {
   const api = `http://127.0.0.1:${env.API_HOST_PORT || "8000"}`;
   const web = `http://127.0.0.1:${env.WEB_HOST_PORT || "80"}`;
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [localFiles(root), react(), tailwindcss()],
     server: {
       host: "127.0.0.1",
       port: Number(env.VITE_HOST_PORT || "5173"),

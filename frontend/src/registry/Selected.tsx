@@ -8,6 +8,7 @@ import { useStartForge } from "../forge/useForgeActions";
 import { labelOf, pillOf } from "./states";
 import type { ModuleRow } from "./useCatalogue";
 import { useFilters, useModuleDetail } from "./useCatalogue";
+import { RegisteredTests } from "./RegisteredTests";
 
 type ModulePage = components["schemas"]["ModulePage"];
 
@@ -20,6 +21,7 @@ async function read<T>(path: string): Promise<T> {
 }
 
 const label = "text-[11.5px] font-semibold text-ink-3";
+const section = "flex flex-col gap-[10px] pt-4 border-t border-line-soft";
 const named = (topic: string) => topic.charAt(0).toUpperCase() + topic.slice(1);
 const shortOf = (id: string) => id.replace(/^nf-core\//, "").replace(/@/, " ");
 
@@ -47,7 +49,7 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
   });
   if (!row) {
     return (
-      <section aria-label="Selected module" className="bg-surface border border-line rounded-panel p-[22px] text-ink-3">
+      <section aria-label="Selected module" className="bg-surface border border-line rounded-panel p-[22px] text-[13px] text-ink-3">
         Pick a tool to see what it takes and makes.
       </section>
     );
@@ -70,7 +72,7 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
   const rules = page.data?.rules ?? [];
 
   return (
-    <section aria-label="Selected module" className="bg-surface border border-line rounded-panel p-5 flex flex-col gap-4 min-w-0">
+    <section aria-label="Selected module" className="bg-surface border border-line rounded-panel p-5 flex flex-col gap-4 min-w-0 overflow-y-auto min-h-0">
       <header className="flex flex-wrap items-start gap-3">
         <div className="flex flex-col gap-1 min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-[10px]">
@@ -88,11 +90,15 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
              href={row.source === "pegi3s" ? `https://hub.docker.com/r/pegi3s/${row.path}` : `https://github.com/nf-core/modules/tree/master/modules/nf-core/${row.path}`}
              target="_blank" rel="noreferrer">{row.source === "pegi3s" ? "Docker Hub page" : "nf-core page"}</a>
           {action}
+          {held && <Link to={`/registry/tools/${row.contract_id}#tool-tests`}
+            className="inline-flex items-center h-[36px] px-[14px] rounded-control border border-line-2 bg-surface text-[13px] text-ink no-underline hover:bg-hover">
+            View tests{page.data ? ` (${page.data.tests.length})` : ""}
+          </Link>}
         </span>
       </header>
       {start.isError && <Failed error={start.error} padded={false} />}
 
-      <div aria-label="Takes and makes" className="flex items-center justify-center px-4 py-6 rounded-panel bg-surface-2 border border-line-soft">
+      <div aria-label="Takes and makes" className="flex items-center justify-center px-4 py-5 rounded-panel bg-surface-2 border border-line-soft">
         <div className="flex flex-col items-end gap-[6px] min-w-0">
           <span className={label}>Takes</span>
           {takes.length ? takes.map(({ f, m }) => <Chip key={f} format={f} mention={m} />) : <span className="text-[11.5px] text-ink-3">not stated</span>}
@@ -109,18 +115,24 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
         </div>
       </div>
 
-      <dl className="m-0 grid grid-cols-3 gap-2">
+      {undeclared.length > 0 && (
+        <p className="m-0 px-3 py-[10px] rounded-control bg-measured-soft text-[12.5px] text-measured-ink">
+          nf-core describes {undeclared.join(" and ")} too, but does not declare {undeclared.length > 1 ? "their formats" : "its format"}.
+        </p>
+      )}
+
+      <dl className="m-0 grid grid-cols-3 rounded-control border border-line divide-x divide-line">
         {([["In your registry", row.registry_version ?? "—", true], ["Upstream", row.tool_version ?? "unknown", true],
            ["Topic", row.topics?.length ? named(row.topics[0]) : "—", false]] as const).map(([k, v, mono]) => (
-          <div key={k} className="flex flex-col gap-[3px] px-3 py-[10px] rounded-control border border-line">
+          <div key={k} className="flex flex-col gap-[3px] px-3 py-[10px] min-w-0">
             <dt className={label}>{k}</dt>
-            <dd className={`m-0 text-[13.5px] font-semibold text-ink ${mono ? "font-data" : ""}`}>{v}</dd>
+            <dd className={`m-0 text-[13.5px] font-semibold text-ink truncate ${mono ? "font-data" : ""}`}>{v}</dd>
           </div>
         ))}
       </dl>
 
       {fits && (
-        <div className="flex flex-col gap-2">
+        <div className={section}>
           <span className="flex items-baseline gap-2"><span className={label}>Fits with your registry</span>
             <span className="text-[12px] text-ink-3">by file format</span></span>
           {fits.takes_from.length + fits.feeds.length === 0 ? (
@@ -146,7 +158,7 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className={section}>
         <span className="flex items-baseline gap-2"><span className={label}>Rules</span>
           <span className="text-[12px] text-ink-3">how the builder decides about this tool</span></span>
         {!held && <p className="m-0 px-3 py-[10px] rounded-control border border-line text-[12.5px] text-ink-2">Forging drafts its rules.</p>}
@@ -194,11 +206,16 @@ export function Selected({ row }: { row: ModuleRow | undefined }) {
         ))}
       </div>
 
-      {undeclared.length > 0 && (
-        <p className="m-0 px-3 py-[10px] rounded-control bg-measured-soft text-[12.5px] text-measured-ink">
-          nf-core describes {undeclared.join(" and ")} too, but does not declare {undeclared.length > 1 ? "their formats" : "its format"}.
-        </p>
-      )}
+      {held && <section aria-label="Tests" className={section}>
+        <span className="flex flex-wrap items-baseline gap-2">
+          <span className={label}>Tests</span>
+          <span className="text-[12px] text-ink-3">registered checks for this tool version</span>
+        </span>
+        {page.isPending && <p role="status" className="m-0 text-[12.5px] text-ink-3">Loading tests…</p>}
+        {page.isError && <p role="alert" className="m-0 text-[12.5px] text-needs-you-ink">The tool’s tests could not be loaded.</p>}
+        {page.data && <RegisteredTests key={page.data.id} toolId={page.data.id} tests={page.data.tests} />}
+      </section>}
+
       {row.problems.length > 0 && (
         <ul className="m-0 pl-4 text-[12.5px] text-ink-3">
           {row.problems.map((p) => <li key={p.code}><span className="font-data">{p.code}</span> {p.says}</li>)}

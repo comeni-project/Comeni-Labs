@@ -7,6 +7,9 @@ import { RegistryTabs } from "./RegistryTabs";
 import { useCutRelease, useReleases, type ReleasesPage } from "./useReleases";
 
 const panel = "bg-surface border border-line rounded-panel";
+
+/** A cut release's state in words (#535: "v0.8.1 · done · unknown"). */
+const CUT: Record<string, string> = { cutting: "being cut…", done: "released", failed: "could not be cut" };
 const heading = "m-0 px-5 py-4 border-b border-line text-[15px] font-semibold";
 
 /** `/registry/releases`: what is merged and unreleased, and cutting a release. */
@@ -44,7 +47,8 @@ export function Releases() {
             <ul aria-label="Cut here" className="m-0 p-0 list-none border-t border-line">
               {view.recent.map((r) => (
                 <li key={r.version} className="px-5 py-3 border-t border-line-soft first:border-t-0 text-[13px] flex flex-col gap-1">
-                  <span><span className="font-data">{r.version}</span> · {r.state === "cutting" ? "being cut…" : r.state} · {r.cut_by}</span>
+                  <span><span className="font-data">{r.version}</span> · {CUT[r.state] ?? r.state}
+                    {r.cut_by && r.cut_by !== "unknown" ? ` · by ${r.cut_by}` : ""}</span>
                   {r.says && <span className="text-needs-you-ink break-words">{r.says}</span>}
                 </li>
               ))}

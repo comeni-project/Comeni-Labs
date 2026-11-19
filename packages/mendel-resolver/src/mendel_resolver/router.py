@@ -128,6 +128,46 @@ def _have_satisfies(goal: Goal, type_id: str, states: frozenset[str]) -> bool:
     return any(held.type_id == type_id and states <= held.states for held in goal.have)
 
 
+def _kinds_reaching(registry: Registry, goal: Goal, port: InputPort,
+                    visiting: frozenset[str]) -> list[frozenset[str]]:
+    """The producers of `port`'s first alternative, grouped by the analysis inputs each is
+    reached from through required inputs, in the order the analysis has them (#435).
+
+    Static reachability over the registry, nothing routed: a producer whose inputs nothing in
+    the analysis leads to is in no group. Two producers reached from the same inputs compete
+    as they always have."""
+    order = {held.type_id: n for n, held in enumerate(goal.have)}
+    memo: dict[str, frozenset[str]] = {}
+
+    def reaches(contract: ModuleContract, seen: frozenset[str]) -> frozenset[str]:
+        if contract.id in memo:
+            return memo[contract.id]
+        found: set[str] = set()
+        for consumed in contract.consumes:
+            if not consumed.required:
+                continue
+            for alternative in consumed.alternatives():
+                if _have_satisfies(goal, alternative.type_id, alternative.states):
+                    found.add(alternative.type_id)
+                    continue
+                for upstream in registry.producers_of(alternative.type_id, alternative.states):
+                    if upstream.id not in seen:
+                        found |= reaches(upstream, seen | {upstream.id})
+        memo[contract.id] = frozenset(found)
+        return memo[contract.id]
+
+    first = port.alternatives()[0]
+    groups: dict[frozenset[str], set[str]] = {}
+    for producer in registry.producers_of(first.type_id, first.states):
+        if producer.id in visiting:
+            continue
+        kinds = reaches(producer, visiting | {producer.id})
+        if kinds:
+            groups.setdefault(kinds, set()).add(producer.id)
+    return [frozenset(groups[k]) for k in sorted(
+        groups, key=lambda k: (min(order[t] for t in k), sorted(k)))]
+
+
 def _surplus(contract: ModuleContract, type_id: str, states: frozenset[str]) -> int:
     """How many states this producer adds beyond what was asked for.
 
@@ -246,6 +286,7 @@ def route(
         visiting: frozenset[str],
         because: str = "",
         only: str | None = None,
+        among: frozenset[str] | None = None,
     ) -> None:
         if depth > max_depth:
             raise UnroutableError(f"exceeded depth {max_depth} satisfying {type_id}")
@@ -261,7 +302,7 @@ def route(
             c
             for c in registry.producers_of(type_id, states)
             if c.id not in visiting and not (absent_roles & set(c.roles))
-            and (only is None or c.id == only)
+            and (only is None or c.id == only) and (among is None or c.id in among)
         ]
         # **A tool a person excluded here is not a candidate** (A1). When it was the only one,
         # the exclusion is named rather than reported as a type nothing makes.
@@ -321,6 +362,8 @@ def route(
                     visiting | {chosen.id},
                     because=f"{chosen.id} requires {port.type_id or port.name!r} here",
                     checkpoint=checkpoint,
+                    kinds=(_kinds_reaching(registry, goal, port, visiting | {chosen.id})
+                           if port.gathers_study() else None),
                 )
             except UnroutablePinError:
                 raise
@@ -585,15 +628,34 @@ def _satisfy_port(
     visiting: frozenset[str],
     because: str = "",
     checkpoint: Callable[[], Callable[[], None]] | None = None,
+    kinds: list[frozenset[str]] | None = None,
 ) -> str:
     """Try each alternative in declaration order and take the first that routes; return its
     type, which a row on `type.<port>` reads (#464).
+
+    **A port that gathers over the study takes one producer per kind of data** (#435): `kinds`
+    groups the producers that can make its first alternative by the analysis's inputs they are
+    reached from, and each group is routed with the usual choice among its members. MultiQC
+    gathers FastQC's reports on the reads and QUAST's on the assemblies; FastQC and Falco, both
+    on the reads, still compete. A group that cannot be routed is undone and left out.
 
     Order is the author's statement of preference between kinds of input — "a BAM, or
     failing that a CRAM" — so it is first-match-wins, exactly like decision-table rows.
     A port with no `accepts` has one alternative and this is the old behaviour verbatim.
     """
     alternatives = port.alternatives()
+    if kinds and len(kinds) > 1:
+        first, routed = alternatives[0], False
+        for among in kinds:
+            restore = checkpoint() if checkpoint is not None else None
+            try:
+                satisfy(first.type_id, first.states, depth, visiting, because, among=among)
+                routed = True
+            except UnroutableError:
+                if restore is not None:
+                    restore()
+        if routed:
+            return first.type_id
     failures = []
     for alternative in alternatives:
         # A refused alternative may already have emitted the steps its required inputs need;
@@ -710,7 +772,7 @@ def _by_rule(here: _Here) -> Choice | None:
     if match:
         return Choice(
             match[0],
-            Tier.DATA_PROFILED,
+            pinned.tier(),
             pinned.reason_line(pinned.row.when),
             pinned=f"rule condition: {pinned.row.when}",
             pin=pinned,

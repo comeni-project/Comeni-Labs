@@ -6,6 +6,7 @@ agent sees what its change did."""
 from typing import Literal
 
 from comeni_core.egress.agent import DataCheckLine, DataView, TextView
+from comeni_core.spell.marks import Digest, TypeId
 from pydantic import BaseModel, Field
 
 from mendel_api.agent.tools import Nothing, Tool, ToolContext, register
@@ -23,6 +24,8 @@ def _row(db, draft_id: str) -> AnalysisData:
 
 
 def read_data(ctx: ToolContext, _: Nothing) -> DataView:
+    from mendel_api.services.data.references import candidates
+
     with session_scope() as db:
         row = db.get(AnalysisData, ctx.draft_id)
         if row is None:
@@ -32,6 +35,7 @@ def read_data(ctx: ToolContext, _: Nothing) -> DataView:
         unfit = list(row.unfit or [])
         fixes = list(row.fixes or [])
         references = sorted(r["type_id"] for r in (row.references or []))
+        reference_files = candidates(row)
     found = rule.checks(samples, unfit, [Fix(**f) for f in fixes])
     return DataView(
         samples=[s["name"] for s in samples],
@@ -42,7 +46,23 @@ def read_data(ctx: ToolContext, _: Nothing) -> DataView:
         checks=[DataCheckLine(sample=c.sample, kind=c.kind, measurement=c.measurement,
                               file=next((f.file for f in c.fixes if f.file), None))
                 for c in found],
-        references=references)
+        references=references, reference_files=reference_files)
+
+
+class ReferenceArgs(BaseModel):
+    file_id: Digest
+    type_id: TypeId
+    because: str = Field(min_length=1, max_length=300)
+
+
+def add_reference(ctx: ToolContext, args: ReferenceArgs) -> TextView:
+    from mendel_api.services.data.references import choose
+
+    name = choose(ctx.draft_id, args.file_id, args.type_id, args.because)
+    from mendel_api.agent import chat
+
+    chat.rebuild_for_data(ctx.draft_id, ctx.who)
+    return TextView(text=f"selected {name} as {args.type_id}; set by the AI: {args.because}")
 
 
 def _rescan(ctx: ToolContext, change) -> int:
@@ -76,20 +96,19 @@ def set_reading_rule(ctx: ToolContext, a: RuleArgs) -> TextView:
 
 class ApplyFixArgs(BaseModel):
     kind: Literal["use_file", "leave_out"]
-    sample: str = Field(min_length=1, max_length=256)
+    sample: str = Field(min_length=1, max_length=200)
     file: str | None = Field(default=None, max_length=256, description="for use_file")
     because: str = Field(min_length=1, max_length=300)
 
 
 def apply_fix(ctx: ToolContext, a: ApplyFixArgs) -> TextView:
-    made = Fix(kind=a.kind, sample=a.sample, file=a.file, by="ai", reason=a.because)
-    with session_scope() as db:
-        row = _row(db, ctx.draft_id)
-        rule.validate(made, list(row.samples or []), list(row.unfit or []))
+    from mendel_api.services.data import edits
 
-    def keep(row):
-        row.fixes = [*(row.fixes or []), made.model_dump()]
-    _rescan(ctx, keep)
+    made = Fix(kind=a.kind, sample=a.sample, file=a.file, by="ai", reason=a.because)
+    edits.change(ctx.draft_id, fix=made)
+    from mendel_api.agent import chat
+
+    chat.rebuild_for_data(ctx.draft_id, ctx.who)
     said = f"used {a.file} as {a.sample}'s mate" if a.kind == "use_file" else f"left {a.sample} out"
     return TextView(text=f"{said}; marked AI until kept")
 
@@ -97,6 +116,8 @@ def apply_fix(ctx: ToolContext, a: ApplyFixArgs) -> TextView:
 for _tool in (
     Tool("read_data", "The person's samples, how files were read, what to check.", Nothing,
          read_data),
+    Tool("add_reference", "Choose a reference from read_data's reference_files.",
+         ReferenceArgs, add_reference, writes=True),
     Tool("set_reading_rule", "Read files into samples by a pattern.", RuleArgs, set_reading_rule,
          writes=True),
     Tool("apply_fix", "Use a file as a sample's mate, or leave a sample out.", ApplyFixArgs,

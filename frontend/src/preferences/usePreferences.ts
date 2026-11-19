@@ -27,7 +27,10 @@ export function useWrite() {
       served === "wiener"
         ? wienerPut<Shown>(`/api/wiener/settings/${encodeURIComponent(key)}`, { value })
         : put<Shown>(`/settings/${encodeURIComponent(key)}`, { value }),
-    onSettled: () => client.invalidateQueries({ queryKey: ["settings"] }),
+    onSettled: () => Promise.all([
+      client.invalidateQueries({ queryKey: ["settings"] }),
+      client.invalidateQueries({ queryKey: ["models"] }),
+    ]),
   });
 }
 

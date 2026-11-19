@@ -12,7 +12,7 @@ from mendel_api_tests.data import draft, pairs, tick
 from support.paths import ROOT
 
 RNASEQ = Pipeline.model_validate(
-    yaml_strict.load(ROOT / "tests/fixtures/pipeline-v9/pipeline.yml"))
+    yaml_strict.load(ROOT / "tests/fixtures/pipeline-v10/pipeline.yml"))
 
 
 def files(tmp_path, *names):
@@ -93,7 +93,7 @@ def test_the_route_binds_the_kept_pipeline_to_the_scanned_data(clean, client, ro
     tick(client, d, pairs(root / "reads", "Y1"))
     scanning.scan(d, who="ana")
     monkeypatch.setattr(draft_service, "artifact_path",
-                        lambda _: ROOT / "tests/fixtures/pipeline-v9/pipeline.yml")
+                        lambda _: ROOT / "tests/fixtures/pipeline-v10/pipeline.yml")
     got = client.get(f"/api/data/{d}/bindings").json()
     assert {m["channel"] for m in got["missing"]} == {"gtf", "fasta"}
     assert got["params"] == {} and got["summary"] == "1 sample"
@@ -108,7 +108,7 @@ def test_bindings_are_never_written_to_the_draft(clean, client, root, monkeypatc
 
     d = draft(client)
     monkeypatch.setattr(draft_service, "artifact_path",
-                        lambda _: ROOT / "tests/fixtures/pipeline-v9/pipeline.yml")
+                        lambda _: ROOT / "tests/fixtures/pipeline-v10/pipeline.yml")
     client.get(f"/api/data/{d}/bindings")
     with session_scope() as db:
         row = db.get(PipelineDraft, d)

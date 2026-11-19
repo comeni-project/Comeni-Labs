@@ -88,6 +88,15 @@ CONNECTIONS = Setting.collection(
         "provider with a key. Add one, test it, then choose a model for each purpose below."
     ),
     fields=(
+        Setting.choice(
+            key="connection.provider", label="Provider",
+            help="The provider used for setup, model discovery, and authentication.",
+            options=[("custom", "Custom"), ("ollama", "Ollama"), ("lmstudio", "LM Studio"),
+                     ("openai", "OpenAI API"), ("anthropic", "Anthropic API"),
+                     ("gemini", "Google Gemini"), ("openrouter", "OpenRouter"),
+                     ("chatgpt", "ChatGPT subscription")],
+            default="custom",
+        ),
         Setting.text(
             key="connection.name",
             label="Name",

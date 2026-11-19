@@ -6,8 +6,7 @@ boundary. Prompt text and domain reply models remain owned by callers; this pack
 provider access, transport, generic helpers, and prompt-file mechanics.
 
 This package is intentionally impure and may depend on :mod:`comeni_core`; pure workspace
-packages must not depend on it. The deprecated :mod:`mendel_ai` package re-exports the older
-public surface for compatibility.
+packages must not depend on it.
 """
 
 from comeni_ai.access import ModelAccess

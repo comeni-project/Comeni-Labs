@@ -13,6 +13,7 @@ identifier. *"Handle batch inputs"* could be read as *"let me upload a sampleshe
 reading is the one thing this must never become.
 """
 
+import pathlib
 import shutil
 import subprocess
 
@@ -288,3 +289,24 @@ def test_a_samplesheet_pipeline_runs_end_to_end(stack, tmp_path):
     assert published, f"the run produced no alignment:\n{done.stdout[-2000:]}"
     # Named for the row's `sample`, which is the only place that name could have come from.
     assert any(name.startswith("test.") for name in published), published
+
+
+def test_the_stub_samplesheet_has_every_column_the_workflow_reads(stack, tmp_path):
+    """#542: the stub profile gave a samplesheet pipeline a FASTQ glob for `params.input`, which
+    `splitCsv` would have parsed. Its stub sheet now has two rows and every column the workflow
+    reads off a row, each cell an empty file that exists."""
+    import csv
+    import re
+
+    from mendel_compiler.emit import STUB_SAMPLESHEET, emit_config
+    from mendel_compiler.gates import Gate, materialise_gate_inputs
+
+    pipeline = _built(_two_sample_channels(), stack)
+    read = set(re.findall(r"row\.(\w+)", emit(pipeline))) - {"comeni", "comeni_groups",
+                                                             "comeni_units"}
+    materialise_gate_inputs(Gate.STUB, tmp_path, pipeline)
+    rows = list(csv.DictReader((tmp_path / STUB_SAMPLESHEET).open()))
+    assert len(rows) == 2 and read and read <= set(rows[0])
+    files = [cell for row in rows for key, cell in row.items() if key != "sample"]
+    assert files and all(pathlib.Path(cell).is_file() for cell in files)
+    assert f'params.input = "${{projectDir}}/{STUB_SAMPLESHEET}"' in emit_config(pipeline)

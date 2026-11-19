@@ -84,7 +84,8 @@ def prepare(roots: list[Path], *, loaded: layers.Layers | None = None) -> Prepar
     # module was comparing two things nobody kept in step. `--registry X` is now the whole
     # input, which is also what makes an air-gapped site a first-class customer (invariant 13).
     diagnostics = conformance.check(
-        loaded.registry, loaded.modules, measurements=loaded.measurements
+        loaded.registry, loaded.modules, measurements=loaded.measurements,
+        vocabulary=loaded.vocabulary,
     )
     return Prepared(
         layers=loaded, diagnostics=diagnostics,
@@ -159,4 +160,5 @@ def diagnostics_for(registry_roots: list[Path]) -> list:
     check instead of the CLI re-deriving one.
     """
     loaded = layers.load(registry_roots)
-    return conformance.check(loaded.registry, loaded.modules, measurements=loaded.measurements)
+    return conformance.check(loaded.registry, loaded.modules, measurements=loaded.measurements,
+                             vocabulary=loaded.vocabulary)

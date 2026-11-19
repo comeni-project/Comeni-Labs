@@ -146,3 +146,25 @@ def test_each_reader_says_what_it_measures_what_decides_by_it_and_its_tests(monk
     [genome] = faidx["facts"]
     assert genome["settings"] == [{"name": "star_sa_index_nbases",
                                    "formula": "round(min(14, log₂(genome length) / 2 − 1))"}]
+
+
+def test_a_rule_deciding_several_roles_names_them_all(monkeypatch):
+    """#535: the readers view named only a rule's first role when it decided several."""
+    from types import SimpleNamespace
+
+    import yaml
+    from mendel_api.services import registry
+    from mendel_api.services.data import kinds
+    from mendel_resolver.rules.format import Decision
+
+    decision = Decision.model_validate(yaml.safe_load(
+        "decides: [{effect: implementation, of: trimming},\n"
+        "          {effect: implementation, of: alignment}]\n"
+        "rows:\n  - {when: {read_length: '>= 70'}, then: nf-core/star/align@2.7.11b, "
+        "because: long reads}\n"))
+    stack = SimpleNamespace(measurements=SimpleNamespace(),
+                            rules=SimpleNamespace(decisions=[decision], derivations=[]))
+    monkeypatch.setattr(registry, "stack", lambda: stack)
+    monkeypatch.setattr(kinds, "_tests", lambda measurer_id: [])
+    [rule] = kinds._fact("read_length", "read_length").rules
+    assert rule.role == "alignment, trimming"

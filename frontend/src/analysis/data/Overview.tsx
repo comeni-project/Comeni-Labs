@@ -37,11 +37,13 @@ function fixName(fix: DataFix): string {
 
 /** **Check these, one row a sample**: a sample odd in two measurements is one thing to look at,
  *  kept or left out once. */
-export function Checks({ data, onFix }: { data: AnalysisData; onFix: (fix: DataFix) => void }) {
+export function Checks({ data, onFix, busy = false, pendingFix }: {
+  data: AnalysisData; onFix: (fix: DataFix | DataFix[]) => void; busy?: boolean; pendingFix?: string | null;
+}) {
   const bySample = new Map<string, AnalysisData["checks"]>();
   for (const check of data.checks) bySample.set(check.sample, [...(bySample.get(check.sample) ?? []), check]);
   if (bySample.size === 0) return null;
-  const button = "h-[36px] px-[14px] rounded-control text-[13px] cursor-pointer";
+  const button = "h-[36px] px-[14px] rounded-control text-[13px] cursor-pointer disabled:opacity-50 disabled:cursor-wait";
   return (
     <Panel title="Check these" hint="found from what was measured">
       {[...bySample].map(([sample, checks]) => {
@@ -50,7 +52,7 @@ export function Checks({ data, onFix }: { data: AnalysisData; onFix: (fix: DataF
           .map((c) => ({ kind: "keep", sample, measurement: c.measurement } as DataFix));
         const leave = { kind: "leave_out", sample } as DataFix;
         return (
-          <div key={sample} data-testid="check"
+          <div key={sample} data-testid="check" aria-busy={pendingFix === `sample:${sample}`}
                className="grid grid-cols-[28px_minmax(0,1fr)] sm:grid-cols-[28px_minmax(0,1fr)_auto] gap-3 items-center px-4 py-[10px] border-t border-line-soft">
             <span aria-hidden="true" className="w-7 h-7 rounded-full bg-measured-soft text-measured-ink grid place-items-center text-[14px] font-bold">!</span>
             <span className="flex flex-col gap-[2px] min-w-0">
@@ -59,16 +61,17 @@ export function Checks({ data, onFix }: { data: AnalysisData; onFix: (fix: DataF
             </span>
             <span className="col-start-2 sm:col-start-auto flex gap-2 flex-wrap justify-end">
               {uses.slice(0, 1).map((fix) => (
-                <button key="use" type="button" aria-label={fixName(fix)} onClick={() => onFix(fix)}
+                <button key="use" type="button" disabled={busy} aria-label={fixName(fix)} onClick={() => onFix(fix)}
                         className={`${button} border-0 bg-action text-on-action shadow-raise font-semibold`}>Use {fix.file}</button>
               ))}
               {keeps.length > 0 && (
-                <button type="button" aria-label={fixName(keeps[0])} onClick={() => keeps.forEach(onFix)}
+                <button type="button" disabled={busy} aria-label={fixName(keeps[0])} onClick={() => onFix(keeps)}
                         className={`${button} border border-line-2 bg-surface text-ink`}>Keep it</button>
               )}
-              <button type="button" aria-label={fixName(leave)} onClick={() => onFix(leave)}
+              <button type="button" disabled={busy} aria-label={fixName(leave)} onClick={() => onFix(leave)}
                       className={`${button} border border-line-2 bg-surface text-ink`}>Leave out</button>
             </span>
+            {pendingFix === `sample:${sample}` && <span role="status" className="col-start-2 text-[12px] text-now-ink">Saving choice…</span>}
           </div>
         );
       })}

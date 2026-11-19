@@ -434,7 +434,7 @@
           },
           "NfInput": {
             "additionalProperties": false,
-            "description": "One positional input of the process, and what fills it.\n\nA contract port is *semantic* — a typed thing the module consumes. A process\ninput is *plumbing* — one channel in the call signature. They do not\ncorrespond, and assuming they did is what made the first generated spine\nuncallable:\n\n- `subread/featurecounts` takes **one** channel carrying a tuple of bam *and*\n  annotation, so two ports collapse into one position;\n- `samtools/sort` takes **three**, of which a reference tuple and an\n  `index_format` value model nothing in the type system;\n- `star/align` takes **four** for two ports.\n\nDeclaring the signature here rather than parsing it out of `main.nf` is what\nlets the compiler emit a call for *any* module — a pegi3s image, an in-house\nprocess — not only for nf-core ones. Exactly one field is meaningful per entry.",
+            "description": "One positional input of the process, and what fills it.\n\nA contract port is *semantic* \u2014 a typed thing the module consumes. A process\ninput is *plumbing* \u2014 one channel in the call signature. They do not\ncorrespond, and assuming they did is what made the first generated spine\nuncallable:\n\n- `subread/featurecounts` takes **one** channel carrying a tuple of bam *and*\n  annotation, so two ports collapse into one position;\n- `samtools/sort` takes **three**, of which a reference tuple and an\n  `index_format` value model nothing in the type system;\n- `star/align` takes **four** for two ports.\n\nDeclaring the signature here rather than parsing it out of `main.nf` is what\nlets the compiler emit a call for *any* module \u2014 a pegi3s image, an in-house\nprocess \u2014 not only for nf-core ones. Exactly one field is meaningful per entry.",
             "properties": {
               "ports": {
                 "items": {
@@ -497,6 +497,12 @@
                 "default": 0,
                 "title": "Absent",
                 "type": "integer"
+              },
+              "pad": {
+                "default": 0,
+                "minimum": 0,
+                "title": "Pad",
+                "type": "integer"
               }
             },
             "title": "NfInput",
@@ -516,7 +522,7 @@
       "fields": {
         "$defs": {
           "ExtKey": {
-            "description": "Which key inside the `ext` scope.\n\n`args` is read by all 10 vendored modules and `prefix` by 8. `args2` and `args3` are here on\n**nf-core convention with no evidence in this repository** — no vendored module reads them.\nKept because an unused enum value costs nothing while adding one later costs a `version:`\nbump for every archived `pipeline.yml`, and `MD0108` refuses a contract naming a key its\nmodule does not read, so a wrong inclusion fails loudly at build rather than silently at run.\n\n**`when` is deliberately absent.** It is a boolean that skips a process entirely, so a\nsetting could switch off a step while `steps:` and `inputs:` still describe it running —\na second routing mechanism competing with resolution. Whether a step exists is decided by\nresolving the goal, not by a setting.",
+            "description": "Which key inside the `ext` scope.\n\n`args` is read by all 10 vendored modules and `prefix` by 8. `args2` and `args3` are here on\n**nf-core convention with no evidence in this repository** \u2014 no vendored module reads them.\nKept because an unused enum value costs nothing while adding one later costs a `version:`\nbump for every archived `pipeline.yml`, and `MD0108` refuses a contract naming a key its\nmodule does not read, so a wrong inclusion fails loudly at build rather than silently at run.\n\n**`when` is deliberately absent.** It is a boolean that skips a process entirely, so a\nsetting could switch off a step while `steps:` and `inputs:` still describe it running \u2014\na second routing mechanism competing with resolution. Whether a step exists is decided by\nresolving the goal, not by a setting.",
             "enum": [
               "args",
               "args2",

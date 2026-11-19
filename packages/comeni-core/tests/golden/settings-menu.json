@@ -218,6 +218,66 @@
             "where": "installation",
             "fields": [
               {
+                "key": "connection.provider",
+                "label": "Provider",
+                "help": "The provider used for setup, model discovery, and authentication.",
+                "kind": "choice",
+                "default": "custom",
+                "env": null,
+                "options": [
+                  {
+                    "value": "custom",
+                    "label": "Custom",
+                    "designed": null
+                  },
+                  {
+                    "value": "ollama",
+                    "label": "Ollama",
+                    "designed": null
+                  },
+                  {
+                    "value": "lmstudio",
+                    "label": "LM Studio",
+                    "designed": null
+                  },
+                  {
+                    "value": "openai",
+                    "label": "OpenAI API",
+                    "designed": null
+                  },
+                  {
+                    "value": "anthropic",
+                    "label": "Anthropic API",
+                    "designed": null
+                  },
+                  {
+                    "value": "gemini",
+                    "label": "Google Gemini",
+                    "designed": null
+                  },
+                  {
+                    "value": "openrouter",
+                    "label": "OpenRouter",
+                    "designed": null
+                  },
+                  {
+                    "value": "chatgpt",
+                    "label": "ChatGPT subscription",
+                    "designed": null
+                  }
+                ],
+                "minimum": null,
+                "maximum": null,
+                "unavailable": null,
+                "where": "installation",
+                "fields": [],
+                "item_name": "name",
+                "from_env": null,
+                "actions": [],
+                "inherit_default": true,
+                "of": null
+              },
+              {
                 "key": "connection.name",
                 "label": "Name",
                 "help": "What this connection is called here, e.g. Local Ollama.",

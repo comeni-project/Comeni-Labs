@@ -64,6 +64,16 @@ class DocumentedInput(BaseModel):
 
     name: str
     description: str
+    pattern: str | None = None
+    """The file pattern meta.yml documents for it, `*.{fa,fasta,fna}`; `None` when it gives none."""
+
+    @property
+    def formats(self) -> list[str]:
+        """The formats its pattern names, sorted; empty when it names none (#414)."""
+        if not self.pattern:
+            return []
+        return sorted({found for text in _expanded(self.pattern) if (found := _format(text))
+                       and found != "folder"})
 
 
 class ModuleSpec(BaseModel):
@@ -327,7 +337,8 @@ def _documented_in(meta_yml: str | None) -> list[DocumentedInput]:
                 if isinstance(body, dict) and "description" in body:
                     found.append(
                         DocumentedInput(
-                            name=str(name), description=str(body["description"]).strip()
+                            name=str(name), description=str(body["description"]).strip(),
+                            pattern=(str(body["pattern"]) if body.get("pattern") else None),
                         )
                     )
                 else:

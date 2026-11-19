@@ -110,21 +110,32 @@ def test_preview_needs_no_container_engine():
 
 
 def test_a_stub_gate_materialises_every_local_input(tmp_path):
-    pipeline = Pipeline.model_validate(yaml_strict.load(SPINE)).model_copy(
-        update={"input_form": InputForm.SAMPLESHEET}
-    )
+    """A samplesheet pipeline reads `params.input` as a CSV, so its stub run gets one (#542):
+    two rows whose every cell is an empty file that exists. It was given FASTQ pairs."""
+    import csv
+
+    from mendel_compiler.emit import STUB_SAMPLESHEET, emit_config
+
+    spine = Pipeline.model_validate(yaml_strict.load(SPINE))
+    # The fixture predates `columns`; a samplesheet build names one per file, two for reads.
+    pipeline = spine.model_copy(update={
+        "input_form": InputForm.SAMPLESHEET,
+        "channels": [c.model_copy(update={"columns": [f"{c.name}_1", f"{c.name}_2"]
+                                          if c.name == "reads" else [c.name]})
+                     for c in spine.channels]})
 
     materialise_gate_inputs(Gate.STUB, tmp_path, pipeline)
 
     assert (tmp_path / "test-samplesheet.csv").is_file()
-    assert sorted(path.name for path in (tmp_path / "stub-data").glob("*.fastq.gz")) == [
-        "sampleA_R1.fastq.gz",
-        "sampleA_R2.fastq.gz",
-        "sampleB_R1.fastq.gz",
-        "sampleB_R2.fastq.gz",
-    ]
-    assert (tmp_path / "stub-data/fasta.txt").is_file()
-    assert (tmp_path / "stub-data/gtf.txt").is_file()
+    rows = list(csv.DictReader((tmp_path / STUB_SAMPLESHEET).open()))
+    assert [row["sample"] for row in rows] == ["sampleA", "sampleB"]
+    cells = [cell for row in rows for key, cell in row.items() if key != "sample"]
+    assert cells and all(pathlib.Path(cell).is_file() for cell in cells)
+    assert not list((tmp_path / "stub-data").glob("*_R1.fastq.gz"))
+    # The spine's fasta and gtf are per-sample here, so they are samplesheet columns, not
+    # params: nothing would read a stub file named after them (#484).
+    assert not (tmp_path / "stub-data/fasta.txt").exists()
+    assert f'params.input = "${{projectDir}}/{STUB_SAMPLESHEET}"' in emit_config(pipeline)
 
 
 def test_a_test_gate_materialises_the_samplesheet_without_stub_data(tmp_path):

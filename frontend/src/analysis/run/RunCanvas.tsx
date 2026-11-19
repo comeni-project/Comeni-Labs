@@ -35,12 +35,14 @@ export function RunCanvas({ draftId, nodes, samples, live, selected, onSelect, l
       graph={frame.graph}
       positions={{ ...(canvas.data?.placement as Positions | undefined), ...(frame.placement as Positions | undefined) }}
       steps={Object.fromEntries(frame.steps.map((s) => [s.id, s]))}
-      channels={frame.channels}
+      channels={frame.channels.map((channel) => channel.grain === "sample"
+        ? { ...channel, count: samples } : channel)}
       authors={{}}
       selected={selected}
       onSelect={onSelect}
       samples={samples || undefined}
       progress={progress}
+      animateProgress={live}
       given={given}
       lit={lit}
       focus={focus}

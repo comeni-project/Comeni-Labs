@@ -13,7 +13,14 @@ pytestmark = pytest.mark.skipif(not reachable(), reason="no database")
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client(monkeypatch) -> TestClient:
+    from mendel_api import jobs
+
+    async def queued(name, *args, **kwargs):
+        # A person's decision queues the next piece's draft (4913e3bb); no test reaches Redis.
+        return True
+
+    monkeypatch.setattr(jobs, "enqueue", queued)
     with session_scope() as db:
         for table in ("forge_review", "forge_pull_request", "forge_test_run", "forge_step",
                       "forge_message", "forge_revision",

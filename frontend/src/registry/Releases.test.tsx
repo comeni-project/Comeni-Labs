@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -77,6 +77,15 @@ it("a release being cut shows it, and offers no second", async () => {
                            cut_by: "rafael", cut_at: "2026-10-30T10:00:00Z" }] });
   expect(await screen.findByText(/being cut…/)).toBeTruthy();
   expect((screen.getByRole("button", { name: "Being cut…" }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("a cut release says it was released, and by whom only when known (issue 535)", async () => {
+  at({ ...PAGE, recent: [
+    { version: "v0.8.1", state: "done", says: null, commit: null, cut_by: "unknown", cut_at: "2026-11-17T10:00:00Z" },
+    { version: "v0.8.0", state: "done", says: null, commit: null, cut_by: "rafael", cut_at: "2026-11-16T10:00:00Z" }] });
+  const cut = within(await screen.findByRole("list", { name: "Cut here" }));
+  expect(cut.getAllByRole("listitem").map((li) => li.textContent)).toEqual(
+    ["v0.8.1 · released", "v0.8.0 · released · by rafael"]);
 });
 
 it("without a token it says why and offers no form", async () => {

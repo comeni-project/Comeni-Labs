@@ -225,11 +225,15 @@ def read_context(adaptation_id: str, item: str) -> forge_context.QuestionContext
     summary="A person's decision on one item: answer, write, approve, change, reject, remove",
     responses=REFUSES,
 )
-def command_adaptation(adaptation_id: str, body: forging.CommandBody) -> forging.AdaptationView:
+async def command_adaptation(adaptation_id: str,
+                             body: forging.CommandBody) -> forging.AdaptationView:
     try:
-        return forging.act(adaptation_id, forging.person(
+        view = await asyncio.to_thread(forging.act, adaptation_id, forging.person(
             body.move, body.item, expected=body.expected, value=body.value,
             because=body.because))
+        if body.move in {"answer", "approve", "write", "change"}:
+            return await forging.continue_after_decision(adaptation_id, body.item.split(":", 1)[0])
+        return view
     except KeyError:
         raise _unknown(adaptation_id) from None
 

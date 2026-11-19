@@ -332,3 +332,26 @@ def test_a_withheld_output_says_its_condition_in_words():
     with pytest.raises(ConstraintViolation) as refused:
         _not_withheld([(None, output, "quast")], port, "report")
     assert "written only with fasta" in str(refused.value) and "{" not in str(refused.value)
+
+
+def test_a_missing_setting_is_not_called_unconnected(monkeypatch):
+    """#467: MD0609 said a required param was "not connected". An input is connected; a
+    setting is set."""
+    import importlib
+
+    from comeni_core import yaml_strict
+    from comeni_core.declared.constraints import Verdict
+    from comeni_core.declared.contract import ModuleContract
+
+    module = importlib.import_module("mendel_resolver.resolve")
+
+    contract = ModuleContract.model_validate(
+        {k: v for k, v in yaml_strict.loads(QUAST).items() if k != "declares"})
+    monkeypatch.setattr(module, "setup_of", lambda *args: None)
+    monkeypatch.setattr(module, "evaluate", lambda contract, setup: Verdict(
+        missing=["fasta", "min_contig"], sentences=["a row"]))
+    with pytest.raises(ConstraintViolation) as raised:
+        module._constraints_hold(contract, node=None)
+    said = str(raised.value)
+    assert "fasta, which is not connected" in said
+    assert "min_contig, which is not set" in said

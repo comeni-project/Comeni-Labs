@@ -13,7 +13,7 @@ a model's contribution must remain visible and reviewable.
 ## Before working
 
 - Read [current work](docs/notes/now.md), then the relevant source and tests. The
-  [journal](docs/notes/journal) records completed work; GitHub issue #119 is the task tree.
+  [journal](docs/notes/journal) records completed work; open GitHub issues are the backlog.
 - Check the branch, worktree and working tree before editing. Use a feature branch and
   preserve other agents' changes. Worktree submodule configuration is shared: never run
   `git submodule deinit` inside a worktree.
@@ -109,7 +109,7 @@ compliance, call data anonymised, or promise cloud data handling that has not be
 | Decisions and projections / the forge's flow engine | `packages/mendel-authoring/`, `packages/comeni-flow/` |
 | The builder agent: tools, loop, chat and MCP | `packages/mendel-api/src/mendel_api/agent/` |
 | Build sessions, API, jobs and installation settings | `packages/mendel-api/` |
-| Shared provider transport / Mendel model integration | `packages/comeni-ai/`, `packages/mendel-ai/` |
+| Shared provider transport | `packages/comeni-ai/` |
 | The forge: module catalogue, sources and state against the registry (#360) | `packages/mendel-forge/` |
 | Module fetching into a registry layer | `packages/comeni-vendor/` |
 | Sample inspection subprocesses | `packages/comeni-inspect/` |

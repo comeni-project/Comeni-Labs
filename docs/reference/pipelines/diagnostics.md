@@ -90,6 +90,8 @@ decline to curate one.
 | `MD0107` | `container` has drifted from the module's directive |
 | `MD0108` | a setting routes to an `ext` key this module never reads |
 | `MD0109` | a `produces[].format` is not what the module's output pattern writes |
+| `MD0111` | an `nf_inputs` entry fills a tuple of a different width than the module declares |
+| `MD0112` | a port fills a slot whose file pattern takes none of its type's formats |
 | `MD0611` | an output the module marks `optional: true` is always written, by the contract |
 
 ## A layer is not arranged the way its manifest says
@@ -225,6 +227,7 @@ decline to curate one.
 | `MI0224` | a reference's type is not one the registry declares |
 | `MI0225` | a column is named after a fact the data already measured |
 | `MI0226` | a fix names a sample or file this data does not have |
+| `MI0228` | the AI set a fact the data measured to another value |
 | `MI0500` | a rule proposal cannot be approved as it stands |
 | `MI0501` | no model is set to propose rules |
 

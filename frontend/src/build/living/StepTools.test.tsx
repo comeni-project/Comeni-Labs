@@ -125,6 +125,8 @@ describe("changing a step goes through the session's edit", () => {
     fireEvent.contextMenu(screen.getByTestId("living-node-star_align"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Remove step…" }));
     expect(onEdit).not.toHaveBeenCalled();
+    // What only fed it is named before it goes (#509).
+    expect(screen.getByText(/STAR_GENOMEGENERATE, TRIMGALORE only feed STAR_ALIGN, so they go too/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove STAR_ALIGN" }));
     expect(onEdit).toHaveBeenCalledOnce();

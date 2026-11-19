@@ -54,6 +54,10 @@ class Measured(BaseModel):
     A contract uses ``by`` instead. Person-authored assertions use neither.
     """
     evidence: Evidence | None = Field(default=None, exclude_if=lambda evidence: evidence is None)
+    measured: ParamValue | list[ParamValue] | None = Field(
+        default=None, exclude_if=lambda measured: measured is None)
+    """What the data measured, when a person said otherwise (#510). Their word stands as the
+    value; a decision that reads it is flagged for review with both."""
 
     @property
     def coverage(self) -> Coverage | None:
@@ -67,6 +71,8 @@ class Measured(BaseModel):
                 "a measured value has one measurer: a contract (`by`) or inspector pieces, "
                 "not both"
             )
+        if self.measured is not None and self.source is not ValueSource.SAID:
+            raise ValueError("only a value a person said can disagree with what was measured")
         if (self.pieces or self.evidence is not None) and self.source is not ValueSource.MEASURED:
             # Its reason would say *asserted* while its own entry names what measured it.
             raise ValueError(

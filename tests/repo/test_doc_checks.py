@@ -88,3 +88,14 @@ def test_the_live_brief_and_its_companions_pass_both_checks():
         assert (ROOT / name).exists(), f"{name} is missing; the checks would pass vacuously"
         assert cdp.dead_paths((ROOT / name).read_text(), ROOT) == [], name
     assert cds.over_budget(ROOT, cds.BUDGETS) == []
+
+
+def test_every_moved_address_targets_an_existing_page_and_no_source_reclaims_it():
+    """The wiki build refuses a redirect to a missing page; catch it before the wiki does (#541)."""
+    from documentation_locations import moved_docs
+
+    locations = moved_docs(ROOT)
+    assert locations
+    missing = sorted(old for old, new in locations.items() if not (ROOT / new).is_file())
+    reclaimed = sorted(old for old in locations if (ROOT / old).is_file())
+    assert missing == [] and reclaimed == []

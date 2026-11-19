@@ -103,7 +103,7 @@ def test_a_pipeline_saved_before_this_change_still_loads():
     (it now holds one optional input itself, samtools faidx's index, #465)."""
     import yaml
 
-    raw = yaml.safe_load((ROOT / "tests/fixtures/pipeline-v9/pipeline.yml").read_text())
+    raw = yaml.safe_load((ROOT / "tests/fixtures/pipeline-v10/pipeline.yml").read_text())
     for step in raw["steps"]:
         step.pop("input_states", None)
     for channel in raw["channels"]:
@@ -169,8 +169,10 @@ def _param(pipeline: Pipeline, type_id: str) -> str:
 def test_a_rule_only_a_run_can_settle_is_on_the_step(tmp_path):
     pipeline = _both_optional(tmp_path)
     rules = _quast_step(pipeline).run_rules
+    fasta = _param(pipeline, "genome.fasta")
+    # The person launching sets params, so the sentence names the one they set (#467).
     assert [(r.given, r.requires, r.forbids, r.says) for r in rules] == [
-        ([_param(pipeline, "annotation.gff")], [_param(pipeline, "genome.fasta")], [], SAYS)]
+        ([_param(pipeline, "annotation.gff")], [fasta], [], f"{SAYS}; set `fasta` as --{fasta}")]
 
 
 def test_the_pipeline_refuses_a_gff_without_a_reference_at_its_start(tmp_path):

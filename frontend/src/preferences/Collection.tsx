@@ -57,7 +57,10 @@ export function Collection({ entry, onWrite }: { entry: Entry; onWrite: (value: 
 
   return (
     <div className="flex flex-col gap-[8px]">
-      <div className="flex justify-end gap-[8px] -mt-[4px] mb-[4px]">
+      <div className="flex flex-wrap items-center justify-end gap-[8px]">
+        {!records.length && !added && (
+          <p className="m-0 mr-auto text-secondary text-ink-3">No connections yet. Add one to choose a model.</p>
+        )}
         {dirty && (
           <button type="button" onClick={save}
                   className={`${GHOST} text-ink border-ink-3`}>Save connections</button>

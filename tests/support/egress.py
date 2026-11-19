@@ -56,6 +56,8 @@ arrives, and it is still a blob — sign the artifact beside the bundle, not ins
 # **`ai_invocation.response` is not here, and should not be** (#182, 2026-09-29): a model's reply
 # is stored, never sent — it crosses no door.
 FREE_TEXT_FIELDS = {
+    # Explicit terminal answer: the agent's own validated message, also kept in its turn.
+    ("RepliedView", "message"),
     # #511: the reading rule's pattern, which a person or the AI typed (`{sample}_R{read}.fq.gz`).
     ("DataView", "rule"),
     # Declared type/state signatures from registry vocabulary, sent through the forge door.
@@ -233,6 +235,9 @@ FREE_TEXT_FIELDS = {
 
 
 SAMPLE_FIELDS = {
+    # Reference selection exposes file and collection basenames, never paths or contents.
+    ("ReferenceCandidate", "name"),
+    ("ReferenceCandidate", "collection"),
     # #463: the person's samples, by name, returned to the builder agent's model by a read tool
     # (the operator's decision, 2026-11-14; `tests/fixtures/guard-ledger.md`). **Not free text,
     # and counted apart on purpose**: free text is what a person typed or a tool printed, and

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { FileLocation } from "./FileLocation";
 
 import { get } from "../../api/client";
 import type { components } from "../../api/schema";
@@ -85,7 +86,7 @@ function Slot({ kind, data, choices, readers, files, onAdd, onRemove }: {
       {ref ? (
         <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center px-5 py-3 border-t border-line-soft">
           <span className="flex flex-col gap-[3px] min-w-0">
-            <span className="font-data text-[13px] font-semibold text-ink truncate">{ref.name}</span>
+            <FileLocation path={ref.path} />
             <span className="text-[12.5px] text-ink-2">
               {[size !== undefined ? bytes(size) : null, `in ${folderOf(ref.path)}`].filter(Boolean).join(" · ")}
               {ref.origin === "ai" ? " · set by the AI" : ""}
@@ -115,13 +116,21 @@ function Candidate({ file, label, onUse }: { file: File; label: string; onUse: (
   return (
     <div data-testid="candidate" className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center px-5 py-[10px] border-t border-line-soft">
       <span className="flex flex-col gap-[3px] min-w-0">
-        <span className="font-data text-[13px] font-semibold text-ink truncate">{file.name}</span>
+        <FileLocation path={file.path} />
         <span className="text-[12.5px] text-ink-2">in {folderOf(file.path)}{file.used_as === "candidate" ? ", a folder for references" : ""}</span>
       </span>
       <button type="button" onClick={onUse}
               className={`${BUTTON} border-0 bg-action text-on-action shadow-raise font-semibold`}>Use as the {label}</button>
     </div>
   );
+}
+
+/** The one reference kind a file's name ends with (`genome.fasta` → `genome.fasta`), compression
+ *  off; none when no kind or several match. A guess the person can change (#535). */
+export function guessKind(file: string, types: string[]): string {
+  const name = file.toLowerCase().replace(/\.gz$/, "");
+  const matching = types.filter((t) => name.endsWith(`.${t.split(".").pop()}`));
+  return matching.length === 1 ? matching[0] : "";
 }
 
 /** A reference the pipeline does not ask for (yet), added by kind. */
@@ -145,7 +154,11 @@ function ByKind({ choices, onAdd }: { choices: File[]; onAdd: (path: string, typ
     <Panel title="Add a reference by kind">
       <div className="flex flex-wrap items-end gap-2 px-5 pb-4">
         <label className="flex flex-col gap-1 text-[12px] text-ink-3 min-w-[200px] flex-1">File
-          <select aria-label="File" value={path} onChange={(e) => setPath(e.target.value)} className={field}>
+          <select aria-label="File" value={path} className={field} onChange={(e) => {
+            setPath(e.target.value);
+            const name = choices.find((f) => f.path === e.target.value)?.name ?? "";
+            if (!kind) setKind(guessKind(name, types.data ?? []));
+          }}>
             <option value="">Choose a file in your folders</option>
             {choices.map((f) => <option key={f.path} value={f.path}>{f.name}</option>)}
           </select>

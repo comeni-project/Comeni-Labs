@@ -6,6 +6,7 @@ unique `(adaptation, item, n)` is the last word on a race: two decisions against
 cannot both land.
 """
 
+import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -658,6 +659,33 @@ def pending_layers(adaptation_id: str) -> list[Path]:
     """The draft layers of the assembled adaptations this one depends on, stacked beneath it."""
     return [draft_dir(other) for other in row(adaptation_id).depends_on or []
             if draft_dir(other).is_dir()]
+
+
+async def continue_after_decision(adaptation_id: str, decided_piece: str) -> AdaptationView:
+    """Queue an empty next piece after review advances, without approving any AI proposal.
+
+    The queue's existing job id deduplicates concurrent final decisions. Existing proposals
+    remain for review; assembly, execution and publishing keep their separate controls.
+    """
+    view = await asyncio.to_thread(read, adaptation_id)
+    nxt = view.next_piece
+    if view.phase != Phase.REVIEWING or not nxt or nxt == decided_piece:
+        return view
+    if any(item.piece == nxt and item.status != Status.REMOVED for item in view.items):
+        return view
+    job_id = f"forge-draft:{adaptation_id}:{nxt}"
+    if await jobs.running(job_id, queue=jobs.AI_QUEUE):
+        return await asyncio.to_thread(read, adaptation_id)
+    try:
+        await ask_to_draft(adaptation_id, nxt)
+    except Refused:
+        if not await jobs.running(job_id, queue=jobs.AI_QUEUE):
+            raise
+    else:
+        title = "inputs and outputs" if nxt == "contract" else nxt
+        await asyncio.to_thread(post_message, adaptation_id, role="engine",
+                                content=f"Your decisions are saved. Drafting {title} next.")
+    return await asyncio.to_thread(read, adaptation_id)
 
 
 async def ask_to_draft(adaptation_id: str, piece: str) -> bool:

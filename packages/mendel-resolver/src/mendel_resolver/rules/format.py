@@ -326,6 +326,11 @@ class Pin(BaseModel):
     premise: list[PremiseRecord] = Field(default_factory=list)
     """The facts this row actually read, retained in ``when`` order."""
 
+    def tier(self) -> Tier:
+        """Tier 3, or tier 4 when a fact the row read was said and the data measures otherwise:
+        the choice stands and is flagged for review with both values (#510)."""
+        return Tier.AMBIGUOUS if any(p.contradicted for p in self.premise) else Tier.DATA_PROFILED
+
     def because(self) -> str:
         """Join the matched row's explanation and citation without using axis-level prose."""
         return _joined(self.row.because, self.row.cite)

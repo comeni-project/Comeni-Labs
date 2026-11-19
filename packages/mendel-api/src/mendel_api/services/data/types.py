@@ -24,12 +24,15 @@ class ScannedFile(BaseModel):
     used_as: Literal["reference", "candidate"] | None = None
     """What it is for when it is not a sample's: a reference, or a candidate for one (it sits in
     a folder named for references, so it is offered on Data → References, not made a sample)."""
+    left_out: bool = False
+    """Its sample is left out of the analysis, so nothing uses it (#535)."""
 
 
 class DataSample(BaseModel):
     """One sample: its files (paths, read 1 first) and what was measured on it."""
 
-    name: str = Field(min_length=1, max_length=256)
+    name: str = Field(min_length=1, max_length=200)
+    """At most 200, as `SampleName`: a longer name could reach no door a sample may cross (#505)."""
     files: list[str]
     outcome: str
     type_id: str | None = None
@@ -64,6 +67,7 @@ class Reference(BaseModel):
     name: str
     type_id: str
     origin: Literal["you", "ai"] = "you"
+    reason: str | None = None
     facts: list[SampleFact] = []
 
 

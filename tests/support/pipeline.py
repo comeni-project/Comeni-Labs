@@ -181,7 +181,7 @@ SERIALISED_SHAPE = {
         "overrode",
     ],
     "CallArg": ["ports", "literal", "empty_width", "from_setting", "join", "key", "joins",
-                "why"],
+                "pad", "why"],
     "MetaEntry": ["key", "value", "why"],
     "Emitted": ["schema_version", "files", "from_digest"],
     "ParamDecision": [
@@ -201,8 +201,8 @@ SERIALISED_SHAPE = {
     ],
     # Watched since issue 233 added what measured a premise; the goal's `Measured` and
     # `Evidence` gained theirs in 14.7.6.3 within the same unreleased version.
-    "PremiseRecord": ["id", "value", "origin", "by", "pieces", "coverage"],
-    "Measured": ["measurement", "value", "source", "by", "pieces", "evidence"],
+    "PremiseRecord": ["id", "value", "origin", "by", "pieces", "coverage", "measured"],
+    "Measured": ["measurement", "value", "source", "by", "pieces", "evidence", "measured"],
     "Evidence": ["records", "rows", "share", "coverage"],
 }
 """The artifact's serialised field order, as of `SCHEMA_VERSION = 6`.

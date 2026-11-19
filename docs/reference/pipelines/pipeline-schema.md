@@ -48,7 +48,7 @@ resolves differently as it changes.
 ## The file
 
 ```yaml
-version: 9
+version: 10
 
 intent:                        # what was wanted
   want: [counts.matrix]
@@ -294,6 +294,7 @@ shorthand (a second reading of one field is how root G miswires a pipeline silen
 | field | is | example |
 |---|---|---|
 | `ports` | one or more channels carrying named ports | `{ports: [reads]}` |
+| `ports` with `pad` | the ports' tuple, then that many empty paths (#507) | `{ports: [reports], pad: 4}` |
 | `literal` | a positional constant the process takes | `{literal: false, why: {…}}` |
 | `empty_width` | an empty placeholder channel, and its **tuple width** | `{empty_width: 2, why: {…}}` |
 
@@ -471,8 +472,8 @@ ai:
 ```
 
 Both empty is a **positive statement**: nothing was wired to a model, so nothing could have been
-consulted. Through Plan 1 that is always the case — `mendel-ai` does not exist — and writing it
-down is the difference between the file saying so and merely not mentioning it.
+consulted. Writing it down is the difference between the file saying so and merely not
+mentioning it.
 
 **Why this exists rather than trusting `why.source`.** A value settled by a model records
 `source: model`, and that is the answer for a reader who wants to know *who decided this one

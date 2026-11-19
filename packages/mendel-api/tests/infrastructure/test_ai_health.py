@@ -18,13 +18,13 @@ from mendel_api.routes import health
 
 @pytest.fixture(autouse=True)
 def no_ambient_model(monkeypatch):
-    """Clear every name `from_env` reads, current and deprecated.
+    """Clear every name `from_env` reads.
 
     A developer with `COMENI_AI_MODEL` exported would otherwise turn *the no-AI lane reports
     itself* green for the wrong reason — the same trap `test_a_model_lane_is_empty_by_default`
     names one file over.
     """
-    for name in (*access.DEPRECATED, *access.DEPRECATED.values()):
+    for name in access.NAMES:
         monkeypatch.delenv(name, raising=False)
 
 

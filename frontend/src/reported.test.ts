@@ -54,7 +54,13 @@ const hooks = () => walk().filter(([, text]) => code(text).includes("useMutation
 /** A hook hands its caller an error either by returning the mutation result whole — which
  *  carries `.error` — or by mapping it onto a field of its own return. Both are reporting. */
 const handsBackAnError = (text: string) =>
-  /return\s+useMutation\(/.test(code(text)) || /\berror:\s*\w/.test(code(text));
+  /return\s+useMutation\(/.test(code(text)) || /\berror:\s*\w/.test(code(text)) || showsItsOwn(text);
+
+/** A component (no `use…` hook exported) that calls `useMutation` inline is its own caller: it
+ *  reports by showing that mutation's error itself. Reveal-in-folder, ChatGPT sign-in, a
+ *  connection check and a tool's test launch all do (2026-11-17). */
+const showsItsOwn = (text: string) =>
+  !/export function use\w+/.test(code(text)) && /\.error\b|\.isError\b/.test(code(text));
 
 /** The names of the mutation hooks, so a consumer can be found by what it imports. */
 function hookNames(): string[] {
@@ -84,9 +90,21 @@ it("references that error in every component that calls one", () => {
     .filter(([path]) => !path.includes("/api/") && !path.endsWith("queryClient.ts") && !own.has(path))
     .filter(([, text]) => names.some((name) => new RegExp(`\\b${name}\\b`).test(code(text))))
     .filter(([, text]) => !/\.error\b|\berror\b|isError/.test(code(text)))
+    .filter(([, text]) => !passesOn(names, text))
     .map(([path]) => rel(path));
   expect(deaf).toEqual([]);
 });
+
+/** A page that hands a hook's result whole to its children (`actions={actions}`) is not where the
+ *  error shows: each child takes the result's type from the hook, so it is a caller in this scan
+ *  too and must reference the error itself. `forge/ToolPage.tsx` passes the forge's actions to
+ *  the Inspector and the Assistant (2026-11-17). */
+function passesOn(names: string[], text: string): boolean {
+  return names.some((name) => {
+    const held = code(text).match(new RegExp(`const (\\w+) = ${name}\\(`));
+    return !!held && new RegExp(`=\\{${held[1]}\\}`).test(code(text));
+  });
+}
 
 it("reaches both halves, so neither can pass by finding nothing", () => {
   // A67, and this file earned the reminder the hard way — see the guard ledger, 2026-08-30.

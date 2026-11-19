@@ -102,7 +102,7 @@ def _by_pattern(names: list[str], pattern: str, taken: set[str]) -> Grouped:
         samples.setdefault(found["sample"], []).append((read or "", index))
         if len(examples) < 3:
             examples.append((name, found["sample"], read))
-    grouped = [(pairing.unique(sample[:256], taken), [i for _, i in sorted(files)])
+    grouped = [(pairing.unique(sample[:200], taken), [i for _, i in sorted(files)])
                for sample, files in samples.items()]
     return Grouped(samples=grouped, unfit=unfit, examples=examples)
 

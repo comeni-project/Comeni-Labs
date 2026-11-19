@@ -33,7 +33,8 @@ it("a sample odd in two measurements is one row, kept once for both (board 2026-
   const [row] = screen.getAllByTestId("check");
   expect(row).toHaveTextContent("Contigs is 65; the median is 4 · N50 is 85,010");
   fireEvent.click(within(row).getByRole("button", { name: "Keep BAC47 as it is" }));
-  expect(onFix.mock.calls.map(([f]) => f.measurement)).toEqual(["contigs", "n50"]);
+  expect(onFix).toHaveBeenCalledOnce();
+  expect(onFix.mock.calls[0][0].map((f: { measurement: string }) => f.measurement)).toEqual(["contigs", "n50"]);
 });
 
 it("a scan that stopped offers Read again (issue 526)", () => {

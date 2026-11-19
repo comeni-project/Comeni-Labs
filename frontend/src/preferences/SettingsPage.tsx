@@ -77,12 +77,13 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="overflow-y-auto h-full">
+    <div className="settings-scroll overflow-y-auto h-full">
       {places.length > 0 && (
         <RailControls label="Settings sections">
           <nav aria-label="Settings sections" className="flex flex-col gap-[2px]">
             {places.map((p) => (
               <a key={p.id} href={`#${p.id}`}
+                 aria-current={hash === `#${p.id}` ? "location" : undefined}
                  className={`px-[10px] py-[6px] rounded-control text-[13px] no-underline
                              ${hash === `#${p.id}` ? "bg-now-soft text-now-ink font-semibold" : "text-ink-2 hover:bg-surface-2 hover:text-ink"}`}>
                 {p.label}
@@ -91,8 +92,11 @@ export function SettingsPage() {
           </nav>
         </RailControls>
       )}
-      <div className="page max-w-[880px]">
-        <h1 className="m-0 text-[22px] font-semibold">Settings</h1>
+      <div className="settings-page">
+        <header className="settings-header">
+          <h1 className="m-0 text-[22px] font-semibold tracking-[-.02em]">Settings</h1>
+          <p className="m-0 text-body text-ink-2">Manage your workspace, model connections, and how analyses run.</p>
+        </header>
         {menu.isLoading && <Loading what="settings" />}
         {menu.error && <Failed error={menu.error} />}
         {menu.data && places.length === 0 && <Empty title="There are no settings to show." />}
@@ -102,14 +106,14 @@ export function SettingsPage() {
           </p>
         )}
         {places.map((p) => (
-          <section key={p.id} id={p.id} aria-labelledby={`${p.id}-title`} className="flex flex-col gap-3 scroll-mt-4">
+          <section key={p.id} id={p.id} aria-labelledby={`${p.id}-title`} className="settings-section">
             <div className="flex flex-col gap-1">
               <h2 id={`${p.id}-title`} className="m-0 text-[17px] font-semibold">{p.label}</h2>
               {p.intro && <p className="m-0 text-[13px] text-ink-2">{p.intro}</p>}
             </div>
             {p.groups.map((g) => (
-              <div key={`${g.section.key}-${g.entries[0]?.setting.key}`} className="bg-surface border border-line rounded-panel px-5 py-2">
-                {p.groups.length > 1 && <h3 className="m-0 pt-3 text-[13px] font-semibold text-ink-2">{g.section.title}</h3>}
+              <div key={`${g.section.key}-${g.entries[0]?.setting.key}`} className="settings-group bg-surface border border-line rounded-panel">
+                {p.groups.length > 1 && <h3 className="m-0 pt-4 pb-2 text-[13px] font-semibold text-ink-2">{g.section.title}</h3>}
                 {g.section.key.startsWith("retention") && <LastCleared served={g.section.served_by} />}
                 {g.entries.map((entry) => (
                   <SettingRow key={entry.setting.key} entry={entry} menu={menu.data}

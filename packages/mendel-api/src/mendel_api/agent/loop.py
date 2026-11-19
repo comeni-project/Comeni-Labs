@@ -1,7 +1,7 @@
 """The builder agent's loop (#463): one job per person's message.
 
 Build the conversation, call the model with the tools, run each tool it calls, give it the
-results, and repeat, until it replies without a tool, asks the person, or reaches a limit. Each
+results, and repeat, until it calls reply, asks the person, or reaches a limit. Each
 tool call is written to the turn before the next model call, so the page's poll shows the agent
 working. Every model call is an `ai_invocation` row. A failure fails the turn with its code; a
 turn never stays pending.
@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from secrets import token_hex
 
+import sqlalchemy as sa
 from comeni_ai.agent import AgentTransport
 from comeni_ai.client import LiteLLMTransport
 from comeni_core.egress.agent import AgentRequest, AgentTurn, ConsoleView, Speaker
@@ -33,7 +34,7 @@ from mendel_api.authoring.types import (
     TurnRole,
     TurnState,
 )
-from mendel_api.db import session_scope
+from mendel_api.db import engine, session_scope
 from mendel_api.models import AiInvocation, PipelineAuthoringSession, PipelineAuthoringTurn
 from mendel_api.services import decisions
 from mendel_api.settings import settings
@@ -41,7 +42,8 @@ from mendel_api.settings import settings
 log = logging.getLogger(__name__)
 
 PROMPT = Path(__file__).with_name("prompt.md")
-PROMPT_ID = "builder.agent.v1"
+PROMPT_ID = "builder.agent.v4"
+PROMPT_VERSION = "v4"
 WHO = "builder-agent"
 
 
@@ -166,7 +168,8 @@ _LABELS = {
     "switch_role": "Switched {role}", "switch_input": "Switched {contract}'s {port} {state}",
     "set_value": "Set {name} to {value}", "keep_whole": "Kept {contract} whole",
     "undo": "Withdrew {kind} {subject}", "resolve": "Built the pipeline",
-    "compile": "Compiled it to Nextflow", "ask": "Asked you", "name_pipeline": "Named it {name}",
+    "compile": "Compiled it to Nextflow", "ask": "Asked you", "reply": "Answered you",
+    "name_pipeline": "Named it {name}",
 }
 
 
@@ -181,13 +184,11 @@ _DOING = {
     "switch_role": "Switching {role}", "switch_input": "Switching {contract}'s {port} {state}",
     "set_value": "Setting {name} to {value}", "keep_whole": "Keeping {contract} whole",
     "undo": "Withdrawing {kind} {subject}", "resolve": "Building the pipeline",
-    "compile": "Compiling it to Nextflow", "ask": "Asking you", "name_pipeline": "Naming it",
+    "compile": "Compiling it to Nextflow", "ask": "Asking you", "reply": "Answering you",
+    "name_pipeline": "Naming it",
 }
 """What each tool is doing while it runs (#504), beside what it did (`_LABELS`)."""
 
-
-_ANNOUNCES = re.compile(r"\s*(I'll|I will|I'm going to|I am going to|Let me|First,? I'll)\b", re.I)
-"""A reply that opens by saying what it is about to do (`_ANNOUNCES.match`)."""
 
 
 def _node_of(session_id: str, arguments: dict) -> str | None:
@@ -255,8 +256,14 @@ def _record(session_id: str, access, sent: list[dict], reply, failure: str | Non
     with session_scope() as db:
         db.add(AiInvocation(
             id=invocation, agent="builder", purpose="agent",
-            model=getattr(access, "model", "") or "", prompt_id=PROMPT_ID, prompt_version="v1",
-            prompt_digest=hashlib.sha256(text.encode()).hexdigest(), input_digests={},
+            model=getattr(access, "model", "") or "", prompt_id=PROMPT_ID,
+            prompt_version=PROMPT_VERSION,
+            prompt_digest=hashlib.sha256(text.encode()).hexdigest(), input_digests={
+                "tool_specs": hashlib.sha256(json.dumps(
+                    [spec_of(t).model_dump() for t in TOOLS.values()], sort_keys=True,
+                ).encode()).hexdigest(),
+                "tool_choice": hashlib.sha256(b"auto").hexdigest(),
+            },
             temperature=getattr(access, "temperature", None),
             state="failed" if failure else "succeeded",
             failure_code=(failure or "")[:16], started_at=_now(), finished_at=_now(),
@@ -264,7 +271,8 @@ def _record(session_id: str, access, sent: list[dict], reply, failure: str | Non
             output_tokens=getattr(usage, "output_tokens", None),
             cached_tokens=getattr(usage, "cached_tokens", None),
             response=None if reply is None else json.dumps(
-                {"text": reply.text, "calls": [c.model_dump() for c in reply.calls]}),
+                {"text": reply.text, "calls": [c.model_dump() for c in reply.calls],
+                 "tool_choice": reply.tool_choice}),
             session_id=session_id))
     return invocation
 
@@ -282,10 +290,31 @@ def _code(failure: Exception) -> str:
     return found.group(1) if found else "MA0007"
 
 
+def turn_key(session_id: str) -> int:
+    """The advisory-lock key a session's turns take: a stable 63-bit number."""
+    return int.from_bytes(hashlib.sha256(f"agent_turn:{session_id}".encode()).digest()[:8],
+                          "big") >> 1
+
+
 def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None) -> str:
-    """Answer the pending turn `seq`. Returns the turn's final state."""
-    with session_scope() as db:
-        draft_id = db.get(PipelineAuthoringSession, session_id).draft_id
+    """Answer the pending turn `seq`. Returns the turn's final state.
+
+    **One turn per session at a time** (#505). Each message queues a turn, and with more than
+    one AI job a worker took the second while the first was still writing to the same draft.
+    A session-level advisory lock on its own connection: a later turn waits, then reads the
+    earlier one's answer in its history; Postgres releases it if the worker dies."""
+    with engine.connect() as connection:
+        connection.execute(sa.text("SELECT pg_advisory_lock(:k)"), {"k": turn_key(session_id)})
+        try:
+            return _run_turn(session_id, seq, transport)
+        finally:
+            connection.execute(sa.text("SELECT pg_advisory_unlock(:k)"),
+                               {"k": turn_key(session_id)})
+
+
+def _run_turn(session_id: str, seq: int, transport: AgentTransport | None) -> str:
+    with session_scope() as session:
+        draft_id = session.get(PipelineAuthoringSession, session_id).draft_id
     blocks: list[dict] = []
     access = model_access()
     if access is None:
@@ -300,7 +329,7 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
                       expected_revision=decisions.revision(draft_id))
     tools = [spec_of(t) for t in TOOLS.values()]
     messages = [{"role": "system", "content": PROMPT.read_text()}, *_history(session_id, seq)]
-    spent, nudged = 0, False
+    spent = 0
     for step in range(settings.agent_max_steps):
         try:
             reply = transport.converse(access, messages, tools, cache_key=cache_key(session_id))
@@ -314,22 +343,10 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
         invocation = _record(session_id, access, messages, reply, None)
         if reply.usage is not None:
             spent += (reply.usage.input_tokens or 0) + (reply.usage.output_tokens or 0)
-        # **A first reply that only announces a plan is told to go ahead** (walk 2026-11-15):
-        # GPT answered "I'll check the current setup, then build…" with no tool call, and the
-        # turn ended with nothing built. Once per turn; a plain answer ends the turn as before.
-        announced = (not reply.calls and step == 0 and not nudged
-                     and bool(_ANNOUNCES.match(reply.text or "")))
         if reply.text:
             blocks.append(AgentMessage(id=f"say-{seq}-{step}", text=reply.text[:16000],
-                                       narration=bool(reply.calls) or announced)
+                                       narration=bool(reply.calls))
                           .model_dump(mode="json"))
-        if announced:
-            nudged = True
-            messages.append({"role": "assistant", "content": reply.text})
-            messages.append({"role": "user", "content": "Go ahead: do it now with the tools, "
-                                                        "then tell me what you did."})
-            _write(session_id, seq, blocks, invocation=invocation)
-            continue
         if not reply.calls:
             _write(session_id, seq, blocks, TurnState.ANSWERED, invocation)
             return TurnState.ANSWERED.value
@@ -366,6 +383,12 @@ def run_turn(session_id: str, seq: int, transport: AgentTransport | None = None)
                 .model_dump(mode="json", exclude_none=True)
             messages.append({"role": "tool", "tool_call_id": made.id,
                              "content": result.model_dump_json(exclude_none=True)})
+            if made.name == "reply" and result.ok:
+                blocks.append(AgentMessage(id=f"answer-{seq}-{step}",
+                                           text=result.view.message, narration=False)
+                              .model_dump(mode="json"))
+                _write(session_id, seq, blocks, TurnState.ANSWERED, invocation)
+                return TurnState.ANSWERED.value
             if made.name == "suggest_command" and result.ok:
                 offered = result.view
                 blocks.append(AgentCommand(id=f"command-{seq}-{len(blocks)}",

@@ -103,6 +103,7 @@ export function LivingNode({
   onPointerUp,
   onMenu,
   progress,
+  running = false,
   onHover,
   broken = [],
 }: {
@@ -146,6 +147,8 @@ export function LivingNode({
   onMenu?: () => void;
   /** **On Run**: how far this step has got, in a row under the ports. */
   progress?: StepProgress;
+  /** A live task, rather than progress retained from an ended run. */
+  running?: boolean;
   /** The pointer came onto the card, or left it: the canvas shows the step's details beside it. */
   onHover?: (on: boolean) => void;
   /** The tool's rules this setup breaks, in a few words each (*needs fasta*): red tags. */
@@ -294,7 +297,7 @@ export function LivingNode({
         <span data-testid={`node-progress-${id}`} data-state={progress.state}
               className="absolute left-[10px] right-[10px] flex items-center gap-[6px] text-[10.5px] whitespace-nowrap overflow-hidden"
               style={{ bottom: 8 }}>
-          <span aria-hidden className="w-[7px] h-[7px] rounded-full shrink-0" style={{ background: PROGRESS_INK[progress.state] }} />
+          <span aria-hidden className={`w-[7px] h-[7px] rounded-full shrink-0 ${running ? "run-status-pulse" : ""}`} style={{ background: PROGRESS_INK[progress.state] }} />
           <span className={progress.state === "failed" ? "font-semibold text-needs-you-ink" : "text-ink-2"}>{progress.label}</span>
           {progress.of > 1 && (
             <span aria-hidden className="ml-auto flex h-[4px] w-[40px] rounded-full overflow-hidden bg-line-soft shrink-0">
@@ -305,7 +308,7 @@ export function LivingNode({
         </span>
       )}
       {progress && measures && (
-        <span aria-hidden className="absolute w-[7px] h-[7px] rounded-full" data-testid={`node-progress-${id}`}
+        <span aria-hidden className={`absolute w-[7px] h-[7px] rounded-full ${running ? "run-status-pulse" : ""}`} data-testid={`node-progress-${id}`}
               data-state={progress.state} style={{ right: 12, top: MEASURE_H / 2 - 4, background: PROGRESS_INK[progress.state] }} />
       )}
       {perItem && samples !== undefined && !measures && (

@@ -24,7 +24,7 @@ from mendel_resolver.proposals import (
 from mendel_resolver.rules import Decision, DecisionRow, DecisionTarget
 
 ROOT = pathlib.Path(__file__).parents[3]
-FIXTURE = ROOT / "tests/fixtures/pipeline-v9/pipeline.yml"
+FIXTURE = ROOT / "tests/fixtures/pipeline-v10/pipeline.yml"
 STAR, HISAT2 = "nf-core/star/align@2.7.11b", "nf-core/hisat2/align@2.2.2"
 SORT = "nf-core/samtools/sort@1.24"
 

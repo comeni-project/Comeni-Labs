@@ -128,10 +128,10 @@ def materialise_gate_inputs(gate: Gate, workdir: Path, pipeline) -> None:
 
     materialise_test_samplesheet(workdir, pipeline)
     if gate is Gate.STUB:
-        materialise_stub_data(workdir, entry_params(pipeline))
+        materialise_stub_data(workdir, entry_params(pipeline), pipeline)
 
 
-def materialise_stub_data(workdir: Path, params: list[str]) -> None:
+def materialise_stub_data(workdir: Path, params: list[str], pipeline=None) -> None:
     """Synthetic inputs for the `-stub-run` gate.
 
     The gate proves the DAG wires up and executes; nf-core stub blocks never read
@@ -143,6 +143,18 @@ def materialise_stub_data(workdir: Path, params: list[str]) -> None:
     """
     data = workdir / "stub-data"
     data.mkdir(parents=True, exist_ok=True)
+    from comeni_core.plan.tiers import InputForm
+
+    if pipeline is not None and pipeline.input_form is InputForm.SAMPLESHEET:
+        # A table's `input` is a CSV (#542): two rows of empty files, in the harness, never in
+        # the pipeline. Its per-sample channels have no params of their own.
+        from mendel_compiler.emit import STUB_SAMPLESHEET, stub_samplesheet
+
+        text, files = stub_samplesheet(pipeline, str(data.resolve()))
+        for name in files:
+            (data / name).write_bytes(b"")
+        (workdir / STUB_SAMPLESHEET).write_text(text)
+        params = [name for name in params if name != "input"]
     for name in params:
         if name == "input":
             # **Two pairs, not one, and that is the whole reason a live bug survived.**

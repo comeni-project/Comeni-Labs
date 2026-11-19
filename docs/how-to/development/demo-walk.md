@@ -91,10 +91,13 @@ instead.*
 
 ### 5. The reference
 
-**Do:** in **Folders**, tick `reference` too. Open **References**, and under **From a file**
-add `genome.fasta` as `genome.fasta`, then `genes.gtf` as `annotation.gtf`.
+**Do:** in **Folders**, tick `reference` too. Open **References**. Before Build has asked for a
+reference, choose **Add a reference by kind**, pick `genome.fasta` (its kind fills in as the
+reference genome) and add it, then `genes.gtf` as the gene annotation. Once Build asks, each kind
+it needs offers the files that fit; choose **Use** on the right one.
 
-**See:** both listed with their kinds. On **Files** they say *reference*, and they are not samples.
+**See:** both listed with their kinds. On **Files** they say *reference* and show their kind, and
+they are not samples.
 
 ### 6. Build
 

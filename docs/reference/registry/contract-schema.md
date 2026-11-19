@@ -131,10 +131,20 @@ Model: `comeni_core.declared.contract.NfInput`
 | `join` | string \| object \| null | `null` | how several ports combine into one channel: `broadcast` or `by_sample` for every port after the first, or a map giving each its own. Two ports may also meet `by_key` (one sample of each per value of `key`: a patient's tumour and normal) or `by_ref` (each sample of the first port with the item of the sample its `key`, a `sample_ref`, names: a ChIP sample and its control) |
 | `key` | measurement id | — | for `by_key`, a `key`; for `by_ref`, a `sample_ref` (`MD0344`). A patient with two normals, or none, stops the run naming the patient |
 | `absent` | integer | `0` | the tuple width passed when every port of this entry is left out. Required when all its ports are optional, refused when any is required (`MD0601`) |
+| `pad` | integer | `0` | empty paths appended after the ports, for a tuple that ends in optional files nothing models. Only with `ports`. The tuple's width, `val(meta)` plus one per port plus `pad`, must be the module's (`MD0111`) |
 
 **A contract port is not a process argument.** Only one of six spine processes matches its port
 count: `featurecounts` takes one channel carrying two ports; `samtools/sort` takes three, of
 which two model nothing.
+
+**A gathered port** reaches its slot as one `[meta, files]` tuple: every sample's files, under one
+`meta` named after the step. A tuple that ends in optional files takes `pad`:
+
+```yaml
+# nf-core/multiqc: tuple val(meta), path(multiqc_files), path(multiqc_config), path(multiqc_logo),
+# path(replace_names), path(sample_names). The last four are passed empty.
+nf_inputs: [{ports: [reports], pad: 4}]
+```
 
 **A shared slot** keeps the tuple `main.nf` declares, even when some of its files are optional
 (#464). A file left out passes `[]` in its own position, so no `absent` is needed unless every

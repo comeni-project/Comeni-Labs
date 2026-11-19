@@ -31,10 +31,10 @@ describe("the model picker", () => {
     render(<QueryClientProvider client={new QueryClient()}>
       <ModelPicker entry={ENTRY} menu={MENU} onWrite={onWrite} />
     </QueryClientProvider>);
-    const select = screen.getByRole("combobox", { name: "Talking with you" });
-    await waitFor(() => expect(screen.getByRole("option", { name: "Local · gemma3:4b" })).toBeTruthy());
-    expect(screen.getByRole("option", { name: "Same as the default" })).toBeTruthy();
-    await userEvent.selectOptions(select, "Local · gemma3:4b");
+    await userEvent.click(screen.getByRole("button", { name: "Talking with you" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "gemma3:4b Local" })).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Same as the default" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "gemma3:4b Local" }));
     expect(onWrite).toHaveBeenCalledWith({ connection: "Local", model: "ollama_chat/gemma3:4b" });
   });
 
@@ -44,7 +44,8 @@ describe("the model picker", () => {
       <ModelPicker entry={ENTRY} menu={MENU} onWrite={vi.fn()} />
     </QueryClientProvider>);
     expect(await screen.findByText("Could not list models on Local.")).toBeTruthy();
-    expect(screen.getByRole("option", { name: "Other…" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Talking with you" }));
+    expect(screen.getByRole("button", { name: "Enter a model ID…" })).toBeTruthy();
   });
 
   it("says what the server said when a connection could not list its models", async () => {
@@ -59,14 +60,15 @@ describe("the model picker", () => {
   });
 });
 
-it("shows Off for an optional model purpose that does not inherit the default", () => {
+it("shows Off for an optional model purpose that does not inherit the default", async () => {
   const entry = { ...ENTRY, setting: { ...ENTRY.setting, inherit_default: false } };
   const menu = { ...MENU, sections: [] };
   render(<QueryClientProvider client={new QueryClient()}>
     <ModelPicker entry={entry} menu={menu} onWrite={vi.fn()} />
   </QueryClientProvider>);
-  expect(screen.getByRole("option", { name: "Off" })).toBeTruthy();
-  expect(screen.queryByRole("option", { name: "Same as the default" })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Talking with you" }));
+  expect(screen.getByRole("button", { name: "Off" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Same as the default" })).toBeNull();
 });
 
 describe("a chosen model's call settings (issue 457)", () => {

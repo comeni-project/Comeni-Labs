@@ -232,3 +232,44 @@ def test_describe_says_each_change_in_words():
     assert changes.describe(DecisionChange(kind="input", subject="genome.fasta", retract=True)) == (
         "forgot that you have the reference genome (FASTA)"
     )
+
+
+def _measured(monkeypatch, draft: str, read_length: int):
+    """The draft's data measured `read_length`, as `decisions.read` merges it (#511)."""
+    from mendel_authoring.decisions import FactDecision
+
+    real = decisions.read
+
+    def read(draft_id):
+        current = real(draft_id)
+        if any(f.subject == "read_length" for f in current.facts):
+            return current
+        return current.model_copy(update={"facts": [
+            *current.facts,
+            FactDecision(subject="read_length", value=read_length, origin=FactOrigin.MEASURED)]})
+
+    monkeypatch.setattr(decisions, "read", read)
+    return draft
+
+
+def test_the_ai_may_not_contradict_what_the_data_measured(clean, monkeypatch):
+    """#510, option C: a model asserting `read_length: 150` over reads measured at 99 would
+    replace a measurement of someone's data with nobody having looked."""
+    draft = _measured(monkeypatch, _draft(), 99)
+    before = _revision(draft)
+    with pytest.raises(ValueError, match="MI0228"):
+        changes.apply(draft, DecisionChange(kind="measurement", subject="read_length", value=150,
+                                            actor="model"), who="builder-agent")
+    assert _revision(draft) == before
+
+
+def test_a_person_may_say_the_measurement_is_wrong(clean, monkeypatch):
+    draft = _measured(monkeypatch, _draft(), 99)
+    assert changes.apply(draft, DecisionChange(kind="measurement", subject="read_length",
+                                               value=150), who="ana")
+
+
+def test_the_ai_may_agree_with_the_data(clean, monkeypatch):
+    draft = _measured(monkeypatch, _draft(), 99)
+    changes.apply(draft, DecisionChange(kind="measurement", subject="read_length", value=99,
+                                        actor="model"), who="builder-agent")

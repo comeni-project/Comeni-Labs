@@ -48,6 +48,8 @@ export function Send({ draftId, kept }: { draftId: string; kept: boolean }) {
   const kept_ = samples.filter((s) => !s.left_out);
   const out = samples.filter((s) => s.left_out);
   const refs = data.data?.references ?? [];
+  const inputTypes = new Set(channels.filter((c) => c.grain === "sample").map((c) => c.type_id));
+  const otherSamples = kept_.filter((s) => !inputTypes.has(s.type_id ?? ""));
   const missing = sending.bindings?.missing ?? [];
   const m = machine.data;
 
@@ -141,6 +143,9 @@ export function Send({ draftId, kept }: { draftId: string; kept: boolean }) {
           <div className="flex flex-col gap-3 min-w-0">
             <section aria-label="What it reads" className="bg-surface border border-line rounded-panel">
               <h2 className="m-0 px-5 pt-[14px] pb-[10px] text-[15.5px] font-semibold text-ink">What it reads</h2>
+              {(otherSamples.length > 0 || out.length > 0) && <p className="m-0 px-5 pb-3 text-[12.5px] text-ink-2">
+                {otherSamples.length} other samples in Data are not used by this pipeline · {out.length} samples left out.
+              </p>}
               {missing.length > 0 && missing.some((x) => !x.channel) && (
                 <p className="m-0 px-5 pb-3 text-[13px] text-needs-you-ink">{missing.find((x) => !x.channel)?.why}</p>
               )}

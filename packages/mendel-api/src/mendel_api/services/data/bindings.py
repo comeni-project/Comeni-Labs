@@ -56,6 +56,7 @@ def bind(pipeline: Pipeline | None, samples: list[dict], references: list[dict],
     missing: list[Missing] = []
     rows: dict[str, dict[str, str]] = {}
     used_refs: set[str] = set()
+    used_samples: set[str] = set()
     for channel in pipeline.channels:
         if channel.table is not None:
             missing.append(Missing(channel=channel.name, type_id=channel.type_id,
@@ -75,6 +76,7 @@ def bind(pipeline: Pipeline | None, samples: list[dict], references: list[dict],
                 missing.append(Missing(channel=channel.name, type_id=channel.type_id,
                                        why=f"file not found: {', '.join(gone[:3])}"))
                 continue
+            used_samples.update(s["name"] for s in mine)
             if pipeline.input_form is InputForm.SAMPLESHEET:
                 for s in mine:
                     row = rows.setdefault(s["name"], {SAMPLE: s["name"]})
@@ -136,7 +138,7 @@ def bind(pipeline: Pipeline | None, samples: list[dict], references: list[dict],
                                                f"give it in a column named {fact.measurement}"))
         params["input"] = [{column: row.get(column, "") for column in dict.fromkeys(header)}
                            for row in rows.values()]
-    sample_count = len({s["name"] for s in kept})
+    sample_count = len(used_samples)
     words = [_plural(sample_count, "sample")]
     if used_refs:
         words.append(_plural(len(used_refs), "reference"))

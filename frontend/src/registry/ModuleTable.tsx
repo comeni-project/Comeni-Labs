@@ -5,19 +5,21 @@ import type { ModuleRow } from "./useCatalogue";
 /** **The tool list** (board "7 · Registry"): a card that scrolls on its own, one slim row a tool —
  *  its state dot, path and version, what it does, and what it takes and makes. The selected row
  *  has a bar on its left; its card beside the list carries the detail. */
-export function ModuleTable({ rows, selected, onSelect, header, more, footer }: {
+export function ModuleTable({ rows, selected, onSelect, header, notice, more, footer }: {
   rows: ModuleRow[];
   selected: string;
   onSelect: (path: string) => void;
   header?: React.ReactNode;
+  notice?: React.ReactNode;
   more?: React.ReactNode;
   footer: React.ReactNode;
 }) {
   return (
     <div role="table" aria-label="nf-core modules"
-         className="bg-surface border border-line rounded-panel overflow-hidden flex flex-col min-w-0">
-      {header && <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-line">{header}</div>}
-      <div role="rowgroup" className="relative flex flex-col overflow-y-auto max-h-[640px]">
+         className="bg-surface border border-line rounded-panel overflow-hidden flex flex-col min-w-0 min-h-0 flex-1">
+      {header && <div className="flex items-center gap-2 px-4 py-[10px] border-b border-line">{header}</div>}
+      {notice && <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 border-b border-line-soft bg-surface-2 text-[12px] text-ink-2">{notice}</p>}
+      <div role="rowgroup" className="reg-rows relative flex flex-col overflow-y-auto min-h-0 flex-1">
         {rows.map((row) => {
           const on = row.path === selected;
           const cut = row.path.lastIndexOf("/") + 1;
@@ -48,7 +50,7 @@ export function ModuleTable({ rows, selected, onSelect, header, more, footer }: 
         {rows.length === 0 && <p className="m-0 px-4 py-6 text-[13px] text-ink-3">No tools match. Clear a filter.</p>}
         {more}
       </div>
-      <div className="flex flex-wrap justify-between gap-2 px-4 py-[10px] border-t border-line text-[12px] text-ink-3">
+      <div className="flex flex-wrap justify-between gap-2 px-4 py-[9px] border-t border-line bg-surface-2 text-[11.5px] text-ink-3">
         {footer}
       </div>
     </div>

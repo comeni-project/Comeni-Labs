@@ -17,8 +17,12 @@ ALL = ["fastqc", "star/align", "samtools/sort", "bwa/mem", "two-tools", "broken-
 @pytest.fixture
 def client() -> TestClient:
     with session_scope() as db:
-        db.execute(sa.text("DELETE FROM catalogue_module"))
-        db.execute(sa.text("DELETE FROM catalogue_sync"))
+        # A module's state reads the forge's pull requests too: one an earlier test left merged
+        # made a module `merged_not_released` here.
+        for table in ("forge_review", "forge_pull_request", "forge_test_run", "forge_step",
+                      "forge_message", "forge_revision", "forge_item", "forge_adaptation",
+                      "catalogue_module", "catalogue_sync"):
+            db.execute(sa.text(f"DELETE FROM {table}"))
     catalogue.run_sync(FakeSource(ALL))
     return TestClient(create_app())
 

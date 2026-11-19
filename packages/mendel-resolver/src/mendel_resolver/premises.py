@@ -39,6 +39,8 @@ class Premise(BaseModel):
     because: str = ""
     cite: str = ""
     derived_from: list[str] = Field(default_factory=list)
+    measured: Any = None
+    """What the data measured, when a person said otherwise (#510)."""
     coverage: Literal["head", "all"] | None = None
     """How much of the data a measurer read: `head` for part of it. A fact derived from a `head`
     fact is `head` too, since it is computed from an estimate (#465)."""
@@ -97,6 +99,7 @@ def build_premises(
             by=entry.by,
             pieces=list(entry.pieces),
             coverage=entry.coverage,
+            measured=entry.measured,
         )
     # `required_states` is the goal's own shape rather than a measurement, so it cannot
     # collide with one: `MeasurementRegistry.profile()` would have refused an undeclared key,

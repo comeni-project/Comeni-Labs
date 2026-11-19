@@ -29,6 +29,14 @@ class PremiseRecord(BaseModel):
     """The inspector pieces that measured the fact, omitted when empty."""
     coverage: Coverage | None = Field(default=None, exclude_if=lambda coverage: coverage is None)
     """How much of the data it was measured on, when a measurer read it (#465)."""
+    measured: ParamValue | list[ParamValue] | None = Field(
+        default=None, exclude_if=lambda measured: measured is None)
+    """What the data measured, when the value was said otherwise (#510)."""
+
+    @property
+    def contradicted(self) -> bool:
+        """A said value the data measures otherwise: a decision on it needs review (#510)."""
+        return self.measured is not None
 
     def prose(self) -> str:
         """Render the fact, evidence quality, and optional measurer for a reviewer."""
@@ -36,6 +44,9 @@ class PremiseRecord(BaseModel):
             # A fact nothing settled has no value to state (issue 496): "is None" is Python.
             return f"{self.id} is not known yet"
         said = f"{self.id} is {self.value}, {_ORIGIN_PROSE[self.origin]}"
+        if self.contradicted:
+            # Both, never the said value as a fact about the data (#510).
+            return f"{said}; the data measures {self.measured}"
         if self.coverage == "head" and self.origin is PremiseOrigin.MEASURED:
             said += " on part of the data"
         measurer = " + ".join(self.pieces) if self.pieces else self.by

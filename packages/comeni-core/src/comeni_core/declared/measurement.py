@@ -196,6 +196,8 @@ class MeasuredEntry(NamedTuple):
     by: str | None = None
     pieces: tuple[str, ...] = ()
     evidence: Evidence | None = None
+    measured: ParamValue | list[ParamValue] | None = None
+    """What the data measured, when the value was said otherwise (#510)."""
 
 
 class MeasurementRegistry(BaseModel):
@@ -401,6 +403,7 @@ class MeasurementRegistry(BaseModel):
                     by=entry.by,
                     pieces=list(entry.pieces),
                     evidence=entry.evidence,
+                    measured=entry.measured,
                 )
                 for entry in sorted(given, key=lambda entry: entry.measurement)
             ]

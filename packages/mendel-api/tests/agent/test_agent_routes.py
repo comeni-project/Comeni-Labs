@@ -67,11 +67,11 @@ def test_answering_a_question_queues_the_next_turn(clean, queued, monkeypatch):
 def test_retry_requeues_only_a_failed_turn(clean, queued, monkeypatch):
     client = TestClient(create_app())
     session = client.post(BASE, json={"prompt": "counts"}).json()["session"]
-    _answer(monkeypatch, [AgentReply(text="Done")], session["id"], 1)
+    _answer(monkeypatch, [_reply("Done")], session["id"], 1)
     assert client.post(f"{BASE}/{session['id']}/turns/1/retry").status_code == 409
 
     class Down:
-        def converse(self, access, messages, tools, *, cache_key=None):
+        def converse(self, access, messages, tools, *, tool_choice=None, cache_key=None):
             raise TimeoutError("MA0003: no answer")
 
     seq = client.post(f"{BASE}/{session['id']}/messages", json={"text": "again"}).json()["seq"]
@@ -98,7 +98,7 @@ def test_reviewing_clears_the_ai_marks(clean, queued, monkeypatch):
         AgentReply(calls=[ToolCall(id="c", name="choose_tool", arguments={
             "type_id": "alignment.bam", "contract": HISAT2, "because": "less memory"})]),
         AgentReply(calls=[ToolCall(id="b", name="resolve", arguments={})]),
-        AgentReply(text="Built with HISAT2."),
+        _reply("Built with HISAT2."),
     ], session["id"], 1)
     marked = client.get(f"{BASE}/{session['id']}").json()["ai_unreviewed"]
     assert any(m["node"] == "hisat2_align" for m in marked), marked
@@ -163,3 +163,7 @@ def test_the_scripted_flow_routes_are_gone(clean, queued):
     for path in (f"/{session['id']}/proposals/p/decide", f"/{session['id']}/retry",
                  f"/{session['id']}/suggestions/s", f"/{session['id']}/disagreements/p"):
         assert client.post(BASE + path, json={}).status_code in (404, 405), path
+
+
+def _reply(message):
+    return AgentReply(calls=[ToolCall(id="final", name="reply", arguments={"message": message})])

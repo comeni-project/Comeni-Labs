@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { DraftGraph, Step } from "../../../api/types";
-import { withContract, withoutNode, withParam } from "../../graphOps";
+import { feedingOnly, withContract, withoutNode, withParam } from "../../graphOps";
 import { Settings } from "../../Settings";
 import { Swap } from "../../Swap";
 import { withTypedValues } from "../../useBuilder";
@@ -100,6 +100,8 @@ export function StepTools({
 
   if (mode === "remove") {
     const wires = graph.edges.filter((e) => e.from_node === node || e.to_node === node).length;
+    // The rebuild drops what only fed it; said here, so it is not a surprise (#509).
+    const along = feedingOnly(graph, node).map(processName);
     return (
       <BlockFrame
         label={`remove ${name}`}
@@ -117,6 +119,7 @@ export function StepTools({
           {wires === 0
             ? `${name} has no wires.`
             : `The ${wires === 1 ? "wire" : `${wires} wires`} into and out of ${name} go with it.`}{" "}
+          {along.length > 0 && `${along.join(", ")} only ${along.length === 1 ? "feeds" : "feed"} ${name}, so ${along.length === 1 ? "it goes" : "they go"} too. `}
           The log records it as yours.
         </p>
       </BlockFrame>

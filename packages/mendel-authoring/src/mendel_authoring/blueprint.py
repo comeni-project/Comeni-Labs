@@ -65,6 +65,8 @@ class Blueprint(BaseModel):
         """The step revealed after `node_id`, or the first when `None`, or `None` at the end."""
         if node_id is None:
             return self.order[0] if self.order else None
+        if node_id not in self.order:
+            raise ValueError(f"step {node_id!r} is not in this blueprint's reveal order")
         index = self.order.index(node_id) + 1
         return self.order[index] if index < len(self.order) else None
 

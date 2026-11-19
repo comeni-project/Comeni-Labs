@@ -91,7 +91,8 @@ def printable(name: str) -> str:
 
 def call(ctx: ToolContext, name: str, arguments: dict) -> AgentToolResult:
     """Run one tool. A tool that does not exist, arguments that do not fit, or a refusal the
-    engine gives (a coded `ValueError` or `KeyError`) come back as `ok=False` with the reason."""
+    engine gives (a coded `ValueError`, or a `KeyError` for something the model named) come back
+    as `ok=False` with the reason."""
     tool = TOOLS.get(name)
     if tool is None:
         return AgentToolResult(tool=printable(name), ok=False,
@@ -115,6 +116,10 @@ def call(ctx: ToolContext, name: str, arguments: dict) -> AgentToolResult:
         with decisions.expecting(ctx.expected_revision if tool.writes else None):
             view = tool.run(ctx, given)
     except (ValueError, KeyError, LookupError) as refused:
+        if isinstance(refused, KeyError) and not _asked_for(refused, arguments):
+            # A key the model never named is the engine's own bug, not a refusal to send it
+            # (#505): the turn fails, coded, and the error is logged.
+            raise
         said = refused.args[0] if refused.args else type(refused).__name__
         text = " ".join(str(said).split())[:500]
         # **A tool refused after writing part of its change** has moved the revision itself:
@@ -127,8 +132,28 @@ def call(ctx: ToolContext, name: str, arguments: dict) -> AgentToolResult:
     return AgentToolResult(tool=name, ok=True, view=view)
 
 
+def _asked_for(missing: KeyError, arguments: object) -> bool:
+    """Whether the missing key is something the model passed: an id it named that the engine
+    does not have. A coded message counts too."""
+    key = str(missing.args[0]) if missing.args else ""
+    if key[:2].isalpha() and key[2:6].isdigit():
+        return True
+
+    def values(item: object):
+        if isinstance(item, dict):
+            for inner in item.values():
+                yield from values(inner)
+        elif isinstance(item, list | tuple):
+            for inner in item:
+                yield from values(inner)
+        else:
+            yield str(item)
+
+    return key in set(values(arguments))
+
+
 def _load() -> None:
-    from mendel_api.agent import ask, build, change, console, data, read  # noqa: F401  (register their tools)
+    from mendel_api.agent import ask, build, change, console, data, read, reply  # noqa: F401  (register their tools)
 
 
 _load()

@@ -62,6 +62,11 @@ def test_a_release_that_does_not_load_is_skipped(follow):
     assert follow(source) == "v0.2.0"
     found = registry_releases.status()
     assert "v0.3.0" in found.refused and found.problem
+    # Which release, why, and what to do (#535: it said "1 release(s) could not be used").
+    assert found.problem.startswith("Using v0.2.0, the newest release this Mendel can read.")
+    assert f"v0.3.0: {found.refused['v0.3.0']}" in found.problem
+    assert found.problem.endswith("Update Mendel to use it.")
+
 
 
 def test_offline_keeps_the_newest_it_has(follow):

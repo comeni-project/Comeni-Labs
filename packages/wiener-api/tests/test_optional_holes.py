@@ -17,7 +17,7 @@ def root(tmp_path, monkeypatch):
 
 def _artifact(tmp_path, channels: str, steps: str = " []") -> str:
     (tmp_path / "a1").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "a1" / "pipeline.yml").write_text(f"""version: 9
+    (tmp_path / "a1" / "pipeline.yml").write_text(f"""version: 10
 intent: {{want: [], constraints: {{}}}}
 facts: {{inputs: [], measurements: []}}
 registry: {{layers: [], displaced: [], unverified: []}}
