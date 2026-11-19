@@ -36,6 +36,9 @@ or a complete commit history.
 
 ### comeni-core
 
+- `diagnostics.yml` is read when a diagnostic is first looked up, not at import (`REGISTRY` is a lazy `Mapping`); the type-id character set is built once; duplicate contract parameters are counted in one pass (#578).
+- `Lockfile.of` reads each layer's name once (#549).
+- `declared_entries` works out each file's relative path once and looks beside each `piece/` once: 25 ms → 8 ms over the shipped registry, the same list (#546).
 - A type with no `entry_channel` gives each file `[ [id: <its base name>], file ]`, as the curated types do; it gave `[ [:], f ]`, so a module named every output `null`. A run guard's sentence names the params a person sets: `; set \`fasta\` as --fasta_2` (#467).
 - A fact a person said that the data measures otherwise keeps both: `Measured.measured` and `PremiseRecord.measured` (only on a said value; `PremiseRecord.contradicted`), and the premise reads `read_length is 150, asserted, not measured; the data measures 99` (#510).
 - `explain` (`mendel explain`, `forge explain`) prints a code's `says:` line, its explanation, then its `fix:`, which neither CLI showed (#67).
@@ -143,6 +146,7 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- `Layers.routing` is worked out once per load instead of on every access (#549).
 - MD0609 says a missing setting is not set, and a missing input not connected; it called both unconnected (#467).
 - A rule's choice that read a contradicted fact is tier 4, flagged for review, with the same value and both values in its reason (`Pin.tier()`), for producers and settings alike (#510).
 - A port that gathers over the study (`grain: study, many: true`) routes one producer per kind of data the analysis has, and takes one output from every step that makes what it reads: MULTIQC gathers FastQC's reports on the reads and QUAST's on the assemblies. Producers reached from the same data still compete, and a person's source pin keeps only theirs (#435).
@@ -185,6 +189,8 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- `mendel build` and `upgrade` load and check the registry once, not three and two times (#549).
+- `conformance.specs_of` parses each module's source once; `check`, its meta-key analysis and `facts_read` share it, so a build parses every module once instead of three times (#546).
 - A samplesheet pipeline's `stub_data` profile points `params.input` at a stub samplesheet, two rows of empty files the stub gate writes (`STUB_SAMPLESHEET`, `stub_samplesheet`); it was a FASTQ glob the workflow would parse as a CSV. `materialise_stub_data` takes the pipeline (#542).
 - MD0112: conformance compares each port's formats, from what the contracts making its type write and its test data, with the file pattern the module's meta.yml documents for the element it fills, so inputs wired in the wrong order are refused at build. An element where either names no format is not checked. `check` takes the vocabulary (#414).
 - `entry_params` lists `input` for a samplesheet pipeline in place of its per-sample channels' params, which the workflow never reads: `nextflow.config` declares what the run reads, and a forge test is sent exactly those (#484).
@@ -295,6 +301,16 @@ or a complete commit history.
 
 ### mendel-api
 
+- A folder listing builds the file-kind tables once per registry state instead of once per subfolder, and a scan saves its progress at most twice a second instead of once per sample (#573).
+- A scan measures two samples at once, as the inspection's own limit allows, and keeps their order: 20 samples 2.5 s → 1.3 s, the same output (#571).
+- The rule proposals view reads its proposals and whether a run is going side by side, and every open proposal's model in one statement; the readers list reads each measurer's test names once per registry state (#563).
+- The drafts list keeps each kept pipeline's summary by its artifact's digest instead of parsing every kept `pipeline.yml` on every request, and lists at most 200 drafts a page (#562).
+- The builder agent sends a model call again, up to three times with 1 s and 2 s waits, when the provider fails in a way that passes, recording every try as its own `ai_invocation`; a turn no longer fails on one overloaded response (#557).
+- A builder-agent tool call that names no step, tool or setting no longer loads the session's stored blueprint to find the step it touched (#552).
+- Compiling a draft materialises its pipeline once and emits from the preview's own materialisation, instead of previewing it (a `Pipeline.of` and a throwaway `pipeline.yml` dump) and materialising it again (#547).
+- A catalogue sync of a commit this worker has already read in full records a good sync with the last counts instead of parsing every module and rewriting every row; a restarted worker reads its first sync in full (#577).
+- The forge's list reads every forging's items, latest tests and pull request in one statement each, not a whole load and two sessions per forging; the forge's checks parse a module's source once per state of its files (#576).
+- Learned rules and forge tests read their declared files with `yaml_strict`, which refuses a repeated key, instead of `yaml.safe_load` (#575).
 - The builder agent's prompt asks for independent reads in one reply and no re-reading after `resolve`, which already returns the steps and what is needed; the first reply reads the pipeline only when one was built before (#556, prompt `builder.agent.v6`).
 - The builder agent sends only a conversation's last `agent_history_turns` turns (20 by default) with each call, and says so in the system prompt when earlier ones are left out; prompt `builder.agent.v6`. A call at turn 40 was 35.7k characters and grew each turn; it stays at 13.9k (#558).
 - The builder agent's tools keep each pipeline they build for the goal, AI provenance and registry it was built from, for the rest of the turn: `resolve` builds once instead of twice, and `read_step` and `read_pipeline` after it build nothing; one direct change 2 builds → 1 (#551).
@@ -514,6 +530,8 @@ or a complete commit history.
 
 ### comeni-ai
 
+- `ModelUnavailableError.transient` says whether a provider failure may pass if the call is sent again (a server error, an overloaded provider, a plain rate limit; not a usage limit or refused credentials) (#557).
+- Claude calls mark the last user or tool message for the prompt cache as well as the system prompt, so each round of a turn reads the history and earlier tool results from the cache; Claude through OpenRouter is marked too (#554).
 - **Breaking:** the `MENDEL_MODEL`, `MENDEL_API_KEY`, `MENDEL_BASE_URL`, `MENDEL_TIMEOUT_SECONDS` and `MENDEL_TEMPERATURE` fallbacks are no longer read; set `COMENI_AI_*`. `access.NAMES` lists what `from_env` reads (#298).
 - `reply_of` reads every choice of a `chatgpt/` reply. LiteLLM's Responses bridge returns
   narration and tool calls as separate choices, so the builder lost its tool calls whenever it
@@ -544,6 +562,7 @@ or a complete commit history.
 
 ### comeni-inspect
 
+- The inspection child reads its request and writes its report through `comeni_inspect.child`, the standard library only, byte for byte as `wire` does; it no longer imports pydantic, so it starts in about 30 ms instead of 170 to 190 (#572).
 #### Changed
 
 - The inspection core runs on the standard library alone, and `measure_cli` runs it over whole files in a pipeline step (#465). Every fact carries `coverage`; codecs open a stream; `--as` keys a report by measurement.
@@ -561,6 +580,7 @@ or a complete commit history.
 
 ### mendel-forge
 
+- Declared files are read with `yaml_strict`, and nf-core's own `meta.yml` and `environment.yml` with the C safe loader: `parse_module` 19.7 ms → 0.9 ms a module, the same output (#575).
 - The forge drafts measurers (#487). A new last step, **Measurers**, proposes a `by: tool`
   parser of one of the tool's outputs, with its tests, and any new measurement. The parser is
   checked with MD0027 and is never run on Mendel's server. A forge test runs it on the tool's real
@@ -614,6 +634,7 @@ or a complete commit history.
 
 ### comeni-vendor
 
+- `check --upstream` makes one clone per pinned repository and commit, not one per module (#577).
 #### Added
 
 - `comeni-vendor add` fetches module source into a registry layer at a pinned commit.
@@ -639,6 +660,8 @@ or a complete commit history.
 
 ### wiener-api
 
+- A run's `pipeline.yml` is read once per artifact, not on every `/graph` and `/overview` poll; the worker launches runs in a thread, off its event loop; the heartbeat beats each run in its own transaction, so one run's row lock or failure no longer holds the others (#568).
+- `/runs/{id}/events` reads one page in SQL (`seq > after`, a limit of at most 1,000) instead of every event; the console tail seeks to the last 512 KB of `console.log`; a completed run's measurement check reads one event of that kind (#567).
 - `/runs/{id}`, `/graph` and `/overview`, polled every 4 s while a run is live, answer from the projection instead of replaying the run's whole record (#565).
 - Ingest reads the run's facts, its task counts (in SQL) and the one task an event describes, instead of every task of the run: per event 13 ms → 0.03 ms of fold CPU at 3.3k tasks (#566). The full state is restored once, at a run's end, when telemetry is on.
 
@@ -680,6 +703,7 @@ or a complete commit history.
 
 ### frontend
 
+- The forge's list asks again every fifteen seconds, not five, while its forgings only wait in review (#576).
 - The Forge's Part panel clears a refused command's error when another part is picked (#535).
 - From the walk of 2026-11-17 (#509, #532, #535): removing a step names the steps that only fed it, which go too; adding a reference guesses its kind from the file name; a left-out sample's files say they are used for nothing; a cut release reads *released* and names who cut it only when known; the machine card's memory is *Most memory one task used*.
 - **Settings → Models**: guided connection setup with provider cards, local server detection,

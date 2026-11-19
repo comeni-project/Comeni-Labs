@@ -4,6 +4,8 @@ Approving writes a rule file to this installation's own registry layer; withdraw
 Every verb is a person's, recorded by name. The service reads files and checks tables, so it
 runs off the event loop."""
 
+import asyncio
+
 from fastapi import APIRouter
 from starlette.concurrency import run_in_threadpool
 
@@ -16,9 +18,10 @@ router = APIRouter(prefix="/rules", tags=["rules"])
 
 
 async def _view() -> proposals.ProposalsView:
-    view = await run_in_threadpool(proposals.read)
-    return view.model_copy(
-        update={"running": await jobs.running(proposals.JOB_ID, jobs.AI_QUEUE)})
+    # Side by side, not one after the other (#563): neither waits on the other.
+    view, running = await asyncio.gather(run_in_threadpool(proposals.read),
+                                         jobs.running(proposals.JOB_ID, jobs.AI_QUEUE))
+    return view.model_copy(update={"running": running})
 
 
 @router.get("/proposals", operation_id="readRuleProposals",

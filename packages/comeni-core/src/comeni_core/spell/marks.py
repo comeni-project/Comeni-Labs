@@ -213,12 +213,16 @@ def _single_line(value: str) -> str:
     return value
 
 
+_TYPE_ID_CHARACTERS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+"""Built once, not on every check (#578)."""
+
+
 def _type_id(value: str) -> str:
     """Require a type identifier that can safely become a channel and filename stem."""
     if not value:
         raise ValueError("a type id cannot be empty")
-    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
-    bad = sorted(set(value) - allowed)
+    bad = sorted(set(value) - _TYPE_ID_CHARACTERS)
     if bad or not (value[0].isascii() and value[0].isalpha()):
         raise ValueError(
             f"{value!r} is not a type id. Letters, digits, dot, underscore and hyphen, "

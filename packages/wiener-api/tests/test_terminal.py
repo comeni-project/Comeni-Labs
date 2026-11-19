@@ -170,3 +170,23 @@ def test_resume_is_the_command_wiener_ran_with_resume(term, a_run):
     assert resume == [*launcher.command(a_run, str(folder), has_params=True), "-resume"]
     listed = term.get(f"/api/runs/{a_run.id}/terminal/commands").json()["commands"]
     assert next(c for c in listed if c["name"] == "Resume the run")["command"] == shlex.join(resume)
+
+
+
+def test_the_console_tail_reads_only_the_end_of_the_log(tmp_path, monkeypatch):
+    """#567. The console's tail read the whole `console.log` to keep its last 512 KB; a long
+    run's log is many megabytes, read on every open of Run → Console. It seeks to the end."""
+    from pathlib import Path
+
+    from wiener_api import terminal
+
+    log = tmp_path / "console.log"
+    log.write_bytes(b"early line\n" * 300_000 + b"the last line\n")
+
+    def whole(self, *args, **kwargs):
+        raise AssertionError("the whole log was read")
+
+    monkeypatch.setattr(Path, "read_bytes", whole)
+    tail = terminal.plain_tail(log, lines=3)
+    assert tail.splitlines()[-1] == "the last line"
+    assert "early line" in tail

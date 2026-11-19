@@ -39,7 +39,30 @@ __all__ = [
 
 
 class ModelUnavailableError(ValueError):
-    """The provider rejected credentials or the request, or could not be reached."""
+    """The provider rejected credentials or the request, or could not be reached.
+
+    `transient` says whether trying the same call again could help (#557): set by `converse`
+    for a server error, an overloaded provider or a plain rate limit."""
+
+    transient: bool = False
+
+
+_PASSING = ("overloaded", "internal server error", "service unavailable", "bad gateway",
+            "gateway timeout", "temporarily unavailable", " 500", " 502", " 503", " 504", " 529")
+
+
+def transient(failure: Exception) -> bool:
+    """Whether a provider failure may pass if the same call is sent again (#557). A reached
+    usage limit does not pass for hours, and refused credentials never do."""
+    said = f" {failure}".lower()
+    if "usage_limit" in said or "usage limit" in said or "resets_at" in said:
+        return False
+    import litellm
+
+    if isinstance(failure, (litellm.InternalServerError, litellm.ServiceUnavailableError,
+                            litellm.APIConnectionError, litellm.BadGatewayError)):
+        return True
+    return any(word in said for word in _PASSING)
 
 
 @runtime_checkable
@@ -385,11 +408,15 @@ class LiteLLMTransport:
                 coded("MA0003", f"no answer within {access.timeout_seconds}s")
             ) from failure
         except litellm.RateLimitError as failure:
-            raise ModelUnavailableError(coded("MA0010", _limited(failure))) from failure
+            refused = ModelUnavailableError(coded("MA0010", _limited(failure)))
+            # A rate limit passes; a usage limit, which names when it resets, does not.
+            said = str(failure).lower()
+            refused.transient = "usage_limit" not in said and "resets_at" not in said
+            raise refused from failure
         except Exception as failure:
-            raise ModelUnavailableError(
-                coded("MA0007", f"{access.model}: {failure}")
-            ) from failure
+            refused = ModelUnavailableError(coded("MA0007", f"{access.model}: {failure}"))
+            refused.transient = transient(failure)
+            raise refused from failure
         return reply_of(access, response, started).model_copy(
             update={"tool_choice": effective_choice})
 
@@ -421,18 +448,32 @@ def _limited(failure: Exception) -> str:
     return f"the model's usage limit is reached; it resets at {at:%H:%M} UTC"
 
 
+_CLAUDE = ("anthropic/", "claude", "bedrock/anthropic", "vertex_ai/claude", "openrouter/anthropic/")
+_MARK = {"type": "ephemeral"}
+
+
 def _cacheable(model: str, messages: list[dict]) -> list[dict]:
     """**The repeated prompt, marked for the provider's cache where it needs marking** (walk
     2026-11-15): every round of an agent's turn resends the system prompt and the tools. Claude
     caches only what a request marks, and the tools ahead of a marked system prompt are cached
-    with it; OpenAI-shaped providers cache on their own. The caller's list is not changed."""
-    claude = model.startswith(("anthropic/", "claude", "bedrock/anthropic", "vertex_ai/claude"))
-    if not claude or not messages or messages[0].get("role") != "system" \
-            or not isinstance(messages[0].get("content"), str):
+    with it; OpenAI-shaped providers cache on their own. The caller's list is not changed.
+
+    **And where this round ends** (#554): the last user or tool message is marked too, so the
+    next round, which only adds to the end, reads everything before it from the cache rather
+    than paying for the history and the turn's tool results again. Two marks of the four Claude
+    allows. An assistant's tool call is never marked; it has no text to carry the mark."""
+    if not model.startswith(_CLAUDE) or not messages:
         return messages
-    system = {**messages[0], "content": [{"type": "text", "text": messages[0]["content"],
-                                          "cache_control": {"type": "ephemeral"}}]}
-    return [system, *messages[1:]]
+    marked = list(messages)
+    if marked[0].get("role") == "system" and isinstance(marked[0].get("content"), str):
+        marked[0] = {**marked[0], "content": [{"type": "text", "text": marked[0]["content"],
+                                               "cache_control": _MARK}]}
+    last = marked[-1]
+    if len(marked) > 1 and last.get("role") in {"user", "tool"} \
+            and isinstance(last.get("content"), str):
+        marked[-1] = {**last, "content": [{"type": "text", "text": last["content"],
+                                           "cache_control": _MARK}]}
+    return marked
 
 
 def _elapsed(started: float) -> int:

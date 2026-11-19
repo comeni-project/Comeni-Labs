@@ -15,7 +15,7 @@ from fnmatch import fnmatch
 from pathlib import Path, PurePosixPath
 
 import sqlalchemy as sa
-import yaml
+from comeni_core import yaml_strict
 from comeni_core.declared.tooltest import ToolTest
 from comeni_core.diagnostics import coded
 from comeni_flow.interpret import Refused
@@ -153,7 +153,7 @@ def _parsers(adaptation_id: str, test: ToolTest) -> dict[str, str]:
     found = {}
     folder = forging.draft_dir(adaptation_id) / "measurers" / "measures"
     for path in sorted(folder.glob("*/measurer.yml")):
-        declared = yaml.safe_load(path.read_text())
+        declared = yaml_strict.loads(path.read_text())
         if declared.get("uses") == test.contract and declared.get("output") in expected:
             found[declared["id"]] = declared["measures"]
     return found
@@ -163,9 +163,9 @@ def _declared(adaptation_id: str, name: str) -> tuple[ToolTest, str]:
     """The test as assembled, and its tool's process, read from the draft."""
     adaptation = forging.row(adaptation_id)
     tool = forging.draft_dir(adaptation_id) / "tools" / adaptation.source / adaptation.path
-    data = yaml.safe_load((tool / "tests" / f"{name}.yml").read_text())
+    data = yaml_strict.loads((tool / "tests" / f"{name}.yml").read_text())
     data.pop("declares")
-    contract = yaml.safe_load((tool / "contract.yml").read_text())
+    contract = yaml_strict.loads((tool / "contract.yml").read_text())
     return ToolTest.model_validate(data), contract["nf_process"]
 
 

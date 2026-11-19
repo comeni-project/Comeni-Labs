@@ -112,9 +112,11 @@ class Lockfile(BaseModel):
             ],
             layers=[
                 # Use the manifest name so moving a directory does not change its identity.
-                LockedLayer(name=layer_name(path), digest=digest,
-                            **(locators or {}).get(layer_name(path), Locator()).model_dump())
-                for path, digest in zip(layers, digests, strict=True)
+                LockedLayer(name=name, digest=digest,
+                            **(locators or {}).get(name, Locator()).model_dump())
+                # Each layer's `registry.yml` read once for its name, not twice (#549).
+                for name, path, digest in zip([layer_name(p) for p in layers], layers, digests,
+                                              strict=True)
             ],
         )
 

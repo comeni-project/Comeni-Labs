@@ -4,6 +4,7 @@ The same shape `mendel-api` takes for gates: the route writes a row and returns 
 milliseconds, and the work that can take three days happens somewhere a browser is not waiting.
 """
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 
@@ -29,7 +30,9 @@ async def launch_job(ctx: dict, run_id: str, params: dict | None = None) -> str:
     launcher reads them, unless the run already has its file."""
     if params and not launcher.params_path(run_id).exists():
         launcher.write_params(run_id, params)
-    launch(run_id)
+    # In a thread (#568): `launch` is blocking work, and on the worker's event loop it held
+    # every other job, the heartbeat included, until the run had started.
+    await asyncio.to_thread(launch, run_id)
     return run_id
 
 
@@ -56,11 +59,21 @@ async def heartbeat_job(ctx: dict) -> int:
     merely still watching.
     """
     now_ms = int(datetime.now(UTC).timestamp() * 1000)
-    policy = Policy(lost_after_ms=settings.lost_after_ms)
+    return await asyncio.to_thread(_beat_every_run, now_ms)
 
+
+def _beat_every_run(now_ms: int) -> int:
+    """**One transaction per run** (#568): each beat takes its run's row lock, and in one
+    transaction every run stayed locked until the last was beaten, while one failure undid
+    them all. Off the event loop, as blocking database work."""
+    policy = Policy(lost_after_ms=settings.lost_after_ms)
     with db.session_scope() as session:
-        runs = repository.unfinished(session, settings.lab_id)
-        for run in runs:
+        ids = [run.id for run in repository.unfinished(session, settings.lab_id)]
+    for run_id in ids:
+        with db.session_scope() as session:
+            run = repository.run(session, settings.lab_id, run_id)
+            if run is None:
+                continue
             state = beat(session, settings.lab_id, run.id, now_ms)
             if _given_up_on(state, policy, now_ms):
                 # **An observation, not a verb.** `lost` is a fact about a run in the same way
@@ -80,7 +93,7 @@ async def heartbeat_job(ctx: dict) -> int:
                 except RedisError as exc:
                     logging.getLogger(__name__).warning("run %s: tail not retired: %s",
                                                         run.id, exc)
-    return len(runs)
+    return len(ids)
 
 
 def _given_up_on(state, policy: Policy, now_ms: int) -> bool:

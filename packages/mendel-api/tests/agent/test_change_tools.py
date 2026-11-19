@@ -251,6 +251,33 @@ def test_a_value_the_ai_set_stays_the_ais_when_a_person_rebuilds(clean, monkeypa
     assert entry.settled.by == "builder-agent"
 
 
+def test_compiling_materialises_the_pipeline_once(clean, monkeypatch):
+    """#547. `drafts.emitted` previewed the draft (materialising it and dumping `pipeline.yml`)
+    only to learn it was ready, then materialised it again to emit. It emits the preview's own
+    materialisation now: one `Pipeline.of`, no throwaway dump."""
+    from mendel_api.services import drafts
+
+    ctx = _rnaseq()
+    assert call(ctx, "resolve", {}).ok
+    made, real = [0], drafts._materialised
+    dumped, dump = [0], drafts.pipeline_file.dump
+
+    def counted(*args, **kwargs):
+        made[0] += 1
+        return real(*args, **kwargs)
+
+    def dumping(*args, **kwargs):
+        dumped[0] += 1
+        return dump(*args, **kwargs)
+
+    monkeypatch.setattr(drafts, "_materialised", counted)
+    monkeypatch.setattr(drafts.pipeline_file, "dump", dumping)
+    compiled = call(ctx, "compile", {})
+    assert compiled.ok, compiled.refusal
+    assert compiled.view.main_nf_lines > 0
+    assert (made[0], dumped[0]) == (1, 0)
+
+
 def test_a_turn_resolves_each_state_of_the_decisions_once(clean, monkeypatch):
     """#551. The `resolve` tool built the pipeline, then built it again to describe it, and
     `read_step` and `read_pipeline` built it once more each, about 240 ms a build, with nothing

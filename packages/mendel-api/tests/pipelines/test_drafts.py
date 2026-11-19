@@ -369,6 +369,31 @@ def test_the_listing_is_newest_edit_first_and_pages(client):
     assert page["drafts"][0]["id"] == ids[-1], "newest edit first"
 
 
+def test_the_drafts_list_reads_each_kept_pipeline_once_per_keep(client, monkeypatch):
+    """#562. The list parsed every kept draft's `pipeline.yml` on every request (7 to 9 ms each,
+    so about 440 ms for 50), and the page asks for it whenever a revision moves. The summary is
+    kept by the artifact's digest: read again only after a new keep. The limit is clamped."""
+    from mendel_api.services import drafts as service
+
+    draft_id = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()["id"]
+    assert client.post(f"/api/pipeline/drafts/{draft_id}/keep").status_code == 200
+    loads, real = [0], service.pipeline_file.load
+
+    def counted(*args, **kwargs):
+        loads[0] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(service.pipeline_file, "load", counted)
+    first = client.get("/api/pipeline/drafts").json()["drafts"]
+    again = client.get("/api/pipeline/drafts").json()["drafts"]
+    row = next(r for r in first if r["id"] == draft_id)
+    assert row["kept"] and row["makes"] == ["counts.matrix"], row
+    assert again == first and loads[0] <= 1, "a kept pipeline was parsed again unchanged"
+
+    rows, _ = service.list_drafts(limit=10_000)
+    assert len(rows) <= 200
+
+
 def test_a_file_kept_by_an_older_mendel_does_not_empty_the_list(client):
     """Walk 2026-11-18: after SCHEMA_VERSION 10 (#507), one pipeline.yml kept at version 9 made
     the whole drafts list 422, and Home read "Reading your analyses…" for ever. The analysis is

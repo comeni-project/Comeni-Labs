@@ -14,6 +14,7 @@ import json
 import logging
 import secrets
 from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
 
@@ -250,6 +251,20 @@ def _provenance_of(pipeline: Pipeline) -> tuple[Provenance, list[OpenValue], int
     return Provenance(**tally), named, unnamed
 
 
+LIMIT = 200
+"""The most drafts one page lists, whatever is asked (#562)."""
+
+
+@lru_cache(maxsize=512)
+def _kept_summary(path: Path, digest: str) -> tuple:
+    """What the list shows of a kept pipeline: its provenance, open values and what it makes.
+    **Kept by the artifact's digest** (#562): a new keep moves it, so a summary is never older
+    than its file; each list request parsed every kept `pipeline.yml` again (7 to 9 ms each)."""
+    kept = pipeline_file.load(path)
+    provenance, named, unnamed = _provenance_of(kept)
+    return provenance, named, unnamed, list(kept.goal.want)
+
+
 def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int]:
     """Every pipeline this laboratory has, newest edit first.
 
@@ -262,6 +277,7 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
     laboratory's own work rather than with how much the product knows, which is the right thing
     for it to grow with. Audit A138 records where a number like this stops being true.
     """
+    limit = max(1, min(limit, LIMIT))
     with session_scope() as session:
         total = session.query(PipelineDraft).count()
         rows = (
@@ -308,25 +324,25 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
         artifact = _output_root() / draft_id / "pipeline.yml"
         if was_kept and artifact.is_file():
             try:
-                kept = pipeline_file.load(artifact)
+                provenance, named, unnamed, makes = _kept_summary(artifact, digest or "")
             except ValueError as refused:
                 # A file kept by an older Mendel (MD0207 after a schema bump): the analysis is
                 # still listed, changed since it was kept, so keeping it again rewrites it. One
-                # unreadable file emptied the whole list (walk 2026-11-18).
+                # unreadable file emptied the whole list (walk 2026-11-18). Not kept by the
+                # summary cache: `lru_cache` keeps no exception, so it is tried again.
                 log.warning("draft %s: its kept pipeline.yml cannot be read: %s", draft_id,
                             str(refused).splitlines()[0])
                 out.append(row.model_copy(update={"kept": True, "changed_since_kept": True,
                                                   "digest": digest}))
                 continue
-            provenance, named, unnamed = _provenance_of(kept)
             row = row.model_copy(update={
                 "kept": True,
                 "changed_since_kept": fingerprint(graph) != kept_graph,
                 "digest": digest,
                 "provenance": provenance,
-                "open_values": named,
+                "open_values": list(named),
                 "open_not_named": unnamed,
-                "makes": list(kept.goal.want),
+                "makes": list(makes),
             })
         out.append(row)
     return out, total
@@ -595,26 +611,34 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
     picture the text belongs to. An empty draft is an empty string rather than a refusal: a
     session that has accepted nothing yet has nothing to show, and that is not an error.
     """
+    revision, state, pipeline, findings = _previewed(draft_id, ai=ai)
+    if pipeline is None:
+        return Preview(revision, state, "", findings)
+    return Preview(revision, state, pipeline_file.dump(pipeline), findings)
+
+
+def _previewed(draft_id: str, *, ai: AiProvenance | None
+               ) -> tuple[int, str, Pipeline | None, list[str]]:
+    """The preview before it is written out: its revision, its state, the materialised pipeline
+    when it is `ready`, and the findings. `preview` dumps the pipeline and `emitted` emits it:
+    one materialisation for both (#547), so what is compiled is what the file shows."""
     stored = _load(draft_id)
     with session_scope() as session:
         revision = session.get(PipelineDraft, draft_id).revision
     if not stored.projection_current:
-        return Preview(revision, "outdated", "", [coded("MI0201",
-            "the selected facts changed; resolve the corrected pipeline before keeping it")])
+        return revision, "outdated", None, [coded("MI0201",
+            "the selected facts changed; resolve the corrected pipeline before keeping it")]
     if not stored.graph.nodes:
-        return Preview(revision, "empty", "", [])
+        return revision, "empty", None, []
     verdict = validation.of(stored.graph)
     if verdict.illegal:
-        return Preview(
-            revision, "illegal", "", [f"{f.code}: {f.message}" for f in verdict.illegal[:5]]
-        )
+        return revision, "illegal", None, [f"{f.code}: {f.message}" for f in verdict.illegal[:5]]
     try:
         pipeline = _materialised(draft_id, stored, registry.stack(), by="", ai=ai)
     except ValueError as refused:
-        return Preview(revision, "unavailable", "", [str(refused).splitlines()[0]])
+        return revision, "unavailable", None, [str(refused).splitlines()[0]]
     # What the file cannot do on its own is said beside it (review #3 of Plan B).
-    return Preview(revision, "ready", pipeline_file.dump(pipeline),
-                   locate.findings(pipeline.registry.layers))
+    return revision, "ready", pipeline, locate.findings(pipeline.registry.layers)
 
 
 class Emitted(NamedTuple):
@@ -633,12 +657,11 @@ def emitted(draft_id: str, *, ai: AiProvenance | None = None) -> Emitted:
     emit, and says why (`MI0219`) rather than answering with an empty workflow."""
     from mendel_compiler.emit import emit, emit_config
 
-    shown = preview(draft_id, ai=ai)
-    if shown.state != "ready":
-        why = shown.findings[0] if shown.findings else shown.state
+    revision, state, pipeline, findings = _previewed(draft_id, ai=ai)
+    if pipeline is None:
+        why = findings[0] if findings else state
         raise ValueError(coded("MI0219", f"there is no pipeline to compile yet: {why}"))
-    pipeline = _materialised(draft_id, _load(draft_id), registry.stack(), by="", ai=ai)
-    return Emitted(shown.revision, emit(pipeline), emit_config(pipeline))
+    return Emitted(revision, emit(pipeline), emit_config(pipeline))
 
 
 def _materialised(draft_id: str, stored: "Stored", stack, *, by: str,

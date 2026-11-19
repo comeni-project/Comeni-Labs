@@ -83,13 +83,16 @@ def prepare(roots: list[Path], *, loaded: layers.Layers | None = None) -> Prepar
     # contracts came out of — so the check that exists to catch a contract drifting from its
     # module was comparing two things nobody kept in step. `--registry X` is now the whole
     # input, which is also what makes an air-gapped site a first-class customer (invariant 13).
+    # Each module parsed once, for the check and for the facts it reads (#546).
+    specs = conformance.specs_of(loaded.registry, loaded.modules)
     diagnostics = conformance.check(
         loaded.registry, loaded.modules, measurements=loaded.measurements,
-        vocabulary=loaded.vocabulary,
+        vocabulary=loaded.vocabulary, specs=specs,
     )
     return Prepared(
         layers=loaded, diagnostics=diagnostics,
-        facts_read=conformance.facts_read(loaded.registry, loaded.modules, loaded.measurements),
+        facts_read=conformance.facts_read(loaded.registry, loaded.modules, loaded.measurements,
+                                          specs),
         digests=tuple(str(digest_of_directory(path)) for path in loaded.paths),
     )
 

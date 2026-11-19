@@ -93,6 +93,8 @@ def _sync(source: CatalogueSource) -> CatalogueSync:
         sync_id = sync.id
     try:
         snapshot = source.sync(settings.forge_cache)
+        if _unchanged(source.name, sync_id, snapshot):
+            return _recorded_again(source.name, sync_id, snapshot)
         modules = list(source.modules(snapshot))
         if not modules:
             # A moved upstream or a broken checkout, not an empty catalogue: storing it would
@@ -107,6 +109,7 @@ def _sync(source: CatalogueSource) -> CatalogueSync:
             done.problems = sum(1 for module in modules if module.problems)
             done.outcome = SyncOutcome.OK
             done.finished_at = datetime.now(UTC)
+        _READ_IN_FULL[source.name] = (snapshot.commit, snapshot.test_data_commit)
     except Exception as error:
         log.warning("catalogue sync %d of %s failed: %s", sync_id, source.name, error)
         with db.session_scope() as session:
@@ -114,6 +117,42 @@ def _sync(source: CatalogueSource) -> CatalogueSync:
             failed.outcome = SyncOutcome.FAILED
             failed.error = str(error)
             failed.finished_at = datetime.now(UTC)
+    with db.session_scope() as session:
+        return session.get(CatalogueSync, sync_id)
+
+
+_READ_IN_FULL: dict[str, tuple[str, str | None]] = {}
+"""The commits this process has read every module of, by source (#577). **In memory on purpose**:
+a restarted worker, perhaps with a changed parser, reads its first sync in full."""
+
+
+def _last_good(session, source: str, sync_id: int):
+    return session.scalar(
+        sa.select(CatalogueSync)
+        .where(CatalogueSync.source == source, CatalogueSync.outcome == SyncOutcome.OK,
+               CatalogueSync.id != sync_id)
+        .order_by(CatalogueSync.id.desc()).limit(1))
+
+
+def _unchanged(source: str, sync_id: int, snapshot) -> bool:
+    """Upstream has not moved since a sync this process read in full, and the catalogue still
+    holds that sync: parsing every module and rewriting every row would change nothing."""
+    at = (snapshot.commit, snapshot.test_data_commit)
+    if _READ_IN_FULL.get(source) != at:
+        return False
+    with db.session_scope() as session:
+        last = _last_good(session, source, sync_id)
+        return last is not None and (last.commit, last.test_data_commit) == at
+
+
+def _recorded_again(source: str, sync_id: int, snapshot) -> CatalogueSync:
+    with db.transaction() as session:
+        last = _last_good(session, source, sync_id)
+        done = session.get(CatalogueSync, sync_id)
+        done.commit, done.test_data_commit = snapshot.commit, snapshot.test_data_commit
+        done.modules, done.problems = last.modules, last.problems
+        done.outcome = SyncOutcome.OK
+        done.finished_at = datetime.now(UTC)
     with db.session_scope() as session:
         return session.get(CatalogueSync, sync_id)
 

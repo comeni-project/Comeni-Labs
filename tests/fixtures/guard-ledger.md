@@ -5694,6 +5694,45 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 - 2026-11-18, perf audit (#561 part 3): `test_reads_in_one_request_decide_once_per_revision` failed before
   `remembered` existed. `test_every_http_request_has_its_own_memo` against `main` with the middleware's memo
   replaced by a `nullcontext`: failed. Both pass after.
+- 2026-11-18, perf audit (#575): `test_declared_data_is_not_read_with_plain_safe_load` run against the
+  committed sources: failed, six readers outside the allowlist. Passes after.
+- 2026-11-18, perf audit (#576): `test_the_forging_list_costs_the_same_statements_however_many_forgings`
+  run against the committed `summaries()`: failed, 13 statements for two forgings against 7 for one.
+  `test_a_module_is_parsed_again_only_when_its_files_change` failed before `module_source` existed.
+  Both pass after.
+- 2026-11-18, perf audit (#577): `test_a_sync_of_an_unchanged_commit_reads_nothing_again` run against the
+  committed `catalogue._sync`: failed, `an unchanged commit was read again`.
+  `test_the_upstream_check_clones_each_pinned_commit_once` against the committed `check`: failed, 2 clones.
+  Both pass after. The `quast` fixture in `test_forging_ai.py` added a module at an unchanged commit, which
+  no upstream does; it syncs at `c2` now.
+- 2026-11-19, perf audit (#546): `test_preparing_a_build_parses_each_module_once` run against the committed
+  `conformance.py` and `orchestrate.py`: failed, `{3} == {1}`. Passes after.
+- 2026-11-19, perf audit (#547): `test_compiling_materialises_the_pipeline_once` run against the committed
+  `drafts.emitted`: failed, `(2, 1) == (1, 0)` (two materialisations, one throwaway dump). Passes after.
+- 2026-11-19, perf audit (#549): `test_the_cli_build_loads_the_registry_once` run against the committed
+  `cli/resolve_verbs.py`: failed, `3 == 1`. Passes after.
+- 2026-11-19, perf audit (#552): `test_a_tool_call_that_names_no_step_reads_no_blueprint` run against the
+  committed `loop._node_of`: failed, two statements. Passes after.
+- 2026-11-19, perf audit (#554): `test_each_round_marks_where_the_next_one_can_read_from_the_cache` run
+  against the committed `_cacheable`: failed, the tool result unmarked. Passes after.
+- 2026-11-19, perf audit (#557): `test_a_passing_provider_failure_is_tried_again_and_each_try_recorded`
+  failed before `_conversed` existed and against `TRIES = 1`. Passes after.
+- 2026-11-19, perf audit (#562): `test_the_drafts_list_reads_each_kept_pipeline_once_per_keep` run against
+  the committed `list_drafts`: failed, `a kept pipeline was parsed again unchanged`. Passes after.
+- 2026-11-19, perf audit (#563): `test_a_measurers_test_names_are_read_once_per_registry_state` failed
+  before `_tests_in` existed. Passes after.
+- 2026-11-19, perf audit (#567): `test_a_page_of_events_is_read_as_a_page` run against the committed
+  route: failed, 13 rows read for a page of 2. `test_the_console_tail_reads_only_the_end_of_the_log`
+  against the committed `plain_tail`: failed, `the whole log was read`. Both pass after.
+- 2026-11-19, perf audit (#568): `test_each_run_is_beaten_in_its_own_transaction` run against the
+  committed `heartbeat_job`: failed, `[-1, -1] == [-1, 0]` (the first beat undone with the second).
+  Passes after.
+- 2026-11-19, perf audit (#571): `test_scan_of_many_samples_holds_one_samples_heads_at_a_time` is widened
+  from a peak of 2 heads to at most `2 * AT_ONCE`: two samples are measured at once. It still fails on a
+  scan that reads every head first (peak 60). Output identity was checked with `bench_scan_par.py`.
+- 2026-11-19, perf audit (#572): `test_the_child_starts_without_pydantic` run against the committed
+  `run.py`: failed, `True`. `test_the_child_writes_the_report_wire_writes` holds the stdlib report to
+  `wire.Report.to_json` over 11 shapes, invalid ones included. All pass after.
 - 2026-11-18, perf audit (#558): `test_a_long_conversation_sends_only_its_recent_turns` failed before
   `agent_history_turns` existed, and against a `conversation()` without its limit. Passes after.
 

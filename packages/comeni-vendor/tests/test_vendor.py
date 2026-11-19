@@ -309,3 +309,37 @@ def test_cli_turns_an_operation_error_into_status_one(tmp_path, capsys):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err.startswith("comeni-vendor: 'fastqc' is not a module reference")
+
+
+def test_the_upstream_check_clones_each_pinned_commit_once(tmp_path, monkeypatch):
+    """#577. `check --upstream` made a fresh clone for every module, though nf-core's modules all
+    come from one repository at a few commits. Modules pinned to the same repository and commit
+    share one clone, and each still gets its own verdict."""
+    import subprocess
+
+    from comeni_vendor import ops
+
+    root = tmp_path / "upstream"
+    _upstream(root)
+    second = root / "modules" / "nf-core" / "multiqc"
+    second.mkdir(parents=True)
+    (second / "main.nf").write_text(MAIN_NF.replace("FASTQC", "MULTIQC"))
+    (second / "meta.yml").write_text("name: multiqc\n")
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "--quiet", "-m", "two"], cwd=root, check=True)
+    sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True,
+                         text=True, check=True).stdout.strip()
+    layer = _layer(tmp_path / "layer")
+    for name in ("fastqc", "multiqc"):
+        add(f"nf-core:{name}", sha=sha, registry=layer, licence="MIT", repo=str(root))
+
+    clones, real = [0], ops._git
+
+    def counted(command, where):
+        clones[0] += command[:2] == ["git", "clone"]
+        return real(command, where)
+
+    monkeypatch.setattr(ops, "_git", counted)
+    found = check(layer, upstream=True)
+    assert [r.verdict for r in found] == ["ok", "ok"]
+    assert clones[0] == 1, "each module was cloned on its own"

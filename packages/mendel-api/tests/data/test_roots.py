@@ -148,6 +148,42 @@ def test_each_reader_says_what_it_measures_what_decides_by_it_and_its_tests(monk
                                    "formula": "round(min(14, log₂(genome length) / 2 − 1))"}]
 
 
+def test_a_measurers_test_names_are_read_once_per_registry_state(monkeypatch):
+    """#563. Every `GET /data/readers` read every measurer's test files again to list their
+    case names. They are read once for each state of the registry that holds them."""
+    from pathlib import Path
+
+    from mendel_api.services.data import kinds
+
+    kinds._tests_in.cache_clear()
+    reads, real = [0], Path.read_text
+
+    def counted(self, *args, **kwargs):
+        if self.name.startswith("test_"):
+            reads[0] += 1
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", counted)
+    first = kinds._tests("read_length")
+    once = reads[0]
+    assert first and once, "no test file read: this would check nothing"
+    assert kinds._tests("read_length") == first and reads[0] == once
+
+
+def test_the_kind_tables_are_built_once_for_many_folders(tmp_path):
+    """#573. A folder listing built the kind tables again for every subfolder (250 ms for 60);
+    they are built once for each state of the registry."""
+    from mendel_api.services.data import kinds
+
+    kinds._tables_for.cache_clear()
+    for n in range(5):
+        (tmp_path / f"f{n}").mkdir()
+        (tmp_path / f"f{n}" / "a_R1.fastq.gz").write_bytes(b"")
+        kinds.looks_like(tmp_path / f"f{n}")
+    info = kinds._tables_for.cache_info()
+    assert (info.misses, info.hits) == (1, 4)
+
+
 def test_a_rule_deciding_several_roles_names_them_all(monkeypatch):
     """#535: the readers view named only a rule's first role when it decided several."""
     from types import SimpleNamespace

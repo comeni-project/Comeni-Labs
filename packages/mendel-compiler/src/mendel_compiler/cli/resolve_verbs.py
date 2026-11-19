@@ -10,7 +10,6 @@ from pathlib import Path
 
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.diagnostics import coded
-from mendel_resolver import layers
 from mendel_resolver.measure_steps import steps_for
 from mendel_resolver.replay import ReplayResolver
 from mendel_resolver.resolve import inert_pins
@@ -37,7 +36,10 @@ def run(args, parser) -> int:
     parser here to call `error` on would be a second usage string, and two would drift.
     """
     roots = args.registry or [args.root / "registry"]
-    loaded = layers.load(roots)
+    # Loaded and checked once, for the diagnostics printed here and the build below (#549): it
+    # was loaded three times and checked twice.
+    prepared = orchestrate.prepare(roots)
+    loaded = prepared.layers
     # **Only the registry survives here.** `vocabulary` and `rules` went with the resolve into
     # `orchestrate.build`; what the CLI still needs a registry for is `profile`, which reads the
     # ports of the contracts the IR actually chose. Ruff catching the other two unused is the
@@ -49,7 +51,7 @@ def run(args, parser) -> int:
     # when the build proceeds — and then `orchestrate.build` raises on the blocking ones. The
     # printing is a transport's job and the refusal is not, which is the whole split phase 0
     # made: an HTTP caller needs the same no as a value, not as stderr and an exit code.
-    for diagnostic in orchestrate.diagnostics_for(roots):
+    for diagnostic in prepared.diagnostics:
         print(diagnostic.render(), file=sys.stderr)
 
     previous: Pipeline | None = None
@@ -125,6 +127,7 @@ def run(args, parser) -> int:
             registry_roots=roots,
             prior=prior,
             resolver=resolver,
+            prepared=prepared,
         )
     except orchestrate.ConformanceRefused as refused:
         print(

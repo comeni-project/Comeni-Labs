@@ -5,6 +5,7 @@ documentation. Diagnostics belong to the code that emits them rather than to lab
 data, so all packages share this versioned registry through ``comeni-core``.
 """
 
+from collections.abc import Iterator, Mapping
 from enum import StrEnum
 from pathlib import Path
 
@@ -75,7 +76,35 @@ def _load() -> dict[str, DiagnosticSpec]:
     return {code: DiagnosticSpec(code=code, **body) for code, body in sorted(raw.items())}
 
 
-REGISTRY: dict[str, DiagnosticSpec] = _load()
+class _Registry(Mapping[str, DiagnosticSpec]):
+    """Every declared diagnostic, read from `diagnostics.yml` when first asked for (#578).
+
+    Loading the file (about 200 KB and 200 models) at import was 17 to 29 ms of every CLI start
+    and test collection, whether or not a diagnostic was ever looked up. A `Mapping`, so
+    `from comeni_core.diagnostics import REGISTRY` keeps working wherever it is written."""
+
+    def __init__(self) -> None:
+        self._specs: dict[str, DiagnosticSpec] | None = None
+
+    def _loaded(self) -> dict[str, DiagnosticSpec]:
+        if self._specs is None:
+            self._specs = _load()
+        return self._specs
+
+    def __getitem__(self, code: str) -> DiagnosticSpec:
+        return self._loaded()[code]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._loaded())
+
+    def __len__(self) -> int:
+        return len(self._loaded())
+
+    def __contains__(self, code: object) -> bool:
+        return code in self._loaded()
+
+
+REGISTRY: Mapping[str, DiagnosticSpec] = _Registry()
 
 
 def spec_for(code: str) -> DiagnosticSpec:

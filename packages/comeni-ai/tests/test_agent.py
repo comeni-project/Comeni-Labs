@@ -76,8 +76,36 @@ def test_a_claude_model_is_asked_to_cache_the_system_prompt():
     marked = _cacheable("anthropic/claude-sonnet-5", messages)
     assert marked[0]["content"] == [{"type": "text", "text": "the prompt",
                                      "cache_control": {"type": "ephemeral"}}]
-    assert marked[1] == messages[1] and messages[0]["content"] == "the prompt"
+    assert messages[0]["content"] == "the prompt" and messages[1]["content"] == "hi"
     assert _cacheable("chatgpt/gpt-6.1-sol", messages) is messages
+
+
+def test_each_round_marks_where_the_next_one_can_read_from_the_cache():
+    """#554. Only the system prompt was marked, so every later round of a turn re-sent the
+    history and the turn's tool results uncached. The last user or tool message is marked too:
+    the next round, which adds to the end, reads everything before it from the cache. Claude
+    through OpenRouter is marked as well; it matched none of the prefixes."""
+    from comeni_ai.client import _cacheable
+
+    mark = {"type": "ephemeral"}
+    rounds = [
+        {"role": "system", "content": "the prompt"},
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "c1"}]},
+        {"role": "tool", "tool_call_id": "c1", "content": "the result"},
+    ]
+    for model in ("anthropic/claude-sonnet-5", "openrouter/anthropic/claude-sonnet-5"):
+        marked = _cacheable(model, rounds)
+        assert marked[0]["content"][0]["cache_control"] == mark
+        assert marked[-1]["content"] == [{"type": "text", "text": "the result",
+                                          "cache_control": mark}]
+        assert marked[-1]["tool_call_id"] == "c1"
+        assert marked[1] == rounds[1] and marked[2] == rounds[2], "only the last is marked"
+    assert rounds[-1]["content"] == "the result", "the caller's list is not changed"
+    asked = _cacheable("anthropic/claude-sonnet-5", rounds[:2])
+    assert asked[-1]["content"] == [{"type": "text", "text": "hi", "cache_control": mark}]
+    ending_in_a_call = _cacheable("anthropic/claude-sonnet-5", rounds[:3])
+    assert ending_in_a_call[-1] == rounds[2], "an assistant's tool call is left as it is"
 
 
 def test_a_reached_usage_limit_says_so_and_when_it_resets():
@@ -111,3 +139,18 @@ def test_a_scripted_transport_keeps_the_cache_key_it_was_sent():
     script = ScriptedAgentTransport([AgentReply(text="ok")])
     script.converse(ACCESS, [{"role": "user", "content": "hi"}], [ADD], cache_key="k")
     assert script.keys == ["k"]
+
+
+
+def test_a_failure_says_whether_trying_again_could_help():
+    """#557. A 5xx, an overloaded provider or a plain rate limit passes; a reached usage limit
+    and refused credentials do not, and retrying them would only delay the answer."""
+    from comeni_ai.client import transient
+
+    class Overloaded(Exception):
+        pass
+
+    assert transient(Overloaded("529 overloaded_error: Overloaded"))
+    assert transient(Exception('{"error": {"type": "overloaded_error"}}'))
+    assert not transient(Exception('{"error":{"type":"usage_limit_reached","resets_at":1}}'))
+    assert not transient(Exception("401 invalid x-api-key"))

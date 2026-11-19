@@ -341,6 +341,75 @@ def test_every_call_of_a_session_names_the_same_conversation(clean, monkeypatch)
     assert elsewhere.keys[0] != keys[0]
 
 
+def test_a_tool_call_that_names_no_step_reads_no_blueprint(clean, monkeypatch):
+    """#552. After every tool call the loop loaded the session's whole stored blueprint (about
+    20 KB of JSON) to find the step it touched, even when the call named no step, tool or
+    setting, where the answer is always none. Such a call reads nothing."""
+    from mendel_api.db import engine
+    from sqlalchemy import event
+
+    session_id, _, _ = _started(monkeypatch, [_say("ok")])
+    sent = []
+
+    def heard(*args):
+        sent.append(1)
+
+    event.listen(engine, "before_cursor_execute", heard)
+    try:
+        assert loop._node_of(session_id, {}) is None
+        assert loop._node_of(session_id, {"type_id": "fastq.reads"}) is None
+    finally:
+        event.remove(engine, "before_cursor_execute", heard)
+    assert sent == []
+
+
+
+def test_a_passing_provider_failure_is_tried_again_and_each_try_recorded(clean, monkeypatch):
+    """#557. A 5xx or an overloaded provider failed the turn wherever it was, and trying the
+    turn again re-spent every earlier round's tokens. The call is tried again, a bounded number
+    of times with a growing wait, and every try is its own `ai_invocation` row."""
+    waits = []
+    monkeypatch.setattr(loop, "_wait", waits.append)
+    monkeypatch.setattr(loop, "model_access", lambda: object())
+
+    class Flaky:
+        def __init__(self):
+            self.calls = 0
+
+        def converse(self, access, messages, tools, *, tool_choice=None, cache_key=None):
+            self.calls += 1
+            if self.calls < 3:
+                failure = ModelUnavailableError(coded("MA0007", "529 overloaded_error"))
+                failure.transient = True
+                raise failure
+            return _say("Built it")
+
+    flaky = Flaky()
+    session_id = loop.start_session(drafts.create(DraftGraph(), "agent", "ana"), who="ana")
+    seq = loop.add_person_turn(session_id, "gene counts")
+    loop.run_turn(session_id, seq, transport=flaky)
+    assert _turn(session_id, seq).state == "answered"
+    assert flaky.calls == 3 and len(waits) == 2 and waits[1] > waits[0]
+    with session_scope() as db:
+        rows = db.scalars(select(AiInvocation).where(AiInvocation.session_id == session_id)).all()
+    assert sorted(r.failure_code or "" for r in rows) == ["", "MA0007", "MA0007"]
+
+
+def test_a_reached_usage_limit_is_not_tried_again(clean, monkeypatch):
+    waits = []
+    monkeypatch.setattr(loop, "_wait", waits.append)
+
+    class Limited:
+        def converse(self, access, messages, tools, *, tool_choice=None, cache_key=None):
+            raise ModelUnavailableError(coded("MA0010", "the model's usage limit is reached"))
+
+    monkeypatch.setattr(loop, "model_access", lambda: object())
+    session_id = loop.start_session(drafts.create(DraftGraph(), "agent", "ana"), who="ana")
+    seq = loop.add_person_turn(session_id, "gene counts")
+    loop.run_turn(session_id, seq, transport=Limited())
+    assert _turn(session_id, seq).state == "failed" and waits == []
+
+
 def test_a_long_conversation_sends_only_its_recent_turns(clean, monkeypatch):
     """#558. Every earlier turn went to the model on every call, never bounded, so a long
     conversation grew without limit (about 600 tokens a turn in the audit's simulation). Only

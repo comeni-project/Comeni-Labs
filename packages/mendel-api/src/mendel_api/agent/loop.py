@@ -214,15 +214,17 @@ def _node_of(session_id: str, arguments: dict) -> str | None:
     """The step a tool call touched (#499): named by its `node`, or found by the tool's contract
     or the setting's name — **and only a step the pipeline last built has** (plan 2 review), so
     the link an answer carries is the engine's, never an id the model made up."""
+    named, contract, setting = (arguments.get(k) for k in ("node", "contract", "name"))
+    if not isinstance(named, str) and not contract and not setting:
+        # Nothing to find a step by: the stored blueprint is not read (#552).
+        return None
     with session_scope() as db:
         stored = db.get(PipelineAuthoringSession, session_id).blueprint
     pipeline = (stored or {}).get("pipeline") or {}
     steps = [s for s in pipeline.get("steps") or [] if isinstance(s, dict)]
     ids = {s.get("id") for s in steps}
-    named = arguments.get("node")
     if isinstance(named, str):
         return named if named in ids else None
-    contract, setting = arguments.get("contract"), arguments.get("name")
     if contract:
         return next((s["id"] for s in steps
                      if (s.get("module") or {}).get("contract_id") == contract), None)
@@ -265,6 +267,34 @@ def _write(session_id: str, seq: int, blocks: list[dict], state: TurnState | Non
             turn.ai_invocation_id = invocation
         row = db.get(PipelineAuthoringSession, session_id)
         row.row_version += 1
+
+
+TRIES = 3
+"""The most times one model call is sent when the provider fails in a way that passes (#557)."""
+
+
+def _wait(seconds: float) -> None:
+    import time
+
+    time.sleep(seconds)
+
+
+def _conversed(session_id: str, transport, access, messages: list[dict], tools: list):
+    """One model call, sent again when the provider fails in a way that passes: a server error,
+    an overloaded provider, a plain rate limit (#557). It used to fail the turn wherever it was,
+    and trying the turn again re-spent every earlier round. **Each failed try is its own
+    `ai_invocation` row**, as every model call is; the last failure goes to the caller. Waits
+    1 s, then 2 s: at most 3 s of a person waiting before the turn says it failed. Never around
+    a tool, whose writes are not idempotent."""
+    for attempt in range(1, TRIES + 1):
+        try:
+            return transport.converse(access, messages, tools, cache_key=cache_key(session_id))
+        except Exception as failure:
+            if attempt == TRIES or not getattr(failure, "transient", False):
+                raise
+            _record(session_id, access, messages, None, _code(failure))
+            _wait(float(2 ** (attempt - 1)))
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 def _record(session_id: str, access, sent: list[dict], reply, failure: str | None) -> str:
@@ -354,7 +384,7 @@ def _run_turn(session_id: str, seq: int, transport: AgentTransport | None) -> st
     spent = 0
     for step in range(settings.agent_max_steps):
         try:
-            reply = transport.converse(access, messages, tools, cache_key=cache_key(session_id))
+            reply = _conversed(session_id, transport, access, messages, tools)
         except Exception as failure:  # noqa: BLE001 — every provider failure ends the turn coded
             invocation = _record(session_id, access, messages, None, _code(failure))
             blocks.append(Notice(id=f"failed-{seq}", notice=NoticeKind.REFUSAL,

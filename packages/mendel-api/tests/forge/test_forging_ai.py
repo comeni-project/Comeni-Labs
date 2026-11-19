@@ -687,7 +687,8 @@ def quast(tmp_path, monkeypatch, adaptation) -> str:
     """quast beside bwa/mem: three inputs, one per sample and two references (#412)."""
     cache = settings.forge_cache
     shutil.copytree(FIXTURES / "quast", cache / "nf-core-modules/modules/nf-core/quast")
-    catalogue.run_sync(FakeSource(["bwa/mem", "quast"]))
+    # A module added upstream is a new commit: a sync of an unchanged one reads nothing (#577).
+    catalogue.run_sync(FakeSource(["bwa/mem", "quast"], commit="c2"))
     return forging.start("nf-core", "quast", "rafael").id
 
 

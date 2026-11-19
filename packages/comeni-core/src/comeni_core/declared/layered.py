@@ -30,9 +30,36 @@ def declared_entries(path: Path) -> list[Path]:
     """
     if not path.is_dir():
         return []
-    found = [
-        p for p in path.rglob("*") if p.is_symlink() or (p.is_file() and _declared(p, path))
-    ]
+    # The same answers as `_declared`, with each file's relative path worked out once and each
+    # `piece/` directory's neighbours looked at once, not for every file under it (#546).
+    piece_beside: dict[Path, bool] = {}
+
+    def under_piece(parts: tuple[str, ...]) -> bool:
+        for depth, part in enumerate(parts[:-1]):
+            if part == PIECE_DIR:
+                beside = path.joinpath(*parts[:depth])
+                if beside not in piece_beside:
+                    piece_beside[beside] = any(
+                        (beside / name).is_file() for name in PIECE_DECLARATIONS)
+                if piece_beside[beside]:
+                    return True
+        return False
+
+    found = []
+    for p in path.rglob("*"):
+        if p.is_symlink():
+            found.append(p)
+            continue
+        if not p.is_file():
+            continue
+        parts = p.relative_to(path).parts
+        if "__pycache__" in parts or p.suffix == ".pyc":
+            continue
+        source = MODULE_DIR in parts or under_piece(parts)
+        hidden = any(part.startswith(".") for part in parts)
+        declared = p.suffix in _DECLARED_SUFFIXES or p.name == MANIFEST
+        if source or (declared and not hidden):
+            found.append(p)
     return found
 
 

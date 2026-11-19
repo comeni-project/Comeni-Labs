@@ -247,3 +247,67 @@ def test_a_lost_runs_tail_expires_and_comes_back_if_it_speaks(session, a_run, ta
 
     projection.record(session, a_run.lab_id, a_run.id, bodies[1])   # it was only quiet
     assert tail.ttl(stream.key(a_run.id)) == -1
+
+
+
+def test_a_page_of_events_is_read_as_a_page(client, a_bundle, session, tail, monkeypatch):
+    """#567. `/runs/{id}/events` loaded every event of the run and then kept the ones after the
+    cursor, up to the limit, in Python. It reads that page only: the same events, in order."""
+    import json as _json
+    from pathlib import Path
+
+    from wiener_api import repository
+    from wiener_api.services import projection
+
+    artifact = client.post("/api/artifacts", files={"bundle": ("p.zip", a_bundle)}).json()
+    run_id = client.post("/api/runs", json={"artifact_id": artifact["artifact_id"],
+                                            "params": {"input": "x", "fasta": "y"}}
+                         ).json()["run_id"]
+    fixture = Path(__file__).parents[3] / "tests/fixtures/weblog/failing-run.jsonl"
+    bodies = [_json.loads(line) for line in fixture.read_text().splitlines() if line.strip()]
+    for body in bodies:
+        projection.record(session, "local", run_id, body)
+    session.commit()
+    assert len(bodies) > 4, "too few events to page"
+
+    real, read = repository.events, []
+
+    def counted(*args, **kwargs):
+        rows = real(*args, **kwargs)
+        read.append(len(rows))
+        return rows
+
+    monkeypatch.setattr(repository, "events", counted)
+    page = client.get(f"/api/runs/{run_id}/events?after=1&limit=2").json()
+    assert [e["seq"] for e in page["events"]] == [2, 3] and page["cursor"] == 3
+    assert read == [2], f"rows read for a page of two: {read}"
+
+
+def test_each_run_is_beaten_in_its_own_transaction(session, a_run, tail, monkeypatch):
+    """#568. The heartbeat beat every unfinished run in one transaction, and each beat takes
+    its run's row lock, so every run stayed locked until the last was done, and one failure
+    undid them all. Each run is beaten and committed on its own; it runs in a thread, off the
+    worker's event loop."""
+    import asyncio
+    import threading
+
+    import wiener_rows
+    from wiener_api import worker
+    from wiener_api.services.projection import state_of
+
+    second = wiener_rows.a_run(session)
+    session.commit()
+    real, threads = worker.beat, []
+
+    def failing_on_the_second(db, lab_id, run_id, at_ms):
+        threads.append(threading.current_thread() is threading.main_thread())
+        if len(threads) == 2:
+            raise RuntimeError("the second run's beat failed")
+        return real(db, lab_id, run_id, at_ms)
+
+    monkeypatch.setattr(worker, "beat", failing_on_the_second)
+    with pytest.raises(RuntimeError, match="second run"):
+        asyncio.run(worker.heartbeat_job({}))
+    beaten = [state_of(session, r.lab_id, r.id).last_seq for r in (a_run, second)]
+    assert sorted(beaten) == [-1, 0], "the first beat was undone with the second"
+    assert threads and not any(threads), "the heartbeat ran on the event loop's thread"

@@ -12,6 +12,9 @@ import yaml
 
 from mendel_forge.model import CondaPackage
 
+# nf-core's own files, not declared data (#575): SafeLoader's behaviour, in C when it is built.
+_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 PIN = re.compile(r"^(?:([\w-]+)::)?([\w.-]+)=([^\s=]+)$")
 """`bioconda::star=2.7.11b` or `pigz=2.8`. A `pip:` block or an unpinned name does not match."""
 
@@ -33,7 +36,7 @@ def _norm(name: str) -> str:
 
 def parse_packages(environment_yml: str) -> list[CondaPackage]:
     """Every pinned conda dependency, in file order."""
-    data = yaml.safe_load(environment_yml) or {}
+    data = yaml.load(environment_yml, Loader=_LOADER) or {}  # noqa: S506 — the safe loader, in C
     found = (PIN.match(str(item)) for item in data.get("dependencies") or [])
     return [
         CondaPackage(channel=match.group(1), name=match.group(2), version=match.group(3))

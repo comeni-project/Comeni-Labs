@@ -80,10 +80,19 @@ def _fetch(repo: str, sha: str, path: str, into: Path) -> Path:
     A blobless sparse checkout avoids downloading unrelated module trees. The requested revision
     is a commit rather than a moving branch so later checks reproduce the reviewed source.
     """
+    _checkout(repo, sha, [path], into)
+    return _inside(repo, sha, path, into)
+
+
+def _checkout(repo: str, sha: str, paths: list[str], into: Path) -> None:
+    """One blobless clone of ``repo`` at ``sha`` holding only ``paths``."""
     run = ["git", "clone", "--filter=blob:none", "--no-checkout", "--quiet", repo, str(into)]
     _git(run, where=None)
-    _git(["git", "sparse-checkout", "set", "--no-cone", path], where=into)
+    _git(["git", "sparse-checkout", "set", "--no-cone", *paths], where=into)
     _git(["git", "checkout", "--quiet", sha], where=into)
+
+
+def _inside(repo: str, sha: str, path: str, into: Path) -> Path:
     found = into / path
     if not found.is_dir():
         raise VendorError(
@@ -222,6 +231,7 @@ def check(registry: Path, *, upstream: bool = False) -> list[CheckResult]:
     because no comparison was possible.
     """
     found: list[CheckResult] = []
+    pending: list[tuple[int, Module, Path]] = []
     for manifest in sorted(registry.rglob(MANIFEST)):
         declared = Module(**{k: v for k, v in (yaml_strict.load(manifest) or {}).items()
                              if k != "declares"})
@@ -233,7 +243,9 @@ def check(registry: Path, *, upstream: bool = False) -> list[CheckResult]:
             found.append(CheckResult(declared.id, "unpinned", "declares no upstream"))
             continue
         if upstream:
-            found.append(_against_upstream(declared, here))
+            # Compared below, one clone for every module pinned to the same commit (#577).
+            pending.append((len(found), declared, here))
+            found.append(CheckResult(declared.id, "moved", "not compared"))
             continue
         if declared.digest is None:
             found.append(CheckResult(declared.id, "unpinned", "records no digest"))
@@ -243,23 +255,32 @@ def check(registry: Path, *, upstream: bool = False) -> list[CheckResult]:
             found.append(
                 CheckResult(declared.id, "edited", "the directory no longer matches its digest")
             )
+    for index, result in _against_upstream(pending):
+        found[index] = result
     return found
 
 
-def _against_upstream(declared: Module, here: Path) -> CheckResult:
-    assert declared.upstream is not None
-    with tempfile.TemporaryDirectory() as scratch:
-        found = _fetch(
-            declared.upstream.repo,
-            declared.upstream.sha,
-            declared.upstream.path,
-            Path(scratch) / "upstream",
-        )
-        mirror = Path(scratch) / "mirror"
-        _copy(found, mirror, list(declared.excluded))
-        if digest_of_module(mirror) == digest_of_module(here):
-            return CheckResult(declared.id, "ok")
-        return CheckResult(
-            declared.id, "moved", f"differs from {declared.upstream.repo} at "
-            f"{declared.upstream.sha[:12]}"
-        )
+def _against_upstream(pending: list[tuple[int, Module, Path]]) -> list[tuple[int, CheckResult]]:
+    """Each module compared with its pinned upstream. **One clone per repository and commit**
+    (#577): nf-core's modules come from one repository at a few commits, and a fresh clone
+    for every module was most of the check's time."""
+    groups: dict[tuple[str, str], list[tuple[int, Module, Path]]] = {}
+    for entry in pending:
+        pin = entry[1].upstream
+        assert pin is not None
+        groups.setdefault((pin.repo, pin.sha), []).append(entry)
+    out = []
+    for (repo, sha), members in groups.items():
+        with tempfile.TemporaryDirectory() as scratch:
+            clone = Path(scratch) / "upstream"
+            _checkout(repo, sha, sorted({m.upstream.path for _, m, _ in members}), clone)
+            for index, declared, here in members:
+                found = _inside(repo, sha, declared.upstream.path, clone)
+                mirror = Path(scratch) / "mirror" / str(index)
+                _copy(found, mirror, list(declared.excluded))
+                if digest_of_module(mirror) == digest_of_module(here):
+                    out.append((index, CheckResult(declared.id, "ok")))
+                else:
+                    out.append((index, CheckResult(
+                        declared.id, "moved", f"differs from {repo} at {sha[:12]}")))
+    return out
