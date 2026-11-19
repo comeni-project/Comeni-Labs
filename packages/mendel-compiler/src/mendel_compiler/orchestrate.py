@@ -5,7 +5,7 @@ blocking conformance diagnostics, resolves the goal, and returns the IR, artifac
 layer data; callers decide where and whether to write them.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from comeni_core.artifact.digest import digest_of_directory
@@ -68,6 +68,9 @@ class Prepared:
     facts_read: object
     digests: tuple[str, ...]
     """Each layer's `digest_of_directory`, in stack order: what the lockfile pins."""
+    places: dict = field(default_factory=dict)
+    """Each layer's folder in its git checkout (`locate.place`), a fact about the path: worked
+    out once (#590). The remote, commit and edits are read on every build."""
 
 
 def prepare(roots: list[Path], *, loaded: layers.Layers | None = None) -> Prepared:
@@ -94,6 +97,7 @@ def prepare(roots: list[Path], *, loaded: layers.Layers | None = None) -> Prepar
         facts_read=conformance.facts_read(loaded.registry, loaded.modules, loaded.measurements,
                                           specs),
         digests=tuple(str(digest_of_directory(path)) for path in loaded.paths),
+        places={path: locate.place(path) for path in loaded.paths},
     )
 
 
@@ -150,7 +154,8 @@ def build(
         ir, routing, loaded.vocabulary, loaded.measurements, loaded.paths, goal=goal,
         # The caller's AI provenance: none recorded is *no AI*, which refuses a value a model
         # settled (`MD0225`), so a builder session passes what it had.
-        ai=ai, locators=locate.locators(loaded.paths), layer_digests=prepared.digests,
+        ai=ai, locators=locate.locators(loaded.paths, prepared.places),
+        layer_digests=prepared.digests,
     )
     return Built(pipeline=pipeline, ir=ir, layers=loaded, unverified=ir.unverified)
 

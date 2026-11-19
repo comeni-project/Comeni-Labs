@@ -189,6 +189,7 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- A build asks git only what can change: each layer's remote, commit and uncommitted edits. Where it sits in its checkout is worked out once, in `orchestrate.prepare` (#590).
 - `mendel build` and `upgrade` load and check the registry once, not three and two times (#549).
 - `conformance.specs_of` parses each module's source once; `check`, its meta-key analysis and `facts_read` share it, so a build parses every module once instead of three times (#546).
 - A samplesheet pipeline's `stub_data` profile points `params.input` at a stub samplesheet, two rows of empty files the stub gate writes (`STUB_SAMPLESHEET`, `stub_samplesheet`); it was a FASTQ glob the workflow would parse as a CSV. `materialise_stub_data` takes the pipeline (#542).
