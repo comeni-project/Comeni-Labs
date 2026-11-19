@@ -168,3 +168,17 @@ def test_a_measurers_test_names_are_read_once_per_registry_state(monkeypatch):
     once = reads[0]
     assert first and once, "no test file read: this would check nothing"
     assert kinds._tests("read_length") == first and reads[0] == once
+
+
+def test_the_kind_tables_are_built_once_for_many_folders(tmp_path):
+    """#573. A folder listing built the kind tables again for every subfolder (250 ms for 60);
+    they are built once for each state of the registry."""
+    from mendel_api.services.data import kinds
+
+    kinds._tables_for.cache_clear()
+    for n in range(5):
+        (tmp_path / f"f{n}").mkdir()
+        (tmp_path / f"f{n}" / "a_R1.fastq.gz").write_bytes(b"")
+        kinds.looks_like(tmp_path / f"f{n}")
+    info = kinds._tables_for.cache_info()
+    assert (info.misses, info.hits) == (1, 4)

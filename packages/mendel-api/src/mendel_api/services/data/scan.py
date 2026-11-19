@@ -19,6 +19,7 @@ import importlib.metadata
 import json
 import os
 import stat
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
@@ -139,6 +140,7 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
         total = sum(len(g) for g in groups)
         _save(draft_id, revision, scan=Scan(state="scanning", total=total).model_dump())
         stack, digest = registry.stack(), registry.digest()
+        said_at = time.monotonic()
         files: list[ScannedFile] = []
         samples: list[StoredSample] = []
         taken: set[str] = set()
@@ -223,8 +225,12 @@ def _run(draft_id: str, folders: list[str], revision: int, who: str, reading: Ru
                                           recognised=found.type_id)
                               for p, s in zip(chosen, sizes, strict=True)]
                     done += len(chosen)
-                    _save(draft_id, revision,
-                          scan=Scan(state="scanning", done=done, total=total).model_dump())
+                    # At most twice a second (#573): a transaction per sample was most of a
+                    # reused scan's time, and the page polls every 2 s.
+                    if time.monotonic() - said_at >= 0.5:
+                        said_at = time.monotonic()
+                        _save(draft_id, revision,
+                              scan=Scan(state="scanning", done=done, total=total).model_dump())
             finally:
                 # A stale or failed scan starts no more children than are already running.
                 pool.shutdown(wait=True, cancel_futures=True)

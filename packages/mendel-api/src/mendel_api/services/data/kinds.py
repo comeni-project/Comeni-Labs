@@ -68,6 +68,13 @@ Tables = tuple[list[tuple[str, str, frozenset[str]]], dict[str, str], tuple[str,
 
 
 def _tables() -> Tables:
+    """The kind tables for the registry as it stands. Built once per registry state (#573): a
+    folder listing built them again for every subfolder, 250 ms for 60."""
+    return _tables_for(registry.digest())
+
+
+@lru_cache(maxsize=8)
+def _tables_for(_digest: str) -> Tables:
     stack = registry.stack()
     codecs = tuple(
         sorted(
