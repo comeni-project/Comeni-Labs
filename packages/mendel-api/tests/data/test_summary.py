@@ -49,8 +49,8 @@ def file(path, size):
 
 
 def test_tiles_for_reads_and_for_assemblies_use_the_same_four_labels():
-    reads = summary([sample("a", ["a1", "a2"], read_length=101)], [file("a1", 10), file("a2", 10)])
-    assemblies = summary([sample("x", ["x.fa"], type_id=None)], [file("x.fa", 5)])
+    reads = summary([sample("a", ["a1", "a2"], read_length=101)], 2, 20)
+    assemblies = summary([sample("x", ["x.fa"], type_id=None)], 1, 5)
     assert [t.label for t in reads.tiles] == [t.label for t in assemblies.tiles] == [
         "Samples", "Kinds of data", "Size on disk", "Files"]
     assert [t.value for t in reads.tiles] == ["1", "1", "20 B", "2"]
@@ -58,7 +58,7 @@ def test_tiles_for_reads_and_for_assemblies_use_the_same_four_labels():
 
 def test_compare_by_lists_only_numeric_facts_every_sample_has():
     got = summary([sample("a", [], read_length=101, paired=True, n50=10),
-                   sample("b", [], read_length=50, paired=True)], [])
+                   sample("b", [], read_length=50, paired=True)], 0, 0)
     [read_length] = got.compare_by
     assert read_length.measurement == "read_length" and read_length.label == "Read length"
     assert [(v.sample, v.value) for v in read_length.values] == [("a", 101), ("b", 50)]
@@ -66,12 +66,12 @@ def test_compare_by_lists_only_numeric_facts_every_sample_has():
 
 
 def test_compare_by_is_empty_when_nothing_numeric_was_measured():
-    assert summary([sample("a", [], paired=True)], []).compare_by == []
+    assert summary([sample("a", [], paired=True)], 0, 0).compare_by == []
 
 
 def test_what_was_measured_says_measured_or_varies():
     got = summary([sample("a", [], read_length=101, paired=True),
-                   sample("b", [], read_length=50, paired=True)], [])
+                   sample("b", [], read_length=50, paired=True)], 0, 0)
     assert [(m.measurement, m.value, m.origin) for m in got.measured] == [
         ("paired", True, "measured"), ("read_length", None, "varies")]
 
@@ -179,3 +179,27 @@ def test_this_machine_says_cpus_memory_and_disk(clean, client, root):
     got = client.get("/api/data/machine").json()
     assert got["cpus"] >= 1 and got["memory_gb"] > 0 and got["disk_free_gb"] >= 0
     assert got["load"] >= 0
+
+
+def test_the_polled_view_counts_the_files_where_they_are_kept(clean, client, root):
+    """#592. The data view, polled every 2 s while a scan runs, loaded every listed file to
+    count them and add their sizes. It asks the database for the two numbers."""
+    from mendel_api.db import engine
+    from sqlalchemy import event
+
+    d = draft(client)
+    tick(client, d, pairs(root / "liver", "L01", "L02"))
+    scanning.scan(d, who="ana")
+    sent = []
+
+    def heard(conn, cursor, statement, *args):
+        sent.append(statement)
+
+    event.listen(engine, "before_cursor_execute", heard)
+    try:
+        got = view(client, d)
+    finally:
+        event.remove(engine, "before_cursor_execute", heard)
+    assert got["files"] == 4
+    assert sent, "no statement captured: this would check nothing"
+    assert not [s for s in sent if "analysis_data.files" in s], "the file list was loaded"

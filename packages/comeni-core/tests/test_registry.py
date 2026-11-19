@@ -191,3 +191,45 @@ def test_unshadowed_stack_is_the_union(tmp_path, base, vocab):
         tmp_path, "lab", {"mine.yml": SORT.replace("nf-core/samtools/sort", "lab/mysort")}
     )
     assert len(Registry.load([base, overlay], vocab).contracts) == 3
+
+
+
+def test_the_producer_index_answers_as_the_scan_did():
+    """#590. `producers_of` scanned every contract on each call; it reads an index built once.
+    For every type and state the shipped registry has, the answer is the scan's, in its order."""
+    from comeni_core.declared.registry import STRUCTURAL_ROLES, Registry
+    shipped = pathlib.Path(__file__).parents[3] / "registry"
+    registry = Registry.load(shipped, Vocabulary.load(shipped))
+
+    def scanned(type_id, states):
+        matches = {c.id: c for c in registry.contracts.values() for port in c.produces
+                   if port.type_id == type_id and states <= port.state
+                   and not STRUCTURAL_ROLES & set(c.roles)}
+        return sorted(matches.values(), key=lambda c: (-c.priority, c.id))
+
+    asked = {(p.type_id, frozenset(s)) for c in registry.contracts.values() for p in c.produces
+             for s in (set(), set(p.state))}
+    assert asked, "no output in the registry: this compared nothing"
+    for type_id, states in sorted(asked, key=str):
+        assert [c.id for c in registry.producers_of(type_id, states)] == [
+            c.id for c in scanned(type_id, states)]
+    assert registry.producers_of("no.such.type", frozenset()) == []
+
+
+
+def test_a_registry_made_from_another_has_its_own_producers():
+    """#590. `with_contracts` copies the registry with `model_copy`, which carries private
+    attributes: the copy answered from its source's index, so the generated measuring steps
+    were never producers, and the build changed. The index is rebuilt for different contracts."""
+    shipped = pathlib.Path(__file__).parents[3] / "registry"
+    registry = Registry.load(shipped, Vocabulary.load(shipped))
+    from comeni_core.declared.registry import STRUCTURAL_ROLES
+
+    some = next(c for c in registry.contracts.values()
+                if c.produces and not STRUCTURAL_ROLES & set(c.roles))
+    port = some.produces[0]
+    before = [c.id for c in registry.producers_of(port.type_id, frozenset())]
+    extra = some.model_copy(update={"id": some.id + "-copy"})
+    wider = registry.with_contracts([extra])
+    assert extra.id in [c.id for c in wider.producers_of(port.type_id, frozenset())]
+    assert [c.id for c in registry.producers_of(port.type_id, frozenset())] == before

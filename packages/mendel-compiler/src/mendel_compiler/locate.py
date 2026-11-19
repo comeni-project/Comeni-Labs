@@ -5,7 +5,7 @@ than guessed provenance. Credentials are removed from recorded remote URLs.
 """
 
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from comeni_core import yaml_strict
@@ -52,9 +52,25 @@ def _source(layer: Path) -> str | None:
         return None  # a local path or `file://`: somebody's machine, not a source
 
 
-def locate(layer: Path) -> Locator:
+_UNPLACED = object()
+"""`locate` was not told where the layer sits: it works it out."""
+
+
+def place(layer: Path) -> str | None:
+    """Where a layer sits in its git checkout: its folder there (`""` at the top), or `None` when
+    no checkout holds it. A fact about the path, so a caller may work it out once (#590)."""
+    if _git(layer, "rev-parse", "--show-toplevel") is None:
+        return None
+    return (_git(layer, "rev-parse", "--show-prefix") or "").rstrip("/")
+
+
+def locate(layer: Path, *, placed: object = _UNPLACED) -> Locator:
     """The layer's remote, commit, folder in the repository, and whether it has uncommitted
-    edits under it. A fetched release says so itself."""
+    edits under it. A fetched release says so itself.
+
+    `placed` is `place(layer)` when the caller already has it; left out, it is worked out here.
+    The remote, the commit and the edits are always read now: each can change with no file of
+    the layer changing."""
     marker = layer.parent / RELEASE_FILE
     if marker.is_file():
         said = yaml_strict.load(marker)
@@ -62,16 +78,18 @@ def locate(layer: Path) -> Locator:
                        release=said["tag"])
     if (layer / INSTALLATION_FILE).is_file():
         return Locator()
-    if _git(layer, "rev-parse", "--show-toplevel") is None:
+    folder = place(layer) if placed is _UNPLACED else placed
+    if folder is None:
         return Locator()
-    folder = (_git(layer, "rev-parse", "--show-prefix") or "").rstrip("/")
     return Locator(source=_source(layer), commit=_git(layer, "rev-parse", "HEAD"),
                    dirty=bool(_git(layer, "status", "--porcelain", "--", ".")),
                    path=folder or None)
 
 
-def locators(layers: Sequence[Path]) -> dict[LayerName, Locator]:
-    return {layer_name(layer): locate(layer) for layer in layers}
+def locators(layers: Sequence[Path],
+             places: Mapping[Path, str | None] | None = None) -> dict[LayerName, Locator]:
+    return {layer_name(layer): locate(layer, placed=(places or {}).get(layer, _UNPLACED))
+            for layer in layers}
 
 
 def findings(layers: Sequence[LockedLayer]) -> list[str]:

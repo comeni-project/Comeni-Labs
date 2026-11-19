@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
 
 from comeni_core.declared.contract import ModuleContract
 from comeni_core.declared.layered import (
@@ -31,6 +31,11 @@ STRUCTURAL_ROLES = frozenset({"splitting", "merging"})
 
 class Registry(BaseModel):
     contracts: dict[str, ModuleContract]
+    _producing: tuple | None = PrivateAttr(default=None)
+    """Each output type's producing contracts, worked out on the first `producers_of` (#590), with
+    the `contracts` mapping it was built from. **Checked against that mapping on every use**:
+    `model_copy` carries private attributes into the copy, so `with_contracts` would otherwise
+    answer from its source's index, without the generated measuring steps."""
 
     displaced: list[Displacement] = []
     """Declarations removed by higher layers, including the preferred winning contract."""
@@ -103,11 +108,19 @@ class Registry(BaseModel):
         # A splitter or a merger makes its type from the same type, and is placed around the step
         # that needs it, never routed as a producer (#466): routed, a merger would gather the
         # whole study's items into one.
+        if self._producing is None or self._producing[0] is not self.contracts:
+            # Each type's (contract, port) pairs, in the order a scan of every contract met
+            # them, so the filter below sees what it saw before (#590).
+            producing: dict[str, list] = {}
+            for contract in self.contracts.values():
+                if STRUCTURAL_ROLES & set(contract.roles):
+                    continue
+                for port in contract.produces:
+                    producing.setdefault(port.type_id, []).append((contract, port))
+            self._producing = (self.contracts, producing)
         matches = {
             contract.id: contract
-            for contract in self.contracts.values()
-            for port in contract.produces
-            if port.type_id == type_id and states <= port.state
-            and not STRUCTURAL_ROLES & set(contract.roles)
+            for contract, port in self._producing[1].get(type_id, ())
+            if states <= port.state
         }
         return sorted(matches.values(), key=lambda c: (-c.priority, c.id))

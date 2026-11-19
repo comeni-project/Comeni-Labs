@@ -89,3 +89,25 @@ def read(run_id: str, after: str, block_ms: int = 1_000, count: int = 100,
     """
     streams = (redis or client()).xread({key(run_id): after}, count=count, block=block_ms)
     return streams[0][1] if streams else []
+
+
+_async_client = None
+"""A test's stand-in for `async_client`; production makes one per socket."""
+
+
+def async_client():
+    """A `redis.asyncio` client for one websocket (#593). **Async**, because a blocking read in
+    the thread pool held one of its threads per open socket for as long as the socket lived:
+    about 40 sockets would have exhausted it."""
+    if _async_client is not None:
+        return _async_client
+    from redis.asyncio import Redis as AsyncRedis
+
+    return AsyncRedis.from_url(settings.redis_url, decode_responses=True)
+
+
+async def aread(redis, run_id: str, after: str, block_ms: int = 1_000,
+                count: int = 100) -> list[tuple[str, dict]]:
+    """`read`, awaited rather than run in a thread."""
+    streams = await redis.xread({key(run_id): after}, count=count, block=block_ms)
+    return streams[0][1] if streams else []

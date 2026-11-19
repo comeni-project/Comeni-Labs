@@ -1,12 +1,12 @@
 """A review applies to meaning, and changing a producer invalidates its dependents."""
 
 import hashlib
-import json
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from mendel_authoring.blueprint import Blueprint
+from mendel_authoring.canonical import canonical_json
 from mendel_authoring.decisions import ActorKind
 
 
@@ -63,7 +63,7 @@ def fingerprint(blueprint: Blueprint, node: str) -> str:
         ],
     }
     return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        canonical_json(payload).encode()
     ).hexdigest()
 
 
@@ -84,7 +84,7 @@ def shape(blueprint: Blueprint, node: str) -> str:
                            if c.name in names),
     }
     return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        canonical_json(payload).encode()
     ).hexdigest()
 
 

@@ -206,6 +206,9 @@ def _spawn(argv: list[str], cwd: Path) -> subprocess.Popen[bytes]:
     os.close(slave)
     threading.Thread(target=_tee, args=(master, Path(cwd) / CONSOLE), daemon=True,
                      name=f"console-{Path(cwd).name}").start()
+    # **Reaped when it ends** (#593): nothing else waits on it, and an unwaited child stays a
+    # zombie until the worker exits. Cancelling signals it by pid, which this does not touch.
+    threading.Thread(target=spawned.wait, daemon=True, name=f"reap-{Path(cwd).name}").start()
     return spawned
 
 

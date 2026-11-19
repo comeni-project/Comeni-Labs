@@ -804,7 +804,10 @@ class AnalysisData(Base):
         String(32), ForeignKey("pipeline_draft.id", ondelete="RESTRICT"), primary_key=True)
     folders: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
     scan: Mapped[Any] = mapped_column(Json, nullable=False, default=dict)
-    files: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
+    files: Mapped[Any] = mapped_column(Json, nullable=False, default=list, deferred=True)
+    """Every listed file: thousands of rows for a large analysis. **Deferred** (#592): the view
+    polled every 2 s during a scan needs only its count and size, counted in the database
+    (`routes.data._file_totals`); a page of files loads it."""
     samples: Mapped[Any] = mapped_column(Json, nullable=False, default=list)
     rule: Mapped[Any] = mapped_column(Json, nullable=True)
     """How file names are read into samples (`services.data.rule.Rule`); `None` is the default."""

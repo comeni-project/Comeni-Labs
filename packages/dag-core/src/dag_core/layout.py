@@ -111,6 +111,30 @@ def _ranks(graph: Graph) -> dict[str, int]:
     for edge in graph.edges:
         incoming[edge.to_node].append(edge.from_node)
 
+    # One pass in topological order (#590): linear, where the relaxation below is
+    # O(V·(V+E)). The same ranks for any graph without a cycle; a graph with one, which callers
+    # refuse, falls through to the bounded relaxation as before.
+    outgoing: dict[str, list[str]] = defaultdict(list)
+    waiting = {node.id: 0 for node in graph.nodes}
+    for edge in graph.edges:
+        if edge.to_node in waiting and edge.from_node in waiting:
+            outgoing[edge.from_node].append(edge.to_node)
+            waiting[edge.to_node] += 1
+    ready = [node.id for node in graph.nodes if waiting[node.id] == 0]
+    rank = {node.id: 0 for node in graph.nodes}
+    seen = 0
+    while ready:
+        node_id = ready.pop()
+        seen += 1
+        for after in outgoing[node_id]:
+            rank[after] = max(rank[after], rank[node_id] + 1)
+            waiting[after] -= 1
+            if waiting[after] == 0:
+                ready.append(after)
+    if seen == len(graph.nodes) and all(
+            e.from_node in waiting and e.to_node in waiting for e in graph.edges):
+        return rank
+
     rank = {node.id: 0 for node in graph.nodes}
     for _ in range(len(graph.nodes)):
         moved = False

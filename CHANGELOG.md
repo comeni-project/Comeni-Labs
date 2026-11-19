@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- `Registry.producers_of` reads an index by output type, built on its first call, instead of scanning every contract; the same answers in the same order (#590).
 - `diagnostics.yml` is read when a diagnostic is first looked up, not at import (`REGISTRY` is a lazy `Mapping`); the type-id character set is built once; duplicate contract parameters are counted in one pass (#578).
 - `Lockfile.of` reads each layer's name once (#549).
 - `declared_entries` works out each file's relative path once and looks beside each `piece/` once: 25 ms → 8 ms over the shipped registry, the same list (#546).
@@ -189,6 +190,7 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- A build asks git only what can change: each layer's remote, commit and uncommitted edits. Where it sits in its checkout is worked out once, in `orchestrate.prepare` (#590).
 - `mendel build` and `upgrade` load and check the registry once, not three and two times (#549).
 - `conformance.specs_of` parses each module's source once; `check`, its meta-key analysis and `facts_read` share it, so a build parses every module once instead of three times (#546).
 - A samplesheet pipeline's `stub_data` profile points `params.input` at a stub samplesheet, two rows of empty files the stub gate writes (`STUB_SAMPLESHEET`, `stub_samplesheet`); it was a FASTQ glob the workflow would parse as a CSV. `materialise_stub_data` takes the pipeline (#542).
@@ -266,6 +268,7 @@ or a complete commit history.
 
 ### mendel-authoring
 
+- `canonical.canonical_json` is the one spelling of sorted, compact JSON that drafts' fingerprints, decision site keys and review fingerprints are made from; the bytes are unchanged (#595).
 - `Decisions.from_goal` keeps a pin's and a setting's `by` and `because`: a goal imported from a pipeline the AI built kept the AI's choices as the person's (#505).
 - A setting a model settled names its author: the committing actor when its decision record names none (#535).
 
@@ -301,6 +304,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- The data view counts an analysis's listed files and their total size in the database; `AnalysisData.files` is a deferred column, loaded only for a page of files (#592).
+- An HTTP request walks each registry layer's files once (`registry.remembered`), and walks again after anything writes the installation's own layer: one change request spent 45 ms of 251 on 11 walks, now 8 ms of 173 (#590).
 - A folder listing builds the file-kind tables once per registry state instead of once per subfolder, and a scan saves its progress at most twice a second instead of once per sample (#573).
 - A scan measures two samples at once, as the inspection's own limit allows, and keeps their order: 20 samples 2.5 s → 1.3 s, the same output (#571).
 - The rule proposals view reads its proposals and whether a run is going side by side, and every open proposal's model in one statement; the readers list reads each measurer's test names once per registry state (#563).
@@ -660,6 +665,8 @@ or a complete commit history.
 
 ### wiener-api
 
+- The `/stream` websocket reads Redis through `redis.asyncio`, not a thread-pool thread held for as long as each socket is open (#593).
+- `/runs/{id}`, `/graph` and `/overview` carry an ETag (last event, phase, end, and what else each names) and answer a matching `If-None-Match` with 304, restoring and laying out nothing; the launcher reaps a finished run's process instead of leaving a zombie (#593).
 - A run's `pipeline.yml` is read once per artifact, not on every `/graph` and `/overview` poll; the worker launches runs in a thread, off its event loop; the heartbeat beats each run in its own transaction, so one run's row lock or failure no longer holds the others (#568).
 - `/runs/{id}/events` reads one page in SQL (`seq > after`, a limit of at most 1,000) instead of every event; the console tail seeks to the last 512 KB of `console.log`; a completed run's measurement check reads one event of that kind (#567).
 - `/runs/{id}`, `/graph` and `/overview`, polled every 4 s while a run is live, answer from the projection instead of replaying the run's whole record (#565).
@@ -697,6 +704,7 @@ or a complete commit history.
 
 ### dag-core
 
+- Ranks come from one topological pass instead of a relaxation repeated up to once per node; the same ranks, and a cycle still terminates (#590).
 #### Added
 
 - Shared pure graph layout supports the build and run canvases.

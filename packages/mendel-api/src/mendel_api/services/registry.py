@@ -23,6 +23,8 @@ current reader takes `.registry`, `.vocabulary` or `.rules` and reads.
 import hashlib
 import os
 import subprocess
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
 from pathlib import Path
 
@@ -46,7 +48,42 @@ def _load(roots: tuple[Path, ...], digest: str) -> Layers:
     return layers.load(list(roots))
 
 
+_WALKED: ContextVar[dict[str, tuple] | None] = ContextVar("registry_walked", default=None)
+
+
+@contextmanager
+def remembered():
+    """Within this, each layer's files are walked once (#590): one change request walked them
+    11 times, 45 ms of its 251, to learn nothing changed. One per HTTP request (`main`).
+    **`forget` is called by everything that writes a layer** (`ensure_own_layer`,
+    `retire_own_layer_if_empty`, approving and withdrawing a learned rule), so a request never
+    reads a stack it changed as it was before."""
+    token = _WALKED.set({})
+    try:
+        yield
+    finally:
+        _WALKED.reset(token)
+
+
+def forget() -> None:
+    """A layer was written: the next read in this request walks again."""
+    if (walked := _WALKED.get()) is not None:
+        walked.clear()
+
+
 def signature(root: Path | None = None) -> tuple[tuple[str, int, int, int, int], ...]:
+    """`_walk`, once per layer per request (`remembered`)."""
+    root = root if root is not None else active_registry()
+    walked = _WALKED.get()
+    if walked is None:
+        return _walk(root)
+    key = str(root)
+    if key not in walked:
+        walked[key] = _walk(root)
+    return walked[key]
+
+
+def _walk(root: Path | None = None) -> tuple[tuple[str, int, int, int, int], ...]:
     """Every file's size and modification time under the layer, never its bytes (#216).
 
     **What a request pays to learn nothing changed.** The digest read every byte of the layer,
@@ -165,6 +202,7 @@ def ensure_own_layer() -> Path:
     (layer / INSTALLATION_FILE).write_text(
         "This folder is this installation's own registry layer. It is local: no repository\n"
         "holds it, so a pipeline built on it says it cannot be rebuilt from its file alone.\n")
+    forget()
     return layer
 
 
@@ -175,6 +213,7 @@ def retire_own_layer_if_empty() -> None:
     marker = layer / "registry.yml"
     if marker.is_file() and not [p for p in layer.rglob("*.yml") if p != marker]:
         marker.unlink()
+    forget()
 
 
 def builder_types(stack: Layers) -> dict[str, frozenset[str]]:

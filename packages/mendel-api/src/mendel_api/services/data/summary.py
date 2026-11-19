@@ -63,15 +63,17 @@ def _size(total: int) -> str:
     return f"{total:.1f} TB"
 
 
-def summary(samples: list[dict], files: list[dict]) -> Summary:
+def summary(samples: list[dict], files: int, size: int) -> Summary:
+    """The analysis at a glance. `files` and `size` are the listed files' count and total size,
+    counted where they are stored rather than read in here (#592)."""
     kept = [s for s in samples if not s.get("left_out")]
     kinds = {s.get("type_id") for s in kept if s.get("type_id")}
     tiles = [
         Tile(label="Samples", value=str(len(kept)),
              hint=f"{len(samples) - len(kept)} left out" if len(samples) > len(kept) else None),
         Tile(label="Kinds of data", value=str(len(kinds))),
-        Tile(label="Size on disk", value=_size(sum(f.get("size", 0) for f in files))),
-        Tile(label="Files", value=str(len(files))),
+        Tile(label="Size on disk", value=_size(size)),
+        Tile(label="Files", value=str(files)),
     ]
     numeric: dict[str, list[SampleValue]] = {}
     for s in kept:

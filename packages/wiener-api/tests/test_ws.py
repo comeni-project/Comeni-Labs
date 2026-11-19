@@ -64,3 +64,21 @@ def test_a_finished_run_drains_and_then_closes(client, a_run_with_events):
     assert kinds[-1] == "error" and "completed" in kinds, (
         f"the socket closed before the record was drained: {kinds[-3:]}"
     )
+
+
+
+def test_the_tail_reads_without_holding_a_thread(client, a_run_with_events, monkeypatch):
+    """#593. Each socket read Redis in the thread pool, blocking one of its threads for as long
+    as the socket stayed open. It awaits an async client; the threaded read is never used."""
+    from wiener_api.services import stream
+
+    def threaded(*args, **kwargs):
+        raise AssertionError("the socket read Redis in a thread")
+
+    monkeypatch.setattr(stream, "read", threaded)
+    received = []
+    with (pytest.raises(WebSocketDisconnect),
+          client.websocket_connect(f"/api/runs/{a_run_with_events}/stream?from=0-0") as socket):
+        while True:
+            received.append(_json.loads(socket.receive_text()))
+    assert received, "nothing was tailed: this would check nothing"

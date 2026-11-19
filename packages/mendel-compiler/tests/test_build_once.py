@@ -26,3 +26,26 @@ def test_the_routing_registry_is_worked_out_once_per_load():
     loaded = layers.load([ROOT / "registry"])
     assert loaded.routing is loaded.routing
     assert list(loaded.routing.all()), "an empty routing registry would prove nothing"
+
+
+def test_a_prepared_build_asks_git_only_what_can_change(monkeypatch):
+    """#590. Each build ran five git commands per layer. Where a layer sits in its checkout is
+    a fact about the path, worked out once in `prepare`; its remote, commit and uncommitted
+    edits can change with no file changing, so each build still asks for those three."""
+    from mendel_compiler import locate, orchestrate
+    from mendel_resolver.goal import Goal
+
+    prepared = orchestrate.prepare([ROOT / "registry"])
+    asked, real = [], locate._git
+
+    def counted(layer, *args):
+        asked.append(args[:2])
+        return real(layer, *args)
+
+    monkeypatch.setattr(locate, "_git", counted)
+    goal = Goal.model_validate({"have": [{"type_id": "fastq.reads"}], "want": ["qc.report"]})
+    built = orchestrate.build(goal, registry_roots=[ROOT / "registry"], prepared=prepared)
+    assert built.pipeline.registry.layers[0].commit, "the commit is still read"
+    assert ("rev-parse", "--show-toplevel") not in asked
+    assert ("rev-parse", "--show-prefix") not in asked
+    assert len(asked) == 3, asked

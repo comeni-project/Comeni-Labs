@@ -31,11 +31,15 @@ def tail(monkeypatch):
     `localhost:6379` — passing on a developer's machine, and in CI passing for the wrong
     reason, since a failed publish is deliberately only logged.
     """
-    from fakeredis import FakeRedis
+    from fakeredis import FakeAsyncRedis, FakeRedis, FakeServer
     from wiener_api.services import stream
 
-    fake = FakeRedis(decode_responses=True)
+    # One server behind both clients: what the sync side publishes, the socket's async side reads.
+    server = FakeServer()
+    fake = FakeRedis(server=server, decode_responses=True)
     monkeypatch.setattr(stream, "_client", fake)
+    monkeypatch.setattr(stream, "_async_client", FakeAsyncRedis(server=server,
+                                                               decode_responses=True))
     return fake
 
 

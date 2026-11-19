@@ -80,3 +80,48 @@ def test_a_measuring_step_hangs_under_the_step_it_reads():
             assert other.y + other.height <= measure.y or other.y >= measure.y + measure.height
     [wire] = [w for w in of(graph).wires if w.to_node == "measure"]
     assert wire.points[0].x == faidx.x + faidx.width and wire.points[-1].x == measure.x
+
+
+
+def test_the_rank_pass_ranks_as_the_relaxation_did():
+    """#590. Ranks come from one topological pass now, not a relaxation repeated up to V times;
+    on any graph without a cycle they are the relaxation's, and a cycle still terminates."""
+    import random
+
+    from dag_core.layout import _ranks
+
+    def relaxed(graph):
+        incoming = {}
+        for edge in graph.edges:
+            incoming.setdefault(edge.to_node, []).append(edge.from_node)
+        rank = {node.id: 0 for node in graph.nodes}
+        for _ in range(len(graph.nodes)):
+            moved = False
+            for node in graph.nodes:
+                want = max((rank[p] + 1 for p in incoming.get(node.id, [])), default=0)
+                if want > rank[node.id]:
+                    rank[node.id], moved = want, True
+            if not moved:
+                break
+        return rank
+
+    rng = random.Random(590)
+    checked = 0
+    for _ in range(200):
+        n = rng.randint(1, 25)
+        ids = [f"n{i}" for i in range(n)]
+        order = ids[:]
+        rng.shuffle(order)
+        edges = [(order[a], order[b]) for a in range(n) for b in range(a + 1, n)
+                 if rng.random() < 0.15]
+        graph = _graph(ids, edges)
+        assert _ranks(graph) == relaxed(graph)
+        checked += bool(edges)
+    assert checked, "no graph had an edge: this compared nothing"
+    looped = _graph(["a", "b"], [("a", "b"), ("b", "a")])
+    assert set(_ranks(looped)) == {"a", "b"}
+
+
+def _graph(ids, edges):
+    return Graph(nodes=tuple(Node(i) for i in ids),
+                 edges=tuple(Edge(a, "out", b, "in") for a, b in edges))
