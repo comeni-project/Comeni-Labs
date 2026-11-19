@@ -55,9 +55,14 @@ def refresh_registry(source: Path, target: Path) -> None:
     subprocess.run(["git", "-C", str(target), "merge", "--ff-only", "FETCH_HEAD"], check=True)
 
 
+DOCKER_SOCKET = Path("/var/run/docker.sock")
+"""The host's Docker socket, whose group the task launchers are given. A name, so a test can point
+it at a socket the machine running the tests does not have."""
+
+
 def prepare_docker_group(root: Path) -> None:
     """Give task launchers the host socket's group, preserving explicit overrides."""
-    socket = Path("/var/run/docker.sock")
+    socket = DOCKER_SOCKET
     if not socket.exists() or os.environ.get("DOCKER_GID_SOCK"):
         return
     env = root / ".env"

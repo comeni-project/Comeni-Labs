@@ -87,8 +87,11 @@ def test_cloning_a_detached_submodule_creates_a_writable_branch(tmp_path):
     assert _git(source, "rev-parse", "HEAD") == commit
 
 
-def test_preparation_keeps_environment_and_existing_data(registry, tmp_path):
+def test_preparation_keeps_environment_and_existing_data(registry, tmp_path, monkeypatch):
     module, _, _ = registry
+    # No Docker socket here, whatever the machine running the tests has: the group line is the
+    # next test's subject, and CI's runner has a socket (#586).
+    monkeypatch.setattr(module, "DOCKER_SOCKET", tmp_path / "no-docker.sock")
     (tmp_path / ".env").write_text("LOCAL_VALUE=preserve\n")
     data = tmp_path / ".run/wiener/artifacts/keep.txt"
     data.parent.mkdir(parents=True)
@@ -265,3 +268,29 @@ def test_make_preserves_configured_runtime_identity(tmp_path):
     )
     assert run.returncode == 0, run.stderr
     assert run.stdout.strip() == "12001:12002"
+
+
+def test_the_docker_group_is_written_once_and_an_existing_one_kept(tmp_path, monkeypatch):
+    """With a Docker socket and no `DOCKER_GID_SOCK`, `.env` gains the socket's group, once;
+    a group already in the environment or in `.env` is left as it is."""
+    module = _module("dev_services")
+    socket = tmp_path / "docker.sock"
+    socket.write_text("")
+    monkeypatch.setattr(module, "DOCKER_SOCKET", socket)
+    monkeypatch.delenv("DOCKER_GID_SOCK", raising=False)
+    env = tmp_path / ".env"
+    env.write_text("LOCAL_VALUE=preserve\n")
+    module.prepare_docker_group(tmp_path)
+    module.prepare_docker_group(tmp_path)
+    text = env.read_text()
+    assert text.startswith("LOCAL_VALUE=preserve\n")
+    assert text.count("DOCKER_GID_SOCK=") == 1
+    assert f"DOCKER_GID_SOCK={socket.stat().st_gid}" in text
+
+    env.write_text("DOCKER_GID_SOCK=999\n")
+    module.prepare_docker_group(tmp_path)
+    assert env.read_text() == "DOCKER_GID_SOCK=999\n"
+    monkeypatch.setenv("DOCKER_GID_SOCK", "123")
+    env.write_text("")
+    module.prepare_docker_group(tmp_path)
+    assert env.read_text() == ""

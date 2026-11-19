@@ -5685,6 +5685,8 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 - 2026-11-18, perf audit (#551): `test_a_turn_resolves_each_state_of_the_decisions_once` run against the
   committed `agent/read.py` (on `issue-sweep`): failed, `the resolve tool built the pipeline more than once`.
   Passes after.
+- 2026-11-18, perf audit (#560): `test_the_data_routes_do_their_blocking_work_off_the_event_loop` run against
+  the committed `routes/data.py` (on `issue-sweep`): failed, `inside_folder ran on the event loop`. Passes after.
 - 2026-11-18, perf audit (#555): `test_an_openai_shaped_route_is_told_which_conversation_a_call_continues`
   and `test_a_scripted_transport_keeps_the_cache_key_it_was_sent` failed before `cache_key` existed.
   `test_every_call_of_a_session_names_the_same_conversation` against a loop that sent no key: failed.
@@ -5692,3 +5694,12 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 - 2026-11-18, perf audit (#561 part 3): `test_reads_in_one_request_decide_once_per_revision` failed before
   `remembered` existed. `test_every_http_request_has_its_own_memo` against `main` with the middleware's memo
   replaced by a `nullcontext`: failed. Both pass after.
+
+## #535 minors, 2026-11-18
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-18 | `test_roots.py` "a rule deciding several roles names them all" | restored `kinds.py` from HEAD | failed | only `trimming` named |
+| 2026-11-18 | `Forge.test.tsx` "a refused command's error stays with its part" | restored `Inspector.tsx` from HEAD | failed | the error still shown on the next part |
+| 2026-11-18 | `test_scan.py` "a change while the agent works is said after it" | restored `chat.py` from HEAD | failed | the reference added during a pending turn was never said |
+| 2026-11-18 | `test_drafts.py` "a file kept by an older Mendel does not empty the list" (#507 follow-up) | restored `drafts.py` from HEAD | failed | `422`: MD0207 for the one version-9 file emptied the list |

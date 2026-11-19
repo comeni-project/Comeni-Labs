@@ -165,7 +165,9 @@ def _fact(measurement: str, measurer_id: str) -> ReaderFact:
     declared = stack.measurements.get(measurement) if hasattr(stack.measurements, "get") else None
     rules = [
         FactRule(
-            role=str(d.decides.of if not isinstance(d.decides, list) else d.decides[0].of),
+            # Every role it decides, not the first (#535): a rule may decide several.
+            role=", ".join(sorted({str(t.of) for t in (
+                d.decides if isinstance(d.decides, list) else [d.decides])})),
             rows=[
                 RuleRowView(
                     when={k: str(v) for k, v in row.when.items()},
