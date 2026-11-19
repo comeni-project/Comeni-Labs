@@ -120,3 +120,26 @@ def test_a_sync_a_crash_left_running_is_closed_by_the_next():
     with session_scope() as db:
         outcomes = db.scalars(sa.select(CatalogueSync.outcome).order_by(CatalogueSync.id)).all()
     assert outcomes == ["failed", "ok"]
+
+
+def test_a_sync_of_an_unchanged_commit_reads_nothing_again(monkeypatch):
+    """#577. A sync re-parsed every module and rewrote every row though upstream had not moved.
+    The same commit, already read in full by this process, is recorded as a good sync with the
+    last one's counts; a restarted worker (perhaps with a changed parser) reads it in full."""
+    reads = [0]
+
+    class Counted(FakeSource):
+        def modules(self, snapshot):
+            reads[0] += 1
+            return super().modules(snapshot)
+
+    first = catalogue.run_sync(Counted(["fastqc", "star/align"]))
+    again = catalogue.run_sync(Counted(["fastqc", "star/align"]))
+    assert reads[0] == 1, "an unchanged commit was read again"
+    assert (again.outcome, again.commit, again.modules, again.problems) == (
+        "ok", first.commit, first.modules, first.problems)
+    monkeypatch.setattr(catalogue, "_READ_IN_FULL", {})
+    catalogue.run_sync(Counted(["fastqc", "star/align"]))
+    assert reads[0] == 2, "a new process reads the commit in full"
+    catalogue.run_sync(Counted(["fastqc"], commit="c2"))
+    assert reads[0] == 3 and _rows()["star/align"].gone is True

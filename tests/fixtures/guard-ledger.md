@@ -5695,3 +5695,8 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   run against the committed `summaries()`: failed, 13 statements for two forgings against 7 for one.
   `test_a_module_is_parsed_again_only_when_its_files_change` failed before `module_source` existed.
   Both pass after.
+- 2026-11-18, perf audit (#577): `test_a_sync_of_an_unchanged_commit_reads_nothing_again` run against the
+  committed `catalogue._sync`: failed, `an unchanged commit was read again`.
+  `test_the_upstream_check_clones_each_pinned_commit_once` against the committed `check`: failed, 2 clones.
+  Both pass after. The `quast` fixture in `test_forging_ai.py` added a module at an unchanged commit, which
+  no upstream does; it syncs at `c2` now.

@@ -295,6 +295,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- A catalogue sync of a commit this worker has already read in full records a good sync with the last counts instead of parsing every module and rewriting every row; a restarted worker reads its first sync in full (#577).
 - The forge's list reads every forging's items, latest tests and pull request in one statement each, not a whole load and two sessions per forging; the forge's checks parse a module's source once per state of its files (#576).
 - Learned rules and forge tests read their declared files with `yaml_strict`, which refuses a repeated key, instead of `yaml.safe_load` (#575).
 - Data's files say what each is used as now: a reference shows its kind, and a left-out sample's file carries `left_out` (`ScannedFile.left_out`). Release refusals name each release and why, and say what to do; they said only "4 release(s) could not be used" (#535).
@@ -611,6 +612,7 @@ or a complete commit history.
 
 ### comeni-vendor
 
+- `check --upstream` makes one clone per pinned repository and commit, not one per module (#577).
 #### Added
 
 - `comeni-vendor add` fetches module source into a registry layer at a pinned commit.
