@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- `Registry.producers_of` reads an index by output type, built on its first call, instead of scanning every contract; the same answers in the same order (#590).
 - `diagnostics.yml` is read when a diagnostic is first looked up, not at import (`REGISTRY` is a lazy `Mapping`); the type-id character set is built once; duplicate contract parameters are counted in one pass (#578).
 - `Lockfile.of` reads each layer's name once (#549).
 - `declared_entries` works out each file's relative path once and looks beside each `piece/` once: 25 ms → 8 ms over the shipped registry, the same list (#546).
@@ -699,6 +700,7 @@ or a complete commit history.
 
 ### dag-core
 
+- Ranks come from one topological pass instead of a relaxation repeated up to once per node; the same ranks, and a cycle still terminates (#590).
 #### Added
 
 - Shared pure graph layout supports the build and run canvases.
