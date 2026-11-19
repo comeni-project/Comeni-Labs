@@ -300,6 +300,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- A builder-agent tool call that names no step, tool or setting no longer loads the session's stored blueprint to find the step it touched (#552).
 - Compiling a draft materialises its pipeline once and emits from the preview's own materialisation, instead of previewing it (a `Pipeline.of` and a throwaway `pipeline.yml` dump) and materialising it again (#547).
 - A catalogue sync of a commit this worker has already read in full records a good sync with the last counts instead of parsing every module and rewriting every row; a restarted worker reads its first sync in full (#577).
 - The forge's list reads every forging's items, latest tests and pull request in one statement each, not a whole load and two sessions per forging; the forge's checks parse a module's source once per state of its files (#576).

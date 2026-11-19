@@ -339,3 +339,25 @@ def test_every_call_of_a_session_names_the_same_conversation(clean, monkeypatch)
     assert session_id not in keys[0]
     other, _, elsewhere = _started(monkeypatch, [_say("Hi")])
     assert elsewhere.keys[0] != keys[0]
+
+
+def test_a_tool_call_that_names_no_step_reads_no_blueprint(clean, monkeypatch):
+    """#552. After every tool call the loop loaded the session's whole stored blueprint (about
+    20 KB of JSON) to find the step it touched, even when the call named no step, tool or
+    setting, where the answer is always none. Such a call reads nothing."""
+    from mendel_api.db import engine
+    from sqlalchemy import event
+
+    session_id, _, _ = _started(monkeypatch, [_say("ok")])
+    sent = []
+
+    def heard(*args):
+        sent.append(1)
+
+    event.listen(engine, "before_cursor_execute", heard)
+    try:
+        assert loop._node_of(session_id, {}) is None
+        assert loop._node_of(session_id, {"type_id": "fastq.reads"}) is None
+    finally:
+        event.remove(engine, "before_cursor_execute", heard)
+    assert sent == []

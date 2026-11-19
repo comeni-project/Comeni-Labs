@@ -195,15 +195,17 @@ def _node_of(session_id: str, arguments: dict) -> str | None:
     """The step a tool call touched (#499): named by its `node`, or found by the tool's contract
     or the setting's name — **and only a step the pipeline last built has** (plan 2 review), so
     the link an answer carries is the engine's, never an id the model made up."""
+    named, contract, setting = (arguments.get(k) for k in ("node", "contract", "name"))
+    if not isinstance(named, str) and not contract and not setting:
+        # Nothing to find a step by: the stored blueprint is not read (#552).
+        return None
     with session_scope() as db:
         stored = db.get(PipelineAuthoringSession, session_id).blueprint
     pipeline = (stored or {}).get("pipeline") or {}
     steps = [s for s in pipeline.get("steps") or [] if isinstance(s, dict)]
     ids = {s.get("id") for s in steps}
-    named = arguments.get("node")
     if isinstance(named, str):
         return named if named in ids else None
-    contract, setting = arguments.get("contract"), arguments.get("name")
     if contract:
         return next((s["id"] for s in steps
                      if (s.get("module") or {}).get("contract_id") == contract), None)
