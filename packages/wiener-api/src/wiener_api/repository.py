@@ -354,13 +354,20 @@ def artifact(session: Session, lab_id: str, artifact_id: str) -> RunArtifact | N
 
 
 def events(session: Session, lab_id: str, run_id: str,
-           kind: EventKind | None = None) -> list[RunEventRow]:
+           kind: EventKind | None = None, *, after: int | None = None,
+           limit: int | None = None) -> list[RunEventRow]:
     """The record, in order. Everything else about a run is derivable from this. `kind` reads
-    one kind of event only, in the query rather than after it."""
+    one kind of event only, and `after` and `limit` one page (#567), in the query rather than
+    after it: the `(run_id, seq)` key orders and bounds it."""
     query = select(RunEventRow).where(RunEventRow.lab_id == lab_id, RunEventRow.run_id == run_id)
     if kind is not None:
         query = query.where(RunEventRow.kind == kind)
-    return list(session.scalars(query.order_by(RunEventRow.seq)))
+    if after is not None:
+        query = query.where(RunEventRow.seq > after)
+    query = query.order_by(RunEventRow.seq)
+    if limit is not None:
+        query = query.limit(limit)
+    return list(session.scalars(query))
 
 
 def tasks(session: Session, lab_id: str, run_id: str) -> list[RunTask]:

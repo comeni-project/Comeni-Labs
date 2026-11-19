@@ -650,6 +650,7 @@ or a complete commit history.
 
 ### wiener-api
 
+- `/runs/{id}/events` reads one page in SQL (`seq > after`, a limit of at most 1,000) instead of every event; the console tail seeks to the last 512 KB of `console.log`; a completed run's measurement check reads one event of that kind (#567).
 - `/runs/{id}`, `/graph` and `/overview`, polled every 4 s while a run is live, answer from the projection instead of replaying the run's whole record (#565).
 - Ingest reads the run's facts, its task counts (in SQL) and the one task an event describes, instead of every task of the run: per event 13 ms → 0.03 ms of fold CPU at 3.3k tasks (#566). The full state is restored once, at a run's end, when telemetry is on.
 

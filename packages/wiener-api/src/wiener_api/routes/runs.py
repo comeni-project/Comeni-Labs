@@ -480,8 +480,8 @@ def events(run_id: str, after: int = -1, limit: int = 200) -> EventPage:
     with db.session_scope() as session:
         if repository.run(session, settings.lab_id, run_id) is None:
             raise HTTPException(status_code=404)
-        rows = repository.events(session, settings.lab_id, run_id)
-        page = [row for row in rows if row.seq > after][:limit]
+        page = repository.events(session, settings.lab_id, run_id, after=after,
+                                 limit=max(1, min(limit, 1000)))
 
     # Read AFTER the page, so an event that lands between the two is tailed rather than
     # missed. The reverse order drops anything that arrives in the gap.

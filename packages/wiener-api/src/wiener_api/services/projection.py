@@ -146,7 +146,8 @@ def _read_measured(session: Session, lab_id: str, run_id: str, at_ms: int) -> Ru
 
     from wiener_api.services import launcher, measured
 
-    if any(row.kind == EventKind.MEASURED for row in repository.events(session, lab_id, run_id)):
+    # One row of that kind is the whole answer (#567): every event was read to look.
+    if repository.events(session, lab_id, run_id, kind=EventKind.MEASURED, limit=1):
         return None
     pipeline = _artifact_pipeline(session, lab_id, run_id)
     if pipeline is None:

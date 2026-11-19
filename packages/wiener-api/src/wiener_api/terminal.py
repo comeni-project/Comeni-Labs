@@ -94,7 +94,10 @@ def plain_tail(path: Path, lines: int = 200) -> str:
     each redrawn progress line kept once."""
     if not path.exists():
         return ""
-    data = path.read_bytes()[-512_000:]
+    # The end only (#567): a long run's log is many megabytes, and this ran on every open.
+    with path.open("rb") as handle:
+        handle.seek(max(0, path.stat().st_size - 512_000))
+        data = handle.read()
     text = _ANSI.sub(b"", data).decode(errors="replace")
     kept: list[str] = []
     for line in text.splitlines():

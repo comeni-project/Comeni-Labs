@@ -5716,3 +5716,6 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   the committed `list_drafts`: failed, `a kept pipeline was parsed again unchanged`. Passes after.
 - 2026-11-19, perf audit (#563): `test_a_measurers_test_names_are_read_once_per_registry_state` failed
   before `_tests_in` existed. Passes after.
+- 2026-11-19, perf audit (#567): `test_a_page_of_events_is_read_as_a_page` run against the committed
+  route: failed, 13 rows read for a page of 2. `test_the_console_tail_reads_only_the_end_of_the_log`
+  against the committed `plain_tail`: failed, `the whole log was read`. Both pass after.
