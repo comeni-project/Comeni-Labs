@@ -31,9 +31,11 @@ STRUCTURAL_ROLES = frozenset({"splitting", "merging"})
 
 class Registry(BaseModel):
     contracts: dict[str, ModuleContract]
-    _producing: dict | None = PrivateAttr(default=None)
-    """Each output type's producing contracts, worked out on the first `producers_of` (#590).
-    Nothing writes `contracts` after a registry is made (`with_contracts` makes a new one)."""
+    _producing: tuple | None = PrivateAttr(default=None)
+    """Each output type's producing contracts, worked out on the first `producers_of` (#590), with
+    the `contracts` mapping it was built from. **Checked against that mapping on every use**:
+    `model_copy` carries private attributes into the copy, so `with_contracts` would otherwise
+    answer from its source's index, without the generated measuring steps."""
 
     displaced: list[Displacement] = []
     """Declarations removed by higher layers, including the preferred winning contract."""
@@ -106,7 +108,7 @@ class Registry(BaseModel):
         # A splitter or a merger makes its type from the same type, and is placed around the step
         # that needs it, never routed as a producer (#466): routed, a merger would gather the
         # whole study's items into one.
-        if self._producing is None:
+        if self._producing is None or self._producing[0] is not self.contracts:
             # Each type's (contract, port) pairs, in the order a scan of every contract met
             # them, so the filter below sees what it saw before (#590).
             producing: dict[str, list] = {}
@@ -115,10 +117,10 @@ class Registry(BaseModel):
                     continue
                 for port in contract.produces:
                     producing.setdefault(port.type_id, []).append((contract, port))
-            self._producing = producing
+            self._producing = (self.contracts, producing)
         matches = {
             contract.id: contract
-            for contract, port in self._producing.get(type_id, ())
+            for contract, port in self._producing[1].get(type_id, ())
             if states <= port.state
         }
         return sorted(matches.values(), key=lambda c: (-c.priority, c.id))

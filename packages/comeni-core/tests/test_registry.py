@@ -214,3 +214,22 @@ def test_the_producer_index_answers_as_the_scan_did():
         assert [c.id for c in registry.producers_of(type_id, states)] == [
             c.id for c in scanned(type_id, states)]
     assert registry.producers_of("no.such.type", frozenset()) == []
+
+
+
+def test_a_registry_made_from_another_has_its_own_producers():
+    """#590. `with_contracts` copies the registry with `model_copy`, which carries private
+    attributes: the copy answered from its source's index, so the generated measuring steps
+    were never producers, and the build changed. The index is rebuilt for different contracts."""
+    shipped = pathlib.Path(__file__).parents[3] / "registry"
+    registry = Registry.load(shipped, Vocabulary.load(shipped))
+    from comeni_core.declared.registry import STRUCTURAL_ROLES
+
+    some = next(c for c in registry.contracts.values()
+                if c.produces and not STRUCTURAL_ROLES & set(c.roles))
+    port = some.produces[0]
+    before = [c.id for c in registry.producers_of(port.type_id, frozenset())]
+    extra = some.model_copy(update={"id": some.id + "-copy"})
+    wider = registry.with_contracts([extra])
+    assert extra.id in [c.id for c in wider.producers_of(port.type_id, frozenset())]
+    assert [c.id for c in registry.producers_of(port.type_id, frozenset())] == before
