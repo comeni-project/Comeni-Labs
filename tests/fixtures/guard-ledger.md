@@ -5694,6 +5694,8 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 - 2026-11-18, perf audit (#561 part 3): `test_reads_in_one_request_decide_once_per_revision` failed before
   `remembered` existed. `test_every_http_request_has_its_own_memo` against `main` with the middleware's memo
   replaced by a `nullcontext`: failed. Both pass after.
+- 2026-11-18, perf audit (#558): `test_a_long_conversation_sends_only_its_recent_turns` failed before
+  `agent_history_turns` existed, and against a `conversation()` without its limit. Passes after.
 
 ## #535 minors, 2026-11-18
 

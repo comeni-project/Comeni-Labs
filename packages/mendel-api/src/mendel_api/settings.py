@@ -105,6 +105,10 @@ class Settings(BaseSettings):
     """The most model calls one builder-agent turn makes before it stops and says so (#463)."""
     agent_max_tokens: int = 200_000
     """The most tokens, in and out, one builder-agent turn spends before it stops (#463)."""
+    agent_history_turns: int = 20
+    """The most earlier turns of a conversation sent with each builder-agent call, the person's
+    newest words among them (#558). What was decided before them is in the decisions, which the
+    agent's tools read; every turn sent is sent again on every round of every later turn."""
     ai_job_timeout_seconds: int = 900
     """The ceiling on one AI job, and the age at which a claimed adaptation is reclaimed.
 

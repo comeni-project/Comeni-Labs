@@ -42,8 +42,14 @@ from mendel_api.settings import settings
 log = logging.getLogger(__name__)
 
 PROMPT = Path(__file__).with_name("prompt.md")
-PROMPT_ID = "builder.agent.v4"
-PROMPT_VERSION = "v4"
+PROMPT_ID = "builder.agent.v6"
+PROMPT_VERSION = "v6"
+# v6 (#558): only the last `agent_history_turns` turns are sent, with `EARLIER` when some are
+# not. (#556): independent reads go in one reply; nothing is re-read after `resolve`.
+EARLIER = ("Only the most recent turns of this conversation are shown. What was decided before "
+           "them is in the decisions: read_goal and read_pipeline give the current state.")
+"""Added to the system prompt when earlier turns are left out: the same words however many,
+so the provider's cached prefix changes once, not on every turn."""
 WHO = "builder-agent"
 
 
@@ -124,10 +130,13 @@ def conversation(session_id: str, before: int) -> AgentRequest:
     """Earlier turns as the declared payload (door `builder_agent`): the person's words and the
     agent's own messages, and what it asked."""
     with session_scope() as db:
-        turns = db.scalars(select(PipelineAuthoringTurn)
-                           .where(PipelineAuthoringTurn.session_id == session_id,
-                                  PipelineAuthoringTurn.seq < before)
-                           .order_by(PipelineAuthoringTurn.seq)).all()
+        # The last `agent_history_turns` only (#558), oldest first.
+        turns = list(reversed(db.scalars(
+            select(PipelineAuthoringTurn)
+            .where(PipelineAuthoringTurn.session_id == session_id,
+                   PipelineAuthoringTurn.seq < before)
+            .order_by(PipelineAuthoringTurn.seq.desc())
+            .limit(settings.agent_history_turns)).all()))
         out = []
         for turn in turns:
             if turn.role == TurnRole.PERSON.value:
@@ -142,6 +151,16 @@ def conversation(session_id: str, before: int) -> AgentRequest:
                 if said:
                     out.append(AgentTurn(speaker=Speaker.AGENT, content="\n\n".join(said)))
         return AgentRequest(turns=out)
+
+
+def _left_out(session_id: str, before: int) -> bool:
+    """Whether the conversation before `before` is longer than what is sent of it (#558)."""
+    from sqlalchemy import func
+
+    with session_scope() as db:
+        held = db.scalar(select(func.count()).select_from(PipelineAuthoringTurn).where(
+            PipelineAuthoringTurn.session_id == session_id, PipelineAuthoringTurn.seq < before))
+    return (held or 0) > settings.agent_history_turns
 
 
 def _history(session_id: str, before: int) -> list[dict]:
@@ -328,7 +347,10 @@ def _run_turn(session_id: str, seq: int, transport: AgentTransport | None) -> st
     ctx = ToolContext(draft_id=draft_id, session_id=session_id, who=WHO,
                       expected_revision=decisions.revision(draft_id))
     tools = [spec_of(t) for t in TOOLS.values()]
-    messages = [{"role": "system", "content": PROMPT.read_text()}, *_history(session_id, seq)]
+    system = PROMPT.read_text()
+    if _left_out(session_id, seq):
+        system = f"{system}\n\n{EARLIER}"
+    messages = [{"role": "system", "content": system}, *_history(session_id, seq)]
     spent = 0
     for step in range(settings.agent_max_steps):
         try:

@@ -262,7 +262,7 @@ def test_each_model_call_records_protocol_v4_and_its_tool_definitions(clean, mon
         recorded = db.scalars(select(AiInvocation).where(
             AiInvocation.session_id == session_id).order_by(AiInvocation.started_at)).all()
     assert len(recorded) == 2
-    assert all(i.prompt_id == "builder.agent.v4" and i.prompt_version == "v4" for i in recorded)
+    assert all(i.prompt_id == "builder.agent.v6" and i.prompt_version == "v6" for i in recorded)
     assert all({"tool_specs", "tool_choice"} <= set(i.input_digests) for i in recorded)
     assert [json.loads(i.response)["tool_choice"] for i in recorded] == [None, None]
 
@@ -339,3 +339,31 @@ def test_every_call_of_a_session_names_the_same_conversation(clean, monkeypatch)
     assert session_id not in keys[0]
     other, _, elsewhere = _started(monkeypatch, [_say("Hi")])
     assert elsewhere.keys[0] != keys[0]
+
+
+def test_a_long_conversation_sends_only_its_recent_turns(clean, monkeypatch):
+    """#558. Every earlier turn went to the model on every call, never bounded, so a long
+    conversation grew without limit (about 600 tokens a turn in the audit's simulation). Only
+    the last `agent_history_turns` turns are sent; the system prompt then says the rest is in
+    the decisions, the same words however many were left out, so the cached prefix holds."""
+    monkeypatch.setattr(settings, "agent_history_turns", 2)
+    session_id, _, _ = _started(monkeypatch, [_say("First answer")], text="the first thing")
+    for words in ("the second thing", "the third thing"):
+        seq = loop.add_person_turn(session_id, words)
+        loop.run_turn(session_id, seq, transport=ScriptedAgentTransport([_say("ok")]))
+    last = loop.add_person_turn(session_id, "and now")
+    script = ScriptedAgentTransport([_say("done")])
+    loop.run_turn(session_id, last, transport=script)
+    [sent] = script.sent
+    system, *rest = sent
+    assert system["role"] == "system" and system["content"].endswith(loop.EARLIER)
+    said = [m["content"] for m in rest]
+    assert "the first thing" not in said and said[-1] == "and now", said
+    assert len(rest) == 2, "the last two turns, the person's new words among them"
+
+    monkeypatch.setattr(settings, "agent_history_turns", 100)
+    again = loop.add_person_turn(session_id, "once more")
+    whole = ScriptedAgentTransport([_say("done")])
+    loop.run_turn(session_id, again, transport=whole)
+    assert not whole.sent[0][0]["content"].endswith(loop.EARLIER)
+    assert "the first thing" in [m["content"] for m in whole.sent[0][1:]]

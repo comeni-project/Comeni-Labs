@@ -295,6 +295,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- The builder agent's prompt asks for independent reads in one reply and no re-reading after `resolve`, which already returns the steps and what is needed; the first reply reads the pipeline only when one was built before (#556, prompt `builder.agent.v6`).
+- The builder agent sends only a conversation's last `agent_history_turns` turns (20 by default) with each call, and says so in the system prompt when earlier ones are left out; prompt `builder.agent.v6`. A call at turn 40 was 35.7k characters and grew each turn; it stays at 13.9k (#558).
 - The builder agent's tools keep each pipeline they build for the goal, AI provenance and registry it was built from, for the rest of the turn: `resolve` builds once instead of twice, and `read_step` and `read_pipeline` after it build nothing; one direct change 2 builds → 1 (#551).
 - The data routes that queue a scan (tick, rule, rescan, add or remove a reference) do their database work, file reads and inspection in the thread pool instead of on the event loop: a request made during a 2 s inspection waited 2,080 ms, now 3 ms (#560).
 - The drafts list keeps an analysis whose kept `pipeline.yml` this Mendel cannot read (MD0207 after SCHEMA_VERSION 10), marked changed since it was kept; one such file made the whole list 422 and Home never loaded.
