@@ -5691,3 +5691,12 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   replaced by a `nullcontext`: failed. Both pass after.
 - 2026-11-18, perf audit (#558): `test_a_long_conversation_sends_only_its_recent_turns` failed before
   `agent_history_turns` existed, and against a `conversation()` without its limit. Passes after.
+
+## #535 minors, 2026-11-18
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-18 | `test_roots.py` "a rule deciding several roles names them all" | restored `kinds.py` from HEAD | failed | only `trimming` named |
+| 2026-11-18 | `Forge.test.tsx` "a refused command's error stays with its part" | restored `Inspector.tsx` from HEAD | failed | the error still shown on the next part |
+| 2026-11-18 | `test_scan.py` "a change while the agent works is said after it" | restored `chat.py` from HEAD | failed | the reference added during a pending turn was never said |
+| 2026-11-18 | `test_drafts.py` "a file kept by an older Mendel does not empty the list" (#507 follow-up) | restored `drafts.py` from HEAD | failed | `422`: MD0207 for the one version-9 file emptied the list |
