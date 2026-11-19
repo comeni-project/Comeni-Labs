@@ -5725,3 +5725,6 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 - 2026-11-19, perf audit (#571): `test_scan_of_many_samples_holds_one_samples_heads_at_a_time` is widened
   from a peak of 2 heads to at most `2 * AT_ONCE`: two samples are measured at once. It still fails on a
   scan that reads every head first (peak 60). Output identity was checked with `bench_scan_par.py`.
+- 2026-11-19, perf audit (#572): `test_the_child_starts_without_pydantic` run against the committed
+  `run.py`: failed, `True`. `test_the_child_writes_the_report_wire_writes` holds the stdlib report to
+  `wire.Report.to_json` over 11 shapes, invalid ones included. All pass after.

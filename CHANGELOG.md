@@ -554,6 +554,7 @@ or a complete commit history.
 
 ### comeni-inspect
 
+- The inspection child reads its request and writes its report through `comeni_inspect.child`, the standard library only, byte for byte as `wire` does; it no longer imports pydantic, so it starts in about 30 ms instead of 170 to 190 (#572).
 #### Changed
 
 - The inspection core runs on the standard library alone, and `measure_cli` runs it over whole files in a pipeline step (#465). Every fact carries `coverage`; codecs open a stream; `--as` keys a report by measurement.

@@ -9,23 +9,20 @@ format's declaration; pieces do not assign types to themselves.
 import io
 import sys
 
-from pydantic import ValidationError
+from comeni_inspect import child, core
 
-from comeni_inspect import core, wire
+# **No pydantic on the child's path** (#572): importing it was most of a child's start-up, and
+# one child starts per sample per candidate format. `inspect` below, for in-process callers,
+# imports the `wire` models when it is called; `main` reads and writes through `child`.
 
 
-def _ref(piece: wire.PieceRef) -> core.Ref:
+def _ref(piece) -> core.Ref:
     return core.Ref(id=piece.id, version=piece.version, path=piece.path,
                     decided=dict(piece.decided))
 
 
-def inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
-    """Inspect the payloads, returning failures as unreadable reports instead of raising."""
-    if len(request.files) != len(payloads):
-        return wire.Report(
-            unreadable=f"broken request: {len(request.files)} files, {len(payloads)} payloads"
-        )
-    report = core.inspect_streams(
+def _inspected(request, payloads: list[bytes]) -> dict:
+    return core.inspect_streams(
         _ref(request.format),
         _ref(request.codec) if request.codec else None,
         [_ref(m) for m in request.measures],
@@ -33,6 +30,20 @@ def inspect(request: wire.Request, payloads: list[bytes]) -> wire.Report:
          for head, raw in zip(request.files, payloads, strict=True)],
         cap=request.cap_bytes,
     )
+
+
+def inspect(request, payloads: list[bytes]):
+    """Inspect the payloads, returning failures as unreadable reports instead of raising. A
+    `wire.Request` in, a `wire.Report` out: for callers in this process (the harness, tests)."""
+    from pydantic import ValidationError
+
+    from comeni_inspect import wire
+
+    if len(request.files) != len(payloads):
+        return wire.Report(
+            unreadable=f"broken request: {len(request.files)} files, {len(payloads)} payloads"
+        )
+    report = _inspected(request, payloads)
     try:
         return wire.Report.model_validate(report)
     except ValidationError as error:
@@ -55,12 +66,11 @@ def main() -> int:
     if "--memory-bytes" in sys.argv:
         _limit_memory(int(sys.argv[sys.argv.index("--memory-bytes") + 1]))
     try:
-        request, payloads = wire.read_request(sys.stdin.buffer)
-    except (ValueError, ValidationError) as error:
-        report = wire.Report(unreadable=f"broken request: {type(error).__name__}")
+        request, payloads = child.read_request(sys.stdin.buffer)
+    except ValueError as error:
+        sys.stdout.write(child.broken(error))
     else:
-        report = inspect(request, payloads)
-    sys.stdout.write(report.to_json())
+        sys.stdout.write(child.report_json(_inspected(request, payloads)))
     return 0
 
 
