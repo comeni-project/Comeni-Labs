@@ -582,26 +582,34 @@ def preview(draft_id: str, *, ai: AiProvenance | None = None) -> Preview:
     picture the text belongs to. An empty draft is an empty string rather than a refusal: a
     session that has accepted nothing yet has nothing to show, and that is not an error.
     """
+    revision, state, pipeline, findings = _previewed(draft_id, ai=ai)
+    if pipeline is None:
+        return Preview(revision, state, "", findings)
+    return Preview(revision, state, pipeline_file.dump(pipeline), findings)
+
+
+def _previewed(draft_id: str, *, ai: AiProvenance | None
+               ) -> tuple[int, str, Pipeline | None, list[str]]:
+    """The preview before it is written out: its revision, its state, the materialised pipeline
+    when it is `ready`, and the findings. `preview` dumps the pipeline and `emitted` emits it:
+    one materialisation for both (#547), so what is compiled is what the file shows."""
     stored = _load(draft_id)
     with session_scope() as session:
         revision = session.get(PipelineDraft, draft_id).revision
     if not stored.projection_current:
-        return Preview(revision, "outdated", "", [coded("MI0201",
-            "the selected facts changed; resolve the corrected pipeline before keeping it")])
+        return revision, "outdated", None, [coded("MI0201",
+            "the selected facts changed; resolve the corrected pipeline before keeping it")]
     if not stored.graph.nodes:
-        return Preview(revision, "empty", "", [])
+        return revision, "empty", None, []
     verdict = validation.of(stored.graph)
     if verdict.illegal:
-        return Preview(
-            revision, "illegal", "", [f"{f.code}: {f.message}" for f in verdict.illegal[:5]]
-        )
+        return revision, "illegal", None, [f"{f.code}: {f.message}" for f in verdict.illegal[:5]]
     try:
         pipeline = _materialised(draft_id, stored, registry.stack(), by="", ai=ai)
     except ValueError as refused:
-        return Preview(revision, "unavailable", "", [str(refused).splitlines()[0]])
+        return revision, "unavailable", None, [str(refused).splitlines()[0]]
     # What the file cannot do on its own is said beside it (review #3 of Plan B).
-    return Preview(revision, "ready", pipeline_file.dump(pipeline),
-                   locate.findings(pipeline.registry.layers))
+    return revision, "ready", pipeline, locate.findings(pipeline.registry.layers)
 
 
 class Emitted(NamedTuple):
@@ -620,12 +628,11 @@ def emitted(draft_id: str, *, ai: AiProvenance | None = None) -> Emitted:
     emit, and says why (`MI0219`) rather than answering with an empty workflow."""
     from mendel_compiler.emit import emit, emit_config
 
-    shown = preview(draft_id, ai=ai)
-    if shown.state != "ready":
-        why = shown.findings[0] if shown.findings else shown.state
+    revision, state, pipeline, findings = _previewed(draft_id, ai=ai)
+    if pipeline is None:
+        why = findings[0] if findings else state
         raise ValueError(coded("MI0219", f"there is no pipeline to compile yet: {why}"))
-    pipeline = _materialised(draft_id, _load(draft_id), registry.stack(), by="", ai=ai)
-    return Emitted(shown.revision, emit(pipeline), emit_config(pipeline))
+    return Emitted(revision, emit(pipeline), emit_config(pipeline))
 
 
 def _materialised(draft_id: str, stored: "Stored", stack, *, by: str,
