@@ -1,5 +1,6 @@
 """Module contracts: what a module consumes and produces, in typed terms."""
 
+from collections import Counter
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
@@ -683,8 +684,8 @@ class ModuleContract(BaseModel):
     @model_validator(mode="after")
     def _one_binding_per_param(self) -> "ModuleContract":
         """Reject duplicate parameter names before they become ambiguous bindings."""
-        names = [p.name for p in self.params]
-        repeated = sorted({n for n in names if names.count(n) > 1})
+        counted = Counter(p.name for p in self.params)
+        repeated = sorted(n for n, times in counted.items() if times > 1)
         if repeated:
             raise ValueError(f"{self.id} declares {', '.join(repeated)} more than once")
         return self

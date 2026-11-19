@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- `diagnostics.yml` is read when a diagnostic is first looked up, not at import (`REGISTRY` is a lazy `Mapping`); the type-id character set is built once; duplicate contract parameters are counted in one pass (#578).
 - `Lockfile.of` reads each layer's name once; the control-character check is one regex scan (#549).
 - `declared_entries` works out each file's relative path once and looks beside each `piece/` once: 25 ms → 8 ms over the shipped registry, the same list (#546).
 - A type with no `entry_channel` gives each file `[ [id: <its base name>], file ]`, as the curated types do; it gave `[ [:], f ]`, so a module named every output `null`. A run guard's sentence names the params a person sets: `; set \`fasta\` as --fasta_2` (#467).
