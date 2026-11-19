@@ -409,6 +409,7 @@ def approve(proposal_id: str, by: str) -> ProposalsView:
             _supersede(session, row.target_key)
             row.status, row.decided_by, row.decided_at = "approved", by, now
         os.replace(pending, path)
+        registry.forget()
         pending = None
     finally:
         if pending is not None:
@@ -441,5 +442,6 @@ def withdraw(name: str, by: str) -> ProposalsView:
             if slug(row.target_key) == name:
                 row.status, row.decided_by, row.decided_at = "withdrawn", by, datetime.now(UTC)
     path.unlink()
+    registry.forget()
     registry.retire_own_layer_if_empty()
     return read()

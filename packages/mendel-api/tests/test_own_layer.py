@@ -71,3 +71,27 @@ def test_withdrawing_moves_the_digest(own):
     assert learned != before
     path.unlink()
     assert registry.digest() != learned, "a withdrawn rule must not be served from a cache"
+
+
+
+def test_a_request_walks_the_layers_once_and_again_after_writing_its_own(own, monkeypatch):
+    """#590. One change request walked every layer's files 11 times (45 ms of 251) to learn
+    nothing changed. A request walks each layer once; writing the installation's own layer, as
+    approving or withdrawing a learned rule does, makes the next read walk again, so a request
+    never reads the stack it changed as it was before."""
+    walks, real = [0], registry._walk
+
+    def counted(*args, **kwargs):
+        walks[0] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(registry, "_walk", counted)
+    with registry.remembered():
+        before = registry.digest()
+        registry.digest()
+        registry.stack()
+        assert walks[0] == 1, "one layer, walked more than once in a request"
+        _learn(own, [{"when": {}, "then": STAR, "cite": "kept pipelines a"}])
+        after = registry.digest()
+        assert after != before, "the request read the stack it had changed as it was"
+    assert walks[0] == 1 + 2, "the release and the new own layer, walked again after the write"

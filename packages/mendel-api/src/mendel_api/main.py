@@ -93,11 +93,12 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def one_reading_of_the_decisions(request, call_next):
-        """A request decides each draft's decisions once per revision (#561): a sync route
-        runs in a thread with a copy of this context, which holds the same memo."""
-        from mendel_api.services import decisions
+        """A request decides each draft's decisions once per revision (#561), and walks each
+        registry layer once (#590): a sync route runs in a thread with a copy of this context,
+        which holds the same memos."""
+        from mendel_api.services import decisions, registry
 
-        with decisions.remembered():
+        with decisions.remembered(), registry.remembered():
             return await call_next(request)
 
     # One handler: a coded refusal is a 422 whatever raised it — the convention the forge's

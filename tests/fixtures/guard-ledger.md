@@ -5744,3 +5744,7 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 | 2026-11-18 | `Forge.test.tsx` "a refused command's error stays with its part" | restored `Inspector.tsx` from HEAD | failed | the error still shown on the next part |
 | 2026-11-18 | `test_scan.py` "a change while the agent works is said after it" | restored `chat.py` from HEAD | failed | the reference added during a pending turn was never said |
 | 2026-11-18 | `test_drafts.py` "a file kept by an older Mendel does not empty the list" (#507 follow-up) | restored `drafts.py` from HEAD | failed | `422`: MD0207 for the one version-9 file emptied the list |
+- 2026-11-19, perf follow-ups (#590): `test_a_request_walks_the_layers_once_and_again_after_writing_its_own`
+  failed before `registry.remembered` existed; it also checks the digest moves after an own-layer write
+  inside the same request. `test_a_prepared_build_asks_git_only_what_can_change` failed on 5 git calls.
+  Both pass after.
