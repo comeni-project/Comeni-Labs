@@ -13,6 +13,7 @@ premise validity, module stacking, and displacement reporting.
 """
 
 from collections.abc import Sequence
+from functools import cached_property
 from pathlib import Path
 
 from comeni_core.declared.families import FamilyVocabulary
@@ -80,12 +81,15 @@ class Layers(BaseModel):
     my overlay change" is one field rather than four conventions.
     """
 
-    @property
+    @cached_property
     def routing(self) -> Registry:
         """The registry a build routes with and maps its graph back through: the layers'
         contracts plus the generated measuring steps (#465). Everything that turns a node back
         into a contract uses this; the registry browser, the docs and conformance use
-        `registry`, which holds only what a layer declares."""
+        `registry`, which holds only what a layer declares.
+
+        Worked out once per `Layers` (#549): it is read in per-step loops, and a `Layers` is not
+        changed after it is loaded (`services/registry.py` shares one between requests)."""
         from mendel_resolver.measure_steps import contracts_for
 
         return self.registry.with_contracts(contracts_for(self.inspection, self.registry))

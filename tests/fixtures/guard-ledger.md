@@ -5704,3 +5704,5 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   `conformance.py` and `orchestrate.py`: failed, `{3} == {1}`. Passes after.
 - 2026-11-19, perf audit (#547): `test_compiling_materialises_the_pipeline_once` run against the committed
   `drafts.emitted`: failed, `(2, 1) == (1, 0)` (two materialisations, one throwaway dump). Passes after.
+- 2026-11-19, perf audit (#549): `test_the_cli_build_loads_the_registry_once` run against the committed
+  `cli/resolve_verbs.py`: failed, `3 == 1`. Passes after.

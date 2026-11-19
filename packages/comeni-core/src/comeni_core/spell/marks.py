@@ -6,6 +6,7 @@ free text, and deliberately unbounded expressions without accepting arbitrary an
 metadata. A bare ``str`` has no declared boundary meaning and is rejected by those guards.
 """
 
+import re
 from enum import StrEnum
 from typing import Annotated
 
@@ -155,8 +156,12 @@ def _is_identifier(value: str) -> bool:
     return value.isascii() and value.isidentifier()
 
 
+_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+"""A C0 control character or DEL: one regex scan, not a generator per character (#549)."""
+
+
 def _has_control_character(value: str) -> bool:
-    return any(ord(character) < 32 or ord(character) == 127 for character in value)
+    return _CONTROL.search(value) is not None
 
 
 def _groovy_identifier(value: str) -> str:

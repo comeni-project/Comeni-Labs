@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- `Lockfile.of` reads each layer's name once; the control-character check is one regex scan (#549).
 - `declared_entries` works out each file's relative path once and looks beside each `piece/` once: 25 ms → 8 ms over the shipped registry, the same list (#546).
 - A type with no `entry_channel` gives each file `[ [id: <its base name>], file ]`, as the curated types do; it gave `[ [:], f ]`, so a module named every output `null`. A run guard's sentence names the params a person sets: `; set \`fasta\` as --fasta_2` (#467).
 - A fact a person said that the data measures otherwise keeps both: `Measured.measured` and `PremiseRecord.measured` (only on a said value; `PremiseRecord.contradicted`), and the premise reads `read_length is 150, asserted, not measured; the data measures 99` (#510).
@@ -144,6 +145,7 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- `Layers.routing` is worked out once per load instead of on every access (#549).
 - MD0609 says a missing setting is not set, and a missing input not connected; it called both unconnected (#467).
 - A rule's choice that read a contradicted fact is tier 4, flagged for review, with the same value and both values in its reason (`Pin.tier()`), for producers and settings alike (#510).
 - A port that gathers over the study (`grain: study, many: true`) routes one producer per kind of data the analysis has, and takes one output from every step that makes what it reads: MULTIQC gathers FastQC's reports on the reads and QUAST's on the assemblies. Producers reached from the same data still compete, and a person's source pin keeps only theirs (#435).
@@ -186,6 +188,7 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- `mendel build` and `upgrade` load and check the registry once, not three and two times (#549).
 - `conformance.specs_of` parses each module's source once; `check`, its meta-key analysis and `facts_read` share it, so a build parses every module once instead of three times (#546).
 - A samplesheet pipeline's `stub_data` profile points `params.input` at a stub samplesheet, two rows of empty files the stub gate writes (`STUB_SAMPLESHEET`, `stub_samplesheet`); it was a FASTQ glob the workflow would parse as a CSV. `materialise_stub_data` takes the pipeline (#542).
 - MD0112: conformance compares each port's formats, from what the contracts making its type write and its test data, with the file pattern the module's meta.yml documents for the element it fills, so inputs wired in the wrong order are refused at build. An element where either names no format is not checked. `check` takes the vocabulary (#414).
