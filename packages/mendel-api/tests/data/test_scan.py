@@ -534,3 +534,31 @@ def test_a_changed_registry_measures_every_sample_again(clean, client, root, mon
     monkeypatch.setattr(registry, "digest", lambda: "0" * 64 if digest != "0" * 64 else "1" * 64)
     scanning.scan(d, who="ana")
     assert measured[0] == 4
+
+
+def test_a_change_while_the_agent_works_is_said_after_it(clean, client, root, monkeypatch):
+    """#535: a change in Data while the agent's turn was pending was dropped, and said later only
+    if another scan read differently. It is queued behind the pending turn."""
+    import asyncio
+
+    from mendel_api.agent import chat, loop
+
+    said = []
+
+    async def say(session_id, text):  # the agent's turn stays pending: it is still working
+        said.append(text)
+        return loop.add_person_turn(session_id, text), True
+
+    monkeypatch.setattr(chat, "say", say)
+    d = draft(client)
+    _asks_for_data(d)
+    tick(client, d, pairs(root / "liver", "L01"))
+    scanning.scan(d, who="ana")
+    asyncio.run(chat.data_scanned(d))
+    (root / "ref").mkdir()
+    (root / "ref" / "genome.fasta").write_text(">chrI\nACGT\n")
+    client.post(f"/api/data/{d}/references",
+                json={"path": str(root / "ref" / "genome.fasta"), "type_id": "genome.fasta"})
+    scanning.scan(d, who="ana")
+    asyncio.run(chat.data_scanned(d))
+    assert len(said) == 2 and "references: genome.fasta" in said[1]

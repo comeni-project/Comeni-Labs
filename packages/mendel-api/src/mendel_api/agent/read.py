@@ -77,9 +77,17 @@ def built(ctx: ToolContext):
     from mendel_api.services import session
 
     try:
+        goal = decisions.goal(ctx.draft_id)
         # With the draft's AI provenance: a value the agent set is a model's (`MD0225` otherwise).
-        blueprint, _ = bp.resolve(decisions.goal(ctx.draft_id),
-                                  ai=session.ai_for_draft(ctx.draft_id))
+        ai = session.ai_for_draft(ctx.draft_id)
+        # **Kept for what it was built from** (#551): the goal (the decisions with the data's
+        # facts merged), the AI provenance and the registry. A build is deterministic in them,
+        # so the same three give the same pipeline, and any change builds again.
+        key = (goal.model_dump_json(), ai.model_dump_json() if ai is not None else "",
+               registry.digest())
+        if (blueprint := ctx.builds.get(key)) is None:
+            blueprint, _ = bp.resolve(goal, ai=ai)
+            ctx.builds[key] = blueprint
     except (ValueError, KeyError, LookupError) as unbuilt:
         return None, " ".join(str(unbuilt).split())[:300]
     return blueprint, ""

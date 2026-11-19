@@ -392,3 +392,20 @@ def test_the_drafts_list_reads_each_kept_pipeline_once_per_keep(client, monkeypa
 
     rows, _ = service.list_drafts(limit=10_000)
     assert len(rows) <= 200
+
+
+def test_a_file_kept_by_an_older_mendel_does_not_empty_the_list(client):
+    """Walk 2026-11-18: after SCHEMA_VERSION 10 (#507), one pipeline.yml kept at version 9 made
+    the whole drafts list 422, and Home read "Reading your analyses…" for ever. The analysis is
+    listed, changed since it was kept, so keeping it again rewrites the file."""
+    from mendel_api.services import drafts
+
+    made = client.post("/api/pipeline/drafts", json={"graph": SPINE}).json()
+    client.post(f"/api/pipeline/drafts/{made['id']}/keep")
+    kept = drafts._output_root() / made["id"] / "pipeline.yml"
+    kept.write_text(kept.read_text().replace("version: 10\n", "version: 9\n", 1))
+
+    listed = client.get("/api/pipeline/drafts")
+    assert listed.status_code == 200, listed.text
+    row = _row(client, made["id"])
+    assert row["kept"] is True and row["changed_since_kept"] is True

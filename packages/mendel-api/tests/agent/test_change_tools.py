@@ -276,3 +276,35 @@ def test_compiling_materialises_the_pipeline_once(clean, monkeypatch):
     assert compiled.ok, compiled.refusal
     assert compiled.view.main_nf_lines > 0
     assert (made[0], dumped[0]) == (1, 0)
+
+
+def test_a_turn_resolves_each_state_of_the_decisions_once(clean, monkeypatch):
+    """#551. The `resolve` tool built the pipeline, then built it again to describe it, and
+    `read_step` and `read_pipeline` built it once more each, about 240 ms a build, with nothing
+    changed. Within one context a build is kept for the goal, the AI provenance and the
+    registry it was made from; a change to any of them builds again."""
+    from mendel_api.services import blueprint as bp
+
+    ctx = _rnaseq()
+    builds, real = [0], bp.resolve
+
+    def counted(*args, **kwargs):
+        builds[0] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(bp, "resolve", counted)
+    resolved = call(ctx, "resolve", {})
+    assert resolved.ok, resolved.refusal
+    assert builds[0] == 1, "the resolve tool built the pipeline more than once"
+    node = resolved.view.steps[0].node
+    assert call(ctx, "read_step", {"node": node}).ok
+    assert call(ctx, "read_pipeline", {}).ok
+    assert builds[0] == 1, "reading what was just built built it again"
+
+    changed = call(ctx, "set_value", {"name": "min_mqs", "value": 20, "because": "stricter"})
+    assert changed.ok, changed.refusal
+    assert call(ctx, "read_pipeline", {}).ok
+    assert builds[0] == 2, "a changed decision must build again"
+    fresh = _rnaseq()
+    assert call(fresh, "read_pipeline", {}).ok
+    assert builds[0] == 3, "another context keeps its own builds"

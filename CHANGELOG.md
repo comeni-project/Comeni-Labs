@@ -311,6 +311,12 @@ or a complete commit history.
 - A catalogue sync of a commit this worker has already read in full records a good sync with the last counts instead of parsing every module and rewriting every row; a restarted worker reads its first sync in full (#577).
 - The forge's list reads every forging's items, latest tests and pull request in one statement each, not a whole load and two sessions per forging; the forge's checks parse a module's source once per state of its files (#576).
 - Learned rules and forge tests read their declared files with `yaml_strict`, which refuses a repeated key, instead of `yaml.safe_load` (#575).
+- The builder agent's prompt asks for independent reads in one reply and no re-reading after `resolve`, which already returns the steps and what is needed; the first reply reads the pipeline only when one was built before (#556, prompt `builder.agent.v6`).
+- The builder agent sends only a conversation's last `agent_history_turns` turns (20 by default) with each call, and says so in the system prompt when earlier ones are left out; prompt `builder.agent.v6`. A call at turn 40 was 35.7k characters and grew each turn; it stays at 13.9k (#558).
+- The builder agent's tools keep each pipeline they build for the goal, AI provenance and registry it was built from, for the rest of the turn: `resolve` builds once instead of twice, and `read_step` and `read_pipeline` after it build nothing; one direct change 2 builds → 1 (#551).
+- The data routes that queue a scan (tick, rule, rescan, add or remove a reference) do their database work, file reads and inspection in the thread pool instead of on the event loop: a request made during a 2 s inspection waited 2,080 ms, now 3 ms (#560).
+- The drafts list keeps an analysis whose kept `pipeline.yml` this Mendel cannot read (MD0207 after SCHEMA_VERSION 10), marked changed since it was kept; one such file made the whole list 422 and Home never loaded.
+- A change in Data while the agent's turn is pending is said to it next, queued behind that turn, rather than dropped; the readers view names every role a rule decides, not the first (#535).
 - Data's files say what each is used as now: a reference shows its kind, and a left-out sample's file carries `left_out` (`ScannedFile.left_out`). Release refusals name each release and why, and say what to do; they said only "4 release(s) could not be used" (#535).
 - A session's agent turns run one at a time, under an advisory lock; with two AI jobs, two turns wrote to one draft at once. Sample names are cut to 200 characters, as `SampleName` allows, where a rule cut them to 256 and the agent's data reads then refused. A tool's `KeyError` is a refusal to the model only when the model named the missing key; any other fails the turn as the engine's error. `read_pipeline` tells the agent a step is unreviewed only while the person has not reviewed it (#505).
 - A fact a person said and the data measured otherwise carries the data's value beside it (`FactDecision.measured`, derived at every read). The AI may not set a measured fact to another value: MI0228, nothing written (#510).
@@ -698,6 +704,7 @@ or a complete commit history.
 ### frontend
 
 - The forge's list asks again every fifteen seconds, not five, while its forgings only wait in review (#576).
+- The Forge's Part panel clears a refused command's error when another part is picked (#535).
 - From the walk of 2026-11-17 (#509, #532, #535): removing a step names the steps that only fed it, which go too; adding a reference guesses its kind from the file name; a left-out sample's files say they are used for nothing; a cut release reads *released* and names who cut it only when known; the machine card's memory is *Most memory one task used*.
 - **Settings → Models**: guided connection setup with provider cards, local server detection,
   model discovery before saving and ChatGPT subscription sign-in. Connections are listed with

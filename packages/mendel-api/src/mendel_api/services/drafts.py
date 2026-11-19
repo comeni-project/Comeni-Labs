@@ -11,6 +11,7 @@ only a developer machine could check.
 
 import hashlib
 import json
+import logging
 import secrets
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -193,6 +194,8 @@ _NAMED_AT_MOST = 6
 carried as a number so the page can say *and four more* rather than silently truncating."""
 
 
+log = logging.getLogger(__name__)
+
 def _provenance_of(pipeline: Pipeline) -> tuple[Provenance, list[OpenValue], int]:
     """Count tiers over every decision the artifact records — steps **and** settings.
 
@@ -320,7 +323,18 @@ def list_drafts(*, after: int = 0, limit: int = 50) -> tuple[list[DraftRow], int
                        data=data.get(draft_id))
         artifact = _output_root() / draft_id / "pipeline.yml"
         if was_kept and artifact.is_file():
-            provenance, named, unnamed, makes = _kept_summary(artifact, digest or "")
+            try:
+                provenance, named, unnamed, makes = _kept_summary(artifact, digest or "")
+            except ValueError as refused:
+                # A file kept by an older Mendel (MD0207 after a schema bump): the analysis is
+                # still listed, changed since it was kept, so keeping it again rewrites it. One
+                # unreadable file emptied the whole list (walk 2026-11-18). Not kept by the
+                # summary cache: `lru_cache` keeps no exception, so it is tried again.
+                log.warning("draft %s: its kept pipeline.yml cannot be read: %s", draft_id,
+                            str(refused).splitlines()[0])
+                out.append(row.model_copy(update={"kept": True, "changed_since_kept": True,
+                                                  "digest": digest}))
+                continue
             row = row.model_copy(update={
                 "kept": True,
                 "changed_since_kept": fingerprint(graph) != kept_graph,
