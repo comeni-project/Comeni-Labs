@@ -300,6 +300,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- The rule proposals view reads its proposals and whether a run is going side by side, and every open proposal's model in one statement; the readers list reads each measurer's test names once per registry state (#563).
 - The drafts list keeps each kept pipeline's summary by its artifact's digest instead of parsing every kept `pipeline.yml` on every request, and lists at most 200 drafts a page (#562).
 - The builder agent sends a model call again, up to three times with 1 s and 2 s waits, when the provider fails in a way that passes, recording every try as its own `ai_invocation`; a turn no longer fails on one overloaded response (#557).
 - A builder-agent tool call that names no step, tool or setting no longer loads the session's stored blueprint to find the step it touched (#552).

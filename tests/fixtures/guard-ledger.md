@@ -5714,3 +5714,5 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   failed before `_conversed` existed and against `TRIES = 1`. Passes after.
 - 2026-11-19, perf audit (#562): `test_the_drafts_list_reads_each_kept_pipeline_once_per_keep` run against
   the committed `list_drafts`: failed, `a kept pipeline was parsed again unchanged`. Passes after.
+- 2026-11-19, perf audit (#563): `test_a_measurers_test_names_are_read_once_per_registry_state` failed
+  before `_tests_in` existed. Passes after.

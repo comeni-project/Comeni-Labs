@@ -6,6 +6,7 @@ assembly. Extensions only — nothing is opened."""
 
 import os
 from collections import Counter
+from functools import lru_cache
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -144,12 +145,17 @@ def _formula(source: str, transforms) -> str:
 
 def _tests(measurer_id: str) -> list[str]:
     """The test cases a measurer's own tests check, by name (`test_uniform_150_is_decided` →
-    "uniform 150 is decided")."""
+    "uniform 150 is decided"). Read once per state of the registry, which holds the files:
+    every `GET /data/readers` read them all again (#563)."""
+    return list(_tests_in(tuple(registry.stack().paths), registry.digest(), measurer_id))
+
+
+@lru_cache(maxsize=256)
+def _tests_in(paths: tuple, _digest: str, measurer_id: str) -> tuple[str, ...]:
     import re
 
-    stack = registry.stack()
     names: list[str] = []
-    for root in stack.paths:
+    for root in paths:
         for test in sorted(
             (Path(root) / "measurers" / "measures" / measurer_id).glob("piece/test_*.py")
         ):
@@ -157,7 +163,7 @@ def _tests(measurer_id: str) -> list[str]:
                 m.replace("_", " ")
                 for m in re.findall(r"^def test_(\w+)\(", test.read_text(), re.M)
             ]
-    return names
+    return tuple(names)
 
 
 def _fact(measurement: str, measurer_id: str) -> ReaderFact:

@@ -309,11 +309,6 @@ class ProposalsView(BaseModel):
     model: bool
 
 
-def _model_of(session, invocation: str | None) -> str:
-    found = session.get(AiInvocation, invocation) if invocation else None
-    return found.model if found is not None else ""
-
-
 def read() -> ProposalsView:
     every = cases()
     grouped = evidence(every)
@@ -324,6 +319,10 @@ def read() -> ProposalsView:
         for row in rows:
             latest.setdefault(row.target_key, row)
         approved = {slug(r.target_key): r for r in rows if r.status == "approved"}
+        # Every open proposal's model in one statement, not one lookup each (#563).
+        asked = [r.invocation for r in rows if r.status == "proposed" and r.invocation]
+        models = dict(session.execute(sa.select(AiInvocation.id, AiInvocation.model)
+                                      .where(AiInvocation.id.in_(asked))).all()) if asked else {}
         open_ = []
         for row in rows:
             if row.status != "proposed":
@@ -334,7 +333,7 @@ def read() -> ProposalsView:
             new = table.rows[len(table.rows) - len(row.rows):]
             open_.append(ProposalView(
                 id=row.id, target_key=row.target_key, target=words(target), rows=row.rows,
-                why=row.why, model=_model_of(session, row.invocation),
+                why=row.why, model=models.get(row.invocation, "") or "",
                 invocation=row.invocation,
                 evidence=[EvidenceView(pipeline=c.pipeline, decision=c.decision, facts=c.facts,
                                        answer=c.answer, reason=c.reason) for c in found],
