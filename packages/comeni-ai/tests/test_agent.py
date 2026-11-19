@@ -139,3 +139,18 @@ def test_a_scripted_transport_keeps_the_cache_key_it_was_sent():
     script = ScriptedAgentTransport([AgentReply(text="ok")])
     script.converse(ACCESS, [{"role": "user", "content": "hi"}], [ADD], cache_key="k")
     assert script.keys == ["k"]
+
+
+
+def test_a_failure_says_whether_trying_again_could_help():
+    """#557. A 5xx, an overloaded provider or a plain rate limit passes; a reached usage limit
+    and refused credentials do not, and retrying them would only delay the answer."""
+    from comeni_ai.client import transient
+
+    class Overloaded(Exception):
+        pass
+
+    assert transient(Overloaded("529 overloaded_error: Overloaded"))
+    assert transient(Exception('{"error": {"type": "overloaded_error"}}'))
+    assert not transient(Exception('{"error":{"type":"usage_limit_reached","resets_at":1}}'))
+    assert not transient(Exception("401 invalid x-api-key"))

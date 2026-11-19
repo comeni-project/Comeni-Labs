@@ -39,7 +39,30 @@ __all__ = [
 
 
 class ModelUnavailableError(ValueError):
-    """The provider rejected credentials or the request, or could not be reached."""
+    """The provider rejected credentials or the request, or could not be reached.
+
+    `transient` says whether trying the same call again could help (#557): set by `converse`
+    for a server error, an overloaded provider or a plain rate limit."""
+
+    transient: bool = False
+
+
+_PASSING = ("overloaded", "internal server error", "service unavailable", "bad gateway",
+            "gateway timeout", "temporarily unavailable", " 500", " 502", " 503", " 504", " 529")
+
+
+def transient(failure: Exception) -> bool:
+    """Whether a provider failure may pass if the same call is sent again (#557). A reached
+    usage limit does not pass for hours, and refused credentials never do."""
+    said = f" {failure}".lower()
+    if "usage_limit" in said or "usage limit" in said or "resets_at" in said:
+        return False
+    import litellm
+
+    if isinstance(failure, (litellm.InternalServerError, litellm.ServiceUnavailableError,
+                            litellm.APIConnectionError, litellm.BadGatewayError)):
+        return True
+    return any(word in said for word in _PASSING)
 
 
 @runtime_checkable
@@ -385,11 +408,15 @@ class LiteLLMTransport:
                 coded("MA0003", f"no answer within {access.timeout_seconds}s")
             ) from failure
         except litellm.RateLimitError as failure:
-            raise ModelUnavailableError(coded("MA0010", _limited(failure))) from failure
+            refused = ModelUnavailableError(coded("MA0010", _limited(failure)))
+            # A rate limit passes; a usage limit, which names when it resets, does not.
+            said = str(failure).lower()
+            refused.transient = "usage_limit" not in said and "resets_at" not in said
+            raise refused from failure
         except Exception as failure:
-            raise ModelUnavailableError(
-                coded("MA0007", f"{access.model}: {failure}")
-            ) from failure
+            refused = ModelUnavailableError(coded("MA0007", f"{access.model}: {failure}"))
+            refused.transient = transient(failure)
+            raise refused from failure
         return reply_of(access, response, started).model_copy(
             update={"tool_choice": effective_choice})
 

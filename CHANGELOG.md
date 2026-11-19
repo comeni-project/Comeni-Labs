@@ -300,6 +300,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- The builder agent sends a model call again, up to three times with 1 s and 2 s waits, when the provider fails in a way that passes, recording every try as its own `ai_invocation`; a turn no longer fails on one overloaded response (#557).
 - A builder-agent tool call that names no step, tool or setting no longer loads the session's stored blueprint to find the step it touched (#552).
 - Compiling a draft materialises its pipeline once and emits from the preview's own materialisation, instead of previewing it (a `Pipeline.of` and a throwaway `pipeline.yml` dump) and materialising it again (#547).
 - A catalogue sync of a commit this worker has already read in full records a good sync with the last counts instead of parsing every module and rewriting every row; a restarted worker reads its first sync in full (#577).
@@ -518,6 +519,7 @@ or a complete commit history.
 
 ### comeni-ai
 
+- `ModelUnavailableError.transient` says whether a provider failure may pass if the call is sent again (a server error, an overloaded provider, a plain rate limit; not a usage limit or refused credentials) (#557).
 - Claude calls mark the last user or tool message for the prompt cache as well as the system prompt, so each round of a turn reads the history and earlier tool results from the cache; Claude through OpenRouter is marked too (#554).
 - **Breaking:** the `MENDEL_MODEL`, `MENDEL_API_KEY`, `MENDEL_BASE_URL`, `MENDEL_TIMEOUT_SECONDS` and `MENDEL_TEMPERATURE` fallbacks are no longer read; set `COMENI_AI_*`. `access.NAMES` lists what `from_env` reads (#298).
 - `reply_of` reads every choice of a `chatgpt/` reply. LiteLLM's Responses bridge returns

@@ -5710,3 +5710,5 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   committed `loop._node_of`: failed, two statements. Passes after.
 - 2026-11-19, perf audit (#554): `test_each_round_marks_where_the_next_one_can_read_from_the_cache` run
   against the committed `_cacheable`: failed, the tool result unmarked. Passes after.
+- 2026-11-19, perf audit (#557): `test_a_passing_provider_failure_is_tried_again_and_each_try_recorded`
+  failed before `_conversed` existed and against `TRIES = 1`. Passes after.
