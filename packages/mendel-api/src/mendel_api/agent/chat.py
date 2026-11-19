@@ -103,8 +103,10 @@ _DATA_SAID = ("I added data in Data:", "My data changed in Data:")
 
 
 def _told_and_unbuilt(draft_id: str) -> tuple[str, str] | None:
-    """The draft's session and what its agent last heard about the data, when it has heard once,
-    has built nothing yet and is not working: a change in Data since is news to it."""
+    """The draft's session and what its agent last heard about the data, when it has heard once
+    and has built nothing yet: a change in Data since is news to it. **Said even while a turn is
+    pending** (#535): it queues behind that turn, which a session's turns wait for (`run_turn`),
+    so the agent reads it next instead of never."""
     from mendel_api.models import PipelineDraft
 
     with session_scope() as db:
@@ -116,8 +118,6 @@ def _told_and_unbuilt(draft_id: str) -> tuple[str, str] | None:
         turns = db.scalars(select(PipelineAuthoringTurn)
                            .where(PipelineAuthoringTurn.session_id == session_id)
                            .order_by(PipelineAuthoringTurn.seq.desc())).all()
-        if any(t.state == TurnState.PENDING.value for t in turns):
-            return None
         heard = next((t.text for t in turns if t.role == TurnRole.PERSON.value
                       and (t.text or "").startswith(_DATA_SAID)), None)
     return (session_id, heard) if heard else None

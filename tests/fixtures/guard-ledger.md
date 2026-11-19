@@ -5691,3 +5691,12 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
 - 2026-11-18, perf audit (#561 part 3): `test_reads_in_one_request_decide_once_per_revision` failed before
   `remembered` existed. `test_every_http_request_has_its_own_memo` against `main` with the middleware's memo
   replaced by a `nullcontext`: failed. Both pass after.
+
+## #535 minors, 2026-11-18
+
+| date | guard | broke | result | message |
+|---|---|---|---|---|
+| 2026-11-18 | `test_roots.py` "a rule deciding several roles names them all" | restored `kinds.py` from HEAD | failed | only `trimming` named |
+| 2026-11-18 | `Forge.test.tsx` "a refused command's error stays with its part" | restored `Inspector.tsx` from HEAD | failed | the error still shown on the next part |
+| 2026-11-18 | `test_scan.py` "a change while the agent works is said after it" | restored `chat.py` from HEAD | failed | the reference added during a pending turn was never said |
+| 2026-11-18 | `test_drafts.py` "a file kept by an older Mendel does not empty the list" (#507 follow-up) | restored `drafts.py` from HEAD | failed | `422`: MD0207 for the one version-9 file emptied the list |
