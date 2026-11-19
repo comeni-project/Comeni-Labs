@@ -45,7 +45,7 @@ PROMPT = Path(__file__).with_name("prompt.md")
 PROMPT_ID = "builder.agent.v6"
 PROMPT_VERSION = "v6"
 # v6 (#558): only the last `agent_history_turns` turns are sent, with `EARLIER` when some are
-# not.
+# not. (#556): independent reads go in one reply; nothing is re-read after `resolve`.
 EARLIER = ("Only the most recent turns of this conversation are shown. What was decided before "
            "them is in the decisions: read_goal and read_pipeline give the current state.")
 """Added to the system prompt when earlier turns are left out: the same words however many,

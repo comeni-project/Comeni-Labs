@@ -295,6 +295,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- The builder agent's prompt asks for independent reads in one reply and no re-reading after `resolve`, which already returns the steps and what is needed; the first reply reads the pipeline only when one was built before (#556, prompt `builder.agent.v6`).
 - The builder agent sends only a conversation's last `agent_history_turns` turns (20 by default) with each call, and says so in the system prompt when earlier ones are left out; prompt `builder.agent.v6`. A call at turn 40 was 35.7k characters and grew each turn; it stays at 13.9k (#558).
 - Data's files say what each is used as now: a reference shows its kind, and a left-out sample's file carries `left_out` (`ScannedFile.left_out`). Release refusals name each release and why, and say what to do; they said only "4 release(s) could not be used" (#535).
 - A session's agent turns run one at a time, under an advisory lock; with two AI jobs, two turns wrote to one draft at once. Sample names are cut to 200 characters, as `SampleName` allows, where a rule cut them to 256 and the agent's data reads then refused. A tool's `KeyError` is a refusal to the model only when the model named the missing key; any other fails the turn as the engine's error. `read_pipeline` tells the agent a step is unreviewed only while the person has not reviewed it (#505).
