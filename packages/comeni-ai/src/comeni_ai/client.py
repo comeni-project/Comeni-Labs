@@ -421,18 +421,32 @@ def _limited(failure: Exception) -> str:
     return f"the model's usage limit is reached; it resets at {at:%H:%M} UTC"
 
 
+_CLAUDE = ("anthropic/", "claude", "bedrock/anthropic", "vertex_ai/claude", "openrouter/anthropic/")
+_MARK = {"type": "ephemeral"}
+
+
 def _cacheable(model: str, messages: list[dict]) -> list[dict]:
     """**The repeated prompt, marked for the provider's cache where it needs marking** (walk
     2026-11-15): every round of an agent's turn resends the system prompt and the tools. Claude
     caches only what a request marks, and the tools ahead of a marked system prompt are cached
-    with it; OpenAI-shaped providers cache on their own. The caller's list is not changed."""
-    claude = model.startswith(("anthropic/", "claude", "bedrock/anthropic", "vertex_ai/claude"))
-    if not claude or not messages or messages[0].get("role") != "system" \
-            or not isinstance(messages[0].get("content"), str):
+    with it; OpenAI-shaped providers cache on their own. The caller's list is not changed.
+
+    **And where this round ends** (#554): the last user or tool message is marked too, so the
+    next round, which only adds to the end, reads everything before it from the cache rather
+    than paying for the history and the turn's tool results again. Two marks of the four Claude
+    allows. An assistant's tool call is never marked; it has no text to carry the mark."""
+    if not model.startswith(_CLAUDE) or not messages:
         return messages
-    system = {**messages[0], "content": [{"type": "text", "text": messages[0]["content"],
-                                          "cache_control": {"type": "ephemeral"}}]}
-    return [system, *messages[1:]]
+    marked = list(messages)
+    if marked[0].get("role") == "system" and isinstance(marked[0].get("content"), str):
+        marked[0] = {**marked[0], "content": [{"type": "text", "text": marked[0]["content"],
+                                               "cache_control": _MARK}]}
+    last = marked[-1]
+    if len(marked) > 1 and last.get("role") in {"user", "tool"} \
+            and isinstance(last.get("content"), str):
+        marked[-1] = {**last, "content": [{"type": "text", "text": last["content"],
+                                           "cache_control": _MARK}]}
+    return marked
 
 
 def _elapsed(started: float) -> int:

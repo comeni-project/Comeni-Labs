@@ -518,6 +518,7 @@ or a complete commit history.
 
 ### comeni-ai
 
+- Claude calls mark the last user or tool message for the prompt cache as well as the system prompt, so each round of a turn reads the history and earlier tool results from the cache; Claude through OpenRouter is marked too (#554).
 - **Breaking:** the `MENDEL_MODEL`, `MENDEL_API_KEY`, `MENDEL_BASE_URL`, `MENDEL_TIMEOUT_SECONDS` and `MENDEL_TEMPERATURE` fallbacks are no longer read; set `COMENI_AI_*`. `access.NAMES` lists what `from_env` reads (#298).
 - `reply_of` reads every choice of a `chatgpt/` reply. LiteLLM's Responses bridge returns
   narration and tool calls as separate choices, so the builder lost its tool calls whenever it

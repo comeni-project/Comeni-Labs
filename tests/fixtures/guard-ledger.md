@@ -5708,3 +5708,5 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   `cli/resolve_verbs.py`: failed, `3 == 1`. Passes after.
 - 2026-11-19, perf audit (#552): `test_a_tool_call_that_names_no_step_reads_no_blueprint` run against the
   committed `loop._node_of`: failed, two statements. Passes after.
+- 2026-11-19, perf audit (#554): `test_each_round_marks_where_the_next_one_can_read_from_the_cache` run
+  against the committed `_cacheable`: failed, the tool result unmarked. Passes after.
