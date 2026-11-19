@@ -41,6 +41,5 @@
   "docs/registry/reference/measurement-schema.md": "docs/reference/registry/measurement-schema.md",
   "docs/start/index.md": "docs/how-to/index.md",
   "docs/handbook/index.md": "docs/index.md",
-  "docs/internals/index.md": "docs/how-to/development/contribute.md",
-  "docs/tools/catalogue.md": "docs/reference/tools/catalogue.md"
+  "docs/internals/index.md": "docs/how-to/development/contribute.md"
 }
