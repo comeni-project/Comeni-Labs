@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- `declared_entries` works out each file's relative path once and looks beside each `piece/` once: 25 ms → 8 ms over the shipped registry, the same list (#546).
 - A type with no `entry_channel` gives each file `[ [id: <its base name>], file ]`, as the curated types do; it gave `[ [:], f ]`, so a module named every output `null`. A run guard's sentence names the params a person sets: `; set \`fasta\` as --fasta_2` (#467).
 - A fact a person said that the data measures otherwise keeps both: `Measured.measured` and `PremiseRecord.measured` (only on a said value; `PremiseRecord.contradicted`), and the premise reads `read_length is 150, asserted, not measured; the data measures 99` (#510).
 - `explain` (`mendel explain`, `forge explain`) prints a code's `says:` line, its explanation, then its `fix:`, which neither CLI showed (#67).
@@ -185,6 +186,7 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- `conformance.specs_of` parses each module's source once; `check`, its meta-key analysis and `facts_read` share it, so a build parses every module once instead of three times (#546).
 - A samplesheet pipeline's `stub_data` profile points `params.input` at a stub samplesheet, two rows of empty files the stub gate writes (`STUB_SAMPLESHEET`, `stub_samplesheet`); it was a FASTQ glob the workflow would parse as a CSV. `materialise_stub_data` takes the pipeline (#542).
 - MD0112: conformance compares each port's formats, from what the contracts making its type write and its test data, with the file pattern the module's meta.yml documents for the element it fills, so inputs wired in the wrong order are refused at build. An element where either names no format is not checked. `check` takes the vocabulary (#414).
 - `entry_params` lists `input` for a samplesheet pipeline in place of its per-sample channels' params, which the workflow never reads: `nextflow.config` declares what the run reads, and a forge test is sent exactly those (#484).

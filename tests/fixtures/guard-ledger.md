@@ -5700,3 +5700,5 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   `test_the_upstream_check_clones_each_pinned_commit_once` against the committed `check`: failed, 2 clones.
   Both pass after. The `quast` fixture in `test_forging_ai.py` added a module at an unchanged commit, which
   no upstream does; it syncs at `c2` now.
+- 2026-11-19, perf audit (#546): `test_preparing_a_build_parses_each_module_once` run against the committed
+  `conformance.py` and `orchestrate.py`: failed, `{3} == {1}`. Passes after.

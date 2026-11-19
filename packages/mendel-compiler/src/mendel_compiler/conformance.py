@@ -111,11 +111,29 @@ def type_formats(registry: Registry, vocabulary: Vocabulary | None = None) -> di
     return found
 
 
+def specs_of(registry: Registry, modules: Mapping[str, Module]) -> dict[str, ModuleSpec]:
+    """Each contract's module source, parsed once, by contract id; a contract whose source
+    cannot be read has none. What `check`, `_meta_keys` and `facts_read` all read: parsing it
+    for each of them was 3 parses of every module per build (#546). A value the caller holds
+    for one build, not a cache."""
+    parsed: dict[Path, ModuleSpec] = {}
+    found: dict[str, ModuleSpec] = {}
+    for contract in registry.all():
+        path = module_path(contract, modules)
+        if path is None or not path.exists():
+            continue
+        if path not in parsed:
+            parsed[path] = ModuleSpec.parse(path)
+        found[contract.id] = parsed[path]
+    return found
+
+
 def check(
     registry: Registry,
     modules: Mapping[str, Module],
     measurements: MeasurementRegistry | None = None,
     vocabulary: Vocabulary | None = None,
+    specs: Mapping[str, ModuleSpec] | None = None,
 ) -> list[Diagnostic]:
     """Every way a contract disagrees with the module it claims to describe.
 
@@ -126,6 +144,7 @@ def check(
     """
     found: list[Diagnostic] = []
     formats = type_formats(registry, vocabulary)
+    specs = specs_of(registry, modules) if specs is None else specs
     for contract in registry.all():
         path = module_path(contract, modules)
         if path is None or not path.exists():
@@ -143,9 +162,9 @@ def check(
                 )
             )
             continue
-        found += against(contract, ModuleSpec.parse(path), path, formats=formats)
+        found += against(contract, specs[contract.id], path, formats=formats)
     if measurements is not None:
-        found += _meta_keys(registry, modules, measurements)
+        found += _meta_keys(registry, modules, measurements, specs)
     return sorted(found, key=lambda d: (d.where, d.code, d.detail))
 
 
@@ -336,7 +355,8 @@ _ALWAYS_SET = {"id"}
 # "fix" it while implementing this task — if you want it fixed, measure first and make it
 # its own commit, so the before and after are visible.
 def _meta_keys(
-    registry: Registry, modules: Mapping[str, Module], measurements: MeasurementRegistry
+    registry: Registry, modules: Mapping[str, Module], measurements: MeasurementRegistry,
+    specs: Mapping[str, ModuleSpec],
 ) -> list[Diagnostic]:
     """Undefined- and unused-symbol analysis, over the meta map.
 
@@ -356,7 +376,7 @@ def _meta_keys(
         if path is None or not path.exists():
             every_module_was_readable = False
             continue
-        for entry in ModuleSpec.parse(path).meta_reads:
+        for entry in specs[contract.id].meta_reads:
             if entry.variable == "meta" and entry.key not in _ALWAYS_SET:
                 read.setdefault(entry.key, contract.id)
 
@@ -391,7 +411,8 @@ def _meta_keys(
 
 
 def facts_read(
-    registry: Registry, modules: Mapping[str, Module], measurements: MeasurementRegistry
+    registry: Registry, modules: Mapping[str, Module], measurements: MeasurementRegistry,
+    specs: Mapping[str, ModuleSpec] | None = None,
 ) -> dict[str, frozenset[str] | None]:
     """Per contract, the declared facts its module reads off the sample's label (#338).
 
@@ -405,6 +426,7 @@ def facts_read(
         if measurements.get(m).meta_key
     }
     found: dict[str, frozenset[str] | None] = {}
+    specs = specs_of(registry, modules) if specs is None else specs
     for contract in sorted(registry.all(), key=lambda c: c.id):
         path = module_path(contract, modules)
         if path is None or not path.exists():
@@ -412,7 +434,7 @@ def facts_read(
             continue
         found[contract.id] = frozenset(
             by_key[entry.key]
-            for entry in ModuleSpec.parse(path).meta_reads
+            for entry in specs[contract.id].meta_reads
             if entry.variable == "meta" and entry.key not in _ALWAYS_SET and entry.key in by_key
         )
     return found
