@@ -115,14 +115,39 @@ def reference_types() -> list[str]:
                   if str(grain) == "study")
 
 
+def _file_totals(row: AnalysisData) -> tuple[int, int]:
+    """How many files are listed and their total size, **counted in the database** (#592): the
+    list is thousands of rows for a large analysis, and the view is polled every 2 s while a
+    scan runs."""
+    from sqlalchemy import text
+    from sqlalchemy.orm import object_session
+
+    def counted(db) -> tuple[int, int]:
+        if db.get_bind().dialect.name == "postgresql":
+            count, size = db.execute(text(
+                "SELECT jsonb_array_length(files), COALESCE((SELECT SUM((f->>'size')::bigint) "
+                "FROM jsonb_array_elements(files) f), 0) FROM analysis_data "
+                "WHERE draft_id = :d"), {"d": row.draft_id}).one_or_none() or (0, 0)
+            return int(count or 0), int(size or 0)
+        files = list(db.get(AnalysisData, row.draft_id).files or [])
+        return len(files), sum(f.get("size", 0) for f in files)
+
+    # A row handed over after its session closed (`edits.change`) is counted in a new one.
+    if (db := object_session(row)) is not None:
+        return counted(db)
+    with session_scope() as db:
+        return counted(db)
+
+
 def _view(draft_id: str, row: AnalysisData | None) -> AnalysisDataView:
     if row is None:
         return AnalysisDataView(draft_id=draft_id)
     samples = list(row.samples or [])
     scanned = Scan(**(row.scan or {}))
+    listed, size = _file_totals(row)
     return AnalysisDataView(
         draft_id=draft_id, folders=list(row.folders or []), scan=scanned,
-        samples=[DataSample(**s) for s in samples], files=len(row.files or []),
+        samples=[DataSample(**s) for s in samples], files=listed,
         revision=row.revision, rule=Rule(**row.rule) if row.rule else Rule(),
         fixes=[Fix(**f) for f in row.fixes or []],
         rule_result=RuleResult(samples=len(samples), unfit=len(row.unfit or []),
@@ -130,7 +155,7 @@ def _view(draft_id: str, row: AnalysisData | None) -> AnalysisDataView:
         checks=rule.checks(samples, list(row.unfit or []), [Fix(**f) for f in row.fixes or []]),
         references=[Reference(**r) for r in row.references or []],
         columns=dict(row.columns or {}),
-        summary=summary(samples, list(row.files or [])))
+        summary=summary(samples, listed, size))
 
 
 def _draft(db, draft_id: str) -> None:

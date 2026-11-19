@@ -5748,3 +5748,5 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   failed before `registry.remembered` existed; it also checks the digest moves after an own-layer write
   inside the same request. `test_a_prepared_build_asks_git_only_what_can_change` failed on 5 git calls.
   Both pass after.
+- 2026-11-19, perf follow-ups (#592): `test_the_polled_view_counts_the_files_where_they_are_kept` run against
+  the committed `_view`: failed, `the file list was loaded`. Passes after.
