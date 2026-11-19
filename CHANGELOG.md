@@ -295,6 +295,7 @@ or a complete commit history.
 
 ### mendel-api
 
+- The data routes that queue a scan (tick, rule, rescan, add or remove a reference) do their database work, file reads and inspection in the thread pool instead of on the event loop: a request made during a 2 s inspection waited 2,080 ms, now 3 ms (#560).
 - The drafts list keeps an analysis whose kept `pipeline.yml` this Mendel cannot read (MD0207 after SCHEMA_VERSION 10), marked changed since it was kept; one such file made the whole list 422 and Home never loaded.
 - A change in Data while the agent's turn is pending is said to it next, queued behind that turn, rather than dropped; the readers view names every role a rule decides, not the first (#535).
 - Data's files say what each is used as now: a reference shows its kind, and a left-out sample's file carries `left_out` (`ScannedFile.left_out`). Release refusals name each release and why, and say what to do; they said only "4 release(s) could not be used" (#535).
