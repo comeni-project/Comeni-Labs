@@ -4,7 +4,6 @@ Every body here is `extra="forbid"`, which is what makes an unexpected field a 4
 a field silently ignored — and the field somebody would try is a path.
 """
 
-import asyncio
 import mimetypes
 import secrets
 from datetime import UTC, datetime
@@ -1056,11 +1055,10 @@ async def tail(socket: WebSocket, run_id: str) -> None:
             return
 
     await socket.accept()
+    redis = stream.async_client()
     try:
         while True:
-            entries = await asyncio.to_thread(
-                stream.read, run_id, resume, block_ms=1_000, count=100
-            )
+            entries = await stream.aread(redis, run_id, resume, block_ms=1_000, count=100)
             for entry_id, fields in entries:
                 resume = entry_id
                 await socket.send_text(fields["json"])
@@ -1076,3 +1074,6 @@ async def tail(socket: WebSocket, run_id: str) -> None:
                         return
     except WebSocketDisconnect:
         return
+    finally:
+        if redis is not stream._async_client:
+            await redis.aclose()

@@ -664,6 +664,7 @@ or a complete commit history.
 
 ### wiener-api
 
+- The `/stream` websocket reads Redis through `redis.asyncio`, not a thread-pool thread held for as long as each socket is open (#593).
 - `/runs/{id}`, `/graph` and `/overview` carry an ETag (last event, phase, end, and what else each names) and answer a matching `If-None-Match` with 304, restoring and laying out nothing; the launcher reaps a finished run's process instead of leaving a zombie (#593).
 - A run's `pipeline.yml` is read once per artifact, not on every `/graph` and `/overview` poll; the worker launches runs in a thread, off its event loop; the heartbeat beats each run in its own transaction, so one run's row lock or failure no longer holds the others (#568).
 - `/runs/{id}/events` reads one page in SQL (`seq > after`, a limit of at most 1,000) instead of every event; the console tail seeks to the last 512 KB of `console.log`; a completed run's measurement check reads one event of that kind (#567).
