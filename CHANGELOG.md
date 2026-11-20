@@ -190,6 +190,8 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- The emitted `nextflow.config` requires at least the Nextflow its directives were checked on
+  (`manifest.nextflowVersion = '!>=25.10.4'`); an older Nextflow refuses to start (#308).
 - A build asks git only what can change: each layer's remote, commit and uncommitted edits. Where it sits in its checkout is worked out once, in `orchestrate.prepare` (#590).
 - `mendel build` and `upgrade` load and check the registry once, not three and two times (#549).
 - `conformance.specs_of` parses each module's source once; `check`, its meta-key analysis and `facts_read` share it, so a build parses every module once instead of three times (#546).
