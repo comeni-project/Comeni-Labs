@@ -5755,3 +5755,6 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   against the committed `_spawn`: failed, `returncode` stayed `None`. Both pass after.
 - 2026-11-19, perf follow-ups (#593): `test_the_tail_reads_without_holding_a_thread` run against the committed
   socket: failed, `the socket read Redis in a thread`. Passes after.
+- 2026-11-20, the forge drafts `does:` (#500): `test_a_contracts_does_line_round_trips_through_items` and
+  `test_contract_drafts_use_draft_v10` failed before the change (no `does` in the process item; prompt
+  v9 without it). Both pass after.

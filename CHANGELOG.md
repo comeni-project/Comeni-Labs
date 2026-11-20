@@ -304,6 +304,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- The forge drafts with `forge.draft.v10` and item guide `items.v8`, which ask for a process's
+  `does` line when its tool is a suite (#500).
 - The data view counts an analysis's listed files and their total size in the database; `AnalysisData.files` is a deferred column, loaded only for a page of files (#592).
 - An HTTP request walks each registry layer's files once (`registry.remembered`), and walks again after anything writes the installation's own layer: one change request spent 45 ms of 251 on 11 walks, now 8 ms of 173 (#590).
 - A folder listing builds the file-kind tables once per registry state instead of once per subfolder, and a scan saves its progress at most twice a second instead of once per sample (#573).
@@ -585,6 +587,7 @@ or a complete commit history.
 
 ### mendel-forge
 
+- A process draft carries the contract's `does` line, so re-forging a contract keeps it (#500).
 - Declared files are read with `yaml_strict`, and nf-core's own `meta.yml` and `environment.yml` with the C safe loader: `parse_module` 19.7 ms → 0.9 ms a module, the same output (#575).
 - The forge drafts measurers (#487). A new last step, **Measurers**, proposes a `by: tool`
   parser of one of the tool's outputs, with its tests, and any new measurement. The parser is

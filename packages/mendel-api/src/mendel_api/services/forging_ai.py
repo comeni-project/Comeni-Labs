@@ -53,7 +53,7 @@ from mendel_api.services import forge_checks, forging, registry
 from mendel_api.settings import model_access
 
 PROMPTS = Path(__file__).parent.parent / "forge" / "prompts"
-ITEM_SHAPES = PROMPTS / "parts" / "items.v7.md"
+ITEM_SHAPES = PROMPTS / "parts" / "items.v8.md"
 """Every item kind and its value's shape, in one place, for each prompt that writes items
 (#468). A prompt shown only the adaptation's items cannot add the first item of a new kind."""
 CHAT_TAIL = 12
@@ -70,6 +70,7 @@ _PURPOSE = {"forge.questions.v4": InvocationPurpose.ANALYSIS,
             "forge.draft.v7": InvocationPurpose.IMPLEMENTATION,
             "forge.draft.v8": InvocationPurpose.IMPLEMENTATION,
             "forge.draft.v9": InvocationPurpose.IMPLEMENTATION,
+            "forge.draft.v10": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v1": InvocationPurpose.IMPLEMENTATION,
             "forge.tests.v2": InvocationPurpose.IMPLEMENTATION,
             "forge.measurers.v1": InvocationPurpose.IMPLEMENTATION,
@@ -306,7 +307,7 @@ def draft_piece(adaptation_id: str, piece: Piece,
                 client: Client | None = None, *, finish: bool = True) -> dict[str, int] | None:
     """Draft the next piece: one call, retried once with its problems, then proposals."""
     adaptation = forging.row(adaptation_id)
-    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v9")
+    prompt_id = _DRAFTED_WITH.get(piece, "forge.draft.v10")
     client = client or _client(_PURPOSE[prompt_id])
     if client is None:
         _engine_says(adaptation_id, NO_MODEL, [NO_MODEL_DETAIL])
