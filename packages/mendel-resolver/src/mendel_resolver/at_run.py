@@ -49,6 +49,13 @@ AT_RUN_STOP = "!stop"
 no row covers (#466). Not a value any setting can take (`!` is outside the substitutable class)."""
 
 
+def per_task(param) -> bool:
+    """Whether a setting can be written per task from its sample's `meta`: an `ext` setting, or a
+    sized directive (`memory`, with its unit) (final review; #509). The others have no task to
+    read it in, or no unit to say what the number counts."""
+    return param.via is Via.EXT or (param.via is Via.DIRECTIVE and param.template is not None)
+
+
 @dataclass(frozen=True)
 class Needed:
     """One setting to decide at run time, and the facts it waits for, sorted."""
@@ -162,8 +169,7 @@ def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
         for param in contract.params:
             if param.name in overridden or f"{node.id}.{param.name}" in answered:
                 continue
-            # Only an `ext` setting is written per task from the sample's `meta` (final review).
-            if param.via is not Via.EXT:
+            if not per_task(param):
                 continue
             decision = rules.decision_for(contract.roles, param.name, contract.id)
             if decision is None:
@@ -421,7 +427,7 @@ def deferrable(registry: Registry, rules: RuleTable, premises: dict,
     found = set()
     for contract in registry.all():
         for param in contract.params:
-            if param.name in overridden or param.via is not Via.EXT:
+            if param.name in overridden or not per_task(param):
                 continue
             decision = rules.decision_for(contract.roles, param.name, contract.id)
             if decision is None:

@@ -36,6 +36,8 @@ or a complete commit history.
 
 ### comeni-core
 
+- A `memory` directive setting may name its unit with a template (`{value} GB`; MB, GB or TB),
+  so a rule can size it. Every other directive still refuses a template (`MD0204`) (#509).
 - `Registry.producers_of` reads an index by output type, built on its first call, instead of scanning every contract; the same answers in the same order (#590).
 - `diagnostics.yml` is read when a diagnostic is first looked up, not at import (`REGISTRY` is a lazy `Mapping`); the type-id character set is built once; duplicate contract parameters are counted in one pass (#578).
 - `Lockfile.of` reads each layer's name once (#549).
@@ -147,6 +149,8 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- A sized directive (`memory` with its unit) is decided at run time from a measured fact, as an
+  `ext` setting is (#509).
 - `Layers.routing` is worked out once per load instead of on every access (#549).
 - MD0609 says a missing setting is not set, and a missing input not connected; it called both unconnected (#467).
 - A rule's choice that read a contradicted fact is tier 4, flagged for review, with the same value and both values in its reason (`Pin.tier()`), for producers and settings alike (#510).
@@ -190,6 +194,9 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- STAR's index build asks for memory from the genome's length (about 10 bytes a base, at least
+  2 GB) instead of the 72 GB `process_high` label, decided at build when the length is stated and
+  in the run when it is measured. When the length is undetermined it asks what its label asks (#509).
 - A build asks git only what can change: each layer's remote, commit and uncommitted edits. Where it sits in its checkout is worked out once, in `orchestrate.prepare` (#590).
 - `mendel build` and `upgrade` load and check the registry once, not three and two times (#549).
 - `conformance.specs_of` parses each module's source once; `check`, its meta-key analysis and `facts_read` share it, so a build parses every module once instead of three times (#546).

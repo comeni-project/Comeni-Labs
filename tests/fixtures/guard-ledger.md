@@ -5755,3 +5755,7 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   against the committed `_spawn`: failed, `returncode` stayed `None`. Both pass after.
 - 2026-11-19, perf follow-ups (#593): `test_the_tail_reads_without_holding_a_thread` run against the committed
   socket: failed, `the socket read Redis in a thread`. Passes after.
+- 2026-11-20, STAR memory from the genome (#509): `test_star_runs_with_the_index_size_its_genome_measures_to`
+  run against the committed engine and registry: failed, `--limitGenomeGenerateRAM 2047483648` absent (the
+  label's request, clamped). `test_upgrade_says_how_many_decisions_replayed` failed with the directive
+  widened in `needed()` only (`1 newly asked`), which found the pre-pass. Both pass after.

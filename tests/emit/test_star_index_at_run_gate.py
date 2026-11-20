@@ -44,3 +44,10 @@ def test_star_runs_with_the_index_size_its_genome_measures_to(tmp_path):
     sample, value, read = decided.read_text().split()
     assert (sample, value) == (report.name.removesuffix(".measured.json"), str(expected))
     assert read == f"genome_length={fact['value']}:measured"
+
+    # Its memory, ruled from the same length rather than the label's 72 GB clamped to the smoke
+    # cap (#509): STAR is told the task's memory less 100 MB, so the request is in the script.
+    gigabytes = max(2, round(fact["value"] * 1e-8 + 1))
+    assert f"--limitGenomeGenerateRAM {gigabytes * 1024**3 - 100_000_000}" in star[0].read_text()
+    decided = out / "results" / "decided" / "star_genomegenerate.memory.tsv"
+    assert decided.read_text().split()[1] == str(gigabytes)
