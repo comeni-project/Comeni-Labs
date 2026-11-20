@@ -9,3 +9,7 @@ import os
 from support.databases import configure
 
 configure(os.environ)
+
+# A test module importing litellm directly would load a developer's `.env` at collection; this is
+# what `comeni_ai` sets for every process that imports it (#602).
+os.environ.setdefault("LITELLM_MODE", "PRODUCTION")

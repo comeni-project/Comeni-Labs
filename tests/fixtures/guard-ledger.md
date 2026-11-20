@@ -5755,3 +5755,7 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   against the committed `_spawn`: failed, `returncode` stayed `None`. Both pass after.
 - 2026-11-19, perf follow-ups (#593): `test_the_tail_reads_without_holding_a_thread` run against the committed
   socket: failed, `the socket read Redis in a thread`. Passes after.
+- 2026-11-20, litellm and `.env` (#602): `test_importing_litellm_after_comeni_ai_reads_no_dotenv` run
+  against the committed `comeni_ai`: failed, the probe read `from-the-dotenv`. Passes after. Under full
+  collection with a developer `.env`, `test_a_run_says_which_analysis_sent_it` and
+  `test_no_token_says_why` failed (401, a token present) and pass after.
