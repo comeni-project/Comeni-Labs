@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- `comeni_core.spell.images` splits a container reference into name, tag and digest (#308).
 - `Registry.producers_of` reads an index by output type, built on its first call, instead of scanning every contract; the same answers in the same order (#590).
 - `diagnostics.yml` is read when a diagnostic is first looked up, not at import (`REGISTRY` is a lazy `Mapping`); the type-id character set is built once; duplicate contract parameters are counted in one pass (#578).
 - `Lockfile.of` reads each layer's name once (#549).
@@ -190,6 +191,10 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- A contract whose container is pinned by digest gets `withName: X { container = '<name>:<tag>@sha256:…' }`
+  in the emitted config, so the run pulls that digest over the module's tag. Conformance compares
+  the image without its digest to the module's, and warns on a container named by tag only
+  (`MD0113`) (#308).
 - A build asks git only what can change: each layer's remote, commit and uncommitted edits. Where it sits in its checkout is worked out once, in `orchestrate.prepare` (#590).
 - `mendel build` and `upgrade` load and check the registry once, not three and two times (#549).
 - `conformance.specs_of` parses each module's source once; `check`, its meta-key analysis and `facts_read` share it, so a build parses every module once instead of three times (#546).
@@ -639,6 +644,9 @@ or a complete commit history.
 
 ### comeni-vendor
 
+- `pin-containers --registry <dir>` pins each contract's container to the digest its tag points
+  at now, answering a registry's anonymous token challenge; every image is resolved before any
+  file is written (#308).
 - `check --upstream` makes one clone per pinned repository and commit, not one per module (#577).
 #### Added
 

@@ -47,7 +47,7 @@ Model: `comeni_core.declared.contract.ModuleContract`
 | `priority` | integer | `0` | breaks a routing tie. Higher wins |
 | `priority_because` | string | `""` | why. A priority with no reason is a silent preference |
 | `does` | string \| null | `null` | what this step does, in one line, where the tool's description covers a whole suite. Context for the builder's AI; it is never shown to a person as written |
-| `container` | string \| null | `null` | the image. Take the **last** quoted string in `main.nf`'s ternary |
+| `container` | string \| null | `null` | the image. Take the **last** quoted string in `main.nf`'s ternary, then pin it: `<name>:<tag>@sha256:<digest>` (`comeni-vendor pin-containers`). The run pulls the digest; a tag alone warns (`MD0113`) |
 | `nf_inputs` | [nf-input] | `[]` | the real call signature — see below |
 | `ext_args` | string \| object | `""` | flags the module always needs, via `task.ext.args` |
 | `constraints` | [constraint row] | `[]` | what the tool allows between its inputs and params — see below |

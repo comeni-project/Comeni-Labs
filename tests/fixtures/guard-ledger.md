@@ -5755,3 +5755,8 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   against the committed `_spawn`: failed, `returncode` stayed `None`. Both pass after.
 - 2026-11-19, perf follow-ups (#593): `test_the_tail_reads_without_holding_a_thread` run against the committed
   socket: failed, `the socket read Redis in a thread`. Passes after.
+- 2026-11-20, containers by digest (#308): `test_a_pinned_container_is_what_the_run_pulls` failed before
+  `_container_scope` (no `container =` line); `test_a_pinned_container_agrees_with_the_tag_its_module_names`
+  and `test_an_unpinned_container_warns_and_refuses_nothing` failed before the conformance change (MD0107
+  on a pinned contract; no MD0113). The resolver tests failed before `comeni_vendor.images` existed. All
+  pass after; the 51 slow gates pull by digest.
