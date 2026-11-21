@@ -144,8 +144,11 @@ def test_each_reader_says_what_it_measures_what_decides_by_it_and_its_tests(monk
     faidx = readers["genome_length_fai"]
     assert faidx["by"] == "tool" and faidx["runs"] == ["pipeline"] and faidx["type_id"] == "fai"
     [genome] = faidx["facts"]
-    assert genome["settings"] == [{"name": "star_sa_index_nbases",
-                                   "formula": "round(min(14, log₂(genome length) / 2 − 1))"}]
+    assert genome["settings"] == [
+        {"name": "star_genome_generate_gb",
+         "formula": "max(2, round(genome length × 1e-08 + 1))"},
+        {"name": "star_sa_index_nbases",
+         "formula": "round(min(14, log₂(genome length) / 2 − 1))"}]
 
 
 def test_a_measurers_test_names_are_read_once_per_registry_state(monkeypatch):

@@ -90,10 +90,10 @@ def _numeric(value: object) -> bool:
     return isinstance(value, int | float) and not isinstance(value, bool)
 
 
-def _condition(condition: AtRunCondition, where: str) -> str:
+def _condition(condition: AtRunCondition, where: str, meta: str = "meta") -> str:
     """One condition over `meta.<fact>`. A fact with no value passes only `absent`, as
     `matches` has it: every other test is guarded on a value being there."""
-    var = f"meta.{condition.fact}"
+    var = f"{meta}.{condition.fact}"
     if condition.test is AtRunTest.ABSENT:
         return f"({var} == null)"
     if condition.test is AtRunTest.PRESENT:
@@ -121,17 +121,17 @@ def condition(condition: AtRunCondition, where: str = "a condition") -> str:
     return _condition(condition, where)
 
 
-def _row(row: AtRunRow, where: str) -> str:
+def _row(row: AtRunRow, where: str, meta: str = "meta") -> str:
     """Every condition of the row, and a value for the fact it takes."""
-    parts = [_condition(c, where) for c in row.when]
+    parts = [_condition(c, where, meta) for c in row.when]
     if row.takes is not None:
-        parts.append(f"(meta.{row.takes} != null)")
+        parts.append(f"({meta}.{row.takes} != null)")
     return " && ".join(parts) if parts else "true"
 
 
-def _value(row: AtRunRow, where: str) -> str:
+def _value(row: AtRunRow, where: str, meta: str = "meta") -> str:
     if row.takes is not None:
-        return transform(row.transform, f"meta.{row.takes}", integer=row.integer, where=where)
+        return transform(row.transform, f"{meta}.{row.takes}", integer=row.integer, where=where)
     return literal(row.then, where)
 
 
@@ -142,15 +142,17 @@ def _fallback(at_run: AtRun, where: str) -> str:
             raise ValueError(coded("MD0201", f"{where}: {names!r} cannot be written as Groovy"))
         said = (f"no row of {at_run.rule} applies to its "
                 + ", ".join(f.measurement for f in at_run.facts))
-        return ("({ -> throw new IllegalStateException('sample ' + meta.id + ': "
+        return (f"({{ -> throw new IllegalStateException('sample ' + {at_run.meta}.id + ': "
                 f"{said}') }}())")
     return literal(at_run.fallback, where)
 
 
 def closure(at_run: AtRun, *, where: str = "a run-time setting") -> str:
-    """The lookup as one expression over the sample's `meta`: the first row whose conditions
-    all hold gives its value; when none does, the fallback (which may stop the run)."""
+    """The lookup as one expression over the sample's `meta`, or the input's `at_run.meta`
+    names (#601): the first row whose conditions all hold gives its value; when none does, the
+    fallback (which may stop the run)."""
+    meta = at_run.meta
     expression = _fallback(at_run, where)
     for row in reversed(at_run.rows):
-        expression = f"({_row(row, where)} ? {_value(row, where)} : {expression})"
+        expression = f"({_row(row, where, meta)} ? {_value(row, where, meta)} : {expression})"
     return expression

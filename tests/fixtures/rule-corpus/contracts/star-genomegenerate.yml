@@ -22,5 +22,10 @@ params:
     via: ext
     key: args
     template: "--genomeSAindexNbases {value}"
+  - name: memory
+    tier_hint: 4
+    domain: {kind: integer, minimum: 1, maximum: 512}
+    via: directive
+    template: "{value} GB"
 priority: 0
 provenance: {source: hand, drafted_by: hand, approved_by: corpus, approved_at: "2026-08-15"}

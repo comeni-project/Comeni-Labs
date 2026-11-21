@@ -42,8 +42,9 @@ from mendel_api.settings import settings
 log = logging.getLogger(__name__)
 
 PROMPT = Path(__file__).with_name("prompt.md")
-PROMPT_ID = "builder.agent.v6"
-PROMPT_VERSION = "v6"
+# v7 (#535): what is still open is named, never only counted.
+PROMPT_ID = "builder.agent.v7"
+PROMPT_VERSION = "v7"
 # v6 (#558): only the last `agent_history_turns` turns are sent, with `EARLIER` when some are
 # not. (#556): independent reads go in one reply; nothing is re-read after `resolve`.
 EARLIER = ("Only the most recent turns of this conversation are shown. What was decided before "

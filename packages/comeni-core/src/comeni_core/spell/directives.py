@@ -60,3 +60,11 @@ caught downstream.
 Deprecated directives (`echo`, `validExitStatus`) are absent too: a check that permits what
 Nextflow itself warns about is not doing its job.
 """
+
+UNIT_TEMPLATES: dict[str, frozenset[str]] = {
+    "memory": frozenset({"{value} MB", "{value} GB", "{value} TB"}),
+}
+"""The directives whose value names a unit, and the only templates each takes (#509).
+
+A bare number is bytes to Nextflow, so a setting that sizes `memory` from a rule says what its
+number counts. Every other directive takes one typed value and no template (`MD0204`)."""

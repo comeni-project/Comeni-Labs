@@ -171,6 +171,10 @@ class AtRun(BaseModel):
                                          exclude_if=lambda kind: kind == "value")
     """What the fallback is: a value (a default or a person's answer), the tool's own (an
     omittable setting left unset), a stop naming the sample, or a question still open."""
+    meta: NfIdentifier = Field(default="meta", exclude_if=lambda name: name == "meta")
+    """The `meta` the facts travel on in the task: the step's first input's (`meta`), or, nf-core
+    naming a process's tuple inputs `meta`, `meta2`, `meta3`, another input's, as a genome
+    reaches an aligner on its index's `meta2` (#601). Not written when it is `meta`."""
 
     def fact(self, measurement: str) -> AtRunFact:
         return next(f for f in self.facts if f.measurement == measurement)

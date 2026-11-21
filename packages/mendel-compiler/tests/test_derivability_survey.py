@@ -40,7 +40,9 @@ def test_process_name_is_derivable():
 
 
 def test_container_is_derivable():
-    missing = [c.id for c, s in _pairs() if c.container and s.container != c.container]
+    # A contract pins the module's tag by digest (#308): the image is the same one.
+    missing = [c.id for c, s in _pairs()
+               if c.container and s.container != c.container.partition("@")[0]]
     assert missing == [], f"container disagrees with the module for: {missing}"
 
 
