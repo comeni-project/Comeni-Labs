@@ -393,7 +393,7 @@ MD0203:
 MD0204:
   emitted_by: core
   concern: pipeline-file
-  says: "a `template:` never mentions `{value}`, or sits on a route that takes none"
+  says: "a `template:` never mentions `{value}`, or sits on a route that takes none, or names a unit its directive does not take"
   fires_on: [build, emit, upgrade]
   refuses: true
   fix: |
@@ -3084,7 +3084,7 @@ MD0329:
 MD0330:
   emitted_by: compiler
   concern: pipeline-file
-  says: "a setting decided at run time cannot be carried: it routes outside `ext`, or its template does not hold `{value}` once"
+  says: "a setting decided at run time cannot be carried: it routes outside `ext` and a sized directive, or its template does not hold `{value}` once"
   fires_on: [build, upgrade, emit, publish]
   refuses: true
   fix: |

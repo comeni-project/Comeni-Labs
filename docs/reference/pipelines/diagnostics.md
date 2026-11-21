@@ -120,7 +120,7 @@ decline to curate one.
 | `MD0201` | a resolved value is outside the substitutable character class |
 | `MD0202` | a replayed value is frozen against a contract that has since been edited |
 | `MD0203` | an override answers a question this re-resolution never asks |
-| `MD0204` | a `template:` never mentions `{value}`, or sits on a route that takes none |
+| `MD0204` | a `template:` never mentions `{value}`, or sits on a route that takes none, or names a unit its directive does not take |
 | `MD0205` | `via:`/`key:` are not a legal pair — including `key: when` |
 | `MD0206` | the `pipeline.yml` just written does not parse back to the object it was written from |
 | `MD0207` | `version:` is not the one this Mendel reads |
@@ -149,7 +149,7 @@ decline to curate one.
 | `MD0231` | a registry layer has no network source in git, so this pipeline cannot be rebuilt from its file alone |
 | `MD0232` | a registry layer has uncommitted edits, so its commit does not rebuild it |
 | `MD0233` | a starter has nothing resolved to emit or publish |
-| `MD0330` | a setting decided at run time cannot be carried: it routes outside `ext`, or its template does not hold `{value}` once |
+| `MD0330` | a setting decided at run time cannot be carried: it routes outside `ext` and a sized directive, or its template does not hold `{value}` once |
 | `MD0335` | a fact that differs between samples has no samplesheet column to carry it |
 | `MD0337` | every sample breaks a tool's rule, their facts known before the build |
 

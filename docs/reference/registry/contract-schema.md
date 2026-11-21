@@ -104,14 +104,14 @@ Model: `comeni_core.declared.contract.Param`
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `name` | string | *required* | the parameter |
-| `via` | enum | *required* | **how the value reaches the tool** — `ext`, `positional`, `meta` |
+| `via` | enum | *required* | **how the value reaches the tool** — `ext`, `positional`, `meta`, `directive` |
 | `tier_hint` | integer \| null | `null` | the tier this exits at when nothing else decides |
 | `domain` | object \| null | `null` | the permitted values |
 | `default` | any | `None` | the value when no rule fires |
 | `because` | string | `""` | why that default. This becomes the `why:` in `pipeline.yml` |
 | `explain` | string | `""` | what the setting is, in one line, shown behind its (?) in Build. Not written to the contract's digest when empty |
 | `key` | string \| null | `null` | the `ext.args` key, when `via: ext` |
-| `template` | string \| null | `null` | how the value is spelled on the way in |
+| `template` | string \| null | `null` | how the value is spelled on the way in. On a directive, only `memory` takes one, its unit: `{value} MB`, `{value} GB` or `{value} TB` |
 
 **`via` is what makes a value real.** A resolved value with nowhere to go is *deadness* — nf-core
 modules read `task.ext.args` and `meta`, and a `params.<x>` in the emitted workflow is read by
