@@ -179,10 +179,11 @@ def test_a_choice_a_person_made_is_not_a_choice_waiting_on_one(monkeypatch, tmp_
     drawn = [s for s in pipeline.steps if int(s.why.tier) == 4]
     assert drawn, "the fixture stopped being a hand-drawn graph"
     assert provenance.by_person >= len(drawn)
-    # The spine's unanswered values are optional (#384): `seq_platform`, and STAR's index size,
-    # which this hand-drawn graph does not measure (#217) and STAR sizes itself when unset.
-    # They are counted apart, and nothing waits on a person.
-    assert provenance.optional == 2
+    # The spine's unanswered values are optional (#384): `seq_platform`, STAR's index size, which
+    # this hand-drawn graph does not measure (#217) and STAR sizes itself when unset, and STAR's
+    # memory at both steps, which keeps its label's request when unset (#509, #601). They are
+    # counted apart, and nothing waits on a person.
+    assert provenance.optional == 4
     assert provenance.open == 0, (
         f"nothing waits on a person; got {provenance.open} ({[(v.step, v.setting) for v in named]})"
     )

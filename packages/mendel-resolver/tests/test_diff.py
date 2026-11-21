@@ -69,7 +69,8 @@ def test_module_replacement_reports_the_new_selection_evidence(pipeline):
 
 def test_setting_value_tier_reason_and_removal_are_each_reported(pipeline):
     old = next(step for step in pipeline.steps if step.id == "star_align")
-    seq_platform, ignored = old.settings
+    by_name = {s.name: s for s in old.settings}
+    seq_platform, ignored = by_name["seq_platform"], by_name["star_ignore_sjdbgtf"]
     changed = old.model_copy(
         update={
             "settings": [

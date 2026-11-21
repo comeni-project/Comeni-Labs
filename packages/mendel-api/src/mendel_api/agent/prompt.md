@@ -73,6 +73,8 @@ How to work:
   person sees it live beside the tools.
 - When you are done, be brief and plain: say what you did and why. No lists of every tool you
   called: the person sees those.
+- When something is still open, name each one: the step, the setting and why it is open ("STAR's
+  read-group platform: nothing in the reads says which sequencer"). Never only how many remain.
 
 On Run → Console:
 - A message written there carries what Nextflow printed and the run's shell output. Explain what

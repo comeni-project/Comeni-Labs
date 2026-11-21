@@ -99,8 +99,12 @@ export function Outputs({ draftId, runId, live }: { draftId: string; runId: stri
       return order.map((id) => ({ key: id, title: nameOf(id), files: shown.filter((f) => stepOf(f) === id) }))
         .filter((g) => g.files.length);
     }
-    return [...samples.map((s) => ({ key: s, title: s, files: shown.filter((f) => sampleOf(f.name, samples) === s) })),
-            { key: "_shared", title: "Shared", files: shown.filter((f) => !sampleOf(f.name, samples)) }]
+    // Within a sample: what the pipeline made first, then each step's files in pipeline order
+    // (walk 2026-11-17: by process name, a sample's counts sat between its alignments and trims).
+    const rank = (f: File) => (isResult(f) ? -1 : (i => (i < 0 ? stepIds.length : i))(stepIds.indexOf(stepOf(f))));
+    const ordered = (list: File[]) => [...list].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+    return [...samples.map((s) => ({ key: s, title: s, files: ordered(shown.filter((f) => sampleOf(f.name, samples) === s)) })),
+            { key: "_shared", title: "Shared", files: ordered(shown.filter((f) => !sampleOf(f.name, samples))) }]
       .filter((g) => g.files.length);
   }, [by, shown, samples, stepIds]); // eslint-disable-line react-hooks/exhaustive-deps
 

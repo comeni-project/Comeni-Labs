@@ -106,3 +106,21 @@ def test_substitutable_refuses_what_would_break_out(value):
 def test_templated_keys_are_the_argument_string_ones():
     assert {ExtKey.ARGS, ExtKey.ARGS2, ExtKey.ARGS3} == TEMPLATED
     assert ExtKey.PREFIX not in TEMPLATED
+
+
+@pytest.mark.parametrize("unit", ["MB", "GB", "TB"])
+def test_memory_may_name_its_unit(unit):
+    """A number alone is bytes to Nextflow, so a ruled `memory` says its unit (#509)."""
+    param = Param(name="memory", via=Via.DIRECTIVE, template=f"{{value}} {unit}")
+    assert param.template == f"{{value}} {unit}"
+
+
+@pytest.mark.parametrize("template", ["{value} PB", "--mem {value}", "{value}GB", "{value} GB x"])
+def test_memory_takes_only_a_value_and_a_unit(template):
+    with pytest.raises(ValidationError, match="MD0204"):
+        Param(name="memory", via=Via.DIRECTIVE, template=template)
+
+
+def test_only_memory_takes_a_unit():
+    with pytest.raises(ValidationError, match="MD0204"):
+        Param(name="cpus", via=Via.DIRECTIVE, template="{value} GB")

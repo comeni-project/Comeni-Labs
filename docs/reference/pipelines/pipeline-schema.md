@@ -147,7 +147,7 @@ Model: `comeni_core.artifact.pipeline.Pipeline`
 | `facts` | what is known: the inputs held, and each measurement with its source |
 | `registry` | every layer that was loaded, pinned by content digest |
 | `ai` | which model, if any, touched this. `available: []` means none was wired |
-| `steps` | every process: the tool, why it was chosen, and every setting with its reason. A setting decided at run time also carries its lookup (`at_run`): the fact, the step that measures it, every row and the fallback |
+| `steps` | every process: the tool, why it was chosen, and every setting with its reason. A setting decided at run time also carries its lookup (`at_run`): the fact, the step that measures it, every row and the fallback, and `meta: meta2` when the fact reaches the step on another input than its first |
 | `confirms` | each estimate a decision rested on (a fact read from part of the data), the step that measures it again over all of it, and the decisions that used it. After the run, the run page shows whether they agree |
 | `sheet_facts` | the facts each sample's samplesheet row states, with their allowed values; left out when there are none |
 | `channels` | how the steps are wired to each other |

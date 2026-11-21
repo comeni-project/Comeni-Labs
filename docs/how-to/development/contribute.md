@@ -94,7 +94,8 @@ and decision records; do not use fuzzy retrieval to influence resolution.
 Read process names and container declarations from `registry/tools/**/module/main.nf`,
 then check the contract against the module. Vendored `nf-core` source is kept verbatim;
 module changes belong upstream. Use `comeni-vendor add` to replace source and
-`comeni-vendor check` to detect local edits.
+`comeni-vendor check` to detect local edits. `comeni-vendor pin-containers --registry <checkout>`
+pins each contract's container to the digest its tag points at now, so a run pulls that image.
 
 ## Work and review
 
