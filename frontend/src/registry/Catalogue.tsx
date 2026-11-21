@@ -50,7 +50,7 @@ export function Catalogue() {
             {first.last?.outcome !== "running" && <SyncNow sync={sync} />}
           </section>
           <section aria-live="polite" className="bg-surface border border-line rounded-panel p-[18px] flex flex-col gap-[12px]">
-            {first.last?.outcome === "running" ? <Syncing /> : <p className="m-0 text-[13px] text-ink-3">About 2 minutes.</p>}
+            {first.last?.outcome === "running" ? <Syncing /> : <p className="m-0 text-[13px] text-ink-3">About 10 seconds.</p>}
           </section>
         </div>
       )}
