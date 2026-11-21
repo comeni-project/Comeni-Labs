@@ -54,9 +54,9 @@ facts:
 registry:
   layers:
   - name: comeni-registry-examples
-    digest: sha256:037a1144e37e5b0294e9c9cad77552ab02f32ed3f72486064da4be4e00fcb31f
+    digest: sha256:0f3107ebccba308f74994355af91b0cfff0c1223c123415a81f851ca26f68f36
     source: https://github.com/comeni-project/comeni-registry
-    commit: ec87e02c51c51bcaece2d2d0cf3c1b1256840811
+    commit: 09ff5a38886d42fc50a92b2e46aec0d7e4dd6f54
     dirty: false
   displaced: []
   unverified: []
@@ -274,7 +274,7 @@ steps:
 - id: star_align
   module:
     contract_id: nf-core/star/align@2.7.11b
-    digest: sha256:2b54c39f65bbd0ff61281d22e3a1f06fdfea3af61914a6741be6400ede4cc797
+    digest: sha256:9999eea245f69df2d372b57c34c9892cf6069e1777e89dd71cc91cd01992fcce
     container: community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4
   process: STAR_ALIGN
   include: modules/nf-core/star/align/main
@@ -367,6 +367,49 @@ steps:
     join: null
     why: null
   settings:
+  - name: memory
+    value: null
+    via: directive
+    key: null
+    template: '{value} GB'
+    why:
+      tier: 3
+      source: resolver
+      reason: decided at run time by rule param:alignment:memory from genome_length measured in the
+        pipeline by comeni/measure/genome_length_fai@1.0.0; where no row applies, the tool's own value
+      premise:
+      - id: genome_length
+        value: null
+        origin: unmeasured
+        by: comeni/measure/genome_length_fai@1.0.0
+      for_value: null
+      axis_reason: ''
+      from_layer: null
+      displaced_layer: null
+      review_level: advisory
+    at_run:
+      facts:
+      - measurement: genome_length
+        meta_key: genome_length
+        source: measured
+        measured_by: comeni/measure/genome_length_fai@1.0.0
+      rule: param:alignment:memory
+      rows:
+      - then: null
+        takes: genome_length
+        transform:
+        - op: multiply
+          by: 1.0e-08
+        - op: add
+          by: 1.0
+        - op: round
+        - op: at_least
+          by: 2.0
+        integer: true
+      fallback: null
+      fallback_reason: 'left to the tool: without a value it uses its own'
+      fallback_is: tool
+      meta: meta2
   - name: seq_platform
     value: null
     via: ext
@@ -676,8 +719,8 @@ steps:
   presence:
     tier: 1
     source: resolver
-    reason: measures genome_length in the run, for star_genomegenerate.memory; measures genome_length
-      in the run, for star_genomegenerate.sa_index_nbases
+    reason: measures genome_length in the run, for star_align.memory; measures genome_length in the
+      run, for star_genomegenerate.memory; measures genome_length in the run, for star_genomegenerate.sa_index_nbases
     premise: []
     for_value: null
     axis_reason: ''
@@ -809,7 +852,7 @@ emitted:
   schema_version: 10
   files:
   - name: main.nf
-    digest: sha256:b8f7fb97f2364c52bfb102dca805bc6a0abec4dad340c42db90247a75c0a9841
+    digest: sha256:3dbcf9feaf32d06f74c92d28f5076e6c5d5e04b2539f919af7c1c73b8dae7f94
   - name: modules/comeni/measure/genome_length_fai/main.nf
     digest: sha256:559e1db8765af6245c19512147fe51080d45573ca000f5b852f02d915de5ee26
   - name: modules/comeni/measure/genome_length_fai/resources/usr/bin/comeni-measure-genome-length-fai
@@ -829,7 +872,7 @@ emitted:
   - name: modules/comeni/measure/genome_length_fai/resources/usr/bin/comeni_measure/pieces/measures/genome_length_fai/fai.py
     digest: sha256:84ca06b02950cd0e9ae063704879962755c8c2b807da2911940a9ce6da21392a
   - name: nextflow.config
-    digest: sha256:be56f6f188bbfe61bf6170d28bb982656d6845bd41060b7aa99f3deec2fd7bb5
-  from_digest: sha256:04a1f4d2eff73ea0555cf29efb4b4571a46591c576c33eea3899b4888804b7ca
+    digest: sha256:72950add40313851f0d6c0c854f20f8dceecb38b6ca930b396fa423da7c4bf2e
+  from_digest: sha256:53fe0ee5245d20c143d8cdfd94b2c3a5004a28ab1bc4135db1f391caed9f0750
 gate: null
 input_form: direct

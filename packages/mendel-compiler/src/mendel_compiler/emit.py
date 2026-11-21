@@ -843,14 +843,22 @@ def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str], dict[str, st
     return names, lines, unstated, before
 
 
-def _meta_root(pipeline: Pipeline, step: Step) -> str | None:
-    """The input channel whose `meta` reaches this step's first input: its own, or, through
-    upstream steps' first inputs, the one they read. nf-core passes `meta` along that way."""
+def _slot(meta: str) -> int:
+    """The call slot whose `meta` a name reads, by nf-core's naming: `meta` the first,
+    `meta2` the second (#601)."""
+    return int(meta.removeprefix("meta") or 1) - 1
+
+
+def _meta_root(pipeline: Pipeline, step: Step, slot: int = 0) -> str | None:
+    """The input channel whose `meta` reaches this step's input in `slot` (the first unless
+    said): its own, or, through upstream steps' first inputs, the one they read. nf-core passes
+    `meta` along that way."""
     by_id = {s.id: s for s in pipeline.steps}
     seen: set[str] = set()
-    while step.id not in seen and step.call and step.call[0].ports:
+    while step.id not in seen and len(step.call) > slot and step.call[slot].ports:
         seen.add(step.id)
-        wiring = next(i for i in step.inputs if i.port == step.call[0].ports[0])
+        wiring = next(i for i in step.inputs if i.port == step.call[slot].ports[0])
+        slot = 0
         if wiring.source is None:
             return wiring.channel
         step = by_id[wiring.source.partition(".")[0]]
@@ -943,7 +951,7 @@ def _check_measuring(pipeline: Pipeline, branch: set[str], measured: dict[str, s
                 "MD0330", f"{step.id} measures a run-time fact and adds to `meta` itself, so "
                 "its measurement would not match its input's `meta` — `mendel explain MD0330`."))
         for setting in (s for s in step.settings if s.at_run is not None):
-            root = _meta_root(pipeline, step)
+            root = _meta_root(pipeline, step, _slot(setting.at_run.meta))
             channel = next((c for c in pipeline.channels if c.name == root), None)
             carried = {m.measurement for m in channel.meta_at_run} if channel else set()
             carried |= {f.measurement for f in _folds_of(pipeline).get(root, [])}
@@ -978,19 +986,20 @@ def _decided(pipeline: Pipeline, measured: dict[str, str],
         for setting in sorted(step.settings, key=lambda s: s.name):
             if setting.at_run is None:
                 continue
-            root = _meta_root(pipeline, step)
+            meta = setting.at_run.meta
+            root = _meta_root(pipeline, step, _slot(meta))
             channel = _with_folds(measured.get(root, _channel_name(root)), setting.at_run.facts,
                                   folds or {})
             expr = closure(setting.at_run, where=f"{step.id}.{setting.name}")
             # Each fact beside the value, with where it came from (#466): `fact=value:source`.
             facts = " + ".join(
-                f"\"\\t{f.measurement}=${{meta.{f.meta_key}}}:"
-                f"${{meta.comeni_from?.get('{f.measurement}') ?: "
-                f"(meta.{f.meta_key} == null ? 'missing' : 'measured')}}\""
+                f"\"\\t{f.measurement}=${{{meta}.{f.meta_key}}}:"
+                f"${{{meta}.comeni_from?.get('{f.measurement}') ?: "
+                f"({meta}.{f.meta_key} == null ? 'missing' : 'measured')}}\""
                 for f in setting.at_run.facts)
             lines.append(
                 "if (params.outdir) {\n"
-                f"        {channel}.map {{ meta, data -> \"${{meta.id}}\\t\" + "
+                f"        {channel}.map {{ {meta}, data -> \"${{{meta}.id}}\\t\" + "
                 f"String.valueOf({expr}) + {facts} }}.collectFile(name: "
                 f"'{step.id}.{setting.name}.tsv', storeDir: \"${{params.outdir}}/decided\", "
                 "newLine: true, sort: true)\n"

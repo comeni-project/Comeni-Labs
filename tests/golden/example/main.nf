@@ -33,4 +33,7 @@ workflow {
     if (params.outdir) {
         ch_fasta_measured.map { meta, data -> "${meta.id}\t" + String.valueOf(((meta.genome_length != null) ? (Math.rint(Math.min((((Math.abs((Math.log((meta.genome_length as double)) / Math.log(2.0d)) - Math.rint((Math.log((meta.genome_length as double)) / Math.log(2.0d)))) < 1e-9 ? Math.rint((Math.log((meta.genome_length as double)) / Math.log(2.0d))) : (Math.log((meta.genome_length as double)) / Math.log(2.0d))) / 2.0) - 1.0), 14.0)) as long) : null)) + "\tgenome_length=${meta.genome_length}:${meta.comeni_from?.get('genome_length') ?: (meta.genome_length == null ? 'missing' : 'measured')}" }.collectFile(name: 'star_genomegenerate.sa_index_nbases.tsv', storeDir: "${params.outdir}/decided", newLine: true, sort: true)
     }
+    if (params.outdir) {
+        ch_fasta_measured.map { meta2, data -> "${meta2.id}\t" + String.valueOf(((meta2.genome_length != null) ? (Math.max(Math.rint((((meta2.genome_length as double) * 1e-08) + 1.0)), 2.0) as long) : null)) + "\tgenome_length=${meta2.genome_length}:${meta2.comeni_from?.get('genome_length') ?: (meta2.genome_length == null ? 'missing' : 'measured')}" }.collectFile(name: 'star_align.memory.tsv', storeDir: "${params.outdir}/decided", newLine: true, sort: true)
+    }
 }

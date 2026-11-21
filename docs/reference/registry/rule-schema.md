@@ -209,7 +209,9 @@ each sample. This happens when all of the following hold:
   a [measurer](measurer-schema.md) that runs in the pipeline measures it, or a person said it
   differs between samples (`constraints.varies`), so each sample's samplesheet row states it, or
   both (the row states it, and a blank or `auto` cell is measured);
-- each fact `describes` the input behind the step's first input, whose `meta` the step reads;
+- each fact `describes` the input behind the step's first input, whose `meta` the step reads,
+  or, for measured facts only, the input behind one of its other tuple inputs, read as that
+  input's `meta2`, `meta3`, as STAR's aligner reads the genome's length on its index;
 - the decision is `hit: first`, or `hit: unique` with rows that cannot overlap;
 - nobody has answered the setting.
 

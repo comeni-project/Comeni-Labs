@@ -149,6 +149,8 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- A run-time setting may read a measured fact on another tuple input's `meta` (`meta2`, `meta3`):
+  STAR_ALIGN's memory reads the genome's length on its index (`AtRun.meta`) (#601).
 - A sized directive (`memory` with its unit) is decided at run time from a measured fact, as an
   `ext` setting is (#509).
 - `Layers.routing` is worked out once per load instead of on every access (#549).
@@ -194,6 +196,8 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- The lookup, the measuring check (MD0330) and the `decided/` record read a run-time setting's
+  `at_run.meta`; a reference's value is recorded per reference (#601).
 - STAR's index build asks for memory from the genome's length (about 10 bytes a base, at least
   2 GB) instead of the 72 GB `process_high` label, decided at build when the length is stated and
   in the run when it is measured. When the length is undetermined it asks what its label asks (#509).

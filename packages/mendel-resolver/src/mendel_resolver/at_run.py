@@ -68,6 +68,9 @@ class Needed:
     """Where each of `facts` comes from in the run, in the same order."""
     folds: tuple[tuple[str, str, str, AtRunSource], ...] = ()
     """Each folded fact among `facts`: `(fact, the fact it folds, how, where that comes from)`."""
+    meta: str = "meta"
+    """The `meta` the facts travel on in the task (#601): `meta` for the first input, `meta2`
+    and on for another tuple input, by nf-core's naming."""
 
     def source(self, fact: str) -> AtRunSource:
         return self.sources[self.facts.index(fact)]
@@ -195,6 +198,28 @@ def needed(ir: PipelineIR, registry: Registry, rules: RuleTable, premises: dict,
                 return _source(fact, _measurable(fact, here, lineage, registry,
                                                  measurements), goal, measurements)
 
+            other = _other_slot(ir, registry, node.id, unknown, derived, lineage, measurements)
+            if other is not None:
+                meta, slot_root = other
+
+                def measured_there(fact: str, here: str = node.id, root: str = slot_root
+                                   ) -> AtRunSource | None:
+                    if not _reaches(fact, here, lineage, measurements, root):
+                        return None
+                    came = _source(fact, _measurable(fact, here, lineage, registry,
+                                                     measurements), goal, measurements)
+                    # A reference's fact comes from measuring it; a samplesheet cell is a sample's.
+                    return came if came is AtRunSource.MEASURED else None
+
+                sources = [measured_there(f) for f in unknown]
+                if (all(s is not None for s in sources)
+                        and _tie_free(decision, unknown, visible, measurements, derived)
+                        and rows_of(decision, set(unknown), premises, rules,
+                                    measurements) is not None):
+                    found.append(Needed(node.id, param.name, tuple(unknown), decision,
+                                        tuple(sources), (), meta))
+                continue
+
             sources, folds = [], []
             for f in unknown:
                 fold = _folded(f, derived)
@@ -226,6 +251,38 @@ def _reaches(fact: str, node_id: str, lineage: dict[str, set[str]],
     describes = measurements.get(fact).describes
     return (describes is not None and describes in lineage.get(node_id, set())
             and describes == root)
+
+
+def _other_slot(ir: PipelineIR, registry: Registry, node_id: str, facts: list[str],
+                derived: dict, lineage: dict[str, set[str]],
+                measurements: MeasurementRegistry) -> tuple[str, str] | None:
+    """`(meta name, root type)` of the one tuple input after the first whose `meta` every fact
+    describes, none of them folded, or `None`: a genome reaching STAR_ALIGN on its index's
+    `meta2` (#601). nf-core names a process's tuple inputs' `meta` `meta`, `meta2`, `meta3`."""
+    if not facts or any(_folded(f, derived) for f in facts):
+        return None
+    by_id = {n.id: n for n in ir.nodes}
+    node = by_id.get(node_id)
+    if node is None:
+        return None
+    contract = registry.get(node.contract_id)
+    first = _root(ir, registry, node_id)
+    if any(_reaches(f, node_id, lineage, measurements, first) for f in facts):
+        return None
+    for k, slot in enumerate(contract.nf_inputs[1:], start=1):
+        if not slot.ports:
+            continue
+        edge = next((e for e in ir.edges if e.to_node == node_id and e.to_port == slot.ports[0]),
+                    None)
+        if edge is None:
+            port = next((p for p in contract.consumes if p.name == slot.ports[0]), None)
+            root = node.entry_type(port.name, port.type_id) if port is not None else None
+        else:
+            root = _root(ir, registry, edge.from_node)
+        if root is not None and all(_reaches(f, node_id, lineage, measurements, root)
+                                    for f in facts):
+            return f"meta{k + 1}", root
+    return None
 
 
 def _root(ir: PipelineIR, registry: Registry, node_id: str) -> str | None:
@@ -355,6 +412,7 @@ def lookup(need: Needed, rows: list[AtRunRow], measured_by: dict[str, str], fall
         rows=rows,
         fallback=fallback,
         fallback_reason=fallback_reason,
+        meta=need.meta,
     )
 
 
