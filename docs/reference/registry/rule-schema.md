@@ -231,12 +231,15 @@ No model runs at run time, and the same goal gives the same pipeline.
 A row's `then: {fact: ...}` over a derived fact becomes its chain, written in Groovy from the
 same closed operations: `round` is half to even, as here. STAR's index size is the example. With
 29,903 bp stated, the build decides 6. With nothing stated, the pipeline measures the genome with
-samtools faidx and decides in the run: 8 for nf-core's 230,218 bp test genome.
+samtools faidx and decides in the run: 8 for nf-core's 230,218 bp test genome. STAR's `memory`
+is decided the same way, from the same length, in gigabytes; a directive is decided in the run
+only when it names its unit. When the length comes back undetermined, the task asks what its
+`process_*` label asks.
 
 | Code | When |
 |---|---|
 | `MD0329` | routing again to add the measuring steps moved the pipeline; a defect, report it |
-| `MD0330` | a run-time setting routes outside `ext`, or its template does not hold `{value}` once, or the step's `meta` does not carry its facts |
+| `MD0330` | a run-time setting routes outside `ext` and a sized directive, or its template does not hold `{value}` once, or the step's `meta` does not carry its facts |
 | `MD0333` | a `hit: unique` decision over a fact that differs between samples has overlapping rows |
 | `MD0335` | a fact read from the samplesheet has no column |
 

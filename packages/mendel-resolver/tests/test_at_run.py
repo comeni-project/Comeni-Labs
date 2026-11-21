@@ -476,3 +476,32 @@ def test_a_setting_outside_ext_is_never_decided_at_run_time(tmp_path):
     lower tiers instead of an emit refusal (final review)."""
     _, value, _ = _aligned(tmp_path)
     assert value.at_run is None
+
+
+def _shipped(stated: int | None = None):
+    stack = layers.load([ROOT / "registry"])
+    profile = stack.measurements.profile({"genome_length": stated} if stated else {})
+    goal = Goal(have=[GoalInput(type_id="genome.fasta"), GoalInput(type_id="annotation.gtf")],
+                want=["genome.index.star"], profile=profile)
+    ir = resolve(goal, stack.routing, stack.rules, stack.measurements,
+                 vocabulary=stack.vocabulary)
+    node = next(n for n in ir.nodes if n.contract_id == STAR_ID)
+    return next(b.value for b in node.params if b.name == "memory")
+
+
+def test_a_directive_setting_is_decided_at_run_time_too():
+    """STAR's memory, ruled from a genome length the run measures (#509)."""
+    value = _shipped()
+    assert value.at_run is not None
+    (fact,) = value.at_run.facts
+    assert (fact.measurement, fact.source) == ("genome_length", AtRunSource.MEASURED)
+    (row,) = value.at_run.rows
+    assert row.takes == "genome_length" and row.integer
+    assert [s.op for s in row.transform] == [AtRunOp.MULTIPLY, AtRunOp.ADD, AtRunOp.ROUND,
+                                             AtRunOp.AT_LEAST]
+
+
+@pytest.mark.parametrize(("length", "gigabytes"), [(29903, 2), (3_100_000_000, 32)])
+def test_a_stated_genome_sizes_star_at_build(length, gigabytes):
+    value = _shipped(stated=length)
+    assert value.at_run is None and value.value == gigabytes

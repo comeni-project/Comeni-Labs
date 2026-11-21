@@ -152,4 +152,5 @@ def test_every_shipped_rule_can_fire(registry):
     # was a translation the module already performs — see Plan 1.5. STAR's index size is
     # decided from the genome's length (#461), in the run when nobody states it (#217).
     assert sorted(d.decides.key() for d in table.decisions) == [
-        "implementation:alignment", "param:index_building:sa_index_nbases"]
+        "implementation:alignment", "param:index_building:memory",
+        "param:index_building:sa_index_nbases"]
