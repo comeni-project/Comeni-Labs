@@ -736,6 +736,8 @@ or a complete commit history.
 
 ### frontend
 
+- `/runs/:id` opens a run under the analysis it records, falling back to the pipeline digest only
+  for an older run (#613).
 - Run → Outputs lists a sample's result first, then its files in pipeline order, instead of by
   process name (#535).
 - The forge's list asks again every fifteen seconds, not five, while its forgings only wait in review (#576).
