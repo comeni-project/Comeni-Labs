@@ -262,7 +262,7 @@ def test_each_model_call_records_protocol_v4_and_its_tool_definitions(clean, mon
         recorded = db.scalars(select(AiInvocation).where(
             AiInvocation.session_id == session_id).order_by(AiInvocation.started_at)).all()
     assert len(recorded) == 2
-    assert all(i.prompt_id == "builder.agent.v6" and i.prompt_version == "v6" for i in recorded)
+    assert all(i.prompt_id == "builder.agent.v7" and i.prompt_version == "v7" for i in recorded)
     assert all({"tool_specs", "tool_choice"} <= set(i.input_digests) for i in recorded)
     assert [json.loads(i.response)["tool_choice"] for i in recorded] == [None, None]
 
