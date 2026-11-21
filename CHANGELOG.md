@@ -546,6 +546,8 @@ or a complete commit history.
 
 ### comeni-ai
 
+- Importing `comeni_ai` sets `LITELLM_MODE=PRODUCTION` unless the deployment chose a mode, so
+  litellm no longer loads the working directory's `.env` into the process at import (#602).
 - `ModelUnavailableError.transient` says whether a provider failure may pass if the call is sent again (a server error, an overloaded provider, a plain rate limit; not a usage limit or refused credentials) (#557).
 - Claude calls mark the last user or tool message for the prompt cache as well as the system prompt, so each round of a turn reads the history and earlier tool results from the cache; Claude through OpenRouter is marked too (#554).
 - **Breaking:** the `MENDEL_MODEL`, `MENDEL_API_KEY`, `MENDEL_BASE_URL`, `MENDEL_TIMEOUT_SECONDS` and `MENDEL_TEMPERATURE` fallbacks are no longer read; set `COMENI_AI_*`. `access.NAMES` lists what `from_env` reads (#298).
