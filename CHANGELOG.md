@@ -585,6 +585,8 @@ or a complete commit history.
 
 ### mendel-forge
 
+- A catalogue sync reads nf-core's history with `git log --no-renames`: in the blobless clone,
+  rename detection downloaded blobs, and a first sync took about 90 s instead of about 10 (#450).
 - Declared files are read with `yaml_strict`, and nf-core's own `meta.yml` and `environment.yml` with the C safe loader: `parse_module` 19.7 ms → 0.9 ms a module, the same output (#575).
 - The forge drafts measurers (#487). A new last step, **Measurers**, proposes a `by: tool`
   parser of one of the tool's outputs, with its tests, and any new measurement. The parser is

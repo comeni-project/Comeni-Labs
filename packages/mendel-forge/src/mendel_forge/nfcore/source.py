@@ -86,8 +86,13 @@ def _read(folder: Path, path: str) -> UpstreamModule:
 
 
 def _last_changes(repo: Path, paths: set[str]) -> dict[str, datetime]:
-    """Each module's newest commit date, from one pass over history (newest first)."""
-    history = _git(repo, "log", "--format=%x00%cI", "--name-only", "--", PREFIX[NAME])
+    """Each module's newest commit date, from one pass over history (newest first).
+
+    `--no-renames`: rename detection compares file contents, and in a blobless clone that means
+    downloading blobs; a first sync spent 82 s of its 90 there (#450). Only which files a commit
+    touched matters here, and the dates came out the same for every module without it."""
+    history = _git(repo, "log", "--no-renames", "--format=%x00%cI", "--name-only", "--",
+                   PREFIX[NAME])
     prefix = PREFIX[NAME] + "/"
     changed: dict[str, datetime] = {}
     for record in history.split("\0")[1:]:
