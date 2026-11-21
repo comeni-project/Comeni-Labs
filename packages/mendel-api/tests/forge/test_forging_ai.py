@@ -657,7 +657,7 @@ def test_family_proposals_need_human_approval_and_include_known_family_context(a
     assert "Families require human approval" in client.prompts[0]
     with session_scope() as db:
         invocation = db.get(AiInvocation, item.current.invocation)
-        assert invocation.prompt_id == "forge.draft.v9"
+        assert invocation.prompt_id == "forge.draft.v10"
     forging.act(adaptation, forging.person(Move.APPROVE, key,
         expected=item.current.n, value=None, because=None))
     assert forging.load(adaptation).items[key].status == "approved"
@@ -753,7 +753,7 @@ def test_the_contract_prompt_teaches_constraints(adaptation):
     assert '"produced_when"' in sent and "contract:constraint:" in sent and '"absent"' in sent
     with session_scope() as db:
         assert db.query(AiInvocation).order_by(AiInvocation.started_at.desc()).first(
-            ).prompt_id == "forge.draft.v9"
+            ).prompt_id == "forge.draft.v10"
 
 
 def test_a_contract_item_carries_its_engine_finding_on_read(adaptation):
@@ -839,7 +839,7 @@ def test_the_guide_teaches_shared_slots_joins_and_types():
     """#464: an optional file inside a tuple, a join per port, an input of several types, and a
     row on the connected type, each spelled out with a module from the survey."""
     guide = forging_ai.ITEM_SHAPES.read_text()
-    assert forging_ai.ITEM_SHAPES.name == "items.v7.md"
+    assert forging_ai.ITEM_SHAPES.name == "items.v8.md"
     for shape in ('"accepts": [{"type_id"', '"join": {"input_index": "by_sample"',
                   '"type.reads": "alignment.bam"', '"types": {', "[]"):
         assert shape in guide, shape
@@ -847,12 +847,14 @@ def test_the_guide_teaches_shared_slots_joins_and_types():
         "the old one-group rule is gone"
 
 
-def test_contract_drafts_use_draft_v9(adaptation):
+def test_contract_drafts_use_draft_v10(adaptation):
     _answer(adaptation)
     reply = {"items": {"contract:none": {"because": "none"}}, "because": {}}
     client = FakeClient(reply, reply)
     forging_ai.draft_piece(adaptation, Piece.CONTRACT, client)
     assert "an input that takes several types" in client.prompts[0]
+    # #500: the drafter is asked what this one process does, in a line of its own.
+    assert '"does"' in client.prompts[0] and "SAMTOOLS_FAIDX" in client.prompts[0]
 
 
 def test_the_tests_drafter_names_the_type_of_its_data():

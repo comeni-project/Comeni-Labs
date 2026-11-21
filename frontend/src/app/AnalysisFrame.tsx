@@ -109,8 +109,12 @@ export function LegacyRun({ fallback }: { fallback: React.ReactNode }) {
     retry: false,
   });
   const drafts = useQuery({ queryKey: ["drafts"], queryFn: () => get<DraftsPage>("/pipeline/drafts") });
-  const digest = runs.data?.runs?.find((r) => r.id === id)?.pipeline_digest;
-  const owner = digest ? drafts.data?.drafts?.find((d) => d.digest === digest)?.id : undefined;
+  const run = runs.data?.runs?.find((r) => r.id === id);
+  // The analysis the run records first: two analyses can share a pipeline, and its digest would
+  // pick whichever is listed first (#613). An older run recorded none; its digest still finds one.
+  const digest = run?.pipeline_digest;
+  const owner = run?.analysis
+    ?? (digest ? drafts.data?.drafts?.find((d) => d.digest === digest)?.id : undefined);
   useEffect(() => {
     if (owner) navigate(analysisAddress(owner, "run", encodeURIComponent(id)), { replace: true });
   }, [owner, id, navigate]);

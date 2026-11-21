@@ -233,3 +233,25 @@ def test_only_the_drafts_own_parsers_run(stack):
     from mendel_forge.testing import parsers_for
     assert parsers_for(_faidx(), stack, only={"something_else"}) == []
     assert len(parsers_for(_faidx(), stack, only={"genome_length_fai"})) == 1
+
+
+def test_a_contracts_does_line_round_trips_through_items():
+    """#500: re-forging a contract that says what its step does must keep the line."""
+    from comeni_core import yaml_strict
+    from comeni_core.declared.contract import ModuleContract
+    from mendel_forge.forging.values import contract_of, items_of
+
+    data = yaml_strict.load(FIXTURES / "salmon_quant.yml")
+    contract = ModuleContract.model_validate({**data, "does": "Counts reads per transcript."})
+    items = items_of(contract)
+    assert items["contract:process"]["does"] == "Counts reads per transcript."
+    assert contract_of(items, contract.id, contract.provenance).does == contract.does
+
+
+def test_a_contract_without_a_does_line_drafts_none():
+    from comeni_core import yaml_strict
+    from comeni_core.declared.contract import ModuleContract
+    from mendel_forge.forging.values import contract_of, items_of
+
+    contract = ModuleContract.model_validate(yaml_strict.load(FIXTURES / "salmon_quant.yml"))
+    assert contract_of(items_of(contract), contract.id, contract.provenance).does is None

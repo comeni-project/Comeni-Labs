@@ -140,6 +140,19 @@
             "default": "",
             "title": "Priority Because",
             "type": "string"
+          },
+          "does": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Does"
           }
         },
         "required": [
