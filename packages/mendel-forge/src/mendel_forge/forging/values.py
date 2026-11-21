@@ -66,6 +66,9 @@ class ProcessDraft(_Frozen):
     container: str | None = None
     priority: int = 0
     priority_because: str = ""
+    does: str | None = Field(default=None, max_length=200)
+    """What this one process does, for the pipeline builder, where the tool's description covers
+    a whole suite (#500). Never shown to a person as written."""
 
 
 class RoleDraft(_Frozen):
@@ -187,7 +190,8 @@ def items_of(contract: ModuleContract) -> dict[str, JsonValue]:
             nf_process=contract.nf_process, nf_include=contract.nf_include,
             roles=list(contract.roles), container=contract.container,
             priority=contract.priority, priority_because=contract.priority_because,
-        ).model_dump(mode="json"),
+            does=contract.does,
+        ).model_dump(mode="json", exclude={"does"} if contract.does is None else None),
     }
     for n, port in enumerate(contract.consumes):
         # A port with `accepts` has no type of its own; an empty `type_id` would be refused.
@@ -232,6 +236,7 @@ def contract_of(
         container=process.container,
         priority=process.priority,
         priority_because=process.priority_because,
+        does=process.does,
         consumes=family("contract:input:", InputPort),
         produces=family("contract:output:", OutputPort),
         params=family("parameters:param:", Param),

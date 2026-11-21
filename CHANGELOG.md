@@ -322,6 +322,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- The forge drafts with `forge.draft.v10` and item guide `items.v8`, which ask for a process's
+  `does` line when its tool is a suite (#500).
 - The builder agent's prompt (`builder.agent.v7`) asks it to name each setting still open, with
   its step and why, instead of only saying how many remain (#535).
 - The data view counts an analysis's listed files and their total size in the database; `AnalysisData.files` is a deferred column, loaded only for a page of files (#592).
@@ -607,6 +609,7 @@ or a complete commit history.
 
 ### mendel-forge
 
+- A process draft carries the contract's `does` line, so re-forging a contract keeps it (#500).
 - Declared files are read with `yaml_strict`, and nf-core's own `meta.yml` and `environment.yml` with the C safe loader: `parse_module` 19.7 ms → 0.9 ms a module, the same output (#575).
 - The forge drafts measurers (#487). A new last step, **Measurers**, proposes a `by: tool`
   parser of one of the tool's outputs, with its tests, and any new measurement. The parser is
