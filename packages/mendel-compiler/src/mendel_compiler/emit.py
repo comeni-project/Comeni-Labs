@@ -1566,6 +1566,18 @@ def _directive_scope(step: Step) -> list[str]:
     return lines
 
 
+def _container_scope(step: Step) -> list[str]:
+    """The image a pinned contract names, by digest (#308). The vendored module's `main.nf`
+    names the tag, and editing it would break its digest; Nextflow reads the config over the
+    module's `container` statement, so this is what the run pulls. Docker refuses a digest that
+    does not exist rather than falling back to the tag. An unpinned contract emits nothing and
+    the module's own `container` stands, as before."""
+    container = step.module.container
+    if not container or "@sha256:" not in container:
+        return []
+    return [f"    withName: {step.process} {{ container = {_render_literal(container)} }}"]
+
+
 def _unit(step: Step, setting) -> tuple[str, str]:
     """The text around `{value}` in a sized directive's template (`'{value} GB'`), refused
     unless it is one `UNIT_TEMPLATES` allows: the contract checks it at load, and the emitter
@@ -1766,6 +1778,7 @@ def _process_scope(pipeline: Pipeline) -> list[str]:
     for step in pipeline.steps:
         blocks += _ext_scope(step, crosses=crossed.get(step.id))
         blocks += _directive_scope(step)
+        blocks += _container_scope(step)
     return ["process {", *_label_scope(), *sorted(set(blocks)), "}", ""]
 
 

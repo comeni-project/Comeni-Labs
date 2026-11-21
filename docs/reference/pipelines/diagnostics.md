@@ -92,6 +92,7 @@ decline to curate one.
 | `MD0109` | a `produces[].format` is not what the module's output pattern writes |
 | `MD0111` | an `nf_inputs` entry fills a tuple of a different width than the module declares |
 | `MD0112` | a port fills a slot whose file pattern takes none of its type's formats |
+| `MD0113` | `container` is named by tag only, so the image can be repointed — **warns, never blocks** |
 | `MD0611` | an output the module marks `optional: true` is always written, by the contract |
 
 ## A layer is not arranged the way its manifest says

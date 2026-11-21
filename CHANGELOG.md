@@ -36,6 +36,7 @@ or a complete commit history.
 
 ### comeni-core
 
+- `comeni_core.spell.images` splits a container reference into name, tag and digest (#308).
 - A `memory` directive setting may name its unit with a template (`{value} GB`; MB, GB or TB),
   so a rule can size it. Every other directive still refuses a template (`MD0204`) (#509).
 - `Registry.producers_of` reads an index by output type, built on its first call, instead of scanning every contract; the same answers in the same order (#590).
@@ -196,6 +197,10 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- A contract whose container is pinned by digest gets `withName: X { container = '<name>:<tag>@sha256:…' }`
+  in the emitted config, so the run pulls that digest over the module's tag. Conformance compares
+  the image without its digest to the module's, and warns on a container named by tag only
+  (`MD0113`) (#308).
 - The lookup, the measuring check (MD0330) and the `decided/` record read a run-time setting's
   `at_run.meta`; a reference's value is recorded per reference (#601).
 - STAR's index build asks for memory from the genome's length (about 10 bytes a base, at least
@@ -652,6 +657,9 @@ or a complete commit history.
 
 ### comeni-vendor
 
+- `pin-containers --registry <dir>` pins each contract's container to the digest its tag points
+  at now, answering a registry's anonymous token challenge; every image is resolved before any
+  file is written (#308).
 - `check --upstream` makes one clone per pinned repository and commit, not one per module (#577).
 #### Added
 

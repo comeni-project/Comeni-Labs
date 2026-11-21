@@ -206,6 +206,25 @@ MD0112:
     the contracts making it write and what its test data is. When the two share none, the port
     is in the wrong slot (#414). Where either says nothing the element is not checked.
 
+MD0113:
+  emitted_by: compiler
+  concern: conformance
+  says: "`container` is named by tag only, so the image can be repointed — **warns, never blocks**"
+  fires_on: [build]
+  refuses: false
+  fix: |
+    Pin it to the digest its tag points at now, in a writable checkout of the layer:
+
+        comeni-vendor pin-containers --registry <layer>
+
+    That rewrites each contract's `container:` to `<name>:<tag>@sha256:<digest>`, and the
+    emitted config makes the run pull that digest.
+  explanation: |
+    A tag such as `quay.io/biocontainers/fastqc:0.12.1--hdfd78af_0` can be pointed at another
+    image; a digest cannot. A contract that names its container by digest makes every run of
+    the same `pipeline.yml` use the same software (#308). It warns rather than refusing so a
+    laboratory's own tools are not stopped; the shipped registry is pinned.
+
 MD0106:
   emitted_by: compiler
   concern: conformance
