@@ -23,7 +23,7 @@ from comeni_core.declared.signature import states_in_type
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import coded
 from comeni_core.plan.tiers import Grain
-from comeni_core.spell.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION
+from comeni_core.spell.directives import LEGAL_DIRECTIVES, NEXTFLOW_VERSION, UNIT_TEMPLATES
 from comeni_core.spell.marks import (
     ContainerRef,
     ContractId,
@@ -337,7 +337,16 @@ class Param(BaseModel):
                 "mention {value}, so the resolved value would be discarded while real flags "
                 "were emitted")
             )
-        if not composes and self.template is not None:
+        if self.via is Via.DIRECTIVE and self.template is not None:
+            units = UNIT_TEMPLATES.get(self.name)
+            if units is None or self.template not in units:
+                allowed = ", ".join(sorted(units)) if units else "none"
+                raise ValueError(
+                    coded("MD0204", f"{self.name} routes to directive with template "
+                          f"{self.template!r}; a directive takes one typed value, and the only "
+                          f"templates {self.name} takes are: {allowed}")
+                )
+        elif not composes and self.template is not None:
             raise ValueError(
                 coded(
                     "MD0204",

@@ -36,6 +36,9 @@ or a complete commit history.
 
 ### comeni-core
 
+- `comeni_core.spell.images` splits a container reference into name, tag and digest (#308).
+- A `memory` directive setting may name its unit with a template (`{value} GB`; MB, GB or TB),
+  so a rule can size it. Every other directive still refuses a template (`MD0204`) (#509).
 - `Registry.producers_of` reads an index by output type, built on its first call, instead of scanning every contract; the same answers in the same order (#590).
 - `diagnostics.yml` is read when a diagnostic is first looked up, not at import (`REGISTRY` is a lazy `Mapping`); the type-id character set is built once; duplicate contract parameters are counted in one pass (#578).
 - `Lockfile.of` reads each layer's name once (#549).
@@ -147,6 +150,10 @@ or a complete commit history.
 
 ### mendel-resolver
 
+- A run-time setting may read a measured fact on another tuple input's `meta` (`meta2`, `meta3`):
+  STAR_ALIGN's memory reads the genome's length on its index (`AtRun.meta`) (#601).
+- A sized directive (`memory` with its unit) is decided at run time from a measured fact, as an
+  `ext` setting is (#509).
 - `Layers.routing` is worked out once per load instead of on every access (#549).
 - MD0609 says a missing setting is not set, and a missing input not connected; it called both unconnected (#467).
 - A rule's choice that read a contradicted fact is tier 4, flagged for review, with the same value and both values in its reason (`Pin.tier()`), for producers and settings alike (#510).
@@ -190,6 +197,15 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- A contract whose container is pinned by digest gets `withName: X { container = '<name>:<tag>@sha256:…' }`
+  in the emitted config, so the run pulls that digest over the module's tag. Conformance compares
+  the image without its digest to the module's, and warns on a container named by tag only
+  (`MD0113`) (#308).
+- The lookup, the measuring check (MD0330) and the `decided/` record read a run-time setting's
+  `at_run.meta`; a reference's value is recorded per reference (#601).
+- STAR's index build asks for memory from the genome's length (about 10 bytes a base, at least
+  2 GB) instead of the 72 GB `process_high` label, decided at build when the length is stated and
+  in the run when it is measured. When the length is undetermined it asks what its label asks (#509).
 - A build asks git only what can change: each layer's remote, commit and uncommitted edits. Where it sits in its checkout is worked out once, in `orchestrate.prepare` (#590).
 - `mendel build` and `upgrade` load and check the registry once, not three and two times (#549).
 - `conformance.specs_of` parses each module's source once; `check`, its meta-key analysis and `facts_read` share it, so a build parses every module once instead of three times (#546).
@@ -306,6 +322,8 @@ or a complete commit history.
 
 - The forge drafts with `forge.draft.v10` and item guide `items.v8`, which ask for a process's
   `does` line when its tool is a suite (#500).
+- The builder agent's prompt (`builder.agent.v7`) asks it to name each setting still open, with
+  its step and why, instead of only saying how many remain (#535).
 - The data view counts an analysis's listed files and their total size in the database; `AnalysisData.files` is a deferred column, loaded only for a page of files (#592).
 - An HTTP request walks each registry layer's files once (`registry.remembered`), and walks again after anything writes the installation's own layer: one change request spent 45 ms of 251 on 11 walks, now 8 ms of 173 (#590).
 - A folder listing builds the file-kind tables once per registry state instead of once per subfolder, and a scan saves its progress at most twice a second instead of once per sample (#573).
@@ -537,6 +555,8 @@ or a complete commit history.
 
 ### comeni-ai
 
+- Importing `comeni_ai` sets `LITELLM_MODE=PRODUCTION` unless the deployment chose a mode, so
+  litellm no longer loads the working directory's `.env` into the process at import (#602).
 - `ModelUnavailableError.transient` says whether a provider failure may pass if the call is sent again (a server error, an overloaded provider, a plain rate limit; not a usage limit or refused credentials) (#557).
 - Claude calls mark the last user or tool message for the prompt cache as well as the system prompt, so each round of a turn reads the history and earlier tool results from the cache; Claude through OpenRouter is marked too (#554).
 - **Breaking:** the `MENDEL_MODEL`, `MENDEL_API_KEY`, `MENDEL_BASE_URL`, `MENDEL_TIMEOUT_SECONDS` and `MENDEL_TEMPERATURE` fallbacks are no longer read; set `COMENI_AI_*`. `access.NAMES` lists what `from_env` reads (#298).
@@ -642,6 +662,9 @@ or a complete commit history.
 
 ### comeni-vendor
 
+- `pin-containers --registry <dir>` pins each contract's container to the digest its tag points
+  at now, answering a registry's anonymous token challenge; every image is resolved before any
+  file is written (#308).
 - `check --upstream` makes one clone per pinned repository and commit, not one per module (#577).
 #### Added
 
@@ -714,6 +737,8 @@ or a complete commit history.
 
 ### frontend
 
+- Run → Outputs lists a sample's result first, then its files in pipeline order, instead of by
+  process name (#535).
 - The forge's list asks again every fifteen seconds, not five, while its forgings only wait in review (#576).
 - The Forge's Part panel clears a refused command's error when another part is picked (#535).
 - From the walk of 2026-11-17 (#509, #532, #535): removing a step names the steps that only fed it, which go too; adding a reference guesses its kind from the file name; a left-out sample's files say they are used for nothing; a cut release reads *released* and names who cut it only when known; the machine card's memory is *Most memory one task used*.

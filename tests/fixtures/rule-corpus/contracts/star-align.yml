@@ -39,5 +39,12 @@ params:
     tier_hint: 3
     domain: {kind: integer, minimum: 1, maximum: 128}
     via: directive
+  # The shipped registry's own setting (#601): its rule `star_index.yml` decides this one, and a
+  # contract replacing the base must still declare what the base's rules decide.
+  - name: memory
+    tier_hint: 4
+    domain: {kind: integer, minimum: 1, maximum: 512}
+    via: directive
+    template: "{value} GB"
 priority: 10
 provenance: {source: hand, drafted_by: hand, approved_by: corpus, approved_at: "2026-08-15"}

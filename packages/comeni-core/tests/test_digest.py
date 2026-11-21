@@ -356,14 +356,15 @@ def test_the_file_tag_separates_entry_kinds():
 # `grain` replaced `cardinality` (#466): the old field was always written, so every digest moved
 # once. A contract that declares none of the newer fields must keep the digest a lockfile pins.
 # hisat2/align moved once more on 2026-11-16: its settings gained an `explain` line (#511), a change
-# of content, not of serialisation.
+# of content, not of serialisation. All moved on 2026-11-20: each `container:` gained its digest
+# (#308), a change of content.
 _PINNED = {
     "registry/tools/nf-core/fastqc/contract.yml":
-        "sha256:fef99c535dfd5a2e8d711315a35ba3a95772eb24e6fa082df2bbfe7825592556",
+        "sha256:0bc6c7bf65fa7757ba5ba0c6ac4c88f929b6de5270200e8db3d6f7785b2e0295",
     "registry/tools/nf-core/hisat2/align/contract.yml":
-        "sha256:b954830d1e69659f7d571c3dbb24d9e4a3060f9ef408e776b9b6a95b4287feea",
+        "sha256:7be6808636e8543eb080c09363ade22b7b893b7a999432c02ad1ea5097e303f6",
     "registry/tools/nf-core/hisat2/build/contract.yml":
-        "sha256:22408b423aeb4f4fced40a2de34e9ec94928b114fcbbcccbb0f20eb699d3ec4a",
+        "sha256:c0885dc3ca7e48cea26d676dd5c36fd00a0438f3af827e8bae6fa5aa30cd465d",
 }
 
 
@@ -387,7 +388,8 @@ def test_a_scalar_join_keeps_its_digest():
     """featureCounts in the released registry writes `join: broadcast`; the per-port join map
     (#464) must not change that contract's digest, or every lockfile pinning it goes dirty. Repinned
     on 2026-11-16 when its setting gained an `explain` line (#511): a content change. An empty
-    `explain` is not written, so a contract without one keeps its digest."""
+    `explain` is not written, so a contract without one keeps its digest. Repinned on 2026-11-20
+    when its container gained its digest (#308)."""
     import yaml
     from support.paths import ROOT
 
@@ -395,4 +397,4 @@ def test_a_scalar_join_keeps_its_digest():
                           .read_text())
     data.pop("declares", None)
     assert digest_of(ModuleContract.model_validate(data)) == (
-        "sha256:e174ff7222fe1dbbd28cd4ca4b1b45e2021bc6f6fd14d30f404404adac9f4d97")
+        "sha256:858123594e33cd57e5cc778974cb2e0ea94f0b0b991f2103705cf47c580106db")

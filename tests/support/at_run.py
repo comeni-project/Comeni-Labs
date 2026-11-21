@@ -41,6 +41,13 @@ decisions:
         then: {fact: star_sa_index_nbases}
         because: "STAR's own formula, as nf-core's module computes it"
         cite: "STAR manual 2.7.11b, section 2.2.5"
+  - decides: {effect: param, of: index_building, name: memory,
+              when_implementation: [nf-core/star/genomegenerate@2.7.11b]}
+    rows:
+      - when: {}
+        then: 8
+        because: "a fixture: the overlay's tests vary the index size only (#509)"
+        cite: "a test fixture"
 """
 
 GENOME_LENGTH = """declares: measurement

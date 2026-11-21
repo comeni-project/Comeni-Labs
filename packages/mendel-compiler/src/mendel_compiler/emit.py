@@ -1,5 +1,6 @@
 """Render a resolved ``Pipeline`` as deterministic Nextflow DSL2 and configuration."""
 
+import re
 from pathlib import Path
 from typing import NamedTuple
 
@@ -14,6 +15,7 @@ from comeni_core.artifact.pipeline import (
 from comeni_core.diagnostics import coded
 from comeni_core.goal.asked import InputState
 from comeni_core.plan.at_run import AtRun, AtRunFallback, AtRunSource
+from comeni_core.spell.directives import UNIT_TEMPLATES
 from comeni_core.spell.marks import substitutable
 from comeni_core.spell.routes import Join, Via
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
@@ -841,14 +843,22 @@ def _joined(pipeline: Pipeline) -> tuple[dict[str, str], list[str], dict[str, st
     return names, lines, unstated, before
 
 
-def _meta_root(pipeline: Pipeline, step: Step) -> str | None:
-    """The input channel whose `meta` reaches this step's first input: its own, or, through
-    upstream steps' first inputs, the one they read. nf-core passes `meta` along that way."""
+def _slot(meta: str) -> int:
+    """The call slot whose `meta` a name reads, by nf-core's naming: `meta` the first,
+    `meta2` the second (#601)."""
+    return int(meta.removeprefix("meta") or 1) - 1
+
+
+def _meta_root(pipeline: Pipeline, step: Step, slot: int = 0) -> str | None:
+    """The input channel whose `meta` reaches this step's input in `slot` (the first unless
+    said): its own, or, through upstream steps' first inputs, the one they read. nf-core passes
+    `meta` along that way."""
     by_id = {s.id: s for s in pipeline.steps}
     seen: set[str] = set()
-    while step.id not in seen and step.call and step.call[0].ports:
+    while step.id not in seen and len(step.call) > slot and step.call[slot].ports:
         seen.add(step.id)
-        wiring = next(i for i in step.inputs if i.port == step.call[0].ports[0])
+        wiring = next(i for i in step.inputs if i.port == step.call[slot].ports[0])
+        slot = 0
         if wiring.source is None:
             return wiring.channel
         step = by_id[wiring.source.partition(".")[0]]
@@ -941,7 +951,7 @@ def _check_measuring(pipeline: Pipeline, branch: set[str], measured: dict[str, s
                 "MD0330", f"{step.id} measures a run-time fact and adds to `meta` itself, so "
                 "its measurement would not match its input's `meta` — `mendel explain MD0330`."))
         for setting in (s for s in step.settings if s.at_run is not None):
-            root = _meta_root(pipeline, step)
+            root = _meta_root(pipeline, step, _slot(setting.at_run.meta))
             channel = next((c for c in pipeline.channels if c.name == root), None)
             carried = {m.measurement for m in channel.meta_at_run} if channel else set()
             carried |= {f.measurement for f in _folds_of(pipeline).get(root, [])}
@@ -976,19 +986,20 @@ def _decided(pipeline: Pipeline, measured: dict[str, str],
         for setting in sorted(step.settings, key=lambda s: s.name):
             if setting.at_run is None:
                 continue
-            root = _meta_root(pipeline, step)
+            meta = setting.at_run.meta
+            root = _meta_root(pipeline, step, _slot(meta))
             channel = _with_folds(measured.get(root, _channel_name(root)), setting.at_run.facts,
                                   folds or {})
             expr = closure(setting.at_run, where=f"{step.id}.{setting.name}")
             # Each fact beside the value, with where it came from (#466): `fact=value:source`.
             facts = " + ".join(
-                f"\"\\t{f.measurement}=${{meta.{f.meta_key}}}:"
-                f"${{meta.comeni_from?.get('{f.measurement}') ?: "
-                f"(meta.{f.meta_key} == null ? 'missing' : 'measured')}}\""
+                f"\"\\t{f.measurement}=${{{meta}.{f.meta_key}}}:"
+                f"${{{meta}.comeni_from?.get('{f.measurement}') ?: "
+                f"({meta}.{f.meta_key} == null ? 'missing' : 'measured')}}\""
                 for f in setting.at_run.facts)
             lines.append(
                 "if (params.outdir) {\n"
-                f"        {channel}.map {{ meta, data -> \"${{meta.id}}\\t\" + "
+                f"        {channel}.map {{ {meta}, data -> \"${{{meta}.id}}\\t\" + "
                 f"String.valueOf({expr}) + {facts} }}.collectFile(name: "
                 f"'{step.id}.{setting.name}.tsv', storeDir: \"${{params.outdir}}/decided\", "
                 "newLine: true, sort: true)\n"
@@ -1446,12 +1457,12 @@ def _ext_scope(step: Step, crosses: str | None = None) -> list[str]:
 
     for setting in sorted(step.settings, key=lambda s: s.name):
         if setting.via is not Via.EXT:
-            if setting.at_run is not None:
+            if setting.at_run is not None and setting.via is not Via.DIRECTIVE:
                 raise ValueError(coded(
                     "MD0330",
                     f"{step.id}.{setting.name} is decided at run time and routes through "
-                    f"`{setting.via.value}`; only an `ext` setting can read the measured fact "
-                    "from its task's `meta` — `mendel explain MD0330`."))
+                    f"`{setting.via.value}`; only an `ext` setting or a directive can read the "
+                    "measured fact from its task's `meta` — `mendel explain MD0330`."))
             continue
         if setting.at_run is not None:
             fragments.setdefault(setting.key.value, []).append(_at_run_fragment(step, setting))
@@ -1541,12 +1552,83 @@ def _directive_scope(step: Step) -> list[str]:
     """
     lines = []
     for setting in sorted(step.settings, key=lambda s: s.name):
-        if setting.via is not Via.DIRECTIVE or setting.value is None:
+        if setting.via is not Via.DIRECTIVE:
             continue
-        lines.append(
-            f"    withName: {step.process} {{ {setting.name} = {_render_literal(setting.value)} }}"
-        )
+        if setting.at_run is not None:
+            value = _sized_at_run(step, setting)
+        elif setting.value is None:
+            continue
+        elif setting.template is not None:
+            value = _sized(step, setting)
+        else:
+            value = _render_literal(setting.value)
+        lines.append(f"    withName: {step.process} {{ {setting.name} = {value} }}")
     return lines
+
+
+def _container_scope(step: Step) -> list[str]:
+    """The image a pinned contract names, by digest (#308). The vendored module's `main.nf`
+    names the tag, and editing it would break its digest; Nextflow reads the config over the
+    module's `container` statement, so this is what the run pulls. Docker refuses a digest that
+    does not exist rather than falling back to the tag. An unpinned contract emits nothing and
+    the module's own `container` stands, as before."""
+    container = step.module.container
+    if not container or "@sha256:" not in container:
+        return []
+    return [f"    withName: {step.process} {{ container = {_render_literal(container)} }}"]
+
+
+def _unit(step: Step, setting) -> tuple[str, str]:
+    """The text around `{value}` in a sized directive's template (`'{value} GB'`), refused
+    unless it is one `UNIT_TEMPLATES` allows: the contract checks it at load, and the emitter
+    does not assume the file it was handed was validated (A55)."""
+    if setting.template not in UNIT_TEMPLATES.get(setting.name, ()):
+        raise ValueError(coded(
+            "MD0204", f"{step.id}.{setting.name} routes to a directive with template "
+            f"{setting.template!r}, which is not a unit that directive takes."))
+    before, _, after = setting.template.partition("{value}")
+    return before, after
+
+
+def _sized(step: Step, setting) -> str:
+    """A sized directive known at build, growing on a retry as its label would (#509)."""
+    before, after = _unit(step, setting)
+    if isinstance(setting.value, bool) or not isinstance(setting.value, int | float):
+        raise ValueError(coded(
+            "MD0201", f"{step.id}.{setting.name} is {setting.value!r}; a sized directive "
+            "takes a number."))
+    return (f"{{ MemoryUnit.of({_render_literal(before + str(setting.value) + after)}) "
+            "* task.attempt }")
+
+
+def _label_memory() -> str:
+    """Each label's gigabytes, from `RESOURCE_LABELS`: what this config's `withLabel` blocks
+    ask, so a fallback reads the same numbers rather than restating them."""
+    pairs = []
+    for label, directives in RESOURCE_LABELS:
+        for directive in directives:
+            found = re.match(r"memory = \{ (\d+)\.GB", directive)
+            if found:
+                pairs.append(f"{label}: {found.group(1)}")
+    return "[" + ", ".join(pairs) + "]"
+
+
+def _sized_at_run(step: Step, setting) -> str:
+    """A sized directive decided in the run from the task's `meta` (#509). When the lookup gives
+    nothing (an undetermined fact), the task asks what its label asks, the last matching label
+    winning as among `withLabel` blocks, so it is never worse than without the rule."""
+    if setting.template is None:
+        raise ValueError(coded(
+            "MD0330", f"{step.id}.{setting.name} is decided at run time and routes to a "
+            "directive with no unit; only a sized directive is decided in the run — "
+            "`mendel explain MD0330`."))
+    before, after = _unit(step, setting)
+    expr = closure(setting.at_run, where=f"{step.id}.{setting.name}")
+    return (f"{{ def v = ({expr}); v != null ? MemoryUnit.of({_render_literal(before)} + "
+            f"String.valueOf(v) + {_render_literal(after)}) * task.attempt : "
+            f"{_label_memory()}.findAll {{ it.key in task.label }}"
+            ".collect { MemoryUnit.of(it.value + ' GB') * task.attempt }"
+            ".with { it ? it[-1] : null } }")
 
 
 SMOKE_LIMITS = (
@@ -1696,6 +1778,7 @@ def _process_scope(pipeline: Pipeline) -> list[str]:
     for step in pipeline.steps:
         blocks += _ext_scope(step, crosses=crossed.get(step.id))
         blocks += _directive_scope(step)
+        blocks += _container_scope(step)
     return ["process {", *_label_scope(), *sorted(set(blocks)), "}", ""]
 
 

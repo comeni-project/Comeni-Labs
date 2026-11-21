@@ -19,7 +19,8 @@ def test_the_registry_has_two_tier_three_rules_the_aligner_and_star_s_index():
     index size from the genome's length, STAR's own formula made visible (#461, #217)."""
     table = layers.load(ROOT / "registry").rules
     assert sorted(d.decides.key() for d in table.decisions) == [
-        "implementation:alignment", "param:index_building:sa_index_nbases"]
+        "implementation:alignment", "param:alignment:memory", "param:index_building:memory",
+        "param:index_building:sa_index_nbases"]
 
 
 def test_featurecounts_declares_no_strandedness_parameter():
