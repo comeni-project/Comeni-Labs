@@ -711,6 +711,8 @@ or a complete commit history.
 
 ### frontend
 
+- `/runs/:id` opens a run under the analysis it records, falling back to the pipeline digest only
+  for an older run (#613).
 - The forge's list asks again every fifteen seconds, not five, while its forgings only wait in review (#576).
 - The Forge's Part panel clears a refused command's error when another part is picked (#535).
 - From the walk of 2026-11-17 (#509, #532, #535): removing a step names the steps that only fed it, which go too; adding a reference guesses its kind from the file name; a left-out sample's files say they are used for nothing; a cut release reads *released* and names who cut it only when known; the machine card's memory is *Most memory one task used*.
