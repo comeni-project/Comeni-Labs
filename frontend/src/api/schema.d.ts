@@ -1337,7 +1337,8 @@ export interface paths {
         put?: never;
         /**
          * Read the ticked folders again
-         * @description Files added, changed or removed since the last scan are read again.
+         * @description Files added, changed or removed since the last scan are read again; a sample whose files
+         *     are unchanged keeps what it measured (#570).
          */
         post: operations["rescanData"];
         delete?: never;
@@ -1490,6 +1491,23 @@ export interface paths {
         };
         /** How the file formats on show connect, under the same filters */
         get: operations["readCatalogueFlow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/forge/unreachable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What analyses want that nothing in the registry makes, and how many ask */
+        get: operations["readUnreachableWants"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5976,6 +5994,20 @@ export interface components {
             /** Read By */
             read_by: string[];
         };
+        /** UnreachableWant */
+        UnreachableWant: {
+            /** Type Id */
+            type_id: string;
+            /** Name */
+            name: string;
+            /** Builds */
+            builds: number;
+        };
+        /** UnreachableWants */
+        UnreachableWants: {
+            /** Wants */
+            wants: components["schemas"]["UnreachableWant"][];
+        };
         /**
          * Unreleased
          * @description `main` against the last tag.
@@ -9001,6 +9033,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readUnreachableWants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreachableWants"];
                 };
             };
         };

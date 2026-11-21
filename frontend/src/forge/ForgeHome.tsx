@@ -15,6 +15,7 @@ type CataloguePage = components["schemas"]["CataloguePage"];
 type ModuleRow = components["schemas"]["ModuleRow"];
 type ModuleDetail = components["schemas"]["ModuleDetail"];
 type Summary = components["schemas"]["AdaptationSummary"];
+type Unreachable = components["schemas"]["UnreachableWants"];
 
 const SHOWN = 6;
 const BAR: Record<StageState, string> = { done: "bg-done", now: "bg-measured", failed: "bg-needs-you", later: "bg-line" };
@@ -60,6 +61,7 @@ export function ForgeHome() {
             <button type="button" onClick={() => setFind("")} className="border-0 bg-transparent text-[12.5px] text-ink-2 cursor-pointer">Clear</button>
           )}
         </label>
+        <CantYet query={q} pick={setFind} />
         {q && <Results q={q} forgings={list} />}
         <NeedsYou forgings={list} />
         <section aria-label="Forgings" className="flex flex-col gap-3">
@@ -74,6 +76,37 @@ export function ForgeHome() {
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+/** *Your registry can't yet* (board "5 · Forge", #534): what analyses want that nothing in the
+ *  registry makes, each with how many ask, derived by the API from their current wants. A chip
+ *  searches the catalogue for it. Nothing to show, no strip. */
+export function CantYet({ query, pick }: { query: string; pick: (q: string) => void }) {
+  const wants = useQuery({
+    queryKey: ["forge-unreachable"],
+    queryFn: () => get<Unreachable>("/forge/unreachable"),
+  });
+  const rows = wants.data?.wants ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <div aria-label="Your registry can't yet" className="flex flex-wrap items-center gap-[6px]">
+      <span className="mr-1 text-[12px] text-ink-3">Your registry can’t yet</span>
+      {rows.map((w) => {
+        const on = query === w.name;
+        return (
+          <button key={w.type_id} type="button" onClick={() => pick(on ? "" : w.name)}
+                  className={`inline-flex items-center h-[30px] px-3 rounded-full border text-[12.5px] cursor-pointer ${
+                    on ? "bg-now-soft border-now-line text-now-ink font-semibold"
+                       : "bg-surface border-line-2 text-ink-2 hover:border-now-line"}`}>
+            Make {w.name}
+            <span className="ml-[6px] text-[11px] font-semibold text-measured-ink">
+              asked in {w.builds} {w.builds === 1 ? "build" : "builds"}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

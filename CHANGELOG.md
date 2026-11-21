@@ -322,6 +322,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- `GET /api/forge/unreachable`: what analyses want that nothing in the registry makes, and how many
+  ask, derived from their current wants; Forge home shows it as *Your registry can't yet* (#534).
 - The forge drafts with `forge.draft.v10` and item guide `items.v8`, which ask for a process's
   `does` line when its tool is a suite (#500).
 - The builder agent's prompt (`builder.agent.v7`) asks it to name each setting still open, with

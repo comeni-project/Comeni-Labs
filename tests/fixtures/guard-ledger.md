@@ -5755,6 +5755,8 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   against the committed `_spawn`: failed, `returncode` stayed `None`. Both pass after.
 - 2026-11-19, perf follow-ups (#593): `test_the_tail_reads_without_holding_a_thread` run against the committed
   socket: failed, `the socket read Redis in a thread`. Passes after.
+- 2026-11-21, Forge home's *can't yet* (#534): `test_unreachable_wants.py` failed before the route (404);
+  passes after. `CantYet.test.tsx` covers shown, chip searches, hidden.
 - 2026-11-21, catalogue sync (#450): `test_the_history_is_read_without_rename_detection` failed before
   `--no-renames` (the `git log` carried rename detection). Passes after; on a fresh blobless clone of
   nf-core/modules the `git log` went from 82.1 s to 0.5 s with identical dates for 2,161 modules.
