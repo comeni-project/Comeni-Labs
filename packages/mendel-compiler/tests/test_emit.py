@@ -507,6 +507,17 @@ def test_groovy_text_escapes_what_would_end_or_interpolate_the_string():
     assert _groovy_text('a "b" ${c} \\d') == 'a \\"b\\" \\${c} \\\\d'
 
 
+def test_the_config_requires_the_nextflow_it_was_checked_against():
+    """#308: the same bundle must not run under an older Nextflow than the one its directives and
+    closures were checked on. A minimum, not an exact pin: Wiener's image and a laptop differ,
+    and Nextflow refuses to start below it (`!`) rather than warning."""
+    from comeni_core.spell.directives import NEXTFLOW_VERSION
+    from mendel_compiler.emit import emit_config
+
+    config = emit_config(_pipeline())
+    assert f"manifest {{\n    nextflowVersion = '!>={NEXTFLOW_VERSION}'\n}}" in config
+
+
 DIGEST = "sha256:" + "c" * 64
 
 

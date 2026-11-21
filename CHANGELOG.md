@@ -197,6 +197,8 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- The emitted `nextflow.config` requires at least the Nextflow its directives were checked on
+  (`manifest.nextflowVersion = '!>=25.10.4'`); an older Nextflow refuses to start (#308).
 - A contract whose container is pinned by digest gets `withName: X { container = '<name>:<tag>@sha256:…' }`
   in the emitted config, so the run pulls that digest over the module's tag. Conformance compares
   the image without its digest to the module's, and warns on a container named by tag only
