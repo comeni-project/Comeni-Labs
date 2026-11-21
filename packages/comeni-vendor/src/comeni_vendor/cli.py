@@ -6,6 +6,7 @@ from pathlib import Path
 
 from comeni_core.diagnostics import coded
 
+from comeni_vendor.images import ImageError, pin_containers
 from comeni_vendor.ops import VendorError, add, check
 
 
@@ -40,12 +41,20 @@ def main(argv: list[str] | None = None) -> int:
         help="re-fetch at the pin and compare. Needs the network; the default check does not",
     )
 
+    pin = verbs.add_parser(
+        "pin-containers",
+        help="pin each contract's container to the digest its tag points at now (network)",
+    )
+    pin.add_argument("--registry", required=True, type=Path, help="a writable registry checkout")
+
     args = parser.parse_args(argv)
     try:
         if args.verb == "add":
             return _add(args)
+        if args.verb == "pin-containers":
+            return _pin(args)
         return _check(args)
-    except VendorError as error:
+    except (VendorError, ImageError) as error:
         print(f"comeni-vendor: {error}", file=sys.stderr)
         return 1
 
@@ -61,6 +70,14 @@ def _add(args: argparse.Namespace) -> int:
         excluded=args.exclude,
     )
     print(f"vendored {args.ref} at {args.sha[:12]} into {where}")
+    return 0
+
+
+def _pin(args: argparse.Namespace) -> int:
+    changed = pin_containers(args.registry)
+    for contract, before, after in changed:
+        print(f"pinned  {contract.relative_to(args.registry)}\n  {before}\n  {after}")
+    print(f"{len(changed)} contract(s) pinned in {args.registry}")
     return 0
 
 
