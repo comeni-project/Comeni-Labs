@@ -174,6 +174,35 @@ def test_M0107_a_container_that_has_drifted(registry):
     assert "MD0107" in codes(check(doctored, MODULES))
 
 
+DIGEST = "sha256:" + "b" * 64
+
+
+def test_a_pinned_container_agrees_with_the_tag_its_module_names(registry):
+    """#308: the contract adds the digest; the module's `main.nf` keeps the tag it was vendored
+    with, and the two are the same image."""
+    star = registry.get("nf-core/star/align@2.7.11b")
+    tag = star.container.partition("@")[0]
+    doctored = _doctored(registry, star.id, container=f"{tag}@{DIGEST}")
+    assert not {"MD0107", "MD0113"} & codes(
+        d for d in check(doctored, MODULES) if d.where == star.id)
+
+
+def test_an_unpinned_container_warns_and_refuses_nothing(registry):
+    from mendel_compiler.conformance import blocking
+
+    star = registry.get("nf-core/star/align@2.7.11b")
+    doctored = _doctored(registry, star.id, container=star.container.partition("@")[0])
+    found = [d for d in check(doctored, MODULES) if d.code == "MD0113" and d.where == star.id]
+    assert len(found) == 1
+    assert blocking(found) == []
+
+
+def test_a_pinned_container_that_has_drifted_is_still_drift(registry):
+    doctored = _doctored(registry, "nf-core/star/align@2.7.11b",
+                         container=f"quay.io/biocontainers/star:2.7.0@{DIGEST}")
+    assert "MD0107" in codes(check(doctored, MODULES))
+
+
 def test_a_contract_with_no_module_source_is_unverified_not_broken(registry, tmp_path):
     """A laboratory wrapping a bare container has no nf-core-style module directory.
     That is legitimate, and must not fail a build."""

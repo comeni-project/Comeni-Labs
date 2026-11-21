@@ -190,11 +190,13 @@ def test_ext_args_reaches_the_emitted_config(spine, loaded):
 
 
 def test_a_module_with_no_ext_args_gets_no_withname_block(spine, loaded):
-    """An empty block is noise, and noise in generated config is how nobody reads it."""
+    """An empty block is noise, and noise in generated config is how nobody reads it. Its
+    pinned container is the one line it gets (#308)."""
     from mendel_compiler.emit import emit_config
 
     config = emit_config(_pipe(spine, loaded))
-    assert "withName: TRIMGALORE" not in config
+    lines = [line for line in config.splitlines() if "withName: TRIMGALORE" in line]
+    assert len(lines) == 1 and "{ container = '" in lines[0], lines
 
 
 def test_ext_args_is_escaped_like_any_other_literal():

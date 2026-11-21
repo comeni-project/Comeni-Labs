@@ -2,11 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
+// In the order Wiener lists them: by process name, not by the pipeline.
 const FILES = [
+  { process: "multiqc", name: "report.html", size_bytes: 2048, viewable: true },
+  { process: "samtools_sort", name: "WT_REP1.bam", size_bytes: 3_100_000, viewable: false },
   { process: "subread_featurecounts", name: "WT_REP1.featureCounts.tsv", size_bytes: 4200, viewable: true },
   { process: "subread_featurecounts", name: "WT_REP2.featureCounts.tsv", size_bytes: 4200, viewable: true },
-  { process: "samtools_sort", name: "WT_REP1.bam", size_bytes: 3_100_000, viewable: false },
-  { process: "multiqc", name: "report.html", size_bytes: 2048, viewable: true },
 ];
 vi.mock("../../wiener/api/client", () => ({
   get: vi.fn(async (url: string) => (url.includes("/measured") ? { facts: [], decided: [] }
@@ -69,6 +70,13 @@ it("groups files by sample, each group folding, and finds a sample", async () =>
   fireEvent.change(within(files).getByRole("textbox", { name: "Find a sample or file" }), { target: { value: "rep2" } });
   expect(within(files).getByText("WT_REP2.featureCounts.tsv")).toBeTruthy();
   expect(within(files).queryByText("WT_REP1.bam")).toBeNull();
+});
+
+it("lists a sample's result first, then its files in pipeline order (walk 2026-11-17)", async () => {
+  page();
+  const files = await screen.findByRole("region", { name: "All files" });
+  const names = (await within(files).findAllByText(/^WT_REP1\./)).map((n) => n.textContent);
+  expect(names).toEqual(["WT_REP1.featureCounts.tsv", "WT_REP1.bam"]);
 });
 
 it("names a file's kind, its sample and its upstream from names and the graph", () => {

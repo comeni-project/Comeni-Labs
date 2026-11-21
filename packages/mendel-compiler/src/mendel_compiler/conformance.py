@@ -14,6 +14,7 @@ from comeni_core.declared.module import ENTRY, Module, key_of
 from comeni_core.declared.registry import Registry
 from comeni_core.declared.vocabulary import Vocabulary
 from comeni_core.diagnostics import explain  # re-exported: `mendel explain` calls it here
+from comeni_core.spell.images import image_of
 from comeni_core.spell.routes import ExtKey, Via
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -325,7 +326,8 @@ def against(contract: ModuleContract, spec: ModuleSpec, path: Path,
 
     found += _dead_ext_routes(contract, spec, path)
 
-    if contract.container and spec.container and contract.container != spec.container:
+    if contract.container and spec.container and _image(contract.container) != _image(
+            spec.container):
         found.append(
             Diagnostic(
                 code="MD0107",
@@ -335,8 +337,27 @@ def against(contract: ModuleContract, spec: ModuleSpec, path: Path,
                 fix=f"container: {spec.container}",
             )
         )
+    if contract.container and "@" not in contract.container:
+        found.append(
+            Diagnostic(
+                code="MD0113",
+                where=contract.id,
+                summary="the container is named by tag only, so it can be repointed",
+                detail=f"    contract {contract.container}",
+                fix="comeni-vendor pin-containers --registry <this layer>",
+            )
+        )
 
     return found
+
+
+def _image(ref: str) -> str:
+    """The image without its digest: a contract pinned by digest names the same image as the
+    module's tag (#308). A reference this cannot read is compared as written."""
+    try:
+        return image_of(ref).unpinned().ref
+    except ValueError:
+        return ref
 
 
 # `meta.id` is set by every entry channel the compiler emits, so it is never missing.

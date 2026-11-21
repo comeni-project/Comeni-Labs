@@ -285,7 +285,8 @@ def test_a_template_that_needs_the_task_is_emitted_as_a_closure():
     """
     from mendel_compiler.emit import emit_config
 
-    line = next(line for line in emit_config(_pipeline()).splitlines() if "STAR_ALIGN" in line)
+    line = next(line for line in emit_config(_pipeline()).splitlines()
+                if "STAR_ALIGN" in line and "ext.args" in line)
     assert "ext.args = {" in line, line
 
 
@@ -298,7 +299,8 @@ def test_a_static_ext_args_stays_a_plain_string():
     """
     from mendel_compiler.emit import emit_config
 
-    line = next(line for line in emit_config(_pipeline()).splitlines() if "STAR_ALIGN" in line)
+    line = next(line for line in emit_config(_pipeline()).splitlines()
+                if "STAR_ALIGN" in line and "ext.args" in line)
     assert "--readFilesCommand zcat" in line, line
 
 
@@ -514,3 +516,32 @@ def test_the_config_requires_the_nextflow_it_was_checked_against():
 
     config = emit_config(_pipeline())
     assert f"manifest {{\n    nextflowVersion = '!>={NEXTFLOW_VERSION}'\n}}" in config
+
+
+DIGEST = "sha256:" + "c" * 64
+
+
+def _with_container(container: str):
+    pipeline = _pipeline()
+    steps = [s.model_copy(update={"module": s.module.model_copy(update={"container": container})})
+             if s.process == "STAR_ALIGN" else s for s in pipeline.steps]
+    return pipeline.model_copy(update={"steps": steps})
+
+
+def test_a_pinned_container_is_what_the_run_pulls():
+    """#308: the module's `main.nf` names a tag; the config, which Nextflow reads over it, names
+    the digest the contract pinned."""
+    from mendel_compiler.emit import emit_config
+
+    star = next(s for s in _pipeline().steps if s.process == "STAR_ALIGN")
+    pinned = f"{star.module.container.partition('@')[0]}@{DIGEST}"
+    config = emit_config(_with_container(pinned))
+    assert f"    withName: STAR_ALIGN {{ container = '{pinned}' }}" in config
+
+
+def test_an_unpinned_container_is_left_to_the_module():
+    from mendel_compiler.emit import emit_config
+
+    star = next(s for s in _pipeline().steps if s.process == "STAR_ALIGN")
+    config = emit_config(_with_container(star.module.container.partition("@")[0]))
+    assert "withName: STAR_ALIGN { container =" not in config
