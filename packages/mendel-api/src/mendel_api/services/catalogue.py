@@ -586,3 +586,38 @@ def sync_job_id() -> str:
     the second), and a finished sync never blocks the next for as long as ARQ keeps its result."""
     last = last_sync()
     return f"sync_catalogue:after:{last.id if last else 0}"
+
+
+class UnreachableWant(BaseModel):
+    type_id: str
+    name: str
+    builds: int
+    """How many analyses want it now."""
+
+
+class UnreachableWants(BaseModel):
+    wants: list[UnreachableWant]
+
+
+def unreachable_wants() -> UnreachableWants:
+    """What analyses want that nothing in the registry makes (#534): Forge home's *Your registry
+    can't yet*. **Derived at every read** from each analysis's current wants and today's
+    registry, so a want leaves the list the moment a tool that makes it lands, and nothing is
+    recorded apart to go stale. Sorted by how many analyses ask, then by type."""
+    from mendel_api.decision_models import PipelineWant, PipelineWantRevision
+
+    stack = registry.stack()
+    with db.session_scope() as session:
+        current = session.execute(
+            sa.select(PipelineWant.draft_id, PipelineWantRevision.type_id,
+                      PipelineWantRevision.states)
+            .join(PipelineWantRevision, PipelineWant.current_id == PipelineWantRevision.id)
+            .where(PipelineWantRevision.present.is_(True))
+        ).all()
+    asking: dict[str, set[str]] = {}
+    for draft_id, type_id, states in current:
+        if not stack.registry.producers_of(type_id, frozenset(states or ())):
+            asking.setdefault(type_id, set()).add(draft_id)
+    rows = [UnreachableWant(type_id=t, name=stack.vocabulary.names.get(t, t), builds=len(d))
+            for t, d in asking.items()]
+    return UnreachableWants(wants=sorted(rows, key=lambda r: (-r.builds, r.type_id)))

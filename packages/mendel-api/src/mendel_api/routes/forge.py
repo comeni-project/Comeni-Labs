@@ -87,6 +87,15 @@ def read_catalogue_flow(
 
 
 @router.get(
+    "/unreachable",
+    operation_id="readUnreachableWants",
+    summary="What analyses want that nothing in the registry makes, and how many ask",
+)
+def read_unreachable_wants() -> catalogue.UnreachableWants:
+    return catalogue.unreachable_wants()
+
+
+@router.get(
     "/catalogue/{source}/{path:path}",
     operation_id="readCatalogueModule",
     summary="One upstream module: everything its source declares, and its state",

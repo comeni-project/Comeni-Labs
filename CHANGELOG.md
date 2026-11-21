@@ -304,6 +304,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- `GET /api/forge/unreachable`: what analyses want that nothing in the registry makes, and how many
+  ask, derived from their current wants; Forge home shows it as *Your registry can't yet* (#534).
 - The data view counts an analysis's listed files and their total size in the database; `AnalysisData.files` is a deferred column, loaded only for a page of files (#592).
 - An HTTP request walks each registry layer's files once (`registry.remembered`), and walks again after anything writes the installation's own layer: one change request spent 45 ms of 251 on 11 walks, now 8 ms of 173 (#590).
 - A folder listing builds the file-kind tables once per registry state instead of once per subfolder, and a scan saves its progress at most twice a second instead of once per sample (#573).
