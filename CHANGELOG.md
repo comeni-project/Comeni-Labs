@@ -197,6 +197,8 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- The emitted `nextflow.config` requires at least the Nextflow its directives were checked on
+  (`manifest.nextflowVersion = '!>=25.10.4'`); an older Nextflow refuses to start (#308).
 - A contract whose container is pinned by digest gets `withName: X { container = '<name>:<tag>@sha256:…' }`
   in the emitted config, so the run pulls that digest over the module's tag. Conformance compares
   the image without its digest to the module's, and warns on a container named by tag only
@@ -322,6 +324,8 @@ or a complete commit history.
 
 - `GET /api/forge/unreachable`: what analyses want that nothing in the registry makes, and how many
   ask, derived from their current wants; Forge home shows it as *Your registry can't yet* (#534).
+- The forge drafts with `forge.draft.v10` and item guide `items.v8`, which ask for a process's
+  `does` line when its tool is a suite (#500).
 - The builder agent's prompt (`builder.agent.v7`) asks it to name each setting still open, with
   its step and why, instead of only saying how many remain (#535).
 - The data view counts an analysis's listed files and their total size in the database; `AnalysisData.files` is a deferred column, loaded only for a page of files (#592).
@@ -607,6 +611,9 @@ or a complete commit history.
 
 ### mendel-forge
 
+- A catalogue sync reads nf-core's history with `git log --no-renames`: in the blobless clone,
+  rename detection downloaded blobs, and a first sync took about 90 s instead of about 10 (#450).
+- A process draft carries the contract's `does` line, so re-forging a contract keeps it (#500).
 - Declared files are read with `yaml_strict`, and nf-core's own `meta.yml` and `environment.yml` with the C safe loader: `parse_module` 19.7 ms → 0.9 ms a module, the same output (#575).
 - The forge drafts measurers (#487). A new last step, **Measurers**, proposes a `by: tool`
   parser of one of the tool's outputs, with its tests, and any new measurement. The parser is
@@ -736,6 +743,8 @@ or a complete commit history.
 
 ### frontend
 
+- `/runs/:id` opens a run under the analysis it records, falling back to the pipeline digest only
+  for an older run (#613).
 - Run → Outputs lists a sample's result first, then its files in pipeline order, instead of by
   process name (#535).
 - The forge's list asks again every fifteen seconds, not five, while its forgings only wait in review (#576).

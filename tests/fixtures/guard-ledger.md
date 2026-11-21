@@ -5757,6 +5757,12 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   socket: failed, `the socket read Redis in a thread`. Passes after.
 - 2026-11-21, Forge home's *can't yet* (#534): `test_unreachable_wants.py` failed before the route (404);
   passes after. `CantYet.test.tsx` covers shown, chip searches, hidden.
+- 2026-11-21, catalogue sync (#450): `test_the_history_is_read_without_rename_detection` failed before
+  `--no-renames` (the `git log` carried rename detection). Passes after; on a fresh blobless clone of
+  nf-core/modules the `git log` went from 82.1 s to 0.5 s with identical dates for 2,161 modules.
+- 2026-11-20, the forge drafts `does:` (#500): `test_a_contracts_does_line_round_trips_through_items` and
+  `test_contract_drafts_use_draft_v10` failed before the change (no `does` in the process item; prompt
+  v9 without it). Both pass after.
 - 2026-11-20, containers by digest (#308): `test_a_pinned_container_is_what_the_run_pulls` failed before
   `_container_scope` (no `container =` line); `test_a_pinned_container_agrees_with_the_tag_its_module_names`
   and `test_an_unpinned_container_warns_and_refuses_nothing` failed before the conformance change (MD0107

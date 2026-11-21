@@ -119,3 +119,23 @@ def test_the_test_data_commit_is_read_at_sync(upstream, tmp_path):
 def test_an_unreadable_test_data_commit_does_not_fail_the_sync(upstream, tmp_path):
     source = NfCoreSource(upstream.as_uri(), data_url=(tmp_path / "nowhere").as_uri())
     assert source.sync(tmp_path / "cache").test_data_commit is None
+
+
+def test_the_history_is_read_without_rename_detection(upstream, tmp_path, monkeypatch):
+    """#450: in the blobless clone, `git log --name-only` with rename detection downloads blob
+    contents to compare files. A first sync spent 82 s of its 90 there; without it, 0.5 s, and
+    every module's last-change date was the same on nf-core/modules (2,161 of 2,161)."""
+    from mendel_forge.nfcore import source as source_module
+
+    seen = []
+    real = source_module._git
+
+    def recording(repo, *args):
+        seen.append(args)
+        return real(repo, *args)
+
+    monkeypatch.setattr(source_module, "_git", recording)
+    src = NfCoreSource(url=str(upstream))
+    list(src.modules(src.sync(tmp_path)))
+    (log,) = [args for args in seen if args[0] == "log"]
+    assert "--no-renames" in log
