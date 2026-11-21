@@ -60,3 +60,58 @@ STATED = "{measurement: genome_length, value: 29903, source: said}"
 def test_the_ruled_memory_is_one_withName_line(tmp_path, measurements):
     config = _config(tmp_path, measurements)
     assert config.count("withName: STAR_GENOMEGENERATE { memory") == 1
+
+
+ALIGNING = """version: 10
+intent:
+  want: [counts.matrix]
+facts:
+  inputs:
+    - {type_id: fastq.reads}
+    - {type_id: annotation.gtf}
+    - {type_id: genome.fasta}
+  measurements:
+    - {measurement: n_samples, value: 2, source: said}
+    - {measurement: paired, value: true, source: said}
+    - {measurement: read_length, value: 150, source: said}
+    - {measurement: strandedness, value: reverse, source: said}
+"""
+
+
+def _built(tmp_path):
+    starter = tmp_path / "starter.yml"
+    starter.write_text(ALIGNING)
+    out = tmp_path / "p"
+    assert main(["build", str(starter), "--out", str(out), "--root", str(ROOT)]) == 0
+    return (out / "nextflow.config").read_text(), (out / "main.nf").read_text()
+
+
+def test_the_aligner_is_sized_from_the_genome_on_its_index(tmp_path):
+    """#601: STAR_ALIGN reads the genome's length from the index's `meta2`, not the reads'."""
+    config, workflow = _built(tmp_path)
+    (line,) = [x for x in config.splitlines() if "withName: STAR_ALIGN { memory" in x]
+    assert "meta2.genome_length" in line and "meta.genome_length" not in line
+    assert "star_align.memory.tsv" in workflow and "meta2.id" in workflow
+
+
+@pytest.mark.slow
+def test_a_real_alignment_asks_for_what_its_genome_needs(tmp_path):
+    """#601, on Nextflow and Docker with nf-core's test genome (230,218 bp): both STAR steps ask
+    for the ruled 2 GB instead of the label's 72 GB, and the run records the aligner's value."""
+    import shutil
+    import subprocess
+
+    if shutil.which("nextflow") is None or shutil.which("docker") is None:
+        pytest.skip("needs Nextflow and Docker")
+    starter = tmp_path / "starter.yml"
+    starter.write_text(ALIGNING)
+    out = tmp_path / "p"
+    assert main(["build", str(starter), "--out", str(out), "--root", str(ROOT),
+                 "--gate", "test"]) == 0
+    reference, value, read = (out / "results/decided/star_align.memory.tsv").read_text().split()
+    assert value == "2" and read.startswith("genome_length=") and read.endswith(":measured")
+    run = subprocess.run(["nextflow", "log", "-q"], cwd=out, capture_output=True, text=True)
+    asked = subprocess.run(["nextflow", "log", "-f", "name,memory", run.stdout.split()[-1]],
+                           cwd=out, capture_output=True, text=True).stdout
+    star = [line for line in asked.splitlines() if line.startswith("STAR_")]
+    assert len(star) == 2 and all(line.endswith("2 GB") for line in star), asked

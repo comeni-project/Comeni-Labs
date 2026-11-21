@@ -505,3 +505,33 @@ def test_a_directive_setting_is_decided_at_run_time_too():
 def test_a_stated_genome_sizes_star_at_build(length, gigabytes):
     value = _shipped(stated=length)
     assert value.at_run is None and value.value == gigabytes
+
+
+ALIGN_ID = "nf-core/star/align@2.7.11b"
+
+
+def _star_align_memory(stated: int | None = None):
+    stack = layers.load([ROOT / "registry"])
+    facts = {"read_length": 150, "paired": True, "n_samples": 2}
+    if stated:
+        facts["genome_length"] = stated
+    goal = Goal(have=[GoalInput(type_id="fastq.reads"), GoalInput(type_id="genome.fasta"),
+                      GoalInput(type_id="annotation.gtf")],
+                want=["alignment.bam"], profile=stack.measurements.profile(facts))
+    ir = resolve(goal, stack.routing, stack.rules, stack.measurements,
+                 vocabulary=stack.vocabulary)
+    node = next(n for n in ir.nodes if n.contract_id == ALIGN_ID)
+    return next(b.value for b in node.params if b.name == "memory")
+
+
+def test_a_fact_on_the_index_reaches_the_aligner_on_meta2():
+    """#601: the genome reaches STAR_ALIGN on its index's `meta2`, not on the reads' `meta`."""
+    value = _star_align_memory()
+    assert value.at_run is not None and value.at_run.meta == "meta2"
+    (fact,) = value.at_run.facts
+    assert (fact.measurement, fact.source) == ("genome_length", AtRunSource.MEASURED)
+
+
+def test_a_stated_genome_sizes_the_aligner_at_build():
+    value = _star_align_memory(stated=3_100_000_000)
+    assert value.at_run is None and value.value == 32

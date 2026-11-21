@@ -5759,3 +5759,6 @@ contract gained `pad: 4` (comeni-registry `multiqc-pad`, 5f2407b).
   run against the committed engine and registry: failed, `--limitGenomeGenerateRAM 2047483648` absent (the
   label's request, clamped). `test_upgrade_says_how_many_decisions_replayed` failed with the directive
   widened in `needed()` only (`1 newly asked`), which found the pre-pass. Both pass after.
+- 2026-11-20, STAR_ALIGN's memory (#601): `test_a_real_alignment_asks_for_what_its_genome_needs` run
+  against the base engine and registry: failed, no `decided/star_align.memory.tsv` (the aligner kept its
+  label). Passes after; `nextflow log` shows both STAR tasks asking 2 GB.
