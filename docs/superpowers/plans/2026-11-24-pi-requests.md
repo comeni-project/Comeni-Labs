@@ -47,18 +47,18 @@ by the emitter), React/TypeScript.
 **Interfaces:**
 - Produces: `configuration(tmp_path, production=False, token="", extra_env=None, forget=False)` adds `-f docker-compose.forget.yml` last.
 
-- [ ] **Step 1: Write the failing tests** in `tests/repo/test_compose.py`:
+- [x] **Step 1: Write the failing tests** in `tests/repo/test_compose.py`:
   - `test_forget_keeps_no_state_in_a_named_volume`: effective forget config (dev and prod): `postgres`, `clickhouse` have no volume whose `source` is `comeni-pg` / `wiener-clickhouse`, and their data dirs (`/var/lib/postgresql/data`, `/var/lib/clickhouse`) are `tmpfs`.
   - `test_forget_moves_app_state_under_run_forget`: for every service mounting a target in `{/app/drafts, /app/forge, /app/workspace}` or a `…/.run/wiener` path, the source is under `ROOT/.run/forget/`; every `WIENER_*_ROOT` env value is under `.run/forget/wiener`, and the wiener mount's source equals its target.
   - `test_forget_keeps_the_installation`: `/app/registry`, `/app/registries`, `/app/chatgpt` sources unchanged from the kept config; `ollama` still mounts `ollama-models`.
   - `test_forget_names_only_services_the_base_has` (same shape as the prod one).
   Assert each collection nonempty before looping.
-- [ ] **Step 2: Run** `make test ARGS="tests/repo/test_compose.py -k forget"` (or the Make target's equivalent pytest selection). Expected: FAIL (no overlay file).
-- [ ] **Step 3: Write `docker-compose.forget.yml`.** `tmpfs:` for the two data dirs plus `volumes: !override` on `postgres`/`clickhouse` keeping only the `./ops/…:ro` init mounts; `volumes: !override` on `api`, `mendel-worker`, `ai-worker`, `wiener-*` repeating the base lists with the drafts/forge/workspace/wiener sources replaced by `./.run/forget/…` and `${PWD}/.run/forget/wiener:${PWD}/.run/forget/wiener`; the `WIENER_*_ROOT` env values repointed. Header comment: what it forgets, what it keeps, why the run dir is a host path. A prod-merge case may need the overlay to restate prod's lists (no `./packages` mount in prod): if so, add `docker-compose.forget.prod.yml` rather than a mount prod forbids, and extend the test to it.
-- [ ] **Step 4: Makefile.** `MEMORY := $(shell tools/command_env.py --setting COMENI_MEMORY kept)`; a `memory-valid` prerequisite of `dev` and `prod` that refuses other values; `FORGET_FILES := $(if $(filter forget,$(MEMORY)),-f docker-compose.forget.yml)`; `DC := docker compose -f docker-compose.yml $(FORGET_FILES)` and prod's command gains it after the prod file. `dev`/`prod` run `rm -rf .run/forget && mkdir -p .run/forget/{drafts,forge,workspace,wiener}` before `up` when forgetting; `dev-down`/`prod-down` remove `.run/forget` after `down`. `make help` text says so.
-- [ ] **Step 5: Run the tests** (same command). Expected: PASS. Also `docker compose -f docker-compose.yml -f docker-compose.forget.yml config -q` exits 0.
-- [ ] **Step 6: Document.** `.env.example`: `# COMENI_MEMORY=kept` with two lines on `forget`. `local-stack.md`: a short "Keeping or forgetting" section. `CHANGELOG.md` Deployment entry.
-- [ ] **Step 7: Commit** `feat(deploy): COMENI_MEMORY=forget runs the stack without keeping anything (#619)`.
+- [x] **Step 2: Run** `make test ARGS="tests/repo/test_compose.py -k forget"` (or the Make target's equivalent pytest selection). Expected: FAIL (no overlay file).
+- [x] **Step 3: Write `docker-compose.forget.yml`.** `tmpfs:` for the two data dirs plus `volumes: !override` on `postgres`/`clickhouse` keeping only the `./ops/…:ro` init mounts; `volumes: !override` on `api`, `mendel-worker`, `ai-worker`, `wiener-*` repeating the base lists with the drafts/forge/workspace/wiener sources replaced by `./.run/forget/…` and `${PWD}/.run/forget/wiener:${PWD}/.run/forget/wiener`; the `WIENER_*_ROOT` env values repointed. Header comment: what it forgets, what it keeps, why the run dir is a host path. A prod-merge case may need the overlay to restate prod's lists (no `./packages` mount in prod): if so, add `docker-compose.forget.prod.yml` rather than a mount prod forbids, and extend the test to it.
+- [x] **Step 4: Makefile.** `MEMORY := $(shell tools/command_env.py --setting COMENI_MEMORY kept)`; a `memory-valid` prerequisite of `dev` and `prod` that refuses other values; `FORGET_FILES := $(if $(filter forget,$(MEMORY)),-f docker-compose.forget.yml)`; `DC := docker compose -f docker-compose.yml $(FORGET_FILES)` and prod's command gains it after the prod file. `dev`/`prod` run `rm -rf .run/forget && mkdir -p .run/forget/{drafts,forge,workspace,wiener}` before `up` when forgetting; `dev-down`/`prod-down` remove `.run/forget` after `down`. `make help` text says so.
+- [x] **Step 5: Run the tests** (same command). Expected: PASS. Also `docker compose -f docker-compose.yml -f docker-compose.forget.yml config -q` exits 0.
+- [x] **Step 6: Document.** `.env.example`: `# COMENI_MEMORY=kept` with two lines on `forget`. `local-stack.md`: a short "Keeping or forgetting" section. `CHANGELOG.md` Deployment entry.
+- [x] **Step 7: Commit** `feat(deploy): COMENI_MEMORY=forget runs the stack without keeping anything (#619)`.
 
 ### Task 2: The bundle runs its own test
 

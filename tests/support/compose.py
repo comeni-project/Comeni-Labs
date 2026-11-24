@@ -9,7 +9,7 @@ import pytest
 from support.paths import ROOT
 
 
-def configuration(tmp_path, production=False, token="", extra_env=None):
+def configuration(tmp_path, production=False, token="", extra_env=None, forget=False):
     """Return CLI output; exclude the checkout's real dotenv file and inherited credentials."""
     if shutil.which("docker") is None:
         pytest.skip("Docker Compose CLI is unavailable")
@@ -30,6 +30,9 @@ def configuration(tmp_path, production=False, token="", extra_env=None):
     cmd = ["docker", "compose", "--env-file", str(dotenv), "-f", str(ROOT / "docker-compose.yml")]
     if production:
         cmd += ["-f", str(ROOT / "docker-compose.prod.yml")]
+    if forget:
+        # Last, as the Makefile passes it: `COMENI_MEMORY=forget` (#619).
+        cmd += ["-f", str(ROOT / "docker-compose.forget.yml")]
     return subprocess.run(
         cmd + ["--profile", "*", "config", "--format", "json"],
         env=env,

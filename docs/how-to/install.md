@@ -31,6 +31,21 @@ The folder is mounted read-only, at the same path, into the services that measur
 run pipelines. Unset, it is `.run/data` in the checkout. Data shows this folder's tree for you to
 tick. A path outside it is refused with `MI0221`.
 
+## Keep or forget your work between starts
+
+By default the app keeps everything between one start and the next: your analyses, drafts,
+runs and settings. To start empty each time instead, and have nothing kept when you stop, put
+this line in `.env` before you start:
+
+```bash
+COMENI_MEMORY=forget
+```
+
+The work you kept before is not deleted. Remove the line, or set `COMENI_MEMORY=kept`, and it
+comes back at the next start. Some things stay in both modes, because they are part of the
+installation rather than your work: the tool registry, downloaded models, and the ChatGPT
+sign-in. Your data folder is only ever read.
+
 ## Check it worked
 
 You should see the Comeni home screen. On a fresh checkout, it may show the first-run prompt

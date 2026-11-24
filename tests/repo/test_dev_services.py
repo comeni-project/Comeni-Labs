@@ -294,3 +294,45 @@ def test_the_docker_group_is_written_once_and_an_existing_one_kept(tmp_path, mon
     env.write_text("")
     module.prepare_docker_group(tmp_path)
     assert env.read_text() == ""
+
+
+def _make_dry_run(tmp_path, dotenv: str, *targets: str):
+    """`make -n` over the real Makefile with this `.env`: the recipes it would run, none run."""
+    if shutil.which("docker") is None:
+        pytest.skip("Compose CLI is unavailable")
+    (tmp_path / "tools").mkdir()
+    shutil.copyfile(ROOT / "tools/command_env.py", tmp_path / "tools/command_env.py")
+    (tmp_path / "tools/command_env.py").chmod(0o755)
+    shutil.copyfile(ROOT / "Makefile", tmp_path / "Makefile")
+    (tmp_path / ".env").write_text(dotenv)
+    env = {key: value for key, value in os.environ.items() if key != "COMENI_MEMORY"}
+    return subprocess.run(["make", "-n", *targets], cwd=tmp_path, env=env,
+                          text=True, capture_output=True, check=False)
+
+
+@pytest.mark.parametrize("dotenv", ["", "COMENI_MEMORY=kept\n"])
+def test_kept_memory_is_the_default_and_adds_no_overlay(tmp_path, dotenv):
+    run = _make_dry_run(tmp_path, dotenv, "dev-down", "prod-down")
+    assert run.returncode == 0, run.stderr
+    assert "docker compose" in run.stdout
+    assert "docker-compose.forget.yml" not in run.stdout
+    assert ".run/forget" not in run.stdout
+
+
+def test_forget_adds_the_overlay_and_empties_its_folder(tmp_path):
+    """#619: every start and stop under `forget` uses the overlay, last, and empties
+    `.run/forget` — after `down`, so no container is still writing into it."""
+    run = _make_dry_run(tmp_path, "COMENI_MEMORY=forget\n", "dev-down", "prod-down")
+    assert run.returncode == 0, run.stderr
+    downs = [line for line in run.stdout.splitlines() if line.endswith(" down")]
+    assert len(downs) == 2, run.stdout
+    for line in downs:
+        assert line.split(" -f ")[-1].startswith("docker-compose.forget.yml"), line
+    after = run.stdout[run.stdout.rindex(downs[-1]):]
+    assert "rm -rf .run/forget" in after
+
+
+def test_an_unknown_memory_value_stops_make(tmp_path):
+    run = _make_dry_run(tmp_path, "COMENI_MEMORY=forgot\n", "dev-down")
+    assert run.returncode != 0
+    assert "kept" in run.stderr and "forget" in run.stderr

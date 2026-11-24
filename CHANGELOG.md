@@ -17,6 +17,9 @@ mounted here as a submodule. Its changes and releases are recorded in that repos
 
 ### Deployment
 
+- `COMENI_MEMORY=forget` in `.env` runs the stack without keeping anything between starts:
+  databases in memory, application and run state under `.run/forget/`, emptied by Make on start
+  and stop. `kept` stays the default, and named volumes are untouched in either mode (#619).
 - Mendel and Wiener share one PostgreSQL server with separate non-superuser roles, databases
   and migration histories. A new data volume preserves both legacy volumes; migration tooling
   backs up, restores and verifies data before Make permits cutover.

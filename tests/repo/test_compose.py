@@ -11,6 +11,7 @@ is the structural half of it.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 import yaml
@@ -586,3 +587,88 @@ def test_every_service_that_forges_mounts_the_forge_cache(base, prod, name):
     for stack in (base, prod):
         volumes = stack["services"][name]["volumes"]
         assert any(str(v).split(":")[1] == cache for v in volumes), f"{name} lacks {cache}"
+
+
+# ---------------- COMENI_MEMORY=forget (#619) ----------------
+# The overlay `make` adds when `.env` says `COMENI_MEMORY=forget`: nothing is kept between one
+# start and the next. Read through Compose itself, because the property is about the merge —
+# prod's `!override` lists and forget's replacements meet only there.
+
+FORGET = ROOT / ".run" / "forget"
+APP_STATE = {"/app/drafts", "/app/forge", "/app/workspace"}
+INSTALLATION = {"/app/registry", "/app/registries", "/app/chatgpt"}
+KEPT_VOLUMES = {"comeni-pg", "wiener-clickhouse", "ollama-models"}
+
+
+@pytest.fixture(scope="module", params=[False, True], ids=["dev", "prod"])
+def stacks(request, tmp_path_factory):
+    """(kept, forgotten) effective models, for dev and for prod."""
+    out = []
+    for forget in (False, True):
+        result = configuration(tmp_path_factory.mktemp("compose"), production=request.param,
+                               token="synthetic-test-token", forget=forget)
+        assert result.returncode == 0, result.stderr
+        out.append(json.loads(result.stdout)["services"])
+    return out
+
+
+def _effective_mounts(service: dict) -> list[dict]:
+    """Mounts as `compose config` prints them: dicts with `source` and `target`."""
+    return service.get("volumes") or []
+
+
+def test_forget_keeps_no_state_in_a_named_volume(stacks):
+    """A named volume is what survives `down`; and leaving them unreferenced is what lets a
+    person switch to forget and back without losing what they kept."""
+    _, forgotten = stacks
+    for name, service in forgotten.items():
+        for mount in _effective_mounts(service):
+            assert mount.get("source") not in KEPT_VOLUMES - {"ollama-models"}, (name, mount)
+    for name, data in (("postgres", "/var/lib/postgresql/data"),
+                       ("clickhouse", "/var/lib/clickhouse"), ("redis", "/data")):
+        mounts = {m["target"]: m for m in _effective_mounts(forgotten[name])}
+        assert mounts.get(data, {}).get("type") == "tmpfs", (name, mounts)
+
+
+def test_forget_moves_app_state_under_run_forget(stacks):
+    """Mendel's and Wiener's files go to `.run/forget`, which `make` empties on start and stop.
+    Wiener's stays a host path at the same absolute path inside and out: Nextflow's task
+    containers are started by the host's Docker and mount it by that path."""
+    _, forgotten = stacks
+    seen = 0
+    for name, service in forgotten.items():
+        for mount in _effective_mounts(service):
+            target = mount["target"]
+            if target in APP_STATE or ".run/wiener" in target or ".run/forget" in target:
+                seen += 1
+                assert Path(mount["source"]).is_relative_to(FORGET), (name, mount)
+                if "wiener" in target:
+                    assert mount["source"] == target, (name, mount)
+        for key, value in env_of(service).items():
+            if key.startswith("WIENER_") and key.endswith("_ROOT"):
+                assert Path(value).is_relative_to(FORGET / "wiener"), (name, key, value)
+    assert seen, "no service mounts application state"
+
+
+def test_forget_keeps_the_installation(stacks):
+    """The registry clone, the ChatGPT sign-in and the model weights are installation, not
+    memory: forgetting them would mean a fresh clone and a fresh sign-in at every start."""
+    kept, forgotten = stacks
+    compared = 0
+    for name, service in kept.items():
+        before = {m["target"]: m.get("source") for m in _effective_mounts(service)
+                  if m["target"] in INSTALLATION}
+        after = {m["target"]: m.get("source") for m in _effective_mounts(forgotten[name])
+                 if m["target"] in INSTALLATION}
+        assert before == after, name
+        compared += len(before)
+    assert compared
+    if "ollama" in forgotten:
+        models = _effective_mounts(forgotten["ollama"])
+        assert any(m.get("source") == "ollama-models" for m in models)
+
+
+def test_forget_names_only_services_the_base_has(base):
+    parsed = yaml.load((ROOT / "docker-compose.forget.yml").read_text(), Loader=_TolerantLoader)
+    assert parsed.get("services")
+    assert set(parsed["services"]) <= set(base["services"])
