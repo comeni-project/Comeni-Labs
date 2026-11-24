@@ -11,6 +11,13 @@ flowchart TD
   T3 --> T4[Tier 4: human review required]
 ```
 
+## Share the decisions as a report
+
+Once the pipeline is kept, **Decisions** beside the pipeline file opens a page listing every
+choice: what was chosen, who chose it (a rule, the data, a person or the AI) and why. Choices
+flagged for review come first, each AI choice with the rule it overrode beside it. Print the
+page to save it as a PDF. The same page is `decisions.html` in the pipeline's zip.
+
 ## What to do with each label
 
 | Label | Meaning | What you do |

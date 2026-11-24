@@ -28,7 +28,7 @@ from pathlib import Path
 
 from comeni_core.artifact.pipeline import Pipeline
 from comeni_core.plan.tiers import InputForm
-from mendel_compiler import pipeline_file, readme
+from mendel_compiler import pipeline_file, readme, report
 from mendel_compiler.emit import (
     TEST_SAMPLESHEET,
     emit,
@@ -70,6 +70,15 @@ def of(draft_id: str) -> bytes:
     ])
 
 
+def decisions(draft_id: str) -> str:
+    """The kept pipeline's decisions report (#619), the page the bundle carries as
+    `decisions.html`. Raises `KeyError` when nothing has been kept under this id."""
+    artifact = _directory(draft_id) / pipeline_file.FILENAME
+    if not artifact.is_file():
+        raise KeyError(draft_id)
+    return report.render(pipeline_file.load(artifact))
+
+
 def archive(artifact: str, pipeline: Pipeline,
             modules: Iterable[tuple[str, Path | bytes]]) -> bytes:
     """The zip of one pipeline: its file, what it emits, and `modules` as (name, file), or
@@ -80,6 +89,7 @@ def archive(artifact: str, pipeline: Pipeline,
         _write(zipped, "main.nf", emit(pipeline))
         _write(zipped, "nextflow.config", emit_config(pipeline))
         _write(zipped, "README.md", readme.render(pipeline))
+        _write(zipped, readme.DECISIONS, report.render(pipeline))
         # Pinned public URLs, never anybody's samples: the file the `test` profile names, which
         # only the gate used to write, so a downloaded zip could not run its own test.
         if pipeline.input_form is InputForm.SAMPLESHEET and not test_profile_missing(pipeline):

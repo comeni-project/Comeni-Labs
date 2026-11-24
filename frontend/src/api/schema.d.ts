@@ -525,6 +525,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline/drafts/{draft_id}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The kept pipeline's decisions, who made them and why, as a printable page
+         * @description The page the bundle carries as `decisions.html` (#619), on its own so the Build page can
+         *     open it. From the kept `pipeline.yml` alone, like the bundle: 404 when nothing is kept.
+         */
+        get: operations["decisionsReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pipeline/compare": {
         parameters: {
             query?: never;
@@ -7069,6 +7090,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Refusal"];
+                };
+            };
+        };
+    };
+    decisionsReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description The id in the path names nothing. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": components["schemas"]["Refusal"];
+                };
+            };
+            /** @description A coded refusal — `MF0002`, `MF0003`, `MD…`. `forge explain <code>` expands it. A malformed body also answers 422, in FastAPI's validation shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": components["schemas"]["Refusal"];
                 };
             };
         };

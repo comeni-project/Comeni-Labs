@@ -200,6 +200,8 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- `report.render(pipeline)`: the decisions report, one printable HTML page of every choice, who
+  made it and why, tier-4 choices first, from `pipeline.yml` alone (#619).
 - `readme.render(pipeline)`: a downloaded pipeline's README, how to run its `test` profile or
   which inputs have no public example (`emit.test_profile_missing`) (#619).
 - The emitted `nextflow.config` requires at least the Nextflow its directives were checked on
@@ -327,6 +329,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- `GET /api/pipeline/drafts/{id}/decisions` serves the kept pipeline's decisions report, and the
+  zip carries it as `decisions.html` (#619).
 - The pipeline zip carries a `README.md` and, for a samplesheet pipeline with a `test` profile,
   `test-samplesheet.csv`, so `nextflow run . -profile test,docker` runs from the download (#619).
 - `GET /api/forge/unreachable`: what analyses want that nothing in the registry makes, and how many
@@ -750,6 +754,7 @@ or a complete commit history.
 
 ### frontend
 
+- Build's pipeline file offers the kept pipeline as **Zip** and its **Decisions** report (#619).
 - `/runs/:id` opens a run under the analysis it records, falling back to the pipeline digest only
   for an older run (#613).
 - Run → Outputs lists a sample's result first, then its files in pipeline order, instead of by

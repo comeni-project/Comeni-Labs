@@ -94,7 +94,7 @@ by the emitter), React/TypeScript.
 **Interfaces:**
 - Produces: `report.render(pipeline: Pipeline) -> str` (a complete HTML document, inline CSS with `@media print` and `prefers-color-scheme`); `GET /api/pipeline/drafts/{draft_id}/decisions` → `text/html`, 404 like `/bundle` when nothing is kept, `Content-Disposition: inline; filename="decisions-<id8>.html"`.
 
-- [ ] **Step 1: Failing tests** in `test_report.py`, on a fixture pipeline with at least one tier-4 model choice that overrode a rule, one measured setting, one convention:
+- [x] **Step 1: Failing tests** in `test_report.py`, on a fixture pipeline with at least one tier-4 model choice that overrode a rule, one measured setting, one convention:
   - `test_every_choice_appears_with_its_reason`: each step id, each setting's value and `why.reason` occurs in the output (collections asserted nonempty).
   - `test_flagged_for_review_comes_first_and_holds_every_tier_4`: the "Flagged for review" heading precedes the first step section; every tier-4 reason appears in it, with the overridden rule.
   - `test_nothing_flagged_says_so`: no tier-4 → the section reads "Nothing is flagged for review."
@@ -103,12 +103,12 @@ by the emitter), React/TypeScript.
   - `test_the_same_pipeline_renders_the_same_bytes`.
   - `test_the_footer_states_what_the_tools_are`: the verbatim footer copy.
   - In `test_bundle.py`: `decisions.html` in the archive equals `report.render(pipeline)`; the route returns 200 `text/html` for a kept draft and 404 otherwise.
-- [ ] **Step 2: Run** `make test ARGS="packages/mendel-compiler/tests/test_report.py packages/mendel-api/tests/pipelines/test_bundle.py"`. Expected: FAIL.
-- [ ] **Step 3: Implement `report.render`.** Sections in spec order: pipeline (goal, steps, layers with digests), *Flagged for review*, then one section per step (tool, each setting: value · who decided (tier word + source) · reason · premise facts · layer / displaced layer · overrode), decision records, footer. Who-decided text: tier word from `TIER_VOCABULARY`, source from `ValueSource` (`model` → "the AI", `human`/`said` → "the person", `measured` → "measured", `resolver` → "a rule"); add a mapping in `report.py` only for sources not already worded elsewhere (grep the frontend `useTiers` source words first and match them).
-- [ ] **Step 4: Bundle and route.** `archive()` writes `decisions.html`; the route mirrors `/bundle`'s error handling.
-- [ ] **Step 5: Run** the tests; `make client` to regenerate the API client for the new route. Expected: PASS, client diff limited to the route.
-- [ ] **Step 6: Build page link.** In `frontend/src/build/living/PipelineFile.tsx`, beside *Download*: when `kept`, a *Download zip* control (fetches `/pipeline/drafts/{id}/bundle`, saves `pipeline-<id8>.zip`) and a *Decisions report* link (opens `/api/pipeline/drafts/{id}/decisions` in a new tab). A vitest in the file's existing test: both present when kept, absent when not. Run `cd frontend && npx vitest run src/build/living && npx tsc -b`.
-- [ ] **Step 7: CHANGELOG**, `docs/explanation/builder-agent.md` or the Build how-to page gets one line pointing at the report (find the page that documents *Download*). **Commit** `feat(report): a decisions report from pipeline.yml, in the bundle and on Build (#619)`.
+- [x] **Step 2: Run** `make test ARGS="packages/mendel-compiler/tests/test_report.py packages/mendel-api/tests/pipelines/test_bundle.py"`. Expected: FAIL.
+- [x] **Step 3: Implement `report.render`.** Sections in spec order: pipeline (goal, steps, layers with digests), *Flagged for review*, then one section per step (tool, each setting: value · who decided (tier word + source) · reason · premise facts · layer / displaced layer · overrode), decision records, footer. Who-decided text: tier word from `TIER_VOCABULARY`, source from `ValueSource` (`model` → "the AI", `human`/`said` → "the person", `measured` → "measured", `resolver` → "a rule"); add a mapping in `report.py` only for sources not already worded elsewhere (grep the frontend `useTiers` source words first and match them).
+- [x] **Step 4: Bundle and route.** `archive()` writes `decisions.html`; the route mirrors `/bundle`'s error handling.
+- [x] **Step 5: Run** the tests; `make client` to regenerate the API client for the new route. Expected: PASS, client diff limited to the route.
+- [x] **Step 6: Build page link.** In `frontend/src/build/living/PipelineFile.tsx`, beside *Download*: when `kept`, a *Download zip* control (fetches `/pipeline/drafts/{id}/bundle`, saves `pipeline-<id8>.zip`) and a *Decisions report* link (opens `/api/pipeline/drafts/{id}/decisions` in a new tab). A vitest in the file's existing test: both present when kept, absent when not. Run `cd frontend && npx vitest run src/build/living && npx tsc -b`.
+- [x] **Step 7: CHANGELOG**, `docs/explanation/builder-agent.md` or the Build how-to page gets one line pointing at the report (find the page that documents *Download*). **Commit** `feat(report): a decisions report from pipeline.yml, in the bundle and on Build (#619)`.
 
 ### Task 4: End of part
 

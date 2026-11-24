@@ -87,6 +87,11 @@ panel beside the file. The artifact should name the selected contract, settings,
 provenance. If the app and artifact disagree, treat the artifact as the durable record and the
 UI as suspect.
 
+Once the pipeline is kept, **Zip** downloads it to run elsewhere: `pipeline.yml`, its Nextflow,
+the modules, a README and, when every input has public example data, a test you run with
+`nextflow run . -profile test,docker`. **Decisions** opens its
+[decisions report](review.md#share-the-decisions-as-a-report).
+
 ## Where the science enters
 
 Tools, types, measurements, and rules come from the registry. If the builder cannot choose a

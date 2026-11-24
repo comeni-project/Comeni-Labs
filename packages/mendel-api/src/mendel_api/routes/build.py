@@ -14,6 +14,7 @@ from comeni_core.plan.draft import DraftGraph
 from comeni_core.review.verdict import Verdict
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import HTMLResponse
 from mendel_compiler import locate, pipeline_file
 from mendel_resolver.compatibility import Compatibility
 from mendel_resolver.goal import Goal
@@ -410,6 +411,28 @@ def bundle(draft_id: str) -> Response:
         content=archive,
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="pipeline-{draft_id[:8]}.zip"'},
+    )
+
+
+@router.get(
+    "/drafts/{draft_id}/decisions",
+    operation_id="decisionsReport",
+    summary="The kept pipeline's decisions, who made them and why, as a printable page",
+    response_class=HTMLResponse,
+    responses={**REFUSES, 200: {"content": {"text/html": {}}}},
+)
+def decisions(draft_id: str) -> HTMLResponse:
+    """The page the bundle carries as `decisions.html` (#619), on its own so the Build page can
+    open it. From the kept `pipeline.yml` alone, like the bundle: 404 when nothing is kept."""
+    try:
+        page = bundle_service.decisions(draft_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=404, detail=f"nothing has been kept under draft {draft_id}"
+        ) from None
+    return HTMLResponse(
+        content=page,
+        headers={"Content-Disposition": f'inline; filename="decisions-{draft_id[:8]}.html"'},
     )
 
 

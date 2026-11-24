@@ -95,16 +95,17 @@ export function Primary(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   );
 }
 
+const SECONDARY = `text-[13.5px] font-semibold px-[14px] py-[8px] rounded-button cursor-pointer bg-[var(--surface)]
+                   text-ink border border-[var(--line-2)] hover:border-[var(--ink-3)] disabled:opacity-40
+                   disabled:cursor-not-allowed focus-visible:shadow-[var(--ring)]`;
+
 export function Secondary(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      {...props}
-      className="text-[13.5px] font-semibold px-[14px] py-[8px] rounded-button cursor-pointer bg-[var(--surface)]
-                 text-ink border border-[var(--line-2)] hover:border-[var(--ink-3)] disabled:opacity-40
-                 disabled:cursor-not-allowed focus-visible:shadow-[var(--ring)]"
-    />
-  );
+  return <button type="button" {...props} className={SECONDARY} />;
+}
+
+/** A link that looks like `Secondary`: for what the browser fetches itself, a download or a page. */
+export function SecondaryLink(props: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+  return <a {...props} className={`${SECONDARY} no-underline inline-block`} />;
 }
 
 /** Assistant prose — quieter than a person's, and never in a panel. */

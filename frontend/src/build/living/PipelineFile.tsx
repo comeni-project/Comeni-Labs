@@ -9,7 +9,7 @@ import { open as open_, optionalOpen, type Answered, type AnsweredStep } from ".
 import { useTiers } from "../useTiers";
 import { ArtifactPreview } from "./ArtifactPreview";
 import { FileView, type LineDecoration } from "./FileView";
-import { Secondary } from "./blocks/parts";
+import { Secondary, SecondaryLink } from "./blocks/parts";
 import { fileLines } from "./fileLines";
 import { MARK_STYLE, markOf } from "./valueMarks";
 import { valuesOf } from "./values";
@@ -183,6 +183,18 @@ export function PipelineFile({
             )}
             <Secondary onClick={download} disabled={text === null} aria-label="Download pipeline.yml"
                        title="Download pipeline.yml">Download</Secondary>
+            {/* The kept pipeline, as the zip that runs its own test, and every choice in it as a
+                page that prints to PDF (issue 619). The server names both files. */}
+            {kept && draftId && (
+              <>
+                <SecondaryLink href={`/api/pipeline/drafts/${draftId}/bundle`} download
+                               aria-label="Download the kept pipeline as a zip"
+                               title="The kept pipeline, its Nextflow and a test you can run">Zip</SecondaryLink>
+                <SecondaryLink href={`/api/pipeline/drafts/${draftId}/decisions`} target="_blank" rel="noopener"
+                               aria-label="Open the decisions report"
+                               title="Every choice, who made it and why; prints to PDF">Decisions</SecondaryLink>
+              </>
+            )}
             {aside && (
               <Secondary onClick={() => setPanel(!panel)} aria-label={panel ? "Hide the AI panel" : "Show the AI panel"}
                          title={panel ? "Hide the AI panel" : "Show the AI panel"}>
