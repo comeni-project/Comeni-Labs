@@ -14,9 +14,11 @@ is exactly what `mendel emit` does: no registry, no network, byte-identical for 
 artifact. **The artifact is the pipeline**, and everything else in the zip is derived from it.
 
 **An allowlist, not a sweep.** The draft directory accumulates `work/`, `.nextflow.log` and
-whatever a stub gate materialised, none of which is the pipeline. Four entries go in the
-archive — the four §12's diagram names — for the same reason `declared_entries()` replaced a
-`rglob("*")` when the registry became a submodule: a directory grows things nobody chose.
+whatever a stub gate materialised, none of which is the pipeline. The archive holds the four
+entries §12's diagram names, plus what makes a download usable on its own (#619): a README,
+and the `test` profile's samplesheet when there is one. That is the same reason
+`declared_entries()` replaced a `rglob("*")` when the registry became a submodule: a directory
+grows things nobody chose. Each added entry is derived from `pipeline.yml`, like the rest.
 """
 
 import io
@@ -25,8 +27,15 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from comeni_core.artifact.pipeline import Pipeline
-from mendel_compiler import pipeline_file
-from mendel_compiler.emit import emit, emit_config
+from comeni_core.plan.tiers import InputForm
+from mendel_compiler import pipeline_file, readme
+from mendel_compiler.emit import (
+    TEST_SAMPLESHEET,
+    emit,
+    emit_config,
+    test_profile_missing,
+    test_samplesheet,
+)
 
 from mendel_api.settings import settings
 
@@ -70,6 +79,11 @@ def archive(artifact: str, pipeline: Pipeline,
         _write(zipped, pipeline_file.FILENAME, artifact)
         _write(zipped, "main.nf", emit(pipeline))
         _write(zipped, "nextflow.config", emit_config(pipeline))
+        _write(zipped, "README.md", readme.render(pipeline))
+        # Pinned public URLs, never anybody's samples: the file the `test` profile names, which
+        # only the gate used to write, so a downloaded zip could not run its own test.
+        if pipeline.input_form is InputForm.SAMPLESHEET and not test_profile_missing(pipeline):
+            _write(zipped, TEST_SAMPLESHEET, test_samplesheet(pipeline))
         for name, source in modules:
             _write(zipped, name, source if isinstance(source, bytes) else source.read_bytes())
     return buffer.getvalue()

@@ -200,6 +200,8 @@ or a complete commit history.
 
 ### mendel-compiler
 
+- `readme.render(pipeline)`: a downloaded pipeline's README, how to run its `test` profile or
+  which inputs have no public example (`emit.test_profile_missing`) (#619).
 - The emitted `nextflow.config` requires at least the Nextflow its directives were checked on
   (`manifest.nextflowVersion = '!>=25.10.4'`); an older Nextflow refuses to start (#308).
 - A contract whose container is pinned by digest gets `withName: X { container = '<name>:<tag>@sha256:…' }`
@@ -325,6 +327,8 @@ or a complete commit history.
 
 ### mendel-api
 
+- The pipeline zip carries a `README.md` and, for a samplesheet pipeline with a `test` profile,
+  `test-samplesheet.csv`, so `nextflow run . -profile test,docker` runs from the download (#619).
 - `GET /api/forge/unreachable`: what analyses want that nothing in the registry makes, and how many
   ask, derived from their current wants; Forge home shows it as *Your registry can't yet* (#534).
 - The forge drafts with `forge.draft.v10` and item guide `items.v8`, which ask for a process's

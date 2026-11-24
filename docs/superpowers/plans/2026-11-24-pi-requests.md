@@ -72,17 +72,17 @@ by the emitter), React/TypeScript.
 - Consumes: `emit.test_samplesheet(pipeline) -> str`, `emit.TEST_SAMPLESHEET`, `emit.entry_params`, `Pipeline.input_form`.
 - Produces: `emit.test_profile_missing(pipeline: Pipeline) -> list[str]` (sorted params lacking `test_data`; empty = a `test` profile exists); `readme.render(pipeline: Pipeline) -> str`.
 
-- [ ] **Step 1: Failing tests.**
+- [x] **Step 1: Failing tests.**
   - `test_readme.py::test_a_runnable_pipeline_says_how_to_run_its_test`: contains `nextflow run . -profile test,docker` and the pipeline's goal.
   - `test_readme.py::test_without_example_data_it_names_what_is_missing`: a pipeline whose channel lacks `test_data` → no `-profile test` line; each missing param named.
   - `test_bundle.py::test_the_bundle_carries_its_test_samplesheet`: for the kept SPINE pipeline (assert first that it is a samplesheet pipeline with an empty `test_profile_missing`, else build a fixture that is), the archive has `README.md` and `test-samplesheet.csv` equal to `test_samplesheet(pipeline)`.
   - `test_bundle.py::test_no_samplesheet_entry_without_a_test_profile`.
   - Existing `test_bundle.py` determinism test stays and must still pass.
-- [ ] **Step 2: Run** `make test ARGS="packages/mendel-api/tests/pipelines/test_bundle.py packages/mendel-compiler/tests/test_readme.py"`. Expected: FAIL.
-- [ ] **Step 3: Implement.** `test_profile_missing` refactored out of `_test_profile` (which then calls it). `readme.render`: title, goal, steps in pipeline order, then either the run command (`-profile test,docker`, and `-profile docker --input <your samplesheet>` for real data) or the missing-inputs paragraph; plain Markdown, no clock. `archive()` writes `README.md` always and `TEST_SAMPLESHEET` only when `input_form is SAMPLESHEET` and `test_profile_missing` is empty. Update the module docstring's "four entries" paragraph.
-- [ ] **Step 4: Run** the same tests, plus `packages/mendel-compiler/tests/test_emit.py`. Expected: PASS.
-- [ ] **Step 5: Check Wiener.** `grep -rn "test-samplesheet\|README" packages/wiener-api/src` finds no writer of those names in an artifact dir; record the result in this step.
-- [ ] **Step 6: CHANGELOG** (mendel-api, mendel-compiler). **Commit** `feat(bundle): the zip carries its test samplesheet and a README (#619)`.
+- [x] **Step 2: Run** `make test ARGS="packages/mendel-api/tests/pipelines/test_bundle.py packages/mendel-compiler/tests/test_readme.py"`. Expected: FAIL.
+- [x] **Step 3: Implement.** `test_profile_missing` refactored out of `_test_profile` (which then calls it). `readme.render`: title, goal, steps in pipeline order, then either the run command (`-profile test,docker`, and `-profile docker --input <your samplesheet>` for real data) or the missing-inputs paragraph; plain Markdown, no clock. `archive()` writes `README.md` always and `TEST_SAMPLESHEET` only when `input_form is SAMPLESHEET` and `test_profile_missing` is empty. Update the module docstring's "four entries" paragraph.
+- [x] **Step 4: Run** the same tests, plus `packages/mendel-compiler/tests/test_emit.py`. Expected: PASS.
+- [x] **Step 5: Check Wiener.** `grep -rn "test-samplesheet\|README" packages/wiener-api/src` finds no writer of those names in an artifact dir; record the result in this step.
+- [x] **Step 6: CHANGELOG** (mendel-api, mendel-compiler). **Commit** `feat(bundle): the zip carries its test samplesheet and a README (#619)`.
 
 ### Task 3: The decisions report
 
