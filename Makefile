@@ -22,7 +22,13 @@ export DOCKER_GID := $(or $(DOCKER_GID),$(shell tools/command_env.py --setting D
 SHELL := $(CURDIR)/tools/command_env.py
 export
 
-DC       := docker compose
+# Keep everything between one start and the next (the default), or forget it (#619):
+# COMENI_MEMORY=forget in .env adds docker-compose.forget.yml last and empties .run/forget.
+MEMORY   := $(shell tools/command_env.py --setting COMENI_MEMORY kept)
+$(if $(filter kept forget,$(MEMORY)),,$(error COMENI_MEMORY must be kept or forget))
+FORGET   := $(if $(filter forget,$(MEMORY)),-f docker-compose.forget.yml)
+FORGOTTEN := $(if $(FORGET),rm -rf .run/forget && mkdir -p .run/forget/drafts .run/forget/forge .run/forget/workspace .run/forget/wiener,true)
+DC       := docker compose -f docker-compose.yml $(FORGET)
 RUN_DIR  := .run
 PIDFILE  := $(RUN_DIR)/vite.pid
 # npm updates this installation marker; compare it with the frontend lockfile.
@@ -214,6 +220,7 @@ buildx-present:
 	  exit 1; }
 
 dev: database-ready prepare names-free buildx-present $(NODEDEPS) wiki-tools  ## start the app with bounded Vite startup
+	$(FORGOTTEN)
 	$(DC) up -d --build
 	python3 tools/dev_services.py vite
 	@echo "Built app: http://localhost:$${WEB_HOST_PORT:-80}/"
@@ -259,6 +266,7 @@ dev-refresh: prepare  ## fast-forward a clean registry; preserve dirty, ahead or
 dev-down:  ## stop Vite and the development stack
 	@if [ -f $(PIDFILE) ]; then kill -- -`cat $(PIDFILE)` 2>/dev/null || true; rm -f $(PIDFILE); fi
 	$(DC) down
+	$(FORGOTTEN)
 
 # Follow server output when a page or background job fails; Ctrl+C stops viewing logs.
 dev-logs:  ## follow Mendel API and worker logs
@@ -272,7 +280,7 @@ dev-logs:  ## follow Mendel API and worker logs
 AI_MODEL ?= $(shell tools/command_env.py --setting AI_MODEL qwen2.5-coder:14b)
 # Set OLLAMA_GPU=rocm to add the AMD device overlay; leave unset for the base configuration.
 OLLAMA_GPU ?= $(shell tools/command_env.py --setting OLLAMA_GPU "")
-DC_AI = $(DC) $(if $(OLLAMA_GPU),-f docker-compose.yml -f docker-compose.ollama-$(OLLAMA_GPU).yml)
+DC_AI = $(DC) $(if $(OLLAMA_GPU),-f docker-compose.ollama-$(OLLAMA_GPU).yml)
 
 # Print a Compose service URL: workers reach Ollama at ollama:11434, not their own localhost.
 ai-up:  ## start Ollama without downloading model weights; print configuration
@@ -303,7 +311,9 @@ ai-down:  ## stop Ollama and retain downloaded models
 # Prepare writable state before applying the production overlay.
 # Use to exercise the built browser app and production overrides, without the host Vite server.
 prod: database-ready prepare  ## prepare state and start the stack with production overrides
-	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+	$(FORGOTTEN)
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml $(FORGET) up -d --build
 
 prod-down:  ## stop the production stack and retain named volumes
-	docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml $(FORGET) down
+	$(FORGOTTEN)

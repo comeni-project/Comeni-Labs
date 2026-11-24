@@ -1297,6 +1297,16 @@ def _render_test_data(value: list[str]) -> str:
     return "[" + ", ".join(_render_literal(item) for item in value) + "]"
 
 
+def test_profile_missing(pipeline: Pipeline, params: list[str] | None = None) -> list[str]:
+    """The entry parameters whose type declares no public example, sorted; empty when the
+    pipeline gets a `test` profile. `params` defaults to `entry_params(pipeline)`."""
+    by_param = {
+        name: channel for channel in pipeline.channels for name in channel.params
+    }
+    wanted = entry_params(pipeline) if params is None else params
+    return sorted(name for name in wanted if not by_param[name].test_data)
+
+
 def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:
     """A `test` profile, when every entry type declares where a public example lives.
 
@@ -1306,7 +1316,7 @@ def _test_profile(pipeline: Pipeline, params: list[str]) -> list[str]:
     by_param = {
         name: channel for channel in pipeline.channels for name in channel.params
     }
-    missing = sorted(name for name in params if not by_param[name].test_data)
+    missing = test_profile_missing(pipeline, params)
     if missing:
         return [
             "    // No `test` profile: these inputs declare no `test_data` in the",

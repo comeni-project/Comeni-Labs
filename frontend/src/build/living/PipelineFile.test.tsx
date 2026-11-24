@@ -173,6 +173,22 @@ describe("the file itself", () => {
     expect(screen.getByRole("tab", { name: "as kept" })).toBeEnabled();
   });
 
+  it("offers the kept pipeline as a zip and its decisions report, once it is kept (issue 619)", () => {
+    file({ kept: true });
+    const zip = screen.getByRole("link", { name: "Download the kept pipeline as a zip" });
+    expect(zip).toHaveAttribute("href", "/api/pipeline/drafts/d1/bundle");
+    expect(zip).toHaveAttribute("download");
+    const report = screen.getByRole("link", { name: "Open the decisions report" });
+    expect(report).toHaveAttribute("href", "/api/pipeline/drafts/d1/decisions");
+    expect(report).toHaveAttribute("target", "_blank");
+  });
+
+  it("offers neither before the pipeline is kept", () => {
+    file();
+    expect(screen.queryByRole("link", { name: "Download the kept pipeline as a zip" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open the decisions report" })).toBeNull();
+  });
+
   it("says why there is no file when the preview is outdated", () => {
     file({ preview: { revision: 4, state: "outdated", text: "", findings: [] } });
     expect(screen.getByTestId("preview-outdated")).toBeInTheDocument();

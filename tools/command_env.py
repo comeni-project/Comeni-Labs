@@ -14,7 +14,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 KEY = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z_0-9]*)\s*=", re.MULTILINE)
-SETTINGS = {"WIKI_HOST_PORT", "OLLAMA_GPU", "AI_MODEL", "DOCKER_UID", "DOCKER_GID"}
+SETTINGS = {"WIKI_HOST_PORT", "OLLAMA_GPU", "AI_MODEL", "DOCKER_UID", "DOCKER_GID",
+            "COMENI_MEMORY"}
 
 
 def environment(root: Path, inherited=None) -> dict[str, str]:
@@ -84,6 +85,9 @@ def main() -> int:
         elif name in {"DOCKER_UID", "DOCKER_GID"}:
             if not value.isdecimal() or not 0 <= int(value) < 2**31:
                 raise ValueError(f"{name} must be a numeric Unix identity")
+        elif name == "COMENI_MEMORY":
+            if value not in {"kept", "forget"}:
+                raise ValueError("COMENI_MEMORY must be kept or forget")
         elif not re.fullmatch(r"[A-Za-z0-9_./:@+-]*", value):
             raise ValueError(f"{name} contains unsupported characters")
         print(value)

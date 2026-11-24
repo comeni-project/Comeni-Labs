@@ -105,3 +105,35 @@ def test_nothing_kept_is_not_an_empty_bundle(monkeypatch, tmp_path):
     monkeypatch.setattr(bundle, "_directory", lambda draft_id: tmp_path / draft_id)
     with pytest.raises(KeyError):
         bundle.of("never-kept")
+
+
+# ---------------- the decisions report (#619) ----------------
+
+
+def test_the_bundle_carries_the_decisions_report(kept, tmp_path):
+    from mendel_compiler import pipeline_file, report
+
+    pipeline = pipeline_file.load(tmp_path / kept / pipeline_file.FILENAME)
+    with zipfile.ZipFile(io.BytesIO(bundle.of(kept))) as zf:
+        assert zf.read("decisions.html").decode() == report.render(pipeline)
+
+
+def test_the_report_is_served_on_its_own(kept):
+    from fastapi.testclient import TestClient
+    from mendel_api.main import create_app
+
+    client = TestClient(create_app(), raise_server_exceptions=False)
+    served = client.get(f"/api/pipeline/drafts/{kept}/decisions")
+    assert served.status_code == 200, served.text
+    assert served.headers["content-type"].startswith("text/html")
+    assert served.text == bundle.decisions(kept)
+    assert "Flagged for review" in served.text
+
+
+def test_no_report_for_nothing_kept(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+    from mendel_api.main import create_app
+
+    monkeypatch.setattr(bundle, "_directory", lambda draft_id: tmp_path / draft_id)
+    client = TestClient(create_app(), raise_server_exceptions=False)
+    assert client.get("/api/pipeline/drafts/never-kept/decisions").status_code == 404

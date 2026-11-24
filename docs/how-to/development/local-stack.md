@@ -48,6 +48,18 @@ make wiener-migrate
 make dev-down
 ```
 
+## Forget mode
+
+`COMENI_MEMORY=forget` in `.env` makes `make dev`, `make prod` and their `-down` targets add
+`docker-compose.forget.yml` last. PostgreSQL, Redis and ClickHouse keep their data in `tmpfs`.
+Mendel's drafts, forge and workspace, and Wiener's run directory, move to `.run/forget/`, which
+Make empties before start and after stop. Named volumes are not referenced, so kept data
+survives a switch. Wiener's run directory stays a host path, at the same absolute path inside
+and outside the container, because the host Docker daemon mounts task folders by that path.
+Plain `docker compose` does not read the setting: pass `-f docker-compose.yml -f
+docker-compose.forget.yml` yourself. [Install and open the app](../install.md) describes this
+for users.
+
 ## Safety
 
 The local development worker uses the Docker socket so it can launch Nextflow, which launches

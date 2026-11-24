@@ -1,0 +1,62 @@
+# Forget between runs: `COMENI_MEMORY=forget` in .env, and `make` adds this file last (#619).
+# Requires Docker Compose 2.24.4+ for `!override`.
+#
+# What is forgotten: the databases (PostgreSQL, Redis, ClickHouse) live in memory, and
+# Mendel's drafts, forge and workspace and Wiener's runs go to .run/forget/, which `make dev`,
+# `make prod` and their `-down` targets empty. What is kept: the registry clone, the ChatGPT
+# sign-in, downloaded models and the data roots (read-only) — installation, not memory.
+#
+# The named volumes are never referenced here, so switching to forget and back loses nothing
+# that was kept.
+#
+# A volume entry replaces the base's entry with the same target, which is how the Mendel
+# services and the databases change only what they keep. Wiener's run directory cannot work
+# that way: the worker starts Nextflow's task containers through the host's Docker, which
+# mounts a task's folder by the path the worker sees, so that path must be the same on the
+# host and inside. It is a different path in forget mode, so those lists are restated whole.
+services:
+  postgres:
+    volumes:
+      - {type: tmpfs, target: /var/lib/postgresql/data}
+  redis:
+    volumes:
+      - {type: tmpfs, target: /data}
+  clickhouse:
+    volumes:
+      - {type: tmpfs, target: /var/lib/clickhouse}
+
+  api:
+    volumes: &mendel-forget
+      - ./.run/forget/workspace:/app/workspace
+      - ./.run/forget/drafts:/app/drafts
+      - ./.run/forget/forge:/app/forge
+  mendel-worker:
+    volumes: *mendel-forget
+  ai-worker:
+    volumes:
+      - ./.run/forget/workspace:/app/workspace
+      - ./.run/forget/drafts:/app/drafts
+      - ./.run/forget/forge:/app/forge:ro
+
+  wiener-ingest:
+    environment:
+      WIENER_ARTIFACT_ROOT: ${PWD}/.run/forget/wiener/artifacts
+    volumes: !override ["${PWD}/.run/forget/wiener:${PWD}/.run/forget/wiener"]
+  wiener-worker:
+    environment: &wiener-forget-roots
+      WIENER_ARTIFACT_ROOT: ${PWD}/.run/forget/wiener/artifacts
+      WIENER_WORK_ROOT: ${PWD}/.run/forget/wiener/work
+    volumes: !override
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}/.run/forget/wiener:${PWD}/.run/forget/wiener
+      - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
+  wiener-term:
+    environment: *wiener-forget-roots
+    # Restated rather than aliased: YAML puts no tag on an alias.
+    volumes: !override
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}/.run/forget/wiener:${PWD}/.run/forget/wiener
+      - ${COMENI_DATA_ROOT:-${PWD}/.run/data}:${COMENI_DATA_ROOT:-${PWD}/.run/data}:ro
+  wiener-api:
+    environment: *wiener-forget-roots
+    volumes: !override ["${PWD}/.run/forget/wiener:${PWD}/.run/forget/wiener"]

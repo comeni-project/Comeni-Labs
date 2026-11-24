@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decisions behind this pipeline</title>
+<style>
+:root { color-scheme: light dark; --ink: #1d1f1c; --ink-2: #545a52; --line: #d9ddd5;
+  --surface: #ffffff; --page: #f6f7f4; --flag: #8a4b00; --flag-bg: #fff4e5; }
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #e8ebe5; --ink-2: #a6ada2; --line: #3a3f37; --surface: #1f221e;
+    --page: #161815; --flag: #ffb866; --flag-bg: #33260f; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 52rem; margin: 0 auto; padding: 2.5rem 1.25rem 3rem; }
+h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+h2 { font-size: 1.2rem; margin: 2.25rem 0 .75rem; padding-bottom: .3rem; border-bottom: 1px solid var(--line); }
+h3 { font-size: 1.05rem; margin: 0 0 .5rem; }
+p, li { margin: .25rem 0; }
+.lede, .muted { color: var(--ink-2); }
+code { font: 13px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+section.step, .choice { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+section.step { padding: 1rem 1.1rem; margin: 0 0 1rem; break-inside: avoid; }
+.choice { padding: .6rem .8rem; margin: .5rem 0; break-inside: avoid; }
+.choice.flagged { border-color: var(--flag); background: var(--flag-bg); }
+.who { font-size: 13px; color: var(--ink-2); }
+.who b { color: var(--ink); font-weight: 600; }
+.flagged .who b { color: var(--flag); }
+.overrode { color: var(--flag); font-weight: 600; }
+dl.tiers { display: grid; grid-template-columns: max-content 1fr; gap: .2rem 1rem; margin: .5rem 0; }
+dl.tiers dt { font-weight: 600; } dl.tiers dd { margin: 0; color: var(--ink-2); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: .35rem .5rem; border-top: 1px solid var(--line); }
+th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
+footer { margin-top: 2.5rem; font-size: 13px; color: var(--ink-2); }
+@media print {
+  :root { --ink: #000; --ink-2: #444; --line: #bbb; --surface: #fff; --page: #fff;
+    --flag: #7a3e00; --flag-bg: #fff4e5; color-scheme: light; }
+  body { font-size: 11pt; } main { max-width: none; padding: 0; }
+  @page { margin: 18mm 16mm; }
+  h2 { break-after: avoid; }
+}
+</style>
+</head>
+<body>
+<main>
+<h1>Decisions behind this pipeline</h1>
+<p class="lede">Every choice that shaped this pipeline: what was chosen, who chose it, and why.
+{% if produces %}It produces {% for t in produces %}<code>{{ t }}</code>{{ ", " if not loop.last }}{% endfor %}.{% endif %}
+</p>
+
+<h2>How to read it</h2>
+<p>Each choice says how it was settled:</p>
+<dl class="tiers">
+{% for name, what in tiers %}
+<dt>{{ name }}</dt><dd>{{ what }}</dd>
+{% endfor %}
+</dl>
+<p>and who supplied it: a rule, the data, a person, or the AI. A choice the AI made is always
+flagged for a person to review; the person can change any choice.</p>
+
+<h2 id="flagged">Flagged for review</h2>
+{% if flagged or flagged_decisions %}
+<p>These were not settled by a rule or by the data. Check each one.</p>
+{% for c in flagged %}
+<div class="choice flagged">
+<div><b>{{ c.step }}</b> · <code>{{ c.what }}</code> = <code>{{ c.value }}</code></div>
+<div class="who"><b>{{ c.tier }}</b> · chosen by {{ c.who }}</div>
+<p>{{ c.reason }}</p>
+{% if c.overrode %}<p class="overrode">{{ c.overrode }}</p>{% endif %}
+</div>
+{% endfor %}
+{% for d in flagged_decisions %}
+<div class="choice flagged">
+<div><b>{{ d.subject }}</b> · {{ d.kind }} = <code>{{ d.answer }}</code></div>
+<div class="who"><b>{{ d.tier }}</b> · answered by {{ d.who }}</div>
+<p>{{ d.reason }}</p>
+</div>
+{% endfor %}
+{% else %}
+<p>Nothing is flagged for review.</p>
+{% endif %}
+{% if ai_choices %}
+<h3>What the AI chose</h3>
+<ul>
+{% for c in ai_choices %}
+<li><b>{{ c.step }}</b>: {{ c.what }} — {{ "reviewed by a person" if c.reviewed else "not yet reviewed" }}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+<h2>Step by step</h2>
+{% for s in steps %}
+<section class="step" id="step-{{ s.id }}">
+<h3>{{ s.id }} <span class="muted">· <code>{{ s.tool }}</code></span></h3>
+{% for c in [s.chosen] + ([s.needed] if s.needed else []) + s.settings %}
+<div class="choice{{ ' flagged' if c.flagged }}">
+<div>{% if c.what == "tool" %}The tool{% elif c.what == "why this step" %}Why this step{% else %}<code>{{ c.what }}</code> = <code>{{ c.value }}</code>{% endif %}</div>
+<div class="who"><b>{{ c.tier }}</b> · {{ c.who }}{% if c.layer %} · from {{ c.layer }}{% endif %}</div>
+<p>{{ c.reason }}</p>
+{% if c.method %}<p class="muted">{{ c.method }}</p>{% endif %}
+{% if c.facts %}<p class="muted">Based on: {% for f in c.facts %}<code>{{ f }}</code>{{ "; " if not loop.last }}{% endfor %}</p>{% endif %}
+{% if c.overrode %}<p class="overrode">{{ c.overrode }}</p>{% endif %}
+</div>
+{% endfor %}
+{% if s.inputs %}
+<table>
+<tr><th>Optional input</th><th>State</th><th>Decided by</th><th>Why</th></tr>
+{% for i in s.inputs %}
+<tr><td><code>{{ i.port }}</code></td><td>{{ i.state }}</td><td>{{ i.by }}</td><td>{{ i.reason }}</td></tr>
+{% endfor %}
+</table>
+{% endif %}
+</section>
+{% endfor %}
+
+{% if decisions %}
+<h2>Questions settled while building</h2>
+<table>
+<tr><th>About</th><th>Answer</th><th>Answered by</th><th>Why</th></tr>
+{% for d in decisions %}
+<tr><td>{{ d.subject }} <span class="muted">({{ d.kind }})</span></td><td><code>{{ d.answer }}</code></td><td>{{ d.who }} · {{ d.tier }}</td><td>{{ d.reason }}</td></tr>
+{% endfor %}
+</table>
+{% endif %}
+
+{% if layers %}
+<h2>Where the tools came from</h2>
+<table>
+<tr><th>Registry layer</th><th>Version</th><th>Fingerprint</th></tr>
+{% for l in layers %}
+<tr><td>{{ l.name }}</td><td>{{ l.at }}</td><td><code>{{ l.digest }}</code></td></tr>
+{% endfor %}
+</table>
+{% endif %}
+
+<footer>
+<p>{{ footer }}</p>
+<p>Generated from <code>pipeline.yml</code>, which holds the same record as data.</p>
+</footer>
+</main>
+</body>
+</html>
