@@ -112,8 +112,8 @@ by the emitter), React/TypeScript.
 
 ### Task 4: End of part
 
-- [ ] `make check`, then `make guards`; `make verify` if Docker/Nextflow are free (the PC is busy: if skipped, say so in the PR). Record counts.
-- [ ] Tick #619's three boxes as each lands; journal entry `docs/notes/journal/2026-11-24-pi-requests.md`.
+- [x] `make check`, then `make guards`; `make verify` if Docker/Nextflow are free (the PC is busy: if skipped, say so in the PR). Record counts.
+- [x] Tick #619's three boxes as each lands; journal entry `docs/notes/journal/2026-11-24-pi-requests.md`.
 
 ## Saved for the walk
 
